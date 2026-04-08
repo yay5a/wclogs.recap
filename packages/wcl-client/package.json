@@ -1,0 +1,19 @@
+{
+  "name": "@wcl/wcl-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "lint": "eslint src --ext .ts",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@wcl/domain": "workspace:*",
+    "@wcl/db": "workspace:*",
+    "graphql-request": "^7.1.2"
+  }
+}
