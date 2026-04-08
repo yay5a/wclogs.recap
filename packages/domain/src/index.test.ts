@@ -25,4 +25,34 @@ describe("buildRecapSummary", () => {
 
         expect(summary.mostImprovedPlayer).toBeUndefined();
     });
+
+    it("applies guild config defaults to summary", () => {
+        const summary = buildRecapSummary(
+            {
+                reportCode: "abc",
+                title: "Raid Night",
+                startTime: Date.now(),
+                endTime: Date.now(),
+                gameFamily: "retail",
+                fights: [],
+                players: [],
+            },
+            [],
+            {
+                guildConfig: {
+                    guildId: "g1",
+                    defaultGameFamily: "mop_classic",
+                    compareModeDefault: "mixed",
+                    accountabilityVisibility: "officers-only",
+                    coachingShareabilityDefault: "shareable",
+                    recapPostModeDefault: "preview-only",
+                },
+            },
+        );
+
+        expect(summary.compareModeUsed).toBe("mixed");
+        expect(summary.accountabilityVisibility).toBe("officers-only");
+        expect(summary.coachingShareability).toBe("shareable");
+        expect(summary.recapPostMode).toBe("preview-only");
+    });
 });

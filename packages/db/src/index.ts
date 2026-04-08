@@ -1,15 +1,51 @@
 import mongoose, { Schema } from "mongoose";
+import type {
+    AccountabilityViewService,
+    AccountabilityVisibility,
+    CoachingViewService,
+    CompareMode,
+    GameFamily,
+    GuildConfig,
+    GuildConfigStore,
+    NormalizedReport,
+    RecapPostMode,
+    CoachingShareability,
+    TrendTrackingService,
+} from "@wcl/domain";
+import { defaultGuildConfigFor } from "@wcl/domain";
 
 export const connectMongo = async (uri: string) => mongoose.connect(uri);
 
 const guildSettingsSchema = new Schema(
     {
         guildId: { type: String, required: true, unique: true },
+        defaultGameFamily: {
+            type: String,
+            enum: ["retail", "mop_classic"],
+            default: "retail",
+        },
+        compareModeDefault: {
+            type: String,
+            enum: ["character", "mixed"],
+            default: "character",
+        },
+
         accountabilityVisibility: {
             type: String,
             enum: ["off", "officers-only", "shareable"],
             default: "off",
         },
+        coachingShareabilityDefault: {
+            type: String,
+            enum: ["private", "shareable"],
+            default: "private",
+        },
+        recapPostModeDefault: {
+            type: String,
+            enum: ["preview-and-post", "preview-only"],
+            default: "preview-and-post",
+        },
+
         officersRoleIds: [{ type: String }],
     },
     { timestamps: true },
@@ -98,6 +134,8 @@ const fightSnapshotSchema = new Schema(
 
 const playerRaidSummarySchema = new Schema(
     {
+        guildId: { type: String, required: true, index: true },
+        reportCode: { type: String, required: true, index: true },
         raidSnapshotId: {
             type: Schema.Types.ObjectId,
             ref: "RaidSnapshot",
@@ -112,6 +150,7 @@ const playerRaidSummarySchema = new Schema(
         bestParse: Number,
         averageParse: Number,
         executionScore: Number,
+        capturedAt: Date,
     },
     { timestamps: true },
 );
@@ -124,6 +163,7 @@ const trendSnapshotSchema = new Schema(
             ref: "PlayerProfile",
             index: true,
         },
+        playerName: { type: String, index: true },
         metric: { type: String, required: true },
         window: { type: String, required: true },
         value: Number,
@@ -143,6 +183,20 @@ const accountabilityEventSchema = new Schema(
             enum: ["off", "officers-only", "shareable"],
             default: "off",
         },
+    },
+    { timestamps: true },
+);
+
+const coachingInsightSchema = new Schema(
+    {
+        guildId: { type: String, required: true, index: true },
+        reportCode: { type: String, required: true, index: true },
+        shareability: {
+            type: String,
+            enum: ["private", "shareable"],
+            default: "private",
+        },
+        insights: { type: Schema.Types.Mixed },
     },
     { timestamps: true },
 );
@@ -195,6 +249,7 @@ export const RaidSnapshotModel = mongoose.model(
     "RaidSnapshot",
     raidSnapshotSchema,
 );
+
 export const FightSnapshotModel = mongoose.model(
     "FightSnapshot",
     fightSnapshotSchema,
@@ -211,5 +266,184 @@ export const AccountabilityEventModel = mongoose.model(
     "AccountabilityEvent",
     accountabilityEventSchema,
 );
+export const CoachingInsightModel = mongoose.model(
+    "CoachingInsight",
+    coachingInsightSchema,
+);
 export const JobModel = mongoose.model("Job", jobSchema);
 export const AuditLogModel = mongoose.model("AuditLog", auditLogSchema);
+
+const parseGameFamily = (value: unknown): GameFamily =>
+    value === "mop_classic" ? "mop_classic" : "retail";
+const parseCompareMode = (value: unknown): CompareMode =>
+    value === "mixed" ? "mixed" : "character";
+const parseVisibility = (value: unknown): AccountabilityVisibility =>
+    value === "officers-only" || value === "shareable" ? value : "off";
+const parseCoachingShareability = (value: unknown): CoachingShareability =>
+    value === "shareable" ? "shareable" : "private";
+const parseRecapPostMode = (value: unknown): RecapPostMode =>
+    value === "preview-only" ? "preview-only" : "preview-and-post";
+
+const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
+    const fallback = defaultGuildConfigFor(guildId);
+    const raw = doc as Record<string, unknown> | null;
+    if (!raw) return fallback;
+
+    return {
+        guildId,
+        defaultGameFamily: parseGameFamily(raw.defaultGameFamily),
+        compareModeDefault: parseCompareMode(raw.compareModeDefault),
+        accountabilityVisibility: parseVisibility(raw.accountabilityVisibility),
+        coachingShareabilityDefault: parseCoachingShareability(
+            raw.coachingShareabilityDefault,
+        ),
+        recapPostModeDefault: parseRecapPostMode(raw.recapPostModeDefault),
+    };
+};
+
+export class MongoGuildConfigStore implements GuildConfigStore {
+    public async getGuildConfig(guildId: string): Promise<GuildConfig> {
+        const existing = await GuildSettingsModel.findOne({ guildId }).lean();
+        return toGuildConfig(guildId, existing);
+    }
+
+    public async saveGuildConfig(
+        guildId: string,
+        update: Partial<Omit<GuildConfig, "guildId">>,
+    ): Promise<GuildConfig> {
+        const saved = await GuildSettingsModel.findOneAndUpdate(
+            { guildId },
+            {
+                $set: {
+                    ...update,
+                },
+            },
+            {
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true,
+            },
+        ).lean();
+
+        return toGuildConfig(guildId, saved);
+    }
+}
+
+export class MongoCoachingViewService implements CoachingViewService {
+    public async buildShareableCoachingView(
+        reportCode: string,
+    ): Promise<unknown> {
+        // TODO: Populate insight payload from player-level raid metrics once coaching rules are implemented.
+        const doc = await CoachingInsightModel.findOne({ reportCode }).lean();
+        return (
+            doc ?? {
+                reportCode,
+                status: "stub",
+                message: "Coaching insights are not implemented yet.",
+            }
+        );
+    }
+}
+
+export class MongoAccountabilityViewService
+    implements AccountabilityViewService
+{
+    public async buildAccountabilityView(
+        reportCode: string,
+        visibility: AccountabilityVisibility,
+    ): Promise<unknown> {
+        // TODO: Generate officer/shareable accountability narratives from persisted events.
+        const events = await AccountabilityEventModel.find({
+            reportCode,
+            visibility,
+        })
+            .sort({ createdAt: -1 })
+            .lean();
+
+        return {
+            reportCode,
+            visibility,
+            status: "stub",
+            events,
+        };
+    }
+}
+
+export class MongoTrendTrackingService implements TrendTrackingService {
+    public async ingestRaidHistory(
+        guildId: string,
+        report: NormalizedReport,
+    ): Promise<void> {
+        await RaidSnapshotModel.findOneAndUpdate(
+            { guildId, reportCode: report.reportCode },
+            {
+                $set: {
+                    guildId,
+                    reportCode: report.reportCode,
+                    title: report.title,
+                    zoneName: report.zoneName,
+                    gameFamily: report.gameFamily,
+                    startedAt: new Date(report.startTime),
+                    endedAt: new Date(report.endTime),
+                },
+            },
+            {
+                upsert: true,
+                setDefaultsOnInsert: true,
+            },
+        );
+
+        const captures = report.players.map((player) => {
+            const setPayload: Record<string, unknown> = {
+                guildId,
+                reportCode: report.reportCode,
+                characterName: player.name,
+                capturedAt: new Date(report.endTime),
+            };
+            if (typeof player.bestParse === "number") {
+                setPayload.bestParse = player.bestParse;
+            }
+            if (typeof player.avgParse === "number") {
+                setPayload.averageParse = player.avgParse;
+            }
+            if (typeof player.executionScore === "number") {
+                setPayload.executionScore = player.executionScore;
+            }
+
+            return {
+                updateOne: {
+                    filter: {
+                        guildId,
+                        reportCode: report.reportCode,
+                        characterName: player.name,
+                    },
+                    update: {
+                        $set: setPayload,
+                    },
+                    upsert: true,
+                },
+            };
+        });
+
+        if (captures.length > 0) {
+            await PlayerRaidSummaryModel.bulkWrite(captures);
+        }
+    }
+
+    public async recomputeTrendsForGuild(guildId: string): Promise<void> {
+        // TODO: Compute rolling windows and improvement deltas from PlayerRaidSummaryModel snapshots.
+        await TrendSnapshotModel.updateOne(
+            { guildId, metric: "placeholder", window: "rolling_4" },
+            {
+                $set: {
+                    guildId,
+                    metric: "placeholder",
+                    window: "rolling_4",
+                    value: 0,
+                    capturedAt: new Date(),
+                },
+            },
+            { upsert: true },
+        );
+    }
+}

@@ -1,6 +1,12 @@
 import Fastify from "fastify";
 import { verifyKey } from "discord-interactions";
-import { connectMongo } from "@wcl/db";
+import {
+    connectMongo,
+    MongoAccountabilityViewService,
+    MongoCoachingViewService,
+    MongoGuildConfigStore,
+    MongoTrendTrackingService,
+} from "@wcl/db";
 import { handleInteraction, registerCommands } from "@wcl/discord";
 import { createLogger, parseEnv } from "@wcl/shared";
 import { WclClient } from "@wcl/wcl-client";
@@ -28,6 +34,10 @@ const wclClient = new WclClient({
     apiBaseUrl: env.WCL_API_BASE_URL,
 });
 
+const guildConfigStore = new MongoGuildConfigStore();
+const coachingViewService = new MongoCoachingViewService();
+const accountabilityViewService = new MongoAccountabilityViewService();
+const trendTrackingService = new MongoTrendTrackingService();
 app.get("/health", async () => ({ status: "ok" }));
 
 app.post("/discord/interactions", async (req, reply) => {
@@ -47,8 +57,13 @@ app.post("/discord/interactions", async (req, reply) => {
         );
         if (!isValid)
             return reply.code(401).send({ error: "Invalid signature" });
-
-        const response = await handleInteraction(req.body, { wclClient });
+        const response = await handleInteraction(req.body, {
+            wclClient,
+            guildConfigStore,
+            coachingViewService,
+            accountabilityViewService,
+            trendTrackingService,
+        });
         return reply.send(response);
     } catch (error) {
         logger.error({ error }, "interaction handling failed");

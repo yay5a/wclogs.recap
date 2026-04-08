@@ -3,14 +3,41 @@ import {
     InteractionType,
     MessageComponentTypes,
 } from "discord-interactions";
+import type {
+    AccountabilityViewService,
+    CoachingViewService,
+    GuildConfigStore,
+    PreviousRaidLookup,
+    TrendTrackingService,
+} from "@wcl/domain";
 import { buildRecapSummary } from "@wcl/domain";
-import { WclClient } from "@wcl/wcl-client";
+import type { WclClient } from "@wcl/wcl-client";
 
 interface HandleOptions {
-    wclClient: WclClient;
+    wclClient: WclClient & Partial<PreviousRaidLookup>;
+    guildConfigStore: GuildConfigStore;
+    coachingViewService?: CoachingViewService;
+    accountabilityViewService?: AccountabilityViewService;
+    trendTrackingService?: TrendTrackingService;
 }
 
 const previewCustomId = "post_recap";
+const recapState = new Map<string, ReturnType<typeof buildRecapSummary>>();
+
+const getStringOption = (
+    options: unknown,
+    name: string,
+): string | undefined => {
+    if (!Array.isArray(options)) return undefined;
+    const found = options.find((option) => {
+        if (typeof option !== "object" || option === null) return false;
+        return (option as { name?: unknown }).name === name;
+    }) as { value?: unknown } | undefined;
+    return typeof found?.value === "string" ? found.value : undefined;
+};
+
+const makeStateKey = (reportCode: string, guildId: string): string =>
+    `${reportCode}:${guildId}`;
 
 export const registerCommands = async (
     appId: string,
@@ -24,6 +51,26 @@ export const registerCommands = async (
             type: 1,
             options: [
                 {
+                    name: "game_family",
+                    description: "Default game family",
+                    type: 3,
+                    required: false,
+                    choices: [
+                        { name: "retail", value: "retail" },
+                        { name: "mop_classic", value: "mop_classic" },
+                    ],
+                },
+                {
+                    name: "compare_mode",
+                    description: "Default compare mode",
+                    type: 3,
+                    required: false,
+                    choices: [
+                        { name: "character", value: "character" },
+                        { name: "mixed", value: "mixed" },
+                    ],
+                },
+                {
                     name: "visibility",
                     description: "Set accountability visibility",
                     type: 3,
@@ -32,6 +79,26 @@ export const registerCommands = async (
                         { name: "off", value: "off" },
                         { name: "officers-only", value: "officers-only" },
                         { name: "shareable", value: "shareable" },
+                    ],
+                },
+                {
+                    name: "coaching_shareability",
+                    description: "Default coaching shareability",
+                    type: 3,
+                    required: false,
+                    choices: [
+                        { name: "private", value: "private" },
+                        { name: "shareable", value: "shareable" },
+                    ],
+                },
+                {
+                    name: "recap_post_mode",
+                    description: "Default recap post mode",
+                    type: 3,
+                    required: false,
+                    choices: [
+                        { name: "preview-and-post", value: "preview-and-post" },
+                        { name: "preview-only", value: "preview-only" },
                     ],
                 },
             ],
@@ -71,29 +138,91 @@ export const registerCommands = async (
 };
 
 export const handleInteraction = async (
-    interaction: any,
+    interaction: unknown,
     options: HandleOptions,
-): Promise<any> => {
-    if (interaction.type === InteractionType.PING) {
+): Promise<unknown> => {
+    const typedInteraction = interaction as {
+        type?: number;
+        guild_id?: string;
+        data?: {
+            name?: string;
+            options?: unknown;
+            custom_id?: string;
+        };
+    };
+
+    if (typedInteraction.type === InteractionType.PING) {
         return { type: InteractionResponseType.PONG };
     }
 
-    if (interaction.type === InteractionType.APPLICATION_COMMAND) {
-        if (interaction.data.name === "health") {
+    if (typedInteraction.type === InteractionType.APPLICATION_COMMAND) {
+        if (typedInteraction.data?.name === "health") {
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: { content: "OK", flags: 64 },
             };
         }
 
-        if (interaction.data.name === "config") {
+        if (typedInteraction.data?.name === "config") {
+            const guildId = typedInteraction.guild_id;
+            if (!guildId) {
+                return {
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content: "Guild context is required for /config.",
+                        flags: 64,
+                    },
+                };
+            }
+
+            const configUpdate = {
+                defaultGameFamily: getStringOption(
+                    typedInteraction.data.options,
+                    "game_family",
+                ),
+                compareModeDefault: getStringOption(
+                    typedInteraction.data.options,
+                    "compare_mode",
+                ),
+                accountabilityVisibility: getStringOption(
+                    typedInteraction.data.options,
+                    "visibility",
+                ),
+                coachingShareabilityDefault: getStringOption(
+                    typedInteraction.data.options,
+                    "coaching_shareability",
+                ),
+                recapPostModeDefault: getStringOption(
+                    typedInteraction.data.options,
+                    "recap_post_mode",
+                ),
+            };
+
+            const updateEntries = Object.entries(configUpdate).filter(
+                ([, value]) => typeof value === "string",
+            );
+            const updateObject = Object.fromEntries(updateEntries);
+            const saved = await options.guildConfigStore.saveGuildConfig(
+                guildId,
+                updateObject,
+            );
+
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: { content: "Config saved (MVP placeholder).", flags: 64 },
+                data: {
+                    content:
+                        `Config saved for guild ${guildId}: ` +
+                        `game_family=${saved.defaultGameFamily}, ` +
+                        `compare_mode=${saved.compareModeDefault}, ` +
+                        `visibility=${saved.accountabilityVisibility}, ` +
+                        `coaching_shareability=${saved.coachingShareabilityDefault}, ` +
+                        `recap_post_mode=${saved.recapPostModeDefault}`,
+                    flags: 64,
+                },
             };
         }
 
-        if (interaction.data.name === "Analyze Log") {
+        if (typedInteraction.data?.name === "Analyze Log") {
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
@@ -103,13 +232,19 @@ export const handleInteraction = async (
             };
         }
 
-        if (interaction.data.name === "report") {
-            const recap = interaction.data.options?.find(
-                (o: any) => o.name === "recap",
-            );
-            const url = recap?.options?.find(
-                (o: any) => o.name === "url",
-            )?.value;
+        if (typedInteraction.data?.name === "report") {
+            const recap = (
+                Array.isArray(typedInteraction.data.options)
+                    ? typedInteraction.data.options
+                    : []
+            ).find(
+                (o) =>
+                    typeof o === "object" &&
+                    o !== null &&
+                    (o as { name?: unknown }).name === "recap",
+            ) as { options?: unknown } | undefined;
+            const url = getStringOption(recap?.options, "url");
+
             if (!url || typeof url !== "string") {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -117,9 +252,21 @@ export const handleInteraction = async (
                 };
             }
 
+            const guildId = typedInteraction.guild_id ?? "dm";
+            const guildConfig =
+                await options.guildConfigStore.getGuildConfig(guildId);
             const report = await options.wclClient.fetchAndNormalizeReport(url);
-            const summary = buildRecapSummary(report);
+            const previousPlayers = options.wclClient.findPreviousRaidSummaries
+                ? await options.wclClient.findPreviousRaidSummaries(
+                      guildId,
+                      new Date(report.startTime),
+                  )
+                : [];
+            const summary = buildRecapSummary(report, previousPlayers, {
+                guildConfig,
+            });
 
+            recapState.set(makeStateKey(report.reportCode, guildId), summary);
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
@@ -127,7 +274,9 @@ export const handleInteraction = async (
                     embeds: [
                         {
                             title: `Preview: ${summary.reportTitle}`,
-                            description: `Bosses killed: ${summary.bossesKilled} • ${summary.gameFamily}`,
+                            description:
+                                `Bosses killed: ${summary.bossesKilled} • ${summary.gameFamily}` +
+                                ` • compare=${summary.compareModeUsed}`,
                         },
                     ],
                     components: [
@@ -137,7 +286,7 @@ export const handleInteraction = async (
                                 {
                                     type: MessageComponentTypes.BUTTON,
                                     style: 1,
-                                    custom_id: `${previewCustomId}:${report.reportCode}`,
+                                    custom_id: `${previewCustomId}:${report.reportCode}:${guildId}`,
                                     label: "Post Recap",
                                 },
                             ],
@@ -148,18 +297,45 @@ export const handleInteraction = async (
         }
     }
 
-    if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-        const id: string = interaction.data.custom_id;
-        if (id.startsWith(previewCustomId)) {
+    if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
+        const id = typedInteraction.data?.custom_id;
+        if (typeof id === "string" && id.startsWith(previewCustomId)) {
+            const [, reportCode, guildId] = id.split(":");
+            if (!reportCode || !guildId) {
+                return {
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: { content: "Invalid recap state key.", flags: 64 },
+                };
+            }
+
+            const summary = recapState.get(makeStateKey(reportCode, guildId));
+            if (!summary) {
+                return {
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content: "Preview state expired. Re-run /report recap.",
+                        flags: 64,
+                    },
+                };
+            }
+
+            await options.coachingViewService?.buildShareableCoachingView(
+                reportCode,
+            );
+            await options.accountabilityViewService?.buildAccountabilityView(
+                reportCode,
+                summary.accountabilityVisibility,
+            );
+            if (options.trendTrackingService) {
+                await options.trendTrackingService.recomputeTrendsForGuild(
+                    guildId,
+                );
+            }
+
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    embeds: [
-                        {
-                            title: "Raid Recap",
-                            description: "Recap posted from preview (MVP).",
-                        },
-                    ],
+                    embeds: [buildPublicRecapEmbed(summary)],
                 },
             };
         }
@@ -180,6 +356,16 @@ export const buildPublicRecapEmbed = (
         {
             name: "Bosses Killed",
             value: String(summary.bossesKilled),
+            inline: true,
+        },
+        {
+            name: "Compare Mode",
+            value: summary.compareModeUsed,
+            inline: true,
+        },
+        {
+            name: "Accountability",
+            value: summary.accountabilityVisibility,
             inline: true,
         },
     ];

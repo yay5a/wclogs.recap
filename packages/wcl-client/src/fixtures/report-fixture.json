@@ -5,7 +5,9 @@
                 "title": "Wed Raid Recap",
                 "startTime": 1712000000000,
                 "endTime": 1712007200000,
-                "zone": { "name": "Vault of the Incarnates" },
+                "zone": {
+                    "name": "Vault of the Incarnates"
+                },
                 "fights": [
                     {
                         "id": 1,
@@ -31,10 +33,19 @@
                 ],
                 "masterData": {
                     "actors": [
-                        { "id": 11, "name": "Alyra", "subType": "Paladin" },
-                        { "id": 12, "name": "Bronn", "subType": "Warrior" }
+                        {
+                            "id": 11,
+                            "name": "Alyra",
+                            "subType": "Paladin"
+                        },
+                        {
+                            "id": 12,
+                            "name": "Bronn",
+                            "subType": "Warrior"
+                        }
                     ]
-                }
+                },
+                "rankings": "{\"data\": [{\"name\": \"Alyra\", \"bestPerformanceAverage\": 97.1, \"performanceAverage\": 91.3, \"execution\": 93.2}, {\"name\": \"Bronn\", \"bestPerformanceAverage\": 88.4, \"performanceAverage\": 82.0, \"execution\": 85.1}]}"
             }
         }
     }

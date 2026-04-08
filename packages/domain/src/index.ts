@@ -1,4 +1,34 @@
 export type GameFamily = "retail" | "mop_classic";
+export type CompareMode = "character" | "mixed";
+export type AccountabilityVisibility = "off" | "officers-only" | "shareable";
+export type CoachingShareability = "private" | "shareable";
+export type RecapPostMode = "preview-and-post" | "preview-only";
+
+export interface GuildConfig {
+    guildId: string;
+    defaultGameFamily: GameFamily;
+    compareModeDefault: CompareMode;
+    accountabilityVisibility: AccountabilityVisibility;
+    coachingShareabilityDefault: CoachingShareability;
+    recapPostModeDefault: RecapPostMode;
+}
+
+export interface GuildConfigStore {
+    getGuildConfig(guildId: string): Promise<GuildConfig>;
+    saveGuildConfig(
+        guildId: string,
+        update: Partial<Omit<GuildConfig, "guildId">>,
+    ): Promise<GuildConfig>;
+}
+
+export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
+    guildId,
+    defaultGameFamily: "retail",
+    compareModeDefault: "character",
+    accountabilityVisibility: "off",
+    coachingShareabilityDefault: "private",
+    recapPostModeDefault: "preview-and-post",
+});
 
 export interface NormalizedPlayer {
     id: string;
@@ -36,6 +66,10 @@ export interface RecapSummary {
     gameFamily: GameFamily;
     zoneName?: string;
     bossesKilled: number;
+    compareModeUsed: CompareMode;
+    accountabilityVisibility: AccountabilityVisibility;
+    coachingShareability: CoachingShareability;
+    recapPostMode: RecapPostMode;
     bestSingleBossParse?: { playerName: string; value: number };
     bestAverageParse?: { playerName: string; value: number };
     bestExecution?: { playerName: string; value: number };
@@ -58,9 +92,14 @@ export const deriveDeterministicTeamNote = (bossesKilled: number): string => {
     return "Team note: Early progression week; prioritize clean mechanic reps.";
 };
 
+interface BuildRecapSummaryOptions {
+    guildConfig?: GuildConfig;
+}
+
 export const buildRecapSummary = (
     report: NormalizedReport,
     previousPlayers?: NormalizedPlayer[],
+    options?: BuildRecapSummaryOptions,
 ): RecapSummary => {
     const killed = report.fights.filter((f) => f.kill).length;
     const byParse = [...report.players]
@@ -90,11 +129,18 @@ export const buildRecapSummary = (
         .filter((x): x is { playerName: string; delta: number } => Boolean(x))
         .sort((a, b) => b.delta - a.delta);
 
+    const guildConfig = options?.guildConfig;
     const summary: RecapSummary = {
         reportTitle: report.title,
         reportDateISO: new Date(report.startTime).toISOString(),
         gameFamily: report.gameFamily,
         bossesKilled: killed,
+        compareModeUsed: guildConfig?.compareModeDefault ?? "character",
+        accountabilityVisibility:
+            guildConfig?.accountabilityVisibility ?? "off",
+        coachingShareability:
+            guildConfig?.coachingShareabilityDefault ?? "private",
+        recapPostMode: guildConfig?.recapPostModeDefault ?? "preview-and-post",
         teamNote: deriveDeterministicTeamNote(killed),
     };
 
@@ -127,11 +173,12 @@ export interface CoachingViewService {
 export interface AccountabilityViewService {
     buildAccountabilityView(
         reportCode: string,
-        visibility: "off" | "officers-only" | "shareable",
+        visibility: AccountabilityVisibility,
     ): Promise<unknown>;
 }
 
 export interface TrendTrackingService {
+    ingestRaidHistory(guildId: string, report: NormalizedReport): Promise<void>;
     recomputeTrendsForGuild(guildId: string): Promise<void>;
 }
 

@@ -68,6 +68,107 @@ interface WclClientOptions {
     fetchImpl?: typeof fetch;
 }
 
+type RankingMetric = {
+    bestParse?: number;
+    avgParse?: number;
+    executionScore?: number;
+};
+
+const asObject = (value: unknown): Record<string, unknown> | undefined =>
+    typeof value === "object" && value !== null
+        ? (value as Record<string, unknown>)
+        : undefined;
+
+const asNumber = (value: unknown): number | undefined =>
+    typeof value === "number" && Number.isFinite(value) ? value : undefined;
+
+const asString = (value: unknown): string | undefined =>
+    typeof value === "string" && value.length > 0 ? value : undefined;
+
+const pickNumber = (
+    obj: Record<string, unknown>,
+    keys: string[],
+): number | undefined => {
+    for (const key of keys) {
+        const v = asNumber(obj[key]);
+        if (typeof v === "number") return v;
+    }
+    return undefined;
+};
+
+const parseRankingsPayload = (
+    rankings: unknown,
+): Map<string, RankingMetric> => {
+    const parsedRankings =
+        typeof rankings === "string"
+            ? (JSON.parse(rankings) as unknown)
+            : rankings;
+    const root = asObject(parsedRankings);
+    if (!root) return new Map<string, RankingMetric>();
+
+    const containers: unknown[] = [
+        root,
+        ...(Array.isArray(root.data) ? root.data : []),
+        ...(Array.isArray(root.rankings) ? root.rankings : []),
+        ...(Array.isArray(root.players) ? root.players : []),
+    ];
+
+    const byName = new Map<string, RankingMetric>();
+    for (const container of containers) {
+        const entry = asObject(container);
+        if (!entry) continue;
+
+        const nestedPlayer = asObject(entry.player);
+        const nestedCharacter = asObject(entry.character);
+        const nestedActor = asObject(entry.actor);
+        const name =
+            asString(entry.name) ??
+            asString(nestedPlayer?.name) ??
+            asString(nestedCharacter?.name) ??
+            asString(nestedActor?.name);
+        if (!name) continue;
+
+        const bestParse = pickNumber(entry, [
+            "bestPerformanceAverage",
+            "bestPercent",
+            "bestParse",
+            "bestAmount",
+            "rankPercent",
+            "percentile",
+        ]);
+        const avgParse = pickNumber(entry, [
+            "performanceAverage",
+            "averagePerformance",
+            "avgParse",
+            "averageAmount",
+            "averagePercent",
+            "medianPercent",
+        ]);
+        const executionScore = pickNumber(entry, [
+            "execution",
+            "executionScore",
+            "executionPercent",
+            "executionRankPercent",
+        ]);
+
+        const prior = byName.get(name) ?? {};
+        const merged: RankingMetric = {};
+        const resolvedBestParse = bestParse ?? prior.bestParse;
+        const resolvedAvgParse = avgParse ?? prior.avgParse;
+        const resolvedExecutionScore = executionScore ?? prior.executionScore;
+        if (typeof resolvedBestParse === "number")
+            merged.bestParse = resolvedBestParse;
+        if (typeof resolvedAvgParse === "number")
+            merged.avgParse = resolvedAvgParse;
+        if (typeof resolvedExecutionScore === "number") {
+            merged.executionScore = resolvedExecutionScore;
+        }
+        byName.set(name, merged);
+    }
+
+    return byName;
+};
+
 export class WclClient {
     private token: string | null = null;
     private readonly gqlClient: GraphQLClient;
@@ -141,44 +242,93 @@ export class WclClient {
 }
 
 export const normalizeReport = (
-    raw: any,
+    raw: unknown,
     parsed: ParsedReportUrl,
 ): NormalizedReport => {
-    const report = raw?.data?.reportData?.report ?? raw?.reportData?.report;
+    const root = asObject(raw);
+    const data = asObject(root?.data);
+    const reportData = asObject(data?.reportData ?? root?.reportData);
+    const report = asObject(reportData?.report);
     if (!report) throw new Error("Unexpected WCL payload shape");
 
-    const fights: NormalizedFight[] = (report.fights ?? []).map(
-        (fight: any) => ({
-            id: fight.id,
-            name: fight.name,
-            startTime: fight.startTime,
-            endTime: fight.endTime,
-            kill: Boolean(fight.kill),
-        }),
-    );
+    const fights: NormalizedFight[] = (
+        Array.isArray(report.fights) ? report.fights : []
+    ).flatMap((fightValue) => {
+        const fight = asObject(fightValue);
+        if (!fight) return [];
+        const id = asNumber(fight.id);
+        const name = asString(fight.name);
+        const startTime = asNumber(fight.startTime);
+        const endTime = asNumber(fight.endTime);
+        if (
+            typeof id !== "number" ||
+            typeof name !== "string" ||
+            typeof startTime !== "number" ||
+            typeof endTime !== "number"
+        ) {
+            return [];
+        }
 
-    const players: NormalizedPlayer[] = (report.masterData?.actors ?? []).map(
-        (actor: any, index: number) => ({
-            id: String(actor.id ?? index),
-            name: actor.name,
-            className: actor.subType,
-            specName: undefined,
-            bestParse: Math.min(99, 70 + index * 8),
-            avgParse: Math.min(99, 65 + index * 7),
-            executionScore: Math.min(100, 80 + index * 5),
-        }),
-    );
+        return [
+            {
+                id,
+                name,
+                startTime,
+                endTime,
+                kill: Boolean(fight.kill),
+            },
+        ];
+    });
 
-    return {
+    const rankingByName = parseRankingsPayload(report.rankings);
+
+    const players: NormalizedPlayer[] = (
+        asObject(report.masterData)?.actors instanceof Array
+            ? (asObject(report.masterData)?.actors as unknown[])
+            : []
+    ).flatMap((actorValue, index) => {
+        const actor = asObject(actorValue);
+        if (!actor) return [];
+        const name = asString(actor.name);
+        if (!name) return [];
+
+        const player: NormalizedPlayer = {
+            id: String(asNumber(actor.id) ?? index),
+            name,
+        };
+        const className = asString(actor.subType);
+        const realm = asString(actor.server);
+        if (className) player.className = className;
+        if (realm) player.realm = realm;
+
+        const metrics = rankingByName.get(name);
+        if (typeof metrics?.bestParse === "number") {
+            player.bestParse = metrics.bestParse;
+        }
+        if (typeof metrics?.avgParse === "number") {
+            player.avgParse = metrics.avgParse;
+        }
+        if (typeof metrics?.executionScore === "number") {
+            player.executionScore = metrics.executionScore;
+        }
+
+        return [player];
+    });
+
+    const normalized: NormalizedReport = {
         reportCode: parsed.reportCode,
-        title: report.title,
-        startTime: report.startTime,
-        endTime: report.endTime,
+        title: asString(report.title) ?? "Untitled Report",
+        startTime: asNumber(report.startTime) ?? Date.now(),
+        endTime: asNumber(report.endTime) ?? Date.now(),
         gameFamily: parsed.gameFamily,
-        zoneName: report.zone?.name,
         fights,
         players,
     };
+
+    const zoneName = asString(asObject(report.zone)?.name);
+    if (zoneName) normalized.zoneName = zoneName;
+
+    return normalized;
 };
 
 export const retailAdapter = normalizeReport;
