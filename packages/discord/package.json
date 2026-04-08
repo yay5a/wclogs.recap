@@ -1,23 +1,4 @@
 {
-<<<<<<< HEAD
-  "name": "@wcl/discord",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "main": "src/index.ts",
-  "types": "src/index.ts",
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
-  },
-  "dependencies": {
-    "@wcl/domain": "workspace:*",
-    "@wcl/wcl-client": "workspace:*",
-    "discord-interactions": "^4.1.0"
-  }
-=======
     "name": "@wcl/discord",
     "version": "0.1.0",
     "private": true,
@@ -35,5 +16,4 @@
         "@wcl/wcl-client": "workspace:*",
         "discord-interactions": "^4.1.0"
     }
->>>>>>> c1868b4 (generated framework through codex)
 }

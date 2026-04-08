@@ -1,13 +1,4 @@
 {
-<<<<<<< HEAD
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "outDir": "dist"
-  },
-  "include": [
-    "src/**/*.ts"
-  ]
-=======
     "extends": "../../tsconfig.base.json",
     "compilerOptions": {
         "outDir": "dist"
@@ -15,5 +6,4 @@
     "include": [
         "src/**/*.ts"
     ]
->>>>>>> c1868b4 (generated framework through codex)
 }

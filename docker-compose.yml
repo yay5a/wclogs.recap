@@ -2,11 +2,7 @@ services:
   mongo:
     image: mongo:7
     ports:
-<<<<<<< HEAD
       - '27017:27017'
-=======
-      - "27017:27017"
->>>>>>> c1868b4 (generated framework through codex)
     volumes:
       - mongo_data:/data/db
 
@@ -19,11 +15,7 @@ services:
     depends_on:
       - mongo
     ports:
-<<<<<<< HEAD
       - '3000:3000'
-=======
-      - "3000:3000"
->>>>>>> c1868b4 (generated framework through codex)
 
   worker:
     build:
