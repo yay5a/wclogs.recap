@@ -1,42 +1,77 @@
 # WCLogs Recap Discord Companion (MVP Hardening)
 
-Node.js + TypeScript pnpm monorepo for a Warcraft Logs-focused Discord companion app.
+Warcraft Logs-focused Discord companion app.
 
-## What is real now
-- Canonical WCL URL parsing supports path-based report URLs (`/reports/<code>`), plus legacy `?report=` / `?code=` fallbacks.
-- URL parser validates protocol, host, report code shape, and optional fight selectors.
-- Adapter selection is layered (host/path/hints) with dedicated Retail and MoP Classic adapter entry points over one normalized schema.
-- WCL normalization uses actual ranking payload data where available (`rankPercent`, `executionRank`) and omits metrics if data is missing.
-- Recap derivation and public embed rendering are data-backed only (no placeholder metric fabrication).
-- `/config` now persists guild settings in MongoDB via `GuildSettings` and reads/writes:
-  - default game family
-  - compare mode default
-  - accountability visibility
-  - coaching shareability default
-  - recap posting mode default
-- `/report recap` preview/post flow now builds the same reliable embed output from normalized data.
-- Raid snapshots and player summary snapshots are persisted for previous-raid comparisons (most improved metric when available).
+## Implemented in this run
 
-## Still mocked or incomplete
-- WCL query shape is intentionally MVP-scoped and does not yet fetch all possible parse dimensions.
-- Compare mode is modeled and persisted, but only `character` mode behavior is currently used in recap derivation.
-- Analyze Log context command still redirects users to `/report recap`.
-- Worker job handlers for trends/subscriptions remain TODO scaffolds.
-- Identity auto-link / candidate review orchestration is still not implemented.
+- Workspace scaffold with `/apps/web`, `/apps/worker`, and `/packages/*` modules.
+- Strict TypeScript config, ESLint, Prettier, Vitest, and environment validation.
+- MongoDB + Mongoose data model for:
+  - GuildSettings
+  - PlayerProfile
+  - CharacterIdentity
+  - ReportCache
+  - RaidSnapshot
+  - FightSnapshot
+  - PlayerRaidSummary
+  - TrendSnapshot
+  - AccountabilityEvent
+  - Job
+  - AuditLog
+- WCL client package with:
+  - OAuth token plumbing
+  - report URL parsing
+  - retail vs MoP classic detection
+  - normalized schema and adapters
+  - report cache persistence
+  - fixture-backed mode for safe local testing (`WCL_USE_FIXTURES=true`)
+- Discord package with:
+  - command registration
+  - interaction handler for `/health`, `/config`, `/report recap <url>`, and
+    context command `Analyze Log`
+  - recap preview with **Post Recap** button
+  - public recap embed builder
+- Web app with:
+  - `/health`
+  - `/discord/interactions`
+  - `/discord/register-commands`
+  - structured logging and graceful error handling
+- Worker app with:
+  - queue abstraction
+  - MongoDB-backed job model polling scaffold
+  - future hooks for subscriptions/trend recompute jobs
+
+## Mocked / incomplete
+
+- WCL normalization currently maps parse/execution metrics with deterministic
+    placeholder values when real percentile details are unavailable from the
+    selected MVP query.
+- `/config` command currently acknowledges configuration but does not
+    persist settings.
+- Post recap button currently posts a simplified MVP recap message;
+    fetching/rehydrating full preview state via interaction token is a follow-up.
+- Identity auto-link and candidate-review workflow boundaries are typed and
+    modeled, but orchestration service is not fully implemented.
 
 ## Assumptions
-- WCL rankings payload is present as JSON string/object and may be partially populated.
-- Missing WCL ranking details must result in omitted recap fields (never fabricated values).
-- MongoDB remains the only persistence layer in this phase.
 
-## Recommended next phase
-1. Expand WCL query + normalization with per-fight/per-role dimensions for deeper coaching and accountability views.
-2. Enforce role-based visibility rules in command handling for officers-only/shareable outputs.
-3. Persist and rehydrate recap preview interaction state more robustly than custom-id encoding.
-4. Build trend snapshots from worker pipeline using stored raid/player summaries.
-5. Implement identity confidence scoring and candidate review workflow.
+- Report URLs include either `?report=` or `?code=` query params.
+- Game family inference is path/host heuristic (`classic`/`mop` => MoP Classic,
+    otherwise Retail).
+- MVP recap is read-only against WCL and Discord data operations (except
+    command registration endpoint).
+- MongoDB is the only persistence dependency for this phase.
+
+## Next recommended phase
+
+1. Implement real percentile/execution extraction queries per game family adapter.
+2. Persist `/config` and enforce officers-only visibility rules.
+3. Add recap-post state persistence for reliable button flows.
+4. Implement identity confidence scoring and candidate review queue.
+5. Add trend computation jobs and snapshots over rolling windows.
 
 ## Local setup
+
 ```bash
 corepack enable
 pnpm install
@@ -47,11 +82,13 @@ pnpm dev:worker
 ```
 
 ### with Docker
+
 ```bash
 docker compose up --build
 ```
 
 ## Scripts
+
 - `pnpm lint`
 - `pnpm typecheck`
 - `pnpm test`
