@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "compilerOptions": {
     "target": "ES2022",
     "module": "NodeNext",
@@ -35,4 +36,42 @@
       ]
     }
   }
+=======
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "strict": true,
+        "declaration": true,
+        "declarationMap": true,
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "resolveJsonModule": true,
+        "noUncheckedIndexedAccess": true,
+        "exactOptionalPropertyTypes": true,
+        "forceConsistentCasingInFileNames": true,
+        "types": [
+            "node"
+        ],
+        "baseUrl": ".",
+        "paths": {
+            "@wcl/shared": [
+                "packages/shared/src/index.ts"
+            ],
+            "@wcl/domain": [
+                "packages/domain/src/index.ts"
+            ],
+            "@wcl/db": [
+                "packages/db/src/index.ts"
+            ],
+            "@wcl/wcl-client": [
+                "packages/wcl-client/src/index.ts"
+            ],
+            "@wcl/discord": [
+                "packages/discord/src/index.ts"
+            ]
+        }
+    }
+>>>>>>> c1868b4 (generated framework through codex)
 }

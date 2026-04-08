@@ -1,6 +1,13 @@
 {
+<<<<<<< HEAD
   "extends": "./tsconfig.base.json",
   "compilerOptions": {
     "noEmit": true
   }
+=======
+    "extends": "./tsconfig.base.json",
+    "compilerOptions": {
+        "noEmit": true
+    }
+>>>>>>> c1868b4 (generated framework through codex)
 }
