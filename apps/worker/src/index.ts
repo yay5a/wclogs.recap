@@ -1,5 +1,18 @@
 import { JobModel, connectMongo } from "@wcl/db";
 import { createLogger, parseEnv } from "@wcl/shared";
+import { loadEnvFile } from "node:process";
+import { existsSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+const envPath = resolve(__dirname, "../../../.env");
+
+if (existsSync(envPath)) {
+    loadEnvFile(envPath);
+}
 
 const env = parseEnv(process.env);
 const logger = createLogger("worker");

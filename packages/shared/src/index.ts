@@ -23,6 +23,23 @@ export type AppEnv = z.infer<typeof envSchema>;
 export const parseEnv = (rawEnv: NodeJS.ProcessEnv): AppEnv =>
     envSchema.parse(rawEnv);
 
+export const logger = pino({
+    redact: {
+        paths: [
+            "headers.authorization",
+            "req.headers.authorization",
+            "env.DISCORD_BOT_TOKEN",
+            "env.WCL_CLIENT_SECRET",
+            "env.MONGODB_URI",
+            "token",
+            "*.token",
+            "*.secret",
+            "*.password",
+        ],
+        censor: "[REDACTED]",
+    },
+});
+
 export const createLogger = (name: string) => {
     if (process.env.NODE_ENV === "production") {
         return pino({ name, level: "info" });

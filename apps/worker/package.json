@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "@wcl/db": "workspace:*",
-        "@wcl/shared": "workspace:*"
+        "@wcl/shared": "workspace:*",
+        "dotenv": "^17.4.1"
     }
 }
