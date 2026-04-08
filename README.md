@@ -14,6 +14,7 @@ Warcraft Logs-focused Discord companion app.
   - PlayerRaidSummary
   - TrendSnapshot
   - AccountabilityEvent
+  - CoachingInsight
   - Job
   - AuditLog
 - WCL client package with:
@@ -23,12 +24,20 @@ Warcraft Logs-focused Discord companion app.
   - normalized schema and adapters
   - report cache persistence
   - fixture-backed mode for safe local testing (`WCL_USE_FIXTURES=true`)
+  - parse/execution extraction from Warcraft Logs `rankings` payload when provided by API
 - Discord package with:
   - command registration
   - interaction handler for `/health`, `/config`, `/report recap <url>`, and
     context command `Analyze Log`
   - recap preview with **Post Recap** button
   - public recap embed builder
+    - persisted `/config` values (guild defaults for game family, compare mode,
+    accountability visibility, coaching shareability, and recap post mode)
+  - recap generation uses saved guild config values in summary fields
+- Domain/db service wiring for future features:
+  - `CoachingViewService` stub (`MongoCoachingViewService`)
+  - `AccountabilityViewService` stub (`MongoAccountabilityViewService`)
+  - `TrendTrackingService` stub (`MongoTrendTrackingService`) with raid/player history ingest hooks
 - Web app with:
   - `/health`
   - `/discord/interactions`
@@ -41,32 +50,39 @@ Warcraft Logs-focused Discord companion app.
 
 ## Mocked / incomplete
 
-- WCL normalization currently maps parse/execution metrics with deterministic
-    placeholder values when real percentile details are unavailable from the
-    selected MVP query.
-- `/config` command currently acknowledges configuration but does not
-    persist settings.
-- Post recap button currently posts a simplified MVP recap message;
-    fetching/rehydrating full preview state via interaction token is a follow-up.
+- Coaching and accountability view services are persistence-backed stubs and
+  currently return placeholder payloads with TODO markers.
+- Trend recomputation stores placeholder snapshots for now; rolling-average and
+  improvement detection logic is a follow-up.
+- Post recap button currently uses in-memory preview state; durable interaction
+  state persistence is a follow-up.
 - Identity auto-link and candidate-review workflow boundaries are typed and
-    modeled, but orchestration service is not fully implemented.
+  modeled, but orchestration service is not fully implemented.
+
+## Behavior notes
+
+- Parse/execution metrics are no longer fabricated. If rankings data for a
+  player is unavailable in the Warcraft Logs response, those fields are omitted.
+- `/config` now persists guild settings via Mongo and recap summaries consume
+  those defaults at generation time.
 
 ## Assumptions
 
 - Report URLs include either `?report=` or `?code=` query params.
 - Game family inference is path/host heuristic (`classic`/`mop` => MoP Classic,
-    otherwise Retail).
+otherwise Retail).
 - MVP recap is read-only against WCL and Discord data operations (except
-    command registration endpoint).
+command registration endpoint).
 - MongoDB is the only persistence dependency for this phase.
 
 ## Next recommended phase
 
-1. Implement real percentile/execution extraction queries per game family adapter.
-2. Persist `/config` and enforce officers-only visibility rules.
-3. Add recap-post state persistence for reliable button flows.
-4. Implement identity confidence scoring and candidate review queue.
-5. Add trend computation jobs and snapshots over rolling windows.
+1. Expand rankings extraction with report-table per-encounter granularity per
+game family.
+2. Add durable interaction preview state persistence for recap button flows.
+3. Implement coaching/advice generation rules and accountability narrative generation.
+4. Implement trend rolling windows and improvement detection jobs from raid history.
+5. Implement identity confidence scoring and candidate review queue.
 
 ## Local setup
 
