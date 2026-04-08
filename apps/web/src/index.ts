@@ -1,10 +1,6 @@
 import Fastify from "fastify";
 import { verifyKey } from "discord-interactions";
-<<<<<<< HEAD
-import { MongoGuildConfigStore, connectMongo } from '@wcl/db';
-=======
 import { connectMongo } from "@wcl/db";
->>>>>>> c1868b4 (generated framework through codex)
 import { handleInteraction, registerCommands } from "@wcl/discord";
 import { createLogger, parseEnv } from "@wcl/shared";
 import { WclClient } from "@wcl/wcl-client";
@@ -19,13 +15,7 @@ const wclClient = new WclClient({
     apiBaseUrl: env.WCL_API_BASE_URL,
 });
 
-<<<<<<< HEAD
-const guildConfigStore = new MongoGuildConfigStore();
-
-app.get('/health', async () => ({ status: 'ok' }));
-=======
 app.get("/health", async () => ({ status: "ok" }));
->>>>>>> c1868b4 (generated framework through codex)
 
 app.post("/discord/interactions", async (req, reply) => {
     try {
@@ -45,11 +35,7 @@ app.post("/discord/interactions", async (req, reply) => {
         if (!isValid)
             return reply.code(401).send({ error: "Invalid signature" });
 
-<<<<<<< HEAD
-        const response = await handleInteraction(req.body, { wclClient, guildConfigStore });
-=======
         const response = await handleInteraction(req.body, { wclClient });
->>>>>>> c1868b4 (generated framework through codex)
         return reply.send(response);
     } catch (error) {
         logger.error({ error }, "interaction handling failed");

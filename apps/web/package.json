@@ -1,26 +1,4 @@
 {
-<<<<<<< HEAD
-  "name": "@wcl/web",
-  "version": "0.1.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "dev": "tsx watch src/index.ts",
-    "start": "node dist/index.js",
-    "lint": "eslint src --ext .ts",
-    "typecheck": "tsc -p tsconfig.json --noEmit",
-    "test": "vitest run --passWithNoTests"
-  },
-  "dependencies": {
-    "@wcl/db": "workspace:*",
-    "@wcl/discord": "workspace:*",
-    "@wcl/shared": "workspace:*",
-    "@wcl/wcl-client": "workspace:*",
-    "discord-interactions": "^4.1.0",
-    "fastify": "^5.2.1"
-  }
-=======
     "name": "@wcl/web",
     "version": "0.1.0",
     "private": true,
@@ -41,5 +19,4 @@
         "discord-interactions": "^4.1.0",
         "fastify": "^5.2.1"
     }
->>>>>>> c1868b4 (generated framework through codex)
 }
