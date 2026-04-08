@@ -3,14 +3,76 @@ import {
   InteractionType,
   MessageComponentTypes,
 } from 'discord-interactions';
+import type {
+  AccountabilityVisibility,
+  CoachingShareability,
+  ComparisonMode,
+  GameFamily,
+  GuildConfigInput,
+  GuildConfigStore,
+  RecapPostMode,
+} from '@wcl/domain';
 import { buildRecapSummary } from '@wcl/domain';
-import { WclClient } from '@wcl/wcl-client';
+import type { WclClient } from '@wcl/wcl-client';
 
 interface HandleOptions {
   wclClient: WclClient;
+  guildConfigStore: GuildConfigStore;
+}
+
+interface InteractionOption {
+  name: string;
+  value?: string;
+  options?: InteractionOption[];
+}
+
+interface AppCommandInteraction {
+  type: InteractionType.APPLICATION_COMMAND;
+  guild_id?: string;
+  data: {
+    name: string;
+    options?: InteractionOption[];
+  };
+}
+
+interface MessageComponentInteraction {
+  type: InteractionType.MESSAGE_COMPONENT;
+  guild_id?: string;
+  data: {
+    custom_id: string;
+  };
 }
 
 const previewCustomId = 'post_recap';
+
+const isAppCommandInteraction = (value: unknown): value is AppCommandInteraction => {
+  if (!value || typeof value !== 'object') return false;
+  const input = value as Record<string, unknown>;
+  const data = input.data as Record<string, unknown> | undefined;
+  return input.type === InteractionType.APPLICATION_COMMAND && typeof data?.name === 'string';
+};
+
+const isMessageComponentInteraction = (value: unknown): value is MessageComponentInteraction => {
+  if (!value || typeof value !== 'object') return false;
+  const input = value as Record<string, unknown>;
+  const data = input.data as Record<string, unknown> | undefined;
+  return input.type === InteractionType.MESSAGE_COMPONENT && typeof data?.custom_id === 'string';
+};
+
+const getNestedOption = (
+  options: InteractionOption[] | undefined,
+  groupName: string,
+  optionName: string,
+): string | undefined => {
+  const group = options?.find((o) => o.name === groupName);
+  const selected = group?.options?.find((o) => o.name === optionName);
+  return typeof selected?.value === 'string' ? selected.value : undefined;
+};
+
+const getOption = (options: InteractionOption[] | undefined, name: string): string | undefined => {
+  const selected = options?.find((o) => o.name === name);
+  return typeof selected?.value === 'string' ? selected.value : undefined;
+};
 
 export const registerCommands = async (appId: string, botToken: string): Promise<void> => {
   const commands = [
@@ -21,6 +83,27 @@ export const registerCommands = async (appId: string, botToken: string): Promise
       type: 1,
       options: [
         {
+          name: 'game_family',
+          description: 'Default game family for this guild',
+          type: 3,
+          required: false,
+          choices: [
+            { name: 'retail', value: 'retail' },
+            { name: 'mop_classic', value: 'mop_classic' },
+          ],
+        },
+        {
+          name: 'compare_mode',
+          description: 'Default compare mode',
+          type: 3,
+          required: false,
+          choices: [
+            { name: 'character', value: 'character' },
+            { name: 'account', value: 'account' },
+            { name: 'mixed', value: 'mixed' },
+          ],
+        },
+        {
           name: 'visibility',
           description: 'Set accountability visibility',
           type: 3,
@@ -29,6 +112,26 @@ export const registerCommands = async (appId: string, botToken: string): Promise
             { name: 'off', value: 'off' },
             { name: 'officers-only', value: 'officers-only' },
             { name: 'shareable', value: 'shareable' },
+          ],
+        },
+        {
+          name: 'coaching_shareability',
+          description: 'Default coaching shareability',
+          type: 3,
+          required: false,
+          choices: [
+            { name: 'officers-only', value: 'officers-only' },
+            { name: 'shareable', value: 'shareable' },
+          ],
+        },
+        {
+          name: 'recap_post_mode',
+          description: 'Default recap posting mode',
+          type: 3,
+          required: false,
+          choices: [
+            { name: 'allow-post', value: 'allow-post' },
+            { name: 'preview-only', value: 'preview-only' },
           ],
         },
       ],
@@ -59,12 +162,33 @@ export const registerCommands = async (appId: string, botToken: string): Promise
   });
 };
 
-export const handleInteraction = async (interaction: any, options: HandleOptions): Promise<any> => {
-  if (interaction.type === InteractionType.PING) {
+const formatConfigSaved = (payload: GuildConfigInput): string => {
+  const fragments: string[] = [];
+  if (payload.defaultGameFamily) fragments.push(`game_family=${payload.defaultGameFamily}`);
+  if (payload.compareModeDefault) fragments.push(`compare_mode=${payload.compareModeDefault}`);
+  if (payload.accountabilityVisibility) fragments.push(`visibility=${payload.accountabilityVisibility}`);
+  if (payload.coachingShareabilityDefault) {
+    fragments.push(`coaching_shareability=${payload.coachingShareabilityDefault}`);
+  }
+  if (payload.recapPostModeDefault) fragments.push(`recap_post_mode=${payload.recapPostModeDefault}`);
+  return fragments.length > 0
+    ? `Config saved: ${fragments.join(', ')}`
+    : 'No changes provided. Existing config remains unchanged.';
+};
+
+export const handleInteraction = async (
+  interaction: unknown,
+  options: HandleOptions,
+): Promise<Record<string, unknown>> => {
+  if (
+    typeof interaction === 'object' &&
+    interaction !== null &&
+    (interaction as { type?: number }).type === InteractionType.PING
+  ) {
     return { type: InteractionResponseType.PONG };
   }
 
-  if (interaction.type === InteractionType.APPLICATION_COMMAND) {
+  if (isAppCommandInteraction(interaction)) {
     if (interaction.data.name === 'health') {
       return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -73,9 +197,37 @@ export const handleInteraction = async (interaction: any, options: HandleOptions
     }
 
     if (interaction.data.name === 'config') {
+      if (!interaction.guild_id) {
+        return {
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: { content: '/config only works in a guild.', flags: 64 },
+        };
+      }
+
+      const payload: GuildConfigInput = {};
+
+      const gameFamily = getOption(interaction.data.options, 'game_family') as GameFamily | undefined;
+      const compareMode = getOption(interaction.data.options, 'compare_mode') as ComparisonMode | undefined;
+      const visibility = getOption(interaction.data.options, 'visibility') as AccountabilityVisibility | undefined;
+      const coachingShareability = getOption(interaction.data.options, 'coaching_shareability') as
+        | CoachingShareability
+        | undefined;
+      const recapPostMode = getOption(interaction.data.options, 'recap_post_mode') as RecapPostMode | undefined;
+
+      if (gameFamily) payload.defaultGameFamily = gameFamily;
+      if (compareMode) payload.compareModeDefault = compareMode;
+      if (visibility) payload.accountabilityVisibility = visibility;
+      if (coachingShareability) payload.coachingShareabilityDefault = coachingShareability;
+      if (recapPostMode) payload.recapPostModeDefault = recapPostMode;
+
+      await options.guildConfigStore.saveGuildConfig(interaction.guild_id, payload);
+
       return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: { content: 'Config saved (MVP placeholder).', flags: 64 },
+        data: {
+          content: formatConfigSaved(payload),
+          flags: 64,
+        },
       };
     }
 
@@ -87,28 +239,30 @@ export const handleInteraction = async (interaction: any, options: HandleOptions
     }
 
     if (interaction.data.name === 'report') {
-      const recap = interaction.data.options?.find((o: any) => o.name === 'recap');
-      const url = recap?.options?.find((o: any) => o.name === 'url')?.value;
-      if (!url || typeof url !== 'string') {
+      const url = getNestedOption(interaction.data.options, 'recap', 'url');
+      if (!url) {
         return {
           type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
           data: { content: 'Missing URL', flags: 64 },
         };
       }
 
-      const report = await options.wclClient.fetchAndNormalizeReport(url);
-      const summary = buildRecapSummary(report);
+      const report = await options.wclClient.fetchAndNormalizeReport(url, interaction.guild_id);
+      const previous = interaction.guild_id
+        ? await options.wclClient.findPreviousRaidSummaries(
+            interaction.guild_id,
+            new Date(report.startTime),
+            report.gameFamily,
+          )
+        : [];
+
+      const summary = buildRecapSummary(report, previous);
 
       return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
           flags: 64,
-          embeds: [
-            {
-              title: `Preview: ${summary.reportTitle}`,
-              description: `Bosses killed: ${summary.bossesKilled} • ${summary.gameFamily}`,
-            },
-          ],
+          embeds: [buildPublicRecapEmbed(summary)],
           components: [
             {
               type: 1,
@@ -116,7 +270,7 @@ export const handleInteraction = async (interaction: any, options: HandleOptions
                 {
                   type: MessageComponentTypes.BUTTON,
                   style: 1,
-                  custom_id: `${previewCustomId}:${report.reportCode}`,
+                  custom_id: `${previewCustomId}:${report.reportCode}:${encodeURIComponent(url)}`,
                   label: 'Post Recap',
                 },
               ],
@@ -127,18 +281,32 @@ export const handleInteraction = async (interaction: any, options: HandleOptions
     }
   }
 
-  if (interaction.type === InteractionType.MESSAGE_COMPONENT) {
-    const id: string = interaction.data.custom_id;
+  if (isMessageComponentInteraction(interaction)) {
+    const id = interaction.data.custom_id;
     if (id.startsWith(previewCustomId)) {
+      const [, , encodedUrl] = id.split(':');
+      if (!encodedUrl) {
+        return {
+          type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+          data: { content: 'Could not recover report URL from preview state.', flags: 64 },
+        };
+      }
+
+      const url = decodeURIComponent(encodedUrl);
+      const report = await options.wclClient.fetchAndNormalizeReport(url, interaction.guild_id);
+      const previous = interaction.guild_id
+        ? await options.wclClient.findPreviousRaidSummaries(
+            interaction.guild_id,
+            new Date(report.startTime),
+            report.gameFamily,
+          )
+        : [];
+      const summary = buildRecapSummary(report, previous);
+
       return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-          embeds: [
-            {
-              title: 'Raid Recap',
-              description: 'Recap posted from preview (MVP).',
-            },
-          ],
+          embeds: [buildPublicRecapEmbed(summary)],
         },
       };
     }
