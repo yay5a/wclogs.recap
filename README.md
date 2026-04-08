@@ -1,4 +1,4 @@
-# WCLogs Recap Discord Companion (MVP)
+# WCLogs Recap Discord Companion (MVP Hardening)
 
 Warcraft Logs-focused Discord companion app.
 
