@@ -1,4 +1,5 @@
 {
+<<<<<<< HEAD
   "data": {
     "reportData": {
       "report": {
@@ -21,4 +22,45 @@
       }
     }
   }
+=======
+    "data": {
+        "reportData": {
+            "report": {
+                "title": "Wed Raid Recap",
+                "startTime": 1712000000000,
+                "endTime": 1712007200000,
+                "zone": { "name": "Vault of the Incarnates" },
+                "fights": [
+                    {
+                        "id": 1,
+                        "name": "Eranog",
+                        "startTime": 1712000000000,
+                        "endTime": 1712001000000,
+                        "kill": true
+                    },
+                    {
+                        "id": 2,
+                        "name": "Terros",
+                        "startTime": 1712001100000,
+                        "endTime": 1712002200000,
+                        "kill": true
+                    },
+                    {
+                        "id": 3,
+                        "name": "Kurog",
+                        "startTime": 1712003000000,
+                        "endTime": 1712004200000,
+                        "kill": false
+                    }
+                ],
+                "masterData": {
+                    "actors": [
+                        { "id": 11, "name": "Alyra", "subType": "Paladin" },
+                        { "id": 12, "name": "Bronn", "subType": "Warrior" }
+                    ]
+                }
+            }
+        }
+    }
+>>>>>>> c1868b4 (generated framework through codex)
 }

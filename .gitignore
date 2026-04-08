@@ -1,5 +1,9 @@
 node_modules
 pnpm-lock.yaml
 dist
+<<<<<<< HEAD
 .env
+=======
+.env*
+>>>>>>> c1868b4 (generated framework through codex)
 coverage

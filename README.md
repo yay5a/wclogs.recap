@@ -1,4 +1,8 @@
+<<<<<<< HEAD
 # WCLogs Recap Discord Companion (MVP Hardening)
+=======
+# WCLogs Recap Discord Companion (MVP)
+>>>>>>> c1868b4 (generated framework through codex)
 
 Warcraft Logs-focused Discord companion app.
 
@@ -94,3 +98,10 @@ docker compose up --build
 - `pnpm test`
 - `pnpm dev:web`
 - `pnpm dev:worker`
+<<<<<<< HEAD
+=======
+
+| Column1 |
+| ------------- |
+| Item1 |
+>>>>>>> c1868b4 (generated framework through codex)

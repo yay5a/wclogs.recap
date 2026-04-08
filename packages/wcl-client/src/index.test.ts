@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 import { describe, expect, it } from 'vitest';
 import { normalizeReport, parseReportUrl, selectAdapter } from './index.js';
 import fixture from './fixtures/report-fixture.json' with { type: 'json' };
@@ -82,4 +83,23 @@ describe('normalizeReport', () => {
     expect(player?.performance.bestSingleBossParse).toBeUndefined();
     expect(player?.execution.executionScore).toBeUndefined();
   });
+=======
+import { describe, expect, it } from "vitest";
+import { parseReportUrl } from "./index.js";
+
+describe("parseReportUrl", () => {
+    it("detects retail by default", () => {
+        const parsed = parseReportUrl(
+            "https://www.warcraftlogs.com/reports/abc123?report=abc123",
+        );
+        expect(parsed.gameFamily).toBe("retail");
+    });
+
+    it("detects mop classic from path", () => {
+        const parsed = parseReportUrl(
+            "https://classic.warcraftlogs.com/reports/abc123?code=abc123",
+        );
+        expect(parsed.gameFamily).toBe("mop_classic");
+    });
+>>>>>>> c1868b4 (generated framework through codex)
 });
