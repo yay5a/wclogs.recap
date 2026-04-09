@@ -127,14 +127,25 @@ export const registerCommands = async (
         { name: "Analyze Log", type: 3 },
     ];
 
-    await fetch(`https://discord.com/api/v10/applications/${appId}/commands`, {
-        method: "PUT",
-        headers: {
-            Authorization: `Bot ${botToken}`,
-            "Content-Type": "application/json",
+    const response = await fetch(
+        `https://discord.com/api/v10/applications/${appId}/commands`,
+        {
+            method: "PUT",
+            headers: {
+                Authorization: `Bot ${botToken}`,
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(commands),
         },
-        body: JSON.stringify(commands),
-    });
+    );
+
+    const text = await response.text();
+
+    if (!response.ok) {
+        throw new Error(
+            `Discord command registration failed: ${response.status} ${response.statusText} - ${text}`,
+        );
+    }
 };
 
 export const handleInteraction = async (

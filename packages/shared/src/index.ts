@@ -1,29 +1,7 @@
-import pino from "pino";
+import pino, { type LoggerOptions } from "pino";
 import { z } from "zod";
 
-export const envSchema = z.object({
-    NODE_ENV: z
-        .enum(["development", "test", "production"])
-        .default("development"),
-    PORT: z.coerce.number().default(3000),
-    MONGODB_URI: z.string().url(),
-    DISCORD_PUBLIC_KEY: z.string().min(1),
-    DISCORD_APPLICATION_ID: z.string().min(1),
-    DISCORD_BOT_TOKEN: z.string().min(1),
-    WCL_CLIENT_ID: z.string().min(1),
-    WCL_CLIENT_SECRET: z.string().min(1),
-    WCL_API_BASE_URL: z
-        .string()
-        .url()
-        .default("https://www.warcraftlogs.com/api/v2/client"),
-});
-
-export type AppEnv = z.infer<typeof envSchema>;
-
-export const parseEnv = (rawEnv: NodeJS.ProcessEnv): AppEnv =>
-    envSchema.parse(rawEnv);
-
-export const logger = pino({
+const baseLoggerOptions: LoggerOptions = {
     redact: {
         paths: [
             "headers.authorization",
@@ -38,14 +16,21 @@ export const logger = pino({
         ],
         censor: "[REDACTED]",
     },
-});
+};
+
+export const logger = pino(baseLoggerOptions);
 
 export const createLogger = (name: string) => {
     if (process.env.NODE_ENV === "production") {
-        return pino({ name, level: "info" });
+        return pino({
+            ...baseLoggerOptions,
+            name,
+            level: "info",
+        });
     }
 
     return pino({
+        ...baseLoggerOptions,
         name,
         level: "debug",
         transport: {
@@ -54,6 +39,43 @@ export const createLogger = (name: string) => {
         },
     });
 };
+
+const trimmed = () => z.string().trim().min(1);
+
+export const envSchema = z.object({
+    NODE_ENV: z
+        .enum(["development", "test", "production"])
+        .default("development"),
+    PORT: z.coerce.number().default(3000),
+
+    MONGODB_URI: trimmed().url(),
+
+    DISCORD_PUBLIC_KEY: trimmed().regex(
+        /^[a-fA-F0-9]{64}$/,
+        "DISCORD_PUBLIC_KEY must be a 64-character hex string",
+    ),
+
+    DISCORD_APPLICATION_ID: trimmed().regex(
+        /^\d+$/,
+        "DISCORD_APPLICATION_ID must be numeric",
+    ),
+
+    DISCORD_BOT_TOKEN: trimmed().regex(
+        /^\S+$/,
+        "DISCORD_BOT_TOKEN must not contain whitespace",
+    ),
+
+    WCL_CLIENT_ID: trimmed(),
+    WCL_CLIENT_SECRET: trimmed(),
+    WCL_API_BASE_URL: trimmed()
+        .url()
+        .default("https://www.warcraftlogs.com/api/v2/client"),
+});
+
+export type AppEnv = z.infer<typeof envSchema>;
+
+export const parseEnv = (rawEnv: NodeJS.ProcessEnv): AppEnv =>
+    envSchema.parse(rawEnv);
 
 export type Result<T, E = Error> =
     | { ok: true; value: T }
