@@ -46,18 +46,17 @@ Warcraft Logs-focused Discord companion app.
 - Worker app with:
   - queue abstraction
   - MongoDB-backed job model polling scaffold
-  - future hooks for subscriptions/trend recompute jobs
+  - handler routing for `recompute_trends` and `sync_subscription` job types
+  - explicit retry surface via persisted `attempts`, `status`, and `lastError`
 
 ## Mocked / incomplete
 
 - Coaching and accountability view services are persistence-backed stubs and
   currently return placeholder payloads with TODO markers.
-- Trend recomputation stores placeholder snapshots for now; rolling-average and
-  improvement detection logic is a follow-up.
-- Post recap button currently uses in-memory preview state; durable interaction
-  state persistence is a follow-up.
 - Identity auto-link and candidate-review workflow boundaries are typed and
   modeled, but orchestration service is not fully implemented.
+- Identity merge decisioning is still intentionally incomplete: there is no
+  full human-review UI yet for adjudicating low-confidence merge candidates.
 
 ## Behavior notes
 
@@ -65,6 +64,42 @@ Warcraft Logs-focused Discord companion app.
   player is unavailable in the Warcraft Logs response, those fields are omitted.
 - `/config` now persists guild settings via Mongo and recap summaries consume
   those defaults at generation time.
+- Recap post actions rely on preview state generated from `/report recap`; if a
+  preview key is no longer present when **Post Recap** is clicked, the bot
+  returns an explicit "Preview state expired. Re-run /report recap." response.
+- Posting a recap triggers downstream recompute hooks (coaching/accountability
+  lookup + trend recompute call) before publishing the public embed.
+
+## Environment and config requirements
+
+- `PREVIEW_STATE_TTL_SECONDS` (new): required for deployments that use durable
+  preview persistence. This value should be set long enough to cover moderator
+  review windows, but short enough to prevent stale recap posts.
+- Worker job payload contract (new): queued jobs must include type-specific
+  payloads. At minimum:
+  - `recompute_trends`: `{ "guildId": "<discord guild id>" }`
+  - `sync_subscription`: `{ "guildId": "<discord guild id>", "source": "<provider>" }`
+  Jobs without required fields should be treated as invalid and marked failed.
+- Officer role configuration behavior:
+  - `officersRoleIds` should contain Discord role IDs authorized for
+    officer-scoped accountability visibility.
+  - If `accountabilityVisibility=officers-only` and `officersRoleIds` is empty,
+    treat content as restricted but effectively undistributable until officer
+    roles are configured.
+  - If visibility is `off` or `shareable`, `officersRoleIds` is ignored.
+
+## Operational caveats
+
+- Preview TTL expiration is expected behavior, not an error condition. If a
+  moderator attempts to post after TTL expiry, they must regenerate a preview
+  with `/report recap`.
+- Job reruns are not automatically idempotent unless handlers enforce it.
+  Operational reruns should use the same canonical guild/report identifiers and
+  validate existing snapshots before writing replacements.
+- Failed jobs remain persisted with `status=failed` and `lastError`; rerun
+  tooling should either:
+  1. enqueue a new job with corrected payload, or
+  2. manually reset a failed job to `pending` only after root-cause validation.
 
 ### Recap enrichment pipeline (phase 1)
 
@@ -92,10 +127,10 @@ command registration endpoint).
 
 1. Expand rankings extraction with report-table per-encounter granularity per
 game family.
-2. Add durable interaction preview state persistence for recap button flows.
-3. Implement coaching/advice generation rules and accountability narrative generation.
-4. Implement trend rolling windows and improvement detection jobs from raid history.
-5. Implement identity confidence scoring and candidate review queue.
+2. Implement coaching/advice generation rules and accountability narrative generation.
+3. Implement trend rolling windows and improvement detection jobs from raid history.
+4. Implement identity confidence scoring and candidate review queue.
+5. Build a full moderator-facing identity merge review UI/workflow.
 
 ## Local setup
 

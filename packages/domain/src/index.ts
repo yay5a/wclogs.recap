@@ -111,7 +111,11 @@ export interface RecapSummary {
     bestAverageParse?: { playerName: string; value: number; metric: string };
     bestExecution?: { playerName: string; value: number };
     mostImprovedPlayer?: { playerName: string; delta: number };
-    topOverallParsers: Array<{ playerName: string; value: number; metric: string }>;
+    topOverallParsers: Array<{
+        playerName: string;
+        value: number;
+        metric: string;
+    }>;
     bossHighlights: Array<{ bossName: string; fightId: number; text: string }>;
     raidSuperlatives: Array<{ label: string; text: string }>;
     teamNote: string;
@@ -145,6 +149,20 @@ const pushUniqueSuperlative = (
     target.push({ label, text });
 };
 
+const hasPlayerIdentity = (
+    entry: NormalizedLeaderboardEntry | undefined,
+): entry is NormalizedLeaderboardEntry & {
+    playerId: number;
+    playerName: string;
+} => typeof entry?.playerId === "number" && Boolean(entry.playerName);
+
+const hasBossFightLinkage = (
+    entry: NormalizedLeaderboardEntry | undefined,
+): entry is NormalizedLeaderboardEntry & {
+    bossName: string;
+    fightId: number;
+} => Boolean(entry?.bossName) && typeof entry?.fightId === "number";
+
 export const buildRecapSummary = (
     report: NormalizedReport,
     previousPlayers?: NormalizedPlayer[],
@@ -160,15 +178,14 @@ export const buildRecapSummary = (
     );
 
     // Metric assumption (phase 1): rankings(playerMetric: default) is treated as parse-like percentile.
-    const byReportValue = [...reportLeaderboard].sort((a, b) => b.value - a.value);
+    const byReportValue = [...reportLeaderboard].sort(
+        (a, b) => b.value - a.value,
+    );
     const byBossValue = [...bossLeaderboard].sort((a, b) => b.value - a.value);
 
     const byParseFallback = [...report.players]
         .filter((p) => typeof p.bestParse === "number")
         .sort((a, b) => (b.bestParse ?? 0) - (a.bestParse ?? 0));
-    const byAvgFallback = [...report.players]
-        .filter((p) => typeof p.avgParse === "number")
-        .sort((a, b) => (b.avgParse ?? 0) - (a.avgParse ?? 0));
     const byExec = [...report.players]
         .filter((p) => typeof p.executionScore === "number")
         .sort((a, b) => (b.executionScore ?? 0) - (a.executionScore ?? 0));
@@ -179,14 +196,18 @@ export const buildRecapSummary = (
             .map((player) => [player.actorId as number, player]),
     );
     const previousByName = new Map(
-        (previousPlayers ?? []).map((player) => [player.name.toLowerCase(), player]),
+        (previousPlayers ?? []).map((player) => [
+            player.name.toLowerCase(),
+            player,
+        ]),
     );
     const improved = report.players
         .map((player) => {
             const previous =
                 (typeof player.actorId === "number"
                     ? previousByActorId.get(player.actorId)
-                    : undefined) ?? previousByName.get(player.name.toLowerCase());
+                    : undefined) ??
+                previousByName.get(player.name.toLowerCase());
             if (
                 !previous ||
                 typeof player.avgParse !== "number" ||
@@ -194,9 +215,14 @@ export const buildRecapSummary = (
             ) {
                 return undefined;
             }
-            return { playerName: player.name, delta: player.avgParse - previous.avgParse };
+            return {
+                playerName: player.name,
+                delta: player.avgParse - previous.avgParse,
+            };
         })
-        .filter((value): value is { playerName: string; delta: number } => Boolean(value))
+        .filter((value): value is { playerName: string; delta: number } =>
+            Boolean(value),
+        )
         .sort((a, b) => b.delta - a.delta);
 
     const guildConfig = options?.guildConfig;
@@ -206,8 +232,10 @@ export const buildRecapSummary = (
         gameFamily: report.gameFamily,
         bossesKilled: killed,
         compareModeUsed: guildConfig?.compareModeDefault ?? "character",
-        accountabilityVisibility: guildConfig?.accountabilityVisibility ?? "off",
-        coachingShareability: guildConfig?.coachingShareabilityDefault ?? "private",
+        accountabilityVisibility:
+            guildConfig?.accountabilityVisibility ?? "off",
+        coachingShareability:
+            guildConfig?.coachingShareabilityDefault ?? "private",
         recapPostMode: guildConfig?.recapPostModeDefault ?? "preview-and-post",
         topOverallParsers: [],
         bossHighlights: [],
@@ -218,7 +246,7 @@ export const buildRecapSummary = (
     if (report.zoneName) summary.zoneName = report.zoneName;
 
     for (const entry of byReportValue.slice(0, 3)) {
-        if (!entry.playerName) continue;
+        if (!hasPlayerIdentity(entry)) continue;
         summary.topOverallParsers.push({
             playerName: entry.playerName,
             value: entry.value,
@@ -235,38 +263,25 @@ export const buildRecapSummary = (
         }
     }
 
-    const topReport = byReportValue[0];
-    if (topReport?.playerName) {
+    const topReport = byReportValue.find((entry) => hasPlayerIdentity(entry));
+    if (topReport) {
         summary.bestAverageParse = {
             playerName: topReport.playerName,
             value: topReport.value,
             metric: topReport.metric,
         };
-    } else if (byAvgFallback[0]) {
-        summary.bestAverageParse = {
-            playerName: byAvgFallback[0].name,
-            value: byAvgFallback[0].avgParse ?? 0,
-            metric: "avgParse",
-        };
     }
 
-    const topBoss = byBossValue[0];
-    if (topBoss?.playerName && topBoss.bossName && typeof topBoss.fightId === "number") {
+    const topBoss = byBossValue.find(
+        (entry) => hasPlayerIdentity(entry) && hasBossFightLinkage(entry),
+    );
+    if (topBoss) {
         summary.bestSingleBossParse = {
             playerName: topBoss.playerName,
             value: topBoss.value,
             bossName: topBoss.bossName,
             fightId: topBoss.fightId,
             metric: topBoss.metric,
-        };
-    } else if (byParseFallback[0]) {
-        const firstKilled = report.fights.find((fight) => fight.kill) ?? report.fights[0];
-        summary.bestSingleBossParse = {
-            playerName: byParseFallback[0].name,
-            value: byParseFallback[0].bestParse ?? 0,
-            bossName: firstKilled?.name ?? "Unknown Boss",
-            fightId: firstKilled?.id ?? 0,
-            metric: "bestParse",
         };
     }
 
@@ -284,9 +299,13 @@ export const buildRecapSummary = (
     for (const boss of report.bossPerformances ?? []) {
         const parts: string[] = [];
         if (boss.topDamage)
-            parts.push(`DPS ${boss.topDamage.playerName} (${boss.topDamage.value.toFixed(0)})`);
+            parts.push(
+                `DPS ${boss.topDamage.playerName} (${boss.topDamage.value.toFixed(0)})`,
+            );
         if (boss.topHealing)
-            parts.push(`HPS ${boss.topHealing.playerName} (${boss.topHealing.value.toFixed(0)})`);
+            parts.push(
+                `HPS ${boss.topHealing.playerName} (${boss.topHealing.value.toFixed(0)})`,
+            );
         if (boss.topInterrupts)
             parts.push(
                 `INT ${boss.topInterrupts.playerName} (${boss.topInterrupts.value.toFixed(0)})`,

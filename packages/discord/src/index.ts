@@ -3,6 +3,7 @@ import {
     InteractionType,
     MessageComponentTypes,
 } from "discord-interactions";
+import { randomUUID } from "node:crypto";
 import type {
     AccountabilityViewService,
     CoachingViewService,
@@ -16,9 +17,61 @@ import type { WclClient } from "@wcl/wcl-client";
 interface HandleOptions {
     wclClient: WclClient & Partial<PreviousRaidLookup>;
     guildConfigStore: GuildConfigStore;
+    recapPreviewStateService: RecapPreviewStateService;
     coachingViewService?: CoachingViewService;
     accountabilityViewService?: AccountabilityViewService;
     trendTrackingService?: TrendTrackingService;
+}
+
+type RecapSummary = ReturnType<typeof buildRecapSummary>;
+
+interface RecapPreviewSummary {
+    reportTitle: RecapSummary["reportTitle"];
+    reportDateISO: RecapSummary["reportDateISO"];
+    gameFamily: RecapSummary["gameFamily"];
+    bossesKilled: RecapSummary["bossesKilled"];
+    compareModeUsed: RecapSummary["compareModeUsed"];
+    accountabilityVisibility: RecapSummary["accountabilityVisibility"];
+    coachingShareability: RecapSummary["coachingShareability"];
+    recapPostMode: RecapSummary["recapPostMode"];
+    zoneName?: RecapSummary["zoneName"];
+    bestSingleBossParse?: RecapSummary["bestSingleBossParse"];
+    bestAverageParse?: RecapSummary["bestAverageParse"];
+    bestExecution?: RecapSummary["bestExecution"];
+    mostImprovedPlayer?: RecapSummary["mostImprovedPlayer"];
+    topOverallParsers: RecapSummary["topOverallParsers"];
+    bossHighlights: RecapSummary["bossHighlights"];
+    raidSuperlatives: RecapSummary["raidSuperlatives"];
+    teamNote: RecapSummary["teamNote"];
+}
+
+interface SavePreviewStateInput {
+    guildId: string;
+    channelId: string;
+    reportCode: string;
+    sourceUrl: string;
+    summaryPayload: RecapPreviewSummary;
+    createdByUserId: string;
+    customIdToken: string;
+    createdAt: Date;
+    expiresAt: Date;
+    interactionId?: string;
+    messageId?: string;
+}
+
+interface PreviewStateLookup {
+    customIdToken: string;
+    guildId: string;
+}
+
+type PreviewStateRecord = SavePreviewStateInput;
+
+export interface RecapPreviewStateService {
+    savePreviewState(input: SavePreviewStateInput): Promise<PreviewStateRecord>;
+    getValidPreviewState(
+        lookup: PreviewStateLookup,
+    ): Promise<PreviewStateRecord | null>;
+    deletePreviewState(lookup: PreviewStateLookup): Promise<void>;
 }
 
 export interface DiscordCommandOptionChoice {
@@ -76,15 +129,24 @@ const INTEGER_OPTION_TYPE = 4;
 const NUMBER_OPTION_TYPE = 10;
 const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 
+<<<<<<< ours
 const previewCustomId = "post_recap";
+=======
+const RECAP_COMPONENT_PREFIX = "recap:v1";
+const POST_RECAP_ACTION = "post";
+const OFFICERS_RECAP_ACTION = "officers";
 const recapState = new Map<string, ReturnType<typeof buildRecapSummary>>();
+>>>>>>> theirs
 const MAX_HIGHLIGHTS = 4;
+const PREVIEW_STATE_TTL_MS = 15 * 60_000;
 
 const toTitleCase = (value: string): string =>
     value
         .split(/[_-]/g)
         .map((part) =>
-            part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part,
+            part.length > 0
+                ? part.charAt(0).toUpperCase() + part.slice(1)
+                : part,
         )
         .join(" ");
 
@@ -100,6 +162,27 @@ const formatShortMetric = (metric: string): string =>
         .replace(/[_-]/g, " ")
         .trim();
 
+const makeRecapComponentCustomId = (
+    action: string,
+    reportCode: string,
+    guildId: string,
+): string => `${RECAP_COMPONENT_PREFIX}:${action}:${reportCode}:${guildId}`;
+
+const parseRecapComponentCustomId = (
+    customId: string,
+): { action: string; reportCode: string; guildId: string } | undefined => {
+    const [prefix, version, action, reportCode, guildId] = customId.split(":");
+    if (`${prefix}:${version}` !== RECAP_COMPONENT_PREFIX) return undefined;
+    if (!action || !reportCode || !guildId) return undefined;
+    return { action, reportCode, guildId };
+};
+
+const requiresOfficerDetails = (
+    summary: ReturnType<typeof buildRecapSummary>,
+): boolean =>
+    summary.accountabilityVisibility === "officers-only" ||
+    summary.coachingShareability === "private";
+
 interface DiscordInteractionData {
     name?: string;
     options?: unknown;
@@ -112,6 +195,9 @@ interface DiscordInteraction {
     token?: string;
     type?: number;
     guild_id?: string;
+    channel_id?: string;
+    member?: { user?: { id?: string } };
+    user?: { id?: string };
     data?: DiscordInteractionData;
 }
 
@@ -129,10 +215,16 @@ const logReportRecapStep = (
     });
 };
 
+<<<<<<< ours
 const buildRecapPreviewBody = (
+    summary: RecapSummary,
+    customIdToken: string,
+=======
+export const buildRecapPreviewBody = (
     summary: ReturnType<typeof buildRecapSummary>,
     reportCode: string,
     guildId: string,
+>>>>>>> theirs
 ) => ({
     flags: EPHEMERAL_MESSAGE_FLAG,
     embeds: [
@@ -142,10 +234,10 @@ const buildRecapPreviewBody = (
                 `Bosses killed: ${summary.bossesKilled} • ${formatGameFamilyLabel(summary.gameFamily)}`,
                 summary.bestAverageParse
                     ? `Best overall: ${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`
-                    : undefined,
+                    : "Best overall: n/a",
                 summary.bestSingleBossParse
                     ? `Best single boss: ${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)})`
-                    : undefined,
+                    : "Best single boss: n/a",
                 ...summary.raidSuperlatives
                     .slice(0, 2)
                     .map((entry) => `${entry.label}: ${entry.text}`),
@@ -161,13 +253,82 @@ const buildRecapPreviewBody = (
                 {
                     type: MessageComponentTypes.BUTTON,
                     style: 1,
-                    custom_id: `${previewCustomId}:${reportCode}:${guildId}`,
+<<<<<<< ours
+                    custom_id: `${previewCustomId}:${customIdToken}`,
+=======
+                    custom_id: makeRecapComponentCustomId(
+                        POST_RECAP_ACTION,
+                        reportCode,
+                        guildId,
+                    ),
+>>>>>>> theirs
                     label: "Post Recap",
                 },
             ],
         },
     ],
 });
+
+<<<<<<< ours
+const toRecapPreviewSummary = (summary: RecapSummary): RecapPreviewSummary => {
+    const compactSummary: RecapPreviewSummary = {
+        reportTitle: summary.reportTitle,
+        reportDateISO: summary.reportDateISO,
+        gameFamily: summary.gameFamily,
+        bossesKilled: summary.bossesKilled,
+        compareModeUsed: summary.compareModeUsed,
+        accountabilityVisibility: summary.accountabilityVisibility,
+        coachingShareability: summary.coachingShareability,
+        recapPostMode: summary.recapPostMode,
+        topOverallParsers: summary.topOverallParsers,
+        bossHighlights: summary.bossHighlights,
+        raidSuperlatives: summary.raidSuperlatives,
+        teamNote: summary.teamNote,
+    };
+    if (summary.zoneName) compactSummary.zoneName = summary.zoneName;
+    if (summary.bestSingleBossParse) {
+        compactSummary.bestSingleBossParse = summary.bestSingleBossParse;
+    }
+    if (summary.bestAverageParse) {
+        compactSummary.bestAverageParse = summary.bestAverageParse;
+    }
+    if (summary.bestExecution) {
+        compactSummary.bestExecution = summary.bestExecution;
+    }
+    if (summary.mostImprovedPlayer) {
+        compactSummary.mostImprovedPlayer = summary.mostImprovedPlayer;
+    }
+    return compactSummary;
+};
+=======
+const buildOfficerDetailsBody = (
+    summary: ReturnType<typeof buildRecapSummary>,
+) => ({
+    flags: EPHEMERAL_MESSAGE_FLAG,
+    embeds: [
+        {
+            title: `Officers: ${summary.reportTitle}`,
+            fields: [
+                {
+                    name: "Accountability Visibility",
+                    value: toTitleCase(summary.accountabilityVisibility),
+                    inline: true,
+                },
+                {
+                    name: "Coaching Shareability",
+                    value: toTitleCase(summary.coachingShareability),
+                    inline: true,
+                },
+                {
+                    name: "Restricted Notes",
+                    value:
+                        "Use accountability/coaching exports for officer review only.",
+                },
+            ],
+        },
+    ],
+});
+>>>>>>> theirs
 
 export const editOriginalInteractionResponse = async (
     applicationId: string,
@@ -215,6 +376,9 @@ const processReportRecapInteraction = async (
 ): Promise<void> => {
     const interactionId = interaction.id;
     const guildId = interaction.guild_id ?? "dm";
+    const channelId = interaction.channel_id ?? "unknown";
+    const createdByUserId =
+        interaction.member?.user?.id ?? interaction.user?.id ?? "unknown";
     const applicationId = interaction.application_id;
     const interactionToken = interaction.token;
 
@@ -264,13 +428,31 @@ const processReportRecapInteraction = async (
         });
         logReportRecapStep(interactionId, "summary_build", summaryBuildStart);
 
-        recapState.set(makeStateKey(report.reportCode, guildId), summary);
+        const customIdToken = randomUUID();
+        const createdAt = new Date();
+        const previewStateInput: SavePreviewStateInput = {
+            guildId,
+            channelId,
+            reportCode: report.reportCode,
+            sourceUrl: url,
+            summaryPayload: toRecapPreviewSummary(summary),
+            createdByUserId,
+            customIdToken,
+            createdAt,
+            expiresAt: new Date(createdAt.getTime() + PREVIEW_STATE_TTL_MS),
+        };
+        if (interactionId) {
+            previewStateInput.interactionId = interactionId;
+        }
+        await options.recapPreviewStateService.savePreviewState(
+            previewStateInput,
+        );
 
         const editStart = Date.now();
         await editOriginalInteractionResponse(
             applicationId,
             interactionToken,
-            buildRecapPreviewBody(summary, report.reportCode, guildId),
+            buildRecapPreviewBody(summary, customIdToken),
         );
         logReportRecapStep(interactionId, "original_response_edit", editStart);
     } catch (error) {
@@ -684,9 +866,6 @@ const getStringOption = (
     return typeof found?.value === "string" ? found.value : undefined;
 };
 
-const makeStateKey = (reportCode: string, guildId: string): string =>
-    `${reportCode}:${guildId}`;
-
 export const handleInteraction = async (
     interaction: unknown,
     options: HandleOptions,
@@ -812,43 +991,115 @@ export const handleInteraction = async (
 
     if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
         const id = typedInteraction.data?.custom_id;
+<<<<<<< ours
         if (typeof id === "string" && id.startsWith(previewCustomId)) {
-            const [, reportCode, guildId] = id.split(":");
-            if (!reportCode || !guildId) {
+            const [, customIdToken] = id.split(":");
+            const guildId = typedInteraction.guild_id ?? "dm";
+            if (!customIdToken) {
+=======
+        if (typeof id === "string") {
+            const parsedCustomId = parseRecapComponentCustomId(id);
+            if (!parsedCustomId) {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: { content: "Invalid recap state key.", flags: 64 },
+                    data: { content: "Unsupported interaction in MVP.", flags: 64 },
+                };
+            }
+            const { action, reportCode, guildId } = parsedCustomId;
+            if (!reportCode || !guildId) {
+>>>>>>> theirs
+                return {
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: { content: "Invalid recap preview button.", flags: 64 },
                 };
             }
 
-            const summary = recapState.get(makeStateKey(reportCode, guildId));
-            if (!summary) {
+            const previewState =
+                await options.recapPreviewStateService.getValidPreviewState({
+                    customIdToken,
+                    guildId,
+                });
+            if (!previewState) {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
-                        content: "Preview state expired. Re-run /report recap.",
+                        content:
+                            "This recap preview is no longer available. Please run /report recap again.",
                         flags: 64,
                     },
                 };
             }
 
+<<<<<<< ours
+            const summary = previewState.summaryPayload;
+=======
+            if (action === OFFICERS_RECAP_ACTION) {
+                if (!requiresOfficerDetails(summary)) {
+                    return {
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content: "Officer details are not enabled for this recap.",
+                            flags: EPHEMERAL_MESSAGE_FLAG,
+                        },
+                    };
+                }
+
+                return {
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: buildOfficerDetailsBody(summary),
+                };
+            }
+
+            if (action !== POST_RECAP_ACTION) {
+                return {
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: { content: "Unsupported recap action.", flags: 64 },
+                };
+            }
+
+>>>>>>> theirs
             await options.coachingViewService?.buildShareableCoachingView(
-                reportCode,
+                previewState.reportCode,
             );
             await options.accountabilityViewService?.buildAccountabilityView(
-                reportCode,
+                previewState.reportCode,
                 summary.accountabilityVisibility,
             );
             if (options.trendTrackingService) {
                 await options.trendTrackingService.recomputeTrendsForGuild(
-                    guildId,
+                    previewState.guildId,
                 );
             }
+            await options.recapPreviewStateService.deletePreviewState({
+                customIdToken,
+                guildId,
+            });
+
+            const components = requiresOfficerDetails(summary)
+                ? [
+                      {
+                          type: 1,
+                          components: [
+                              {
+                                  type: MessageComponentTypes.BUTTON,
+                                  style: 2,
+                                  custom_id: makeRecapComponentCustomId(
+                                      OFFICERS_RECAP_ACTION,
+                                      reportCode,
+                                      guildId,
+                                  ),
+                                  label: "Officers: Coaching & Accountability",
+                              },
+                          ],
+                      },
+                  ]
+                : undefined;
 
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
                     embeds: [buildPublicRecapEmbed(summary)],
+                    ...(components ? { components } : {}),
                 },
             };
         }
@@ -861,37 +1112,22 @@ export const handleInteraction = async (
 };
 
 export const buildPublicRecapEmbed = (
-    summary: ReturnType<typeof buildRecapSummary>,
+    summary: RecapPreviewSummary,
 ) => {
     const fields: Array<{ name: string; value: string; inline?: boolean }> = [
-        { name: "Report Date", value: summary.reportDateISO, inline: true },
         {
-            name: "Game Family",
-            value: formatGameFamilyLabel(summary.gameFamily),
-            inline: true,
-        },
-        {
-            name: "Bosses Killed",
-            value: String(summary.bossesKilled),
-            inline: true,
-        },
-        {
-            name: "Compare Mode",
-            value: toTitleCase(summary.compareModeUsed),
-            inline: true,
-        },
-        {
-            name: "Accountability",
-            value: toTitleCase(summary.accountabilityVisibility),
-            inline: true,
+            name: "Raid Facts",
+            value: [
+                `Date: ${summary.reportDateISO}`,
+                `Game: ${formatGameFamilyLabel(summary.gameFamily)}`,
+                `Bosses Killed: ${summary.bossesKilled}`,
+                `Compare Mode: ${toTitleCase(summary.compareModeUsed)}`,
+                summary.zoneName ? `Zone: ${summary.zoneName}` : undefined,
+            ]
+                .filter((line): line is string => Boolean(line))
+                .join("\n"),
         },
     ];
-    if (summary.zoneName)
-        fields.push({
-            name: "Raid/Zone",
-            value: summary.zoneName,
-            inline: true,
-        });
     if (summary.bestSingleBossParse)
         fields.push({
             name: "Best Single-Boss Parse",
@@ -912,23 +1148,11 @@ export const buildPublicRecapEmbed = (
             name: "Most Improved",
             value: `${summary.mostImprovedPlayer.playerName} (+${summary.mostImprovedPlayer.delta.toFixed(1)})`,
         });
-    if (summary.topOverallParsers.length > 0) {
-        fields.push({
-            name: "Top Overall Parsers",
-            value: summary.topOverallParsers
-                .slice(0, 3)
-                .map(
-                    (entry, index) =>
-                        `${index + 1}. ${entry.playerName} ${entry.value.toFixed(1)}`,
-                )
-                .join("\n"),
-        });
-    }
-    if (summary.bossHighlights.length > 0) {
+    if (summary.bossHighlights.length >= 2) {
+        const bossHighlights = summary.bossHighlights.slice(0, MAX_HIGHLIGHTS);
         fields.push({
             name: "Boss Highlights",
-            value: summary.bossHighlights
-                .slice(0, MAX_HIGHLIGHTS)
+            value: bossHighlights
                 .map(
                     (entry) =>
                         `${entry.bossName}: ${entry.text.substring(0, 90)}`,
@@ -938,7 +1162,7 @@ export const buildPublicRecapEmbed = (
     }
     if (summary.raidSuperlatives.length > 0) {
         fields.push({
-            name: "Raid Superlatives",
+            name: "Superlatives",
             value: summary.raidSuperlatives
                 .slice(0, 2)
                 .map((entry) => `${entry.label}: ${entry.text}`)

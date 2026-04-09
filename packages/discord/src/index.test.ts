@@ -6,6 +6,7 @@ import type {
     NormalizedReport,
 } from "@wcl/domain";
 import {
+    buildRecapPreviewBody,
     buildPublicRecapEmbed,
     buildDiscordCommandPayload,
     buildDiscordCommandPayloads,
@@ -293,6 +294,11 @@ describe("handleInteraction", () => {
             fetchAndNormalizeReport: vi.fn(),
             findPreviousRaidSummaries: vi.fn(),
         } as never;
+        const recapPreviewStateService = {
+            savePreviewState: vi.fn(),
+            getValidPreviewState: vi.fn(),
+            deletePreviewState: vi.fn(),
+        };
 
         const response = await handleInteraction(
             {
@@ -306,7 +312,7 @@ describe("handleInteraction", () => {
                     ],
                 },
             },
-            { wclClient, guildConfigStore },
+            { wclClient, guildConfigStore, recapPreviewStateService },
         );
 
         expect(saveGuildConfig).toHaveBeenCalledWith("guild-1", {
@@ -333,6 +339,41 @@ describe("handleInteraction", () => {
             fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
             findPreviousRaidSummaries: vi.fn().mockResolvedValue(previous),
         } as never;
+        const recapPreviewStateService = {
+            savePreviewState: vi.fn().mockResolvedValue(undefined),
+            getValidPreviewState: vi.fn().mockResolvedValue({
+                guildId: "guild-1",
+                channelId: "channel-1",
+                reportCode: "ABC123",
+                sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+                summaryPayload: {
+                    reportTitle: "Raid Night",
+                    reportDateISO: new Date(0).toISOString(),
+                    gameFamily: "retail",
+                    bossesKilled: 1,
+                    compareModeUsed: "mixed",
+                    accountabilityVisibility: "officers-only",
+                    coachingShareability: "shareable",
+                    recapPostMode: "preview-and-post",
+                    topOverallParsers: [],
+                    bossHighlights: [],
+                    raidSuperlatives: [],
+                    teamNote: "Team note",
+                },
+                createdByUserId: "user-1",
+                customIdToken: "token-1",
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 60_000),
+            }),
+            deletePreviewState: vi.fn().mockResolvedValue(undefined),
+        };
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            statusText: "OK",
+            text: vi.fn().mockResolvedValue("ok"),
+        });
+        vi.stubGlobal("fetch", fetchMock);
         const guildConfigStore: GuildConfigStore = {
             getGuildConfig: vi.fn().mockResolvedValue({
                 guildId: "guild-1",
@@ -344,10 +385,21 @@ describe("handleInteraction", () => {
             }),
             saveGuildConfig: vi.fn(),
         };
-        const preview = await handleInteraction(
+        const editFetch = vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi.fn().mockResolvedValue("ok"),
+        });
+        vi.stubGlobal("fetch", editFetch);
+
+        await handleInteraction(
             {
                 type: InteractionType.APPLICATION_COMMAND,
+                id: "interaction-1",
+                application_id: "app-1",
+                token: "token-1",
                 guild_id: "guild-1",
+                channel_id: "channel-1",
+                member: { user: { id: "user-1" } },
                 data: {
                     name: "report",
                     options: [
@@ -366,32 +418,50 @@ describe("handleInteraction", () => {
             {
                 wclClient,
                 guildConfigStore,
+                recapPreviewStateService,
                 coachingViewService,
                 accountabilityViewService,
                 trendTrackingService,
             },
         );
+<<<<<<< ours
+        expect((preview as { type: number }).type).toBeDefined();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
+        expect(fetchMock).toHaveBeenCalled();
+=======
 
-        const rawData = preview as {
-            data?: {
-                components?: Array<{
-                    components: Array<{ custom_id: string }>;
-                }>;
-            };
+        await Promise.resolve();
+        const patchCall = editFetch.mock.calls.find(
+            ([url]) =>
+                typeof url === "string" &&
+                url.includes("/webhooks/") &&
+                url.includes("/messages/@original"),
+        );
+        const body =
+            patchCall?.[1] &&
+            typeof patchCall[1] === "object" &&
+            "body" in (patchCall[1] as Record<string, unknown>)
+                ? (patchCall[1] as { body: string }).body
+                : "{}";
+        const previewBody = JSON.parse(body) as {
+            components?: Array<{ components?: Array<{ custom_id?: string }> }>;
         };
         const customId =
-            rawData.data?.components?.[0]?.components?.[0]?.custom_id;
-        expect(customId).toContain("post_recap:ABC123:guild-1");
+            previewBody.components?.[0]?.components?.[0]?.custom_id ?? "";
+        expect(customId).toContain("recap:v1:post:ABC123:guild-1");
+>>>>>>> theirs
 
         const posted = await handleInteraction(
             {
                 type: InteractionType.MESSAGE_COMPONENT,
                 guild_id: "guild-1",
-                data: { custom_id: customId ?? "" },
+                data: { custom_id: "post_recap:token-1" },
             },
             {
                 wclClient,
                 guildConfigStore,
+                recapPreviewStateService,
                 coachingViewService,
                 accountabilityViewService,
                 trendTrackingService,
@@ -402,11 +472,111 @@ describe("handleInteraction", () => {
             (posted as { data?: { embeds?: unknown[] } }).data?.embeds?.length,
         ).toBe(1);
         expect(
+            (posted as { data?: { components?: unknown[] } }).data?.components
+                ?.length,
+        ).toBe(1);
+        expect(
             coachingViewService.buildShareableCoachingView,
         ).toHaveBeenCalledWith("ABC123");
         expect(
             accountabilityViewService.buildAccountabilityView,
         ).toHaveBeenCalledWith("ABC123", "officers-only");
+        expect(recapPreviewStateService.deletePreviewState).toHaveBeenCalledWith(
+            { customIdToken: "token-1", guildId: "guild-1" },
+        );
+    });
+
+    it("returns an ephemeral error when preview state is missing or expired", async () => {
+        const recapPreviewStateService = {
+            savePreviewState: vi.fn(),
+            getValidPreviewState: vi.fn().mockResolvedValue(null),
+            deletePreviewState: vi.fn(),
+        };
+        const guildConfigStore: GuildConfigStore = {
+            getGuildConfig: vi.fn(),
+            saveGuildConfig: vi.fn(),
+        };
+        const wclClient = {
+            fetchAndNormalizeReport: vi.fn(),
+            findPreviousRaidSummaries: vi.fn(),
+        } as never;
+
+        const response = await handleInteraction(
+            {
+                type: InteractionType.MESSAGE_COMPONENT,
+                guild_id: "guild-1",
+                data: { custom_id: "post_recap:expired-token" },
+            },
+            { wclClient, guildConfigStore, recapPreviewStateService },
+        );
+
+        expect(response).toMatchObject({
+            type: expect.any(Number),
+            data: {
+                content:
+                    "This recap preview is no longer available. Please run /report recap again.",
+                flags: 64,
+            },
+        });
+    });
+
+    it("rejects officers-only details component when recap is unrestricted", async () => {
+        const report = makeReport();
+        const wclClient = {
+            fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
+            findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+        } as never;
+        const guildConfigStore: GuildConfigStore = {
+            getGuildConfig: vi.fn().mockResolvedValue({
+                guildId: "guild-1",
+                defaultGameFamily: "retail",
+                compareModeDefault: "mixed",
+                accountabilityVisibility: "off",
+                coachingShareabilityDefault: "shareable",
+                recapPostModeDefault: "preview-and-post",
+            }),
+            saveGuildConfig: vi.fn(),
+        };
+        const editFetch = vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi.fn().mockResolvedValue("ok"),
+        });
+        vi.stubGlobal("fetch", editFetch);
+
+        await handleInteraction(
+            {
+                type: InteractionType.APPLICATION_COMMAND,
+                guild_id: "guild-1",
+                data: {
+                    name: "report",
+                    options: [
+                        {
+                            name: "recap",
+                            options: [
+                                {
+                                    name: "url",
+                                    value: "https://www.warcraftlogs.com/reports/ABC123",
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+            { wclClient, guildConfigStore },
+        );
+        await Promise.resolve();
+
+        const restricted = await handleInteraction(
+            {
+                type: InteractionType.MESSAGE_COMPONENT,
+                guild_id: "guild-1",
+                data: { custom_id: "recap:v1:officers:ABC123:guild-1" },
+            },
+            { wclClient, guildConfigStore },
+        );
+        expect((restricted as { data?: { content?: string } }).data?.content).toMatch(
+            /not enabled/i,
+        );
     });
 });
 
@@ -434,21 +604,58 @@ describe("embed rendering", () => {
                 metric: "bestPercent",
             },
             bestExecution: { playerName: "Alyra", value: 90 },
-            topOverallParsers: [
-                { playerName: "Alyra", value: 95, metric: "bestPerformanceAverage" },
+            topOverallParsers: [],
+            bossHighlights: [
+                { bossName: "Boss", fightId: 1, text: "DPS Alyra (12345)" },
+                {
+                    bossName: "Boss 2",
+                    fightId: 2,
+                    text: "Execution win on mechanics",
+                },
             ],
-            bossHighlights: [{ bossName: "Boss", fightId: 1, text: "DPS Alyra (12345)" }],
             raidSuperlatives: [{ label: "Most deaths", text: "Alyra (1) on Boss" }],
             teamNote: "Team note",
         });
 
-        const fields = embed.fields.map((field) => field.name);
-        expect(fields).toContain("Game Family");
-        expect(embed.fields.find((field) => field.name === "Game Family")?.value).toBe(
-            "MoP Classic",
-        );
-        expect(fields).toContain("Boss Highlights");
-        expect(fields).toContain("Raid Superlatives");
+        expect(embed).toMatchInlineSnapshot(`
+          {
+            "fields": [
+              {
+                "name": "Raid Facts",
+                "value": "Date: 1970-01-01T00:00:00.000Z
+          Game: MoP Classic
+          Bosses Killed: 3
+          Compare Mode: Mixed",
+              },
+              {
+                "name": "Best Single-Boss Parse",
+                "value": "Alyra on Boss (99.0 best Percent)",
+              },
+              {
+                "name": "Best Average Parse",
+                "value": "Alyra (95.0 best Performance Average)",
+              },
+              {
+                "name": "Best Execution",
+                "value": "Alyra (90.0)",
+              },
+              {
+                "name": "Boss Highlights",
+                "value": "Boss: DPS Alyra (12345)
+          Boss 2: Execution win on mechanics",
+              },
+              {
+                "name": "Superlatives",
+                "value": "Most deaths: Alyra (1) on Boss",
+              },
+              {
+                "name": "Team Note",
+                "value": "Team note",
+              },
+            ],
+            "title": "Raid Night",
+          }
+        `);
     });
 
     it("degrades cleanly when optional fields are missing", () => {
@@ -462,13 +669,90 @@ describe("embed rendering", () => {
             coachingShareability: "private",
             recapPostMode: "preview-only",
             topOverallParsers: [],
-            bossHighlights: [],
+            bossHighlights: [{ bossName: "Boss", fightId: 1, text: "Only one" }],
             raidSuperlatives: [],
             teamNote: "Team note",
         });
 
-        const fields = embed.fields.map((field) => field.name);
-        expect(fields).not.toContain("Boss Highlights");
-        expect(fields).not.toContain("Raid Superlatives");
+        expect(embed).toMatchInlineSnapshot(`
+          {
+            "fields": [
+              {
+                "name": "Raid Facts",
+                "value": "Date: 1970-01-01T00:00:00.000Z
+          Game: Retail
+          Bosses Killed: 0
+          Compare Mode: Character",
+              },
+              {
+                "name": "Team Note",
+                "value": "Team note",
+              },
+            ],
+            "title": "Raid Night",
+          }
+        `);
+    });
+});
+
+describe("preview rendering", () => {
+    it("includes required compact preview lines", () => {
+        const body = buildRecapPreviewBody(
+            {
+                reportTitle: "Raid Night",
+                reportDateISO: new Date(0).toISOString(),
+                gameFamily: "retail",
+                bossesKilled: 2,
+                compareModeUsed: "mixed",
+                accountabilityVisibility: "officers-only",
+                coachingShareability: "private",
+                recapPostMode: "preview-and-post",
+                topOverallParsers: [],
+                bossHighlights: [],
+                raidSuperlatives: [
+                    { label: "Most Deaths", text: "Alyra (2)" },
+                    { label: "Top Damage", text: "Borin (12345)" },
+                    { label: "Ignored", text: "Will not render" },
+                ],
+                teamNote: "Team note",
+            },
+            "ABC123",
+            "guild-1",
+        );
+
+        const description =
+            (body.embeds?.[0] as { description?: string } | undefined)
+                ?.description ?? "";
+        expect(description).toContain("Bosses killed: 2");
+        expect(description).toContain("Best overall: n/a");
+        expect(description).toContain("Best single boss: n/a");
+        expect(description).toContain("Most Deaths: Alyra (2)");
+        expect(description).toContain("Top Damage: Borin (12345)");
+        expect(description).not.toContain("Ignored");
+    });
+
+    it("uses durable recap component ids for preview buttons", () => {
+        const body = buildRecapPreviewBody(
+            {
+                reportTitle: "Raid Night",
+                reportDateISO: new Date(0).toISOString(),
+                gameFamily: "retail",
+                bossesKilled: 2,
+                compareModeUsed: "mixed",
+                accountabilityVisibility: "officers-only",
+                coachingShareability: "private",
+                recapPostMode: "preview-and-post",
+                topOverallParsers: [],
+                bossHighlights: [],
+                raidSuperlatives: [],
+                teamNote: "Team note",
+            },
+            "ABC123",
+            "guild-1",
+        );
+
+        const customId =
+            body.components?.[0]?.components?.[0]?.custom_id ?? "";
+        expect(customId).toBe("recap:v1:post:ABC123:guild-1");
     });
 });

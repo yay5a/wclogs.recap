@@ -6,6 +6,7 @@ import {
     MongoAccountabilityViewService,
     MongoCoachingViewService,
     MongoGuildConfigStore,
+    MongoRecapPreviewStateStore,
     MongoTrendTrackingService,
 } from "@wcl/db";
 import {
@@ -48,6 +49,7 @@ const wclClient = new WclClient({
 });
 
 const guildConfigStore = new MongoGuildConfigStore();
+const recapPreviewStateService = new MongoRecapPreviewStateStore();
 const coachingViewService = new MongoCoachingViewService();
 const accountabilityViewService = new MongoAccountabilityViewService();
 const trendTrackingService = new MongoTrendTrackingService();
@@ -99,6 +101,7 @@ app.post(
             const response = await handleInteraction(body, {
                 wclClient,
                 guildConfigStore,
+                recapPreviewStateService,
                 coachingViewService,
                 accountabilityViewService,
                 trendTrackingService,

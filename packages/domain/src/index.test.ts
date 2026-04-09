@@ -9,7 +9,9 @@ describe("buildRecapSummary", () => {
             startTime: Date.now(),
             endTime: Date.now(),
             gameFamily: "retail",
-            fights: [{ id: 7, name: "Kazz", startTime: 0, endTime: 1, kill: true }],
+            fights: [
+                { id: 7, name: "Kazz", startTime: 0, endTime: 1, kill: true },
+            ],
             players: [{ id: "1", actorId: 1, name: "A" }],
             leaderboards: [
                 {
@@ -31,7 +33,10 @@ describe("buildRecapSummary", () => {
             ],
         });
 
-        expect(summary.bestSingleBossParse).toMatchObject({ bossName: "Kazz", fightId: 7 });
+        expect(summary.bestSingleBossParse).toMatchObject({
+            bossName: "Kazz",
+            fightId: 7,
+        });
         expect(summary.bossHighlights.length).toBeGreaterThan(0);
     });
 
@@ -42,11 +47,14 @@ describe("buildRecapSummary", () => {
             startTime: Date.now(),
             endTime: Date.now(),
             gameFamily: "retail",
-            fights: [{ id: 1, name: "Boss", startTime: 0, endTime: 1, kill: true }],
+            fights: [
+                { id: 1, name: "Boss", startTime: 0, endTime: 1, kill: true },
+            ],
             players: [{ id: "1", name: "Alyra", executionScore: 88 }],
             leaderboards: [
                 {
                     scope: "report",
+                    playerId: 1,
                     playerName: "Alyra",
                     metric: "bestPerformanceAverage",
                     value: 95,
@@ -78,5 +86,37 @@ describe("buildRecapSummary", () => {
 
         expect(summary.bestSingleBossParse).toBeUndefined();
         expect(summary.topOverallParsers).toEqual([]);
+    });
+    it("omits optional parse fields when leaderboard linkage is ambiguous", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.now(),
+            endTime: Date.now(),
+            gameFamily: "retail",
+            fights: [
+                { id: 10, name: "Boss", startTime: 0, endTime: 1, kill: true },
+            ],
+            players: [{ id: "1", name: "Alyra", bestParse: 99, avgParse: 97 }],
+            leaderboards: [
+                {
+                    scope: "report",
+                    playerName: "Alyra",
+                    metric: "bestPerformanceAverage",
+                    value: 95,
+                },
+                {
+                    scope: "boss",
+                    bossName: "Boss",
+                    fightId: 10,
+                    playerName: "Alyra",
+                    metric: "bestPercent",
+                    value: 98.5,
+                },
+            ],
+        });
+
+        expect(summary.bestAverageParse).toBeUndefined();
+        expect(summary.bestSingleBossParse).toBeUndefined();
     });
 });

@@ -1,4 +1,4 @@
-import { JobModel, connectMongo } from "@wcl/db";
+import { JobModel, MongoTrendTrackingService, connectMongo } from "@wcl/db";
 import { createLogger, parseEnv } from "@wcl/shared";
 import { loadEnvFile } from "node:process";
 import { existsSync } from "node:fs";
@@ -41,10 +41,35 @@ class MongoQueue implements Queue {
 }
 
 const queue = new MongoQueue();
+const trendTrackingService = new MongoTrendTrackingService();
+
+type RecomputeTrendsPayload = {
+    guildId: string;
+};
+
+const parseRecomputeTrendsPayload = (payload: unknown): RecomputeTrendsPayload => {
+    if (!payload || typeof payload !== "object") {
+        throw new Error("Invalid recompute_trends payload: expected object");
+    }
+
+    const candidate = payload as Record<string, unknown>;
+    const guildId = candidate.guildId;
+
+    if (typeof guildId !== "string" || guildId.trim().length === 0) {
+        throw new Error(
+            "Invalid recompute_trends payload: guildId must be a non-empty string",
+        );
+    }
+
+    return { guildId: guildId.trim() };
+};
 
 const handlers: Record<string, (payload: any) => Promise<void>> = {
-    recompute_trends: async () => {
-        // TODO: trend recomputation service integration
+    recompute_trends: async (payload: unknown) => {
+        const { guildId } = parseRecomputeTrendsPayload(payload);
+        logger.info({ guildId }, "recompute_trends started");
+        await trendTrackingService.recomputeTrendsForGuild(guildId);
+        logger.info({ guildId }, "recompute_trends completed");
     },
     sync_subscription: async () => {
         // TODO: subscription sync integration
