@@ -370,20 +370,16 @@ export class DiscordCommandRegistrationError extends Error {
     }
 }
 
-export const registerCommands = async (
+const registerCommandSet = async (
     appId: string,
     botToken: string,
-    options?: { guildId?: string },
+    targetScope: "global" | "guild",
+    endpoint: string,
+    guildId?: string,
 ): Promise<void> => {
     const payload = buildDiscordCommandPayloads(commandDefinitions);
-    const guildId = options?.guildId?.trim();
-    const targetScope = guildId ? "guild" : "global";
-    const endpoint = guildId
-        ? `${DISCORD_API_BASE_URL}/applications/${appId}/guilds/${guildId}/commands`
-        : `${DISCORD_API_BASE_URL}/applications/${appId}/commands`;
 
     console.info("registering Discord commands", {
-        targetScope,
         guildId: guildId ?? null,
         payloadCount: payload.length,
         commands: payload.map((command) => ({
@@ -424,6 +420,38 @@ export const registerCommands = async (
             },
         );
     }
+};
+
+export const registerGlobalCommands = async (
+    appId: string,
+    botToken: string,
+): Promise<void> =>
+    registerCommandSet(
+        appId,
+        botToken,
+        "global",
+        `${DISCORD_API_BASE_URL}/applications/${appId}/commands`,
+    );
+
+export const registerGuildCommands = async (
+    appId: string,
+    botToken: string,
+    guildId: string,
+): Promise<void> => {
+    const normalizedGuildId = guildId.trim();
+    if (!normalizedGuildId) {
+        throw new Error(
+            "Command validation failed: guildId is required for guild command registration.",
+        );
+    }
+
+    return registerCommandSet(
+        appId,
+        botToken,
+        "guild",
+        `${DISCORD_API_BASE_URL}/applications/${appId}/guilds/${normalizedGuildId}/commands`,
+        normalizedGuildId,
+    );
 };
 
 const getStringOption = (

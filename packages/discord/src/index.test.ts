@@ -10,7 +10,8 @@ import {
     buildDiscordCommandPayloads,
     DiscordCommandRegistrationError,
     handleInteraction,
-    registerCommands,
+    registerGlobalCommands,
+    registerGuildCommands,
 } from "./index.js";
 
 const makeReport = (): NormalizedReport => ({
@@ -188,7 +189,22 @@ describe("command payload builder", () => {
     });
 });
 
-describe("registerCommands", () => {
+describe("command registration endpoints", () => {
+    it("registers global commands to the global endpoint", async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi.fn().mockResolvedValue("ok"),
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await registerGlobalCommands("app123", "token123");
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            "https://discord.com/api/v10/applications/app123/commands",
+            expect.objectContaining({ method: "PUT" }),
+        );
+    });
+
     it("registers guild commands when guildId is provided", async () => {
         const fetchMock = vi.fn().mockResolvedValue({
             ok: true,
@@ -196,12 +212,18 @@ describe("registerCommands", () => {
         });
         vi.stubGlobal("fetch", fetchMock);
 
-        await registerCommands("app123", "token123", { guildId: "guild456" });
+        await registerGuildCommands("app123", "token123", "guild456");
 
         expect(fetchMock).toHaveBeenCalledWith(
             "https://discord.com/api/v10/applications/app123/guilds/guild456/commands",
             expect.objectContaining({ method: "PUT" }),
         );
+    });
+
+    it("rejects blank guild id for guild registration", async () => {
+        await expect(
+            registerGuildCommands("app123", "token123", "   "),
+        ).rejects.toThrow(/guildId is required/i);
     });
 
     it("surfaces Discord error details", async () => {
@@ -212,9 +234,8 @@ describe("registerCommands", () => {
             text: vi.fn().mockResolvedValue('{"message":"Invalid Form Body"}'),
         });
         vi.stubGlobal("fetch", fetchMock);
-
         await expect(
-            registerCommands("app123", "token123"),
+            registerGlobalCommands("app123", "token123"),
         ).rejects.toMatchObject({
             name: "DiscordCommandRegistrationError",
             details: expect.objectContaining({

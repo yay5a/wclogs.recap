@@ -11,7 +11,8 @@ import {
 import {
     DiscordCommandRegistrationError,
     handleInteraction,
-    registerCommands,
+    registerGlobalCommands,
+    registerGuildCommands,
 } from "@wcl/discord";
 import { createLogger, parseEnv } from "@wcl/shared";
 import { WclClient } from "@wcl/wcl-client";
@@ -127,13 +128,18 @@ app.post("/discord/register-commands", async (req, reply) => {
         const guildId =
             pickGuildId(query?.guildId) ?? pickGuildId(body?.guildId);
 
-        await registerCommands(
-            env.DISCORD_APPLICATION_ID,
-            env.DISCORD_BOT_TOKEN,
-            {
+        if (guildId) {
+            await registerGuildCommands(
+                env.DISCORD_APPLICATION_ID,
+                env.DISCORD_BOT_TOKEN,
                 guildId,
-            },
-        );
+            );
+        } else {
+            await registerGlobalCommands(
+                env.DISCORD_APPLICATION_ID,
+                env.DISCORD_BOT_TOKEN,
+            );
+        }
 
         return reply.send({
             status: "registered",
