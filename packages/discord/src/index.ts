@@ -247,13 +247,18 @@ const processReportRecapInteraction = async (
             interactionId,
             guildId,
         });
+        const errorMessage =
+            error instanceof Error ? error.message.toLowerCase() : "";
+        const userFacingContent = errorMessage.includes("report code")
+            ? "I couldn't find a Warcraft Logs report code in that URL. Paste the full report link."
+            : "Could not build recap preview for that report. Please verify the URL and try again.";
+
         await safeEditOriginalInteractionResponse(
             applicationId,
             interactionToken,
             {
                 flags: EPHEMERAL_MESSAGE_FLAG,
-                content:
-                    "Could not build recap preview for that report. Please verify the URL and try again.",
+                content: userFacingContent,
             },
         );
     }
@@ -749,6 +754,10 @@ export const handleInteraction = async (
                     (o as { name?: unknown }).name === "recap",
             ) as { options?: unknown } | undefined;
             const url = getStringOption(recap?.options, "url");
+            console.info("report recap url received", {
+                interactionId: typedInteraction.id,
+                rawUrl: url ?? null,
+            });
 
             if (!url || typeof url !== "string") {
                 return {

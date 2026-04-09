@@ -14,11 +14,62 @@ export interface ParsedReportUrl {
     rawUrl: string;
 }
 
+const REPORT_CODE_PATTERN = /^[A-Za-z0-9]+$/;
+
+export const normalizeReportUrlInput = (raw: string): string => {
+    const trimmed = raw.trim();
+    if (!trimmed) {
+        throw new Error("Report URL is empty");
+    }
+
+    if (trimmed.startsWith("<") && trimmed.endsWith(">")) {
+        const unwrapped = trimmed.slice(1, -1).trim();
+        if (!unwrapped) {
+            throw new Error("Report URL is empty");
+        }
+        return unwrapped;
+    }
+
+    return trimmed;
+};
+
+const extractReportCodeFromPath = (pathname: string): string | undefined => {
+    const segments = pathname
+        .split("/")
+        .map((segment) => segment.trim())
+        .filter((segment) => segment.length > 0);
+
+    for (let i = 0; i < segments.length - 1; i += 1) {
+        const segment = segments[i]?.toLowerCase();
+        if (segment !== "reports" && segment !== "report") continue;
+
+        const candidate = decodeURIComponent(segments[i + 1] ?? "").trim();
+        if (candidate && REPORT_CODE_PATTERN.test(candidate)) {
+            return candidate;
+        }
+    }
+
+    return undefined;
+};
+
 export const parseReportUrl = (url: string): ParsedReportUrl => {
-    const parsed = new URL(url);
-    const reportCode =
+    const normalizedInput = normalizeReportUrlInput(url);
+    let parsed: URL;
+    try {
+        parsed = new URL(normalizedInput);
+    } catch {
+        throw new Error("Invalid Warcraft Logs report URL");
+    }
+    const queryReportCode =
         parsed.searchParams.get("report") ?? parsed.searchParams.get("code");
-    if (!reportCode) throw new Error("Missing report code in WCL URL");
+    const reportCode =
+        queryReportCode?.trim() || extractReportCodeFromPath(parsed.pathname);
+    if (!reportCode || !REPORT_CODE_PATTERN.test(reportCode)) {
+        throw new Error(
+            "Could not find a Warcraft Logs report code in the URL",
+        );
+    }
+
     const lowerHost = parsed.hostname.toLowerCase();
     const lowerPath = parsed.pathname.toLowerCase();
     const gameFamily: GameFamily =
@@ -27,7 +78,7 @@ export const parseReportUrl = (url: string): ParsedReportUrl => {
         lowerPath.includes("mop")
             ? "mop_classic"
             : "retail";
-    return { reportCode, gameFamily, rawUrl: url };
+    return { reportCode, gameFamily, rawUrl: normalizedInput };
 };
 
 const REPORT_QUERY = gql`
