@@ -1,14 +1,15 @@
 FROM node:24-alpine
-WORKDIR /app
+    WORKDIR /app
 
-ENV CI=true
+    ENV CI=true
 
-RUN corepack enable
-RUN pnpm config set confirmModulesPurge false
+    RUN corepack enable
+    RUN pnpm config set confirmModulesPurge false
 
-COPY . .
+    COPY . .
 
-RUN pnpm install --frozen-lockfile=false
-RUN pnpm --filter @wcl/worker build
+    RUN pnpm install --frozen-lockfile=false
+    # Build all packages in the workspace, ensuring shared packages are compiled before starting the worker.
+    RUN pnpm -r build
 
-CMD ["pnpm", "--filter", "@wcl/worker", "start"]
+    CMD ["pnpm", "--filter", "@wcl/worker", "start"]
