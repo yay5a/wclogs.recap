@@ -18,6 +18,7 @@
         "@wcl/wcl-client": "workspace:*",
         "discord-interactions": "^4.1.0",
         "dotenv": "^17.4.1",
-        "fastify": "^5.2.1"
+        "fastify": "^5.2.1",
+        "fastify-raw-body": "^5.0.0"
     }
 }

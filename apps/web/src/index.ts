@@ -1,4 +1,5 @@
 import Fastify from "fastify";
+import fastifyRawBody from "fastify-raw-body";
 import { verifyKey } from "discord-interactions";
 import {
     connectMongo,
@@ -28,6 +29,13 @@ const env = parseEnv(process.env);
 const logger = createLogger("web");
 const app = Fastify({ logger: false });
 
+await app.register(fastifyRawBody, {
+    field: "rawBody",
+    global: false,
+    encoding: "utf8",
+    runFirst: true,
+});
+
 const wclClient = new WclClient({
     clientId: env.WCL_CLIENT_ID,
     clientSecret: env.WCL_CLIENT_SECRET,
@@ -38,38 +46,63 @@ const guildConfigStore = new MongoGuildConfigStore();
 const coachingViewService = new MongoCoachingViewService();
 const accountabilityViewService = new MongoAccountabilityViewService();
 const trendTrackingService = new MongoTrendTrackingService();
+
 app.get("/health", async () => ({ status: "ok" }));
 
-app.post("/discord/interactions", async (req, reply) => {
-    try {
-        const signature = req.headers["x-signature-ed25519"];
-        const timestamp = req.headers["x-signature-timestamp"];
-        if (typeof signature !== "string" || typeof timestamp !== "string") {
-            return reply.code(401).send({ error: "Missing Discord headers" });
-        }
+app.post(
+    "/discord/interactions",
+    {
+        config: {
+            rawBody: true,
+        },
+    },
+    async (req, reply) => {
+        try {
+            const signature = req.headers["x-signature-ed25519"];
+            const timestamp = req.headers["x-signature-timestamp"];
+            if (
+                typeof signature !== "string" ||
+                typeof timestamp !== "string"
+            ) {
+                return reply
+                    .code(401)
+                    .send({ error: "Missing Discord headers" });
+            }
 
-        const rawBody = JSON.stringify(req.body);
-        const isValid = verifyKey(
-            rawBody,
-            signature,
-            timestamp,
-            env.DISCORD_PUBLIC_KEY,
-        );
-        if (!isValid)
-            return reply.code(401).send({ error: "Invalid signature" });
-        const response = await handleInteraction(req.body, {
-            wclClient,
-            guildConfigStore,
-            coachingViewService,
-            accountabilityViewService,
-            trendTrackingService,
-        });
-        return reply.send(response);
-    } catch (error) {
-        logger.error({ error }, "interaction handling failed");
-        return reply.code(500).send({ error: "Internal server error" });
-    }
-});
+            const rawBody =
+                typeof (req as { rawBody?: unknown }).rawBody === "string"
+                    ? (req as { rawBody: string }).rawBody
+                    : "";
+            const isValid = verifyKey(
+                rawBody,
+                signature,
+                timestamp,
+                env.DISCORD_PUBLIC_KEY,
+            );
+
+            if (!isValid)
+                return reply.code(401).send({ error: "Invalid signature" });
+
+            const body = req.body as Record<string, unknown>;
+
+            if (body?.type === 1) {
+                return reply.code(200).send({ type: 1 });
+            }
+
+            const response = await handleInteraction(body, {
+                wclClient,
+                guildConfigStore,
+                coachingViewService,
+                accountabilityViewService,
+                trendTrackingService,
+            });
+            return reply.send(response);
+        } catch (error) {
+            logger.error({ error }, "interaction handling failed");
+            return reply.code(500).send({ error: "Internal server error" });
+        }
+    },
+);
 
 app.post("/discord/register-commands", async (_req, reply) => {
     try {
