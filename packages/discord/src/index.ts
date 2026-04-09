@@ -70,6 +70,7 @@ export type CommandDefinition =
     | MessageCommandDefinition;
 
 const DISCORD_API_BASE_URL = "https://discord.com/api/v10";
+const EPHEMERAL_MESSAGE_FLAG = 64;
 const STRING_OPTION_TYPE = 3;
 const INTEGER_OPTION_TYPE = 4;
 const NUMBER_OPTION_TYPE = 10;
@@ -77,6 +78,186 @@ const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 
 const previewCustomId = "post_recap";
 const recapState = new Map<string, ReturnType<typeof buildRecapSummary>>();
+
+interface DiscordInteractionData {
+    name?: string;
+    options?: unknown;
+    custom_id?: string;
+}
+
+interface DiscordInteraction {
+    id?: string;
+    application_id?: string;
+    token?: string;
+    type?: number;
+    guild_id?: string;
+    data?: DiscordInteractionData;
+}
+
+const toDurationMs = (startedAt: number): number => Date.now() - startedAt;
+
+const logReportRecapStep = (
+    interactionId: string | undefined,
+    step: string,
+    startedAt: number,
+) => {
+    console.info("report recap step complete", {
+        interactionId,
+        step,
+        durationMs: toDurationMs(startedAt),
+    });
+};
+
+const buildRecapPreviewBody = (
+    summary: ReturnType<typeof buildRecapSummary>,
+    reportCode: string,
+    guildId: string,
+) => ({
+    flags: EPHEMERAL_MESSAGE_FLAG,
+    embeds: [
+        {
+            title: `Preview: ${summary.reportTitle}`,
+            description:
+                `Bosses killed: ${summary.bossesKilled} • ${summary.gameFamily}` +
+                ` • compare=${summary.compareModeUsed}`,
+        },
+    ],
+    components: [
+        {
+            type: 1,
+            components: [
+                {
+                    type: MessageComponentTypes.BUTTON,
+                    style: 1,
+                    custom_id: `${previewCustomId}:${reportCode}:${guildId}`,
+                    label: "Post Recap",
+                },
+            ],
+        },
+    ],
+});
+
+export const editOriginalInteractionResponse = async (
+    applicationId: string,
+    token: string,
+    body: unknown,
+): Promise<void> => {
+    const response = await fetch(
+        `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}/messages/@original`,
+        {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify(body),
+        },
+    );
+
+    if (!response.ok) {
+        const errorBody = await response.text();
+        throw new Error(
+            `Failed to edit original interaction response: ${response.status} ${response.statusText} ${errorBody}`,
+        );
+    }
+};
+
+export const safeEditOriginalInteractionResponse = async (
+    applicationId: string,
+    token: string,
+    body: unknown,
+): Promise<void> => {
+    try {
+        await editOriginalInteractionResponse(applicationId, token, body);
+    } catch (error) {
+        console.error("failed to edit original interaction response", {
+            error,
+            applicationId,
+        });
+    }
+};
+
+const processReportRecapInteraction = async (
+    interaction: DiscordInteraction,
+    options: HandleOptions,
+    url: string,
+): Promise<void> => {
+    const interactionId = interaction.id;
+    const guildId = interaction.guild_id ?? "dm";
+    const applicationId = interaction.application_id;
+    const interactionToken = interaction.token;
+
+    if (!applicationId || !interactionToken) {
+        console.error("report recap missing application id or token", {
+            interactionId,
+            applicationIdPresent: Boolean(applicationId),
+            tokenPresent: Boolean(interactionToken),
+        });
+        return;
+    }
+
+    try {
+        const guildConfigStart = Date.now();
+        const guildConfig =
+            await options.guildConfigStore.getGuildConfig(guildId);
+        logReportRecapStep(
+            interactionId,
+            "guild_config_load",
+            guildConfigStart,
+        );
+
+        const reportFetchStart = Date.now();
+        const report = await options.wclClient.fetchAndNormalizeReport(url);
+        logReportRecapStep(
+            interactionId,
+            "report_fetch_normalize",
+            reportFetchStart,
+        );
+
+        const previousLookupStart = Date.now();
+        const previousPlayers = options.wclClient.findPreviousRaidSummaries
+            ? await options.wclClient.findPreviousRaidSummaries(
+                  guildId,
+                  new Date(report.startTime),
+              )
+            : [];
+        logReportRecapStep(
+            interactionId,
+            "previous_raid_summary_lookup",
+            previousLookupStart,
+        );
+
+        const summaryBuildStart = Date.now();
+        const summary = buildRecapSummary(report, previousPlayers, {
+            guildConfig,
+        });
+        logReportRecapStep(interactionId, "summary_build", summaryBuildStart);
+
+        recapState.set(makeStateKey(report.reportCode, guildId), summary);
+
+        const editStart = Date.now();
+        await editOriginalInteractionResponse(
+            applicationId,
+            interactionToken,
+            buildRecapPreviewBody(summary, report.reportCode, guildId),
+        );
+        logReportRecapStep(interactionId, "original_response_edit", editStart);
+    } catch (error) {
+        console.error("report recap processing failed", {
+            error,
+            interactionId,
+            guildId,
+        });
+        await safeEditOriginalInteractionResponse(
+            applicationId,
+            interactionToken,
+            {
+                flags: EPHEMERAL_MESSAGE_FLAG,
+                content:
+                    "Could not build recap preview for that report. Please verify the URL and try again.",
+            },
+        );
+    }
+};
 
 const commandTypeLabel = (type: CommandDefinition["type"]): string => {
     switch (type) {
@@ -473,15 +654,7 @@ export const handleInteraction = async (
     interaction: unknown,
     options: HandleOptions,
 ): Promise<unknown> => {
-    const typedInteraction = interaction as {
-        type?: number;
-        guild_id?: string;
-        data?: {
-            name?: string;
-            options?: unknown;
-            custom_id?: string;
-        };
-    };
+    const typedInteraction = interaction as DiscordInteraction;
 
     if (typedInteraction.type === InteractionType.PING) {
         return { type: InteractionResponseType.PONG };
@@ -580,50 +753,17 @@ export const handleInteraction = async (
             if (!url || typeof url !== "string") {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: { content: "Missing URL", flags: 64 },
+                    data: {
+                        content: "Missing URL",
+                        flags: EPHEMERAL_MESSAGE_FLAG,
+                    },
                 };
             }
-
-            const guildId = typedInteraction.guild_id ?? "dm";
-            const guildConfig =
-                await options.guildConfigStore.getGuildConfig(guildId);
-            const report = await options.wclClient.fetchAndNormalizeReport(url);
-            const previousPlayers = options.wclClient.findPreviousRaidSummaries
-                ? await options.wclClient.findPreviousRaidSummaries(
-                      guildId,
-                      new Date(report.startTime),
-                  )
-                : [];
-            const summary = buildRecapSummary(report, previousPlayers, {
-                guildConfig,
-            });
-
-            recapState.set(makeStateKey(report.reportCode, guildId), summary);
+            void processReportRecapInteraction(typedInteraction, options, url);
             return {
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    flags: 64,
-                    embeds: [
-                        {
-                            title: `Preview: ${summary.reportTitle}`,
-                            description:
-                                `Bosses killed: ${summary.bossesKilled} • ${summary.gameFamily}` +
-                                ` • compare=${summary.compareModeUsed}`,
-                        },
-                    ],
-                    components: [
-                        {
-                            type: 1,
-                            components: [
-                                {
-                                    type: MessageComponentTypes.BUTTON,
-                                    style: 1,
-                                    custom_id: `${previewCustomId}:${report.reportCode}:${guildId}`,
-                                    label: "Post Recap",
-                                },
-                            ],
-                        },
-                    ],
+                    flags: EPHEMERAL_MESSAGE_FLAG,
                 },
             };
         }
