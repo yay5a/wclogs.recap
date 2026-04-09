@@ -8,7 +8,11 @@ import {
     MongoGuildConfigStore,
     MongoTrendTrackingService,
 } from "@wcl/db";
-import { handleInteraction, registerCommands } from "@wcl/discord";
+import {
+    DiscordCommandRegistrationError,
+    handleInteraction,
+    registerCommands,
+} from "@wcl/discord";
 import { createLogger, parseEnv } from "@wcl/shared";
 import { WclClient } from "@wcl/wcl-client";
 import { loadEnvFile } from "node:process";
@@ -82,10 +86,6 @@ app.post(
 
             logger.info({ isValid }, "discord signature result");
 
-            if (!isValid) {
-                return reply.code(401).send({ error: "Invalid signature" });
-            }
-
             if (!isValid)
                 return reply.code(401).send({ error: "Invalid signature" });
 
@@ -110,15 +110,56 @@ app.post(
     },
 );
 
-app.post("/discord/register-commands", async (_req, reply) => {
+const pickGuildId = (value: unknown): string | undefined => {
+    if (typeof value !== "string") return undefined;
+    const trimmed = value.trim();
+    return trimmed.length > 0 ? trimmed : undefined;
+};
+
+app.post("/discord/register-commands", async (req, reply) => {
     try {
+        const body =
+            typeof req.body === "object" && req.body !== null
+                ? (req.body as Record<string, unknown>)
+                : undefined;
+        const query = req.query as Record<string, unknown> | undefined;
+
+        const guildId =
+            pickGuildId(query?.guildId) ?? pickGuildId(body?.guildId);
+
         await registerCommands(
             env.DISCORD_APPLICATION_ID,
             env.DISCORD_BOT_TOKEN,
+            {
+                guildId,
+            },
         );
-        return reply.send({ status: "registered" });
+
+        return reply.send({
+            status: "registered",
+            scope: guildId ? "guild" : "global",
+            guildId: guildId ?? null,
+        });
     } catch (error) {
         logger.error({ error }, "register commands failed");
+
+        if (error instanceof DiscordCommandRegistrationError) {
+            return reply.code(502).send({
+                error: "Discord command registration failed",
+                scope: error.details.targetScope,
+                discordStatus: error.details.status,
+                discordStatusText: error.details.statusText,
+                discordErrorBody: error.details.responseBody,
+            });
+        }
+
+        if (error instanceof Error) {
+            return reply.code(400).send({
+                error: "Command validation failed",
+                message: error.message,
+            });
+        }
+
         return reply.code(500).send({ error: "Internal server error" });
     }
 });

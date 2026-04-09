@@ -1,11 +1,17 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, vi, afterEach } from "vitest";
 import { InteractionType } from "discord-interactions";
 import type {
     GuildConfigStore,
     NormalizedPlayer,
     NormalizedReport,
 } from "@wcl/domain";
-import { handleInteraction } from "./index.js";
+import {
+    buildDiscordCommandPayload,
+    buildDiscordCommandPayloads,
+    DiscordCommandRegistrationError,
+    handleInteraction,
+    registerCommands,
+} from "./index.js";
 
 const makeReport = (): NormalizedReport => ({
     reportCode: "ABC123",
@@ -24,6 +30,200 @@ const makeReport = (): NormalizedReport => ({
             executionScore: 88,
         },
     ],
+});
+
+afterEach(() => {
+    vi.restoreAllMocks();
+});
+
+describe("command payload builder", () => {
+    it("builds valid chat-input command payload", () => {
+        const payload = buildDiscordCommandPayload({
+            type: 1,
+            name: "health",
+            description: "Health command",
+            options: [
+                {
+                    type: 3,
+                    name: "scope",
+                    description: "scope",
+                    required: true,
+                    choices: [{ name: "guild", value: "guild" }],
+                },
+            ],
+        });
+
+        expect(payload).toEqual({
+            type: 1,
+            name: "health",
+            description: "Health command",
+            integration_types: undefined,
+            contexts: undefined,
+            default_member_permissions: undefined,
+            nsfw: undefined,
+            options: [
+                {
+                    type: 3,
+                    name: "scope",
+                    description: "scope",
+                    required: true,
+                    choices: [{ name: "guild", value: "guild" }],
+                },
+            ],
+        });
+    });
+
+    it("builds valid user command payload", () => {
+        const payload = buildDiscordCommandPayload({
+            type: 2,
+            name: "Inspect User",
+        });
+
+        expect(payload).toEqual({
+            type: 2,
+            name: "Inspect User",
+            integration_types: undefined,
+            contexts: undefined,
+            default_member_permissions: undefined,
+            nsfw: undefined,
+        });
+    });
+
+    it("builds valid message command payload", () => {
+        const payload = buildDiscordCommandPayload({
+            type: 3,
+            name: "Analyze Log",
+        });
+
+        expect(payload).toEqual({
+            type: 3,
+            name: "Analyze Log",
+            integration_types: undefined,
+            contexts: undefined,
+            default_member_permissions: undefined,
+            nsfw: undefined,
+        });
+    });
+
+    it("rejects options on message commands", () => {
+        expect(() =>
+            buildDiscordCommandPayload({
+                type: 3,
+                name: "Analyze Log",
+                options: [] as never,
+            } as never),
+        ).toThrow(/options are not allowed/i);
+    });
+
+    it("rejects missing description on chat-input commands", () => {
+        expect(() =>
+            buildDiscordCommandPayload({
+                type: 1,
+                name: "health",
+                description: "",
+            }),
+        ).toThrow(/description is required/i);
+    });
+
+    it("rejects uppercase slash-command names", () => {
+        expect(() =>
+            buildDiscordCommandPayload({
+                type: 1,
+                name: "Health",
+                description: "Health",
+            }),
+        ).toThrow(/slash command names must be lowercase/i);
+    });
+
+    it("rejects required option after optional option", () => {
+        expect(() =>
+            buildDiscordCommandPayload({
+                type: 1,
+                name: "config",
+                description: "Configure",
+                options: [
+                    {
+                        type: 3,
+                        name: "optional",
+                        description: "optional",
+                        required: false,
+                    },
+                    {
+                        type: 3,
+                        name: "required",
+                        description: "required",
+                        required: true,
+                    },
+                ],
+            }),
+        ).toThrow(/required options must appear before optional/i);
+    });
+
+    it("rejects incompatible choices", () => {
+        expect(() =>
+            buildDiscordCommandPayload({
+                type: 1,
+                name: "config",
+                description: "Configure",
+                options: [
+                    {
+                        type: 5,
+                        name: "flag",
+                        description: "flag",
+                        required: true,
+                        choices: [{ name: "yes", value: "yes" }],
+                    },
+                ],
+            }),
+        ).toThrow(/choices are only valid/i);
+    });
+
+    it("rejects duplicate command names for same type", () => {
+        expect(() =>
+            buildDiscordCommandPayloads([
+                { type: 1, name: "health", description: "Health" },
+                { type: 1, name: "health", description: "Health 2" },
+            ]),
+        ).toThrow(/duplicate command name/i);
+    });
+});
+
+describe("registerCommands", () => {
+    it("registers guild commands when guildId is provided", async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            text: vi.fn().mockResolvedValue("ok"),
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await registerCommands("app123", "token123", { guildId: "guild456" });
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            "https://discord.com/api/v10/applications/app123/guilds/guild456/commands",
+            expect.objectContaining({ method: "PUT" }),
+        );
+    });
+
+    it("surfaces Discord error details", async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 400,
+            statusText: "Bad Request",
+            text: vi.fn().mockResolvedValue('{"message":"Invalid Form Body"}'),
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await expect(
+            registerCommands("app123", "token123"),
+        ).rejects.toMatchObject({
+            name: "DiscordCommandRegistrationError",
+            details: expect.objectContaining({
+                status: 400,
+                statusText: "Bad Request",
+                responseBody: '{"message":"Invalid Form Body"}',
+            }),
+        } satisfies Partial<DiscordCommandRegistrationError>);
+    });
 });
 
 describe("handleInteraction", () => {

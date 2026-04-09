@@ -21,8 +21,410 @@ interface HandleOptions {
     trendTrackingService?: TrendTrackingService;
 }
 
+export interface DiscordCommandOptionChoice {
+    name: string;
+    value: string | number;
+}
+
+export interface DiscordCommandOption {
+    type: number;
+    name: string;
+    description?: string;
+    required?: boolean;
+    choices?: DiscordCommandOptionChoice[];
+    options?: DiscordCommandOption[];
+}
+
+export type ChatInputCommandDefinition = {
+    type: 1;
+    name: string;
+    description: string;
+    options?: DiscordCommandOption[];
+    integration_types?: number[];
+    contexts?: number[];
+    default_member_permissions?: string;
+    nsfw?: boolean;
+};
+
+export type UserCommandDefinition = {
+    type: 2;
+    name: string;
+    integration_types?: number[];
+    contexts?: number[];
+    default_member_permissions?: string;
+    nsfw?: boolean;
+};
+
+export type MessageCommandDefinition = {
+    type: 3;
+    name: string;
+    integration_types?: number[];
+    contexts?: number[];
+    default_member_permissions?: string;
+    nsfw?: boolean;
+};
+
+export type CommandDefinition =
+    | ChatInputCommandDefinition
+    | UserCommandDefinition
+    | MessageCommandDefinition;
+
+const DISCORD_API_BASE_URL = "https://discord.com/api/v10";
+const STRING_OPTION_TYPE = 3;
+const INTEGER_OPTION_TYPE = 4;
+const NUMBER_OPTION_TYPE = 10;
+const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
+
 const previewCustomId = "post_recap";
 const recapState = new Map<string, ReturnType<typeof buildRecapSummary>>();
+
+const commandTypeLabel = (type: CommandDefinition["type"]): string => {
+    switch (type) {
+        case 1:
+            return "CHAT_INPUT";
+        case 2:
+            return "USER";
+        case 3:
+            return "MESSAGE";
+    }
+};
+
+const validateCommandNameUniqueness = (commands: CommandDefinition[]) => {
+    const seen = new Set<string>();
+    for (const command of commands) {
+        const key = `${command.type}:${command.name}`;
+        if (seen.has(key)) {
+            throw new Error(
+                `Command validation failed for '${command.name}': duplicate command name '${command.name}' for type ${command.type}.`,
+            );
+        }
+        seen.add(key);
+    }
+};
+
+const validateOptionChoices = (
+    commandName: string,
+    option: DiscordCommandOption,
+    optionPath: string,
+): void => {
+    if (!option.choices?.length) return;
+
+    const allowedChoiceTypes = new Set<number>([
+        STRING_OPTION_TYPE,
+        INTEGER_OPTION_TYPE,
+        NUMBER_OPTION_TYPE,
+    ]);
+
+    if (!allowedChoiceTypes.has(option.type)) {
+        throw new Error(
+            `Command validation failed for '${commandName}' at '${optionPath}': choices are only valid for STRING, INTEGER, or NUMBER options.`,
+        );
+    }
+
+    for (const choice of option.choices) {
+        if (
+            option.type === STRING_OPTION_TYPE &&
+            typeof choice.value !== "string"
+        ) {
+            throw new Error(
+                `Command validation failed for '${commandName}' at '${optionPath}': STRING option choices must have string values.`,
+            );
+        }
+        if (
+            (option.type === INTEGER_OPTION_TYPE ||
+                option.type === NUMBER_OPTION_TYPE) &&
+            typeof choice.value !== "number"
+        ) {
+            throw new Error(
+                `Command validation failed for '${commandName}' at '${optionPath}': numeric option choices must have number values.`,
+            );
+        }
+    }
+};
+
+const validateAndNormalizeOptions = (
+    commandName: string,
+    options: DiscordCommandOption[],
+    path = "options",
+): DiscordCommandOption[] => {
+    const seenNames = new Set<string>();
+    let foundOptional = false;
+
+    for (const [index, option] of options.entries()) {
+        const optionPath = `${path}[${index}]`;
+
+        if (!option.name) {
+            throw new Error(
+                `Command validation failed for '${commandName}' at '${optionPath}': option name is required.`,
+            );
+        }
+
+        if (seenNames.has(option.name)) {
+            throw new Error(
+                `Command validation failed for '${commandName}' at '${optionPath}': duplicate option name '${option.name}'.`,
+            );
+        }
+        seenNames.add(option.name);
+
+        if (option.required === true) {
+            if (foundOptional) {
+                throw new Error(
+                    `Command validation failed for '${commandName}' at '${optionPath}': required options must appear before optional options.`,
+                );
+            }
+        } else {
+            foundOptional = true;
+        }
+
+        validateOptionChoices(commandName, option, optionPath);
+
+        if (Array.isArray(option.options) && option.options.length > 0) {
+            option.options = validateAndNormalizeOptions(
+                commandName,
+                option.options,
+                `${optionPath}.options`,
+            );
+        }
+    }
+
+    return options;
+};
+
+const validateCommandDefinition = (command: CommandDefinition): void => {
+    if (!command.name || command.name.trim().length === 0) {
+        throw new Error("Command validation failed: command name is required.");
+    }
+
+    if (command.type === 1) {
+        if (!slashCommandNameRegex.test(command.name)) {
+            throw new Error(
+                `Command validation failed for '${command.name}': slash command names must be lowercase and use [a-z0-9_-] style characters.`,
+            );
+        }
+
+        if (!command.description || command.description.trim().length === 0) {
+            throw new Error(
+                `Command validation failed for '${command.name}': description is required for chat input commands.`,
+            );
+        }
+
+        if (command.options) {
+            command.options = validateAndNormalizeOptions(
+                command.name,
+                command.options,
+            );
+        }
+        return;
+    }
+
+    if (
+        "description" in (command as unknown as Record<string, unknown>) &&
+        typeof (command as unknown as { description?: unknown }).description !==
+            "undefined"
+    ) {
+        throw new Error(
+            `Command validation failed for '${command.name}': description is not allowed for ${commandTypeLabel(command.type)} commands.`,
+        );
+    }
+
+    if (
+        "options" in (command as unknown as Record<string, unknown>) &&
+        Array.isArray((command as unknown as { options?: unknown }).options)
+    ) {
+        throw new Error(
+            `Command validation failed for '${command.name}': options are not allowed for ${commandTypeLabel(command.type)} commands.`,
+        );
+    }
+};
+
+export const buildDiscordCommandPayload = (
+    command: CommandDefinition,
+): Record<string, unknown> => {
+    validateCommandDefinition(command);
+
+    const basePayload = {
+        name: command.name,
+        type: command.type,
+        integration_types: command.integration_types,
+        contexts: command.contexts,
+        default_member_permissions: command.default_member_permissions,
+        nsfw: command.nsfw,
+    };
+
+    if (command.type === 1) {
+        return {
+            ...basePayload,
+            description: command.description,
+            ...(command.options ? { options: command.options } : {}),
+        };
+    }
+
+    return basePayload;
+};
+
+export const buildDiscordCommandPayloads = (
+    commands: CommandDefinition[],
+): Record<string, unknown>[] => {
+    validateCommandNameUniqueness(commands);
+    return commands.map(buildDiscordCommandPayload);
+};
+
+export const commandDefinitions: CommandDefinition[] = [
+    { name: "health", description: "Check bot health", type: 1 },
+    {
+        name: "config",
+        description: "Configure guild recap behavior",
+        type: 1,
+        options: [
+            {
+                name: "game_family",
+                description: "Default game family",
+                type: 3,
+                required: false,
+                choices: [
+                    { name: "retail", value: "retail" },
+                    { name: "mop_classic", value: "mop_classic" },
+                ],
+            },
+            {
+                name: "compare_mode",
+                description: "Default compare mode",
+                type: 3,
+                required: false,
+                choices: [
+                    { name: "character", value: "character" },
+                    { name: "mixed", value: "mixed" },
+                ],
+            },
+            {
+                name: "visibility",
+                description: "Set accountability visibility",
+                type: 3,
+                required: false,
+                choices: [
+                    { name: "off", value: "off" },
+                    { name: "officers-only", value: "officers-only" },
+                    { name: "shareable", value: "shareable" },
+                ],
+            },
+            {
+                name: "coaching_shareability",
+                description: "Default coaching shareability",
+                type: 3,
+                required: false,
+                choices: [
+                    { name: "private", value: "private" },
+                    { name: "shareable", value: "shareable" },
+                ],
+            },
+            {
+                name: "recap_post_mode",
+                description: "Default recap post mode",
+                type: 3,
+                required: false,
+                choices: [
+                    { name: "preview-and-post", value: "preview-and-post" },
+                    { name: "preview-only", value: "preview-only" },
+                ],
+            },
+        ],
+    },
+    {
+        name: "report",
+        description: "Report tools",
+        type: 1,
+        options: [
+            {
+                name: "recap",
+                description: "Generate a recap preview from a WCL report URL",
+                type: 1,
+                options: [
+                    {
+                        name: "url",
+                        description: "WCL report URL",
+                        type: 3,
+                        required: true,
+                    },
+                ],
+            },
+        ],
+    },
+    // Intentionally kept as a MESSAGE command because interaction handling keys on
+    // the exact mixed-case name "Analyze Log" and this command is context-menu based.
+    { name: "Analyze Log", type: 3 },
+];
+
+export class DiscordCommandRegistrationError extends Error {
+    constructor(
+        message: string,
+        readonly details: {
+            status: number;
+            statusText: string;
+            responseBody: string;
+            targetScope: "global" | "guild";
+            payloadSnippet: string;
+        },
+    ) {
+        super(message);
+        this.name = "DiscordCommandRegistrationError";
+    }
+}
+
+export const registerCommands = async (
+    appId: string,
+    botToken: string,
+    options?: { guildId?: string },
+): Promise<void> => {
+    const payload = buildDiscordCommandPayloads(commandDefinitions);
+    const guildId = options?.guildId?.trim();
+    const targetScope = guildId ? "guild" : "global";
+    const endpoint = guildId
+        ? `${DISCORD_API_BASE_URL}/applications/${appId}/guilds/${guildId}/commands`
+        : `${DISCORD_API_BASE_URL}/applications/${appId}/commands`;
+
+    console.info("registering Discord commands", {
+        targetScope,
+        guildId: guildId ?? null,
+        payloadCount: payload.length,
+        commands: payload.map((command) => ({
+            name: command.name,
+            type: command.type,
+        })),
+    });
+
+    const response = await fetch(endpoint, {
+        method: "PUT",
+        headers: {
+            Authorization: `Bot ${botToken}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+    });
+
+    const text = await response.text();
+
+    if (!response.ok) {
+        const payloadSnippet = JSON.stringify(
+            payload.map(({ name, type, description, options }) => ({
+                name,
+                type,
+                ...(description ? { description } : {}),
+                ...(options ? { options } : {}),
+            })),
+        ).slice(0, 2000);
+
+        throw new DiscordCommandRegistrationError(
+            `Discord command registration failed (${targetScope}): ${response.status} ${response.statusText}`,
+            {
+                status: response.status,
+                statusText: response.statusText,
+                responseBody: text,
+                targetScope,
+                payloadSnippet,
+            },
+        );
+    }
+};
 
 const getStringOption = (
     options: unknown,
@@ -38,115 +440,6 @@ const getStringOption = (
 
 const makeStateKey = (reportCode: string, guildId: string): string =>
     `${reportCode}:${guildId}`;
-
-export const registerCommands = async (
-    appId: string,
-    botToken: string,
-): Promise<void> => {
-    const commands = [
-        { name: "health", description: "Check bot health", type: 1 },
-        {
-            name: "config",
-            description: "Configure guild recap behavior",
-            type: 1,
-            options: [
-                {
-                    name: "game_family",
-                    description: "Default game family",
-                    type: 3,
-                    required: false,
-                    choices: [
-                        { name: "retail", value: "retail" },
-                        { name: "mop_classic", value: "mop_classic" },
-                    ],
-                },
-                {
-                    name: "compare_mode",
-                    description: "Default compare mode",
-                    type: 3,
-                    required: false,
-                    choices: [
-                        { name: "character", value: "character" },
-                        { name: "mixed", value: "mixed" },
-                    ],
-                },
-                {
-                    name: "visibility",
-                    description: "Set accountability visibility",
-                    type: 3,
-                    required: false,
-                    choices: [
-                        { name: "off", value: "off" },
-                        { name: "officers-only", value: "officers-only" },
-                        { name: "shareable", value: "shareable" },
-                    ],
-                },
-                {
-                    name: "coaching_shareability",
-                    description: "Default coaching shareability",
-                    type: 3,
-                    required: false,
-                    choices: [
-                        { name: "private", value: "private" },
-                        { name: "shareable", value: "shareable" },
-                    ],
-                },
-                {
-                    name: "recap_post_mode",
-                    description: "Default recap post mode",
-                    type: 3,
-                    required: false,
-                    choices: [
-                        { name: "preview-and-post", value: "preview-and-post" },
-                        { name: "preview-only", value: "preview-only" },
-                    ],
-                },
-            ],
-        },
-        {
-            name: "report",
-            description: "Report tools",
-            type: 1,
-            options: [
-                {
-                    name: "recap",
-                    description:
-                        "Generate a recap preview from a WCL report URL",
-                    type: 1,
-                    options: [
-                        {
-                            name: "url",
-                            description: "WCL report URL",
-                            type: 3,
-                            required: true,
-                        },
-                    ],
-                },
-            ],
-        },
-        { name: "Analyze Log", type: 3 },
-    ];
-
-    const response = await fetch(
-        `https://discord.com/api/v10/applications/${appId}/commands`,
-        {
-            method: "PUT",
-            headers: {
-                Authorization: `Bot ${botToken}`,
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(commands),
-        },
-    );
-
-    const text = await response.text();
-
-    if (!response.ok) {
-        throw new Error(
-            `Discord command registration failed: ${response.status} ${response.statusText} - ${text}`,
-        );
-    }
-};
 
 export const handleInteraction = async (
     interaction: unknown,
