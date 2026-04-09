@@ -6,6 +6,7 @@ import type {
     NormalizedReport,
 } from "@wcl/domain";
 import {
+    buildPublicRecapEmbed,
     buildDiscordCommandPayload,
     buildDiscordCommandPayloads,
     DiscordCommandRegistrationError,
@@ -25,10 +26,37 @@ const makeReport = (): NormalizedReport => ({
     players: [
         {
             id: "1",
+            actorId: 1,
             name: "Alyra",
             bestParse: 90,
             avgParse: 85,
             executionScore: 88,
+        },
+    ],
+    leaderboards: [
+        {
+            scope: "report",
+            playerId: 1,
+            playerName: "Alyra",
+            metric: "bestPerformanceAverage",
+            value: 90,
+        },
+        {
+            scope: "boss",
+            bossName: "Boss",
+            fightId: 1,
+            playerId: 1,
+            playerName: "Alyra",
+            metric: "bestPercent",
+            value: 95,
+        },
+    ],
+    bossPerformances: [
+        {
+            bossName: "Boss",
+            fightId: 1,
+            topDamage: { playerName: "Alyra", value: 12345 },
+            mostDeaths: { playerName: "Alyra", value: 1 },
         },
     ],
 });
@@ -379,5 +407,68 @@ describe("handleInteraction", () => {
         expect(
             accountabilityViewService.buildAccountabilityView,
         ).toHaveBeenCalledWith("ABC123", "officers-only");
+    });
+});
+
+describe("embed rendering", () => {
+    it("renders richer public recap fields when available", () => {
+        const embed = buildPublicRecapEmbed({
+            reportTitle: "Raid Night",
+            reportDateISO: new Date(0).toISOString(),
+            gameFamily: "mop_classic",
+            bossesKilled: 3,
+            compareModeUsed: "mixed",
+            accountabilityVisibility: "officers-only",
+            coachingShareability: "shareable",
+            recapPostMode: "preview-and-post",
+            bestAverageParse: {
+                playerName: "Alyra",
+                value: 95,
+                metric: "bestPerformanceAverage",
+            },
+            bestSingleBossParse: {
+                playerName: "Alyra",
+                value: 99,
+                bossName: "Boss",
+                fightId: 1,
+                metric: "bestPercent",
+            },
+            bestExecution: { playerName: "Alyra", value: 90 },
+            topOverallParsers: [
+                { playerName: "Alyra", value: 95, metric: "bestPerformanceAverage" },
+            ],
+            bossHighlights: [{ bossName: "Boss", fightId: 1, text: "DPS Alyra (12345)" }],
+            raidSuperlatives: [{ label: "Most deaths", text: "Alyra (1) on Boss" }],
+            teamNote: "Team note",
+        });
+
+        const fields = embed.fields.map((field) => field.name);
+        expect(fields).toContain("Game Family");
+        expect(embed.fields.find((field) => field.name === "Game Family")?.value).toBe(
+            "MoP Classic",
+        );
+        expect(fields).toContain("Boss Highlights");
+        expect(fields).toContain("Raid Superlatives");
+    });
+
+    it("degrades cleanly when optional fields are missing", () => {
+        const embed = buildPublicRecapEmbed({
+            reportTitle: "Raid Night",
+            reportDateISO: new Date(0).toISOString(),
+            gameFamily: "retail",
+            bossesKilled: 0,
+            compareModeUsed: "character",
+            accountabilityVisibility: "off",
+            coachingShareability: "private",
+            recapPostMode: "preview-only",
+            topOverallParsers: [],
+            bossHighlights: [],
+            raidSuperlatives: [],
+            teamNote: "Team note",
+        });
+
+        const fields = embed.fields.map((field) => field.name);
+        expect(fields).not.toContain("Boss Highlights");
+        expect(fields).not.toContain("Raid Superlatives");
     });
 });

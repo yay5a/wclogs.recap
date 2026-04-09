@@ -66,6 +66,19 @@ Warcraft Logs-focused Discord companion app.
 - `/config` now persists guild settings via Mongo and recap summaries consume
   those defaults at generation time.
 
+### Recap enrichment pipeline (phase 1)
+
+- Uses report-wide `rankings(playerMetric: default)` as the baseline metric for
+  overall parse snapshots.
+- Adds per-boss enrichment from boss-scoped rankings plus table payloads for
+  Damage Done, Healing, Deaths, Interrupts, and Survivability.
+- Uses actor-id-first joins when possible and falls back to normalized name
+  matching when actor IDs are unavailable (less reliable for duplicate names).
+- Role-aware metric selection (tank/healer/dps-specific ranking strategies) is
+  planned for phase 2.
+- Known current limitation: WCL JSON scalar payloads can vary by game family and
+  endpoint shape, so parser coverage is heuristic and intentionally defensive.
+
 ## Assumptions
 
 - Report URLs include either `?report=` or `?code=` query params.

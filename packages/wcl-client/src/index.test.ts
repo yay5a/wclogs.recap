@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizeReport, parseReportUrl } from "./index.js";
+import { normalizeEnrichedReport, normalizeReport, parseReportUrl } from "./index.js";
 
 describe("parseReportUrl", () => {
     it("parses report code from path", () => {
@@ -53,59 +53,81 @@ describe("parseReportUrl", () => {
         expect(() => parseReportUrl("   ")).toThrow("Report URL is empty");
     });
 });
-describe("normalizeReport", () => {
-    it("maps ranking metrics from rankings payload", () => {
-        const normalized = normalizeReport(
+
+describe("normalize report", () => {
+    const parsed = {
+        reportCode: "abc",
+        gameFamily: "retail" as const,
+        rawUrl: "https://www.warcraftlogs.com/reports/abc",
+    };
+
+    it("maps leaderboard + boss data into normalized report", () => {
+        const normalized = normalizeEnrichedReport(
             {
-                reportData: {
-                    report: {
-                        title: "Raid",
-                        startTime: 100,
-                        endTime: 200,
-                        fights: [
-                            {
-                                id: 1,
-                                name: "Boss",
-                                startTime: 100,
-                                endTime: 150,
-                                kill: true,
-                            },
-                        ],
-                        rankings: JSON.stringify({
-                            data: [
-                                {
-                                    name: "Alyra",
-                                    bestPerformanceAverage: 95.4,
-                                    performanceAverage: 88.2,
-                                    execution: 92,
-                                },
-                            ],
-                        }),
-                        masterData: {
-                            actors: [
+                base: {
+                    reportData: {
+                        report: {
+                            title: "Raid",
+                            startTime: 100,
+                            endTime: 200,
+                            fights: [
                                 {
                                     id: 1,
-                                    name: "Alyra",
-                                    subType: "Paladin",
+                                    name: "Boss",
+                                    startTime: 100,
+                                    endTime: 150,
+                                    kill: true,
                                 },
                             ],
+                            masterData: {
+                                actors: [
+                                    {
+                                        id: 1,
+                                        name: "Alyra",
+                                        subType: "Paladin",
+                                    },
+                                ],
+                            },
                         },
                     },
                 },
+                reportRankings: JSON.stringify({
+                    data: [
+                        {
+                            playerID: 1,
+                            name: "Alyra",
+                            bestPerformanceAverage: 95.4,
+                        },
+                    ],
+                }),
+                bossRankings: [
+                    {
+                        fightId: 1,
+                        bossName: "Boss",
+                        payload: { rankings: [{ playerID: 1, name: "Alyra", bestPercent: 97 }] },
+                    },
+                ],
+                bossTables: [
+                    {
+                        fightId: 1,
+                        bossName: "Boss",
+                        tables: {
+                            DamageDone: { entries: [{ id: 1, name: "Alyra", total: 123 }] },
+                        },
+                    },
+                ],
+                playerDetails: { players: { data: [{ name: "Alyra", spec: "Holy", role: "Healer" }] } },
             },
-            {
-                reportCode: "abc",
-                gameFamily: "retail",
-                rawUrl: "https://www.warcraftlogs.com/reports/abc",
-            },
+            parsed,
         );
 
         expect(normalized.players[0]?.bestParse).toBe(95.4);
-        expect(normalized.players[0]?.avgParse).toBe(88.2);
-        expect(normalized.players[0]?.executionScore).toBe(92);
+        expect(normalized.players[0]?.specName).toBe("Holy");
+        expect(normalized.leaderboards?.length).toBeGreaterThan(0);
+        expect(normalized.bossPerformances?.[0]?.topDamage?.playerName).toBe("Alyra");
     });
 
-    it("omits unavailable ranking metrics", () => {
+    it("keeps backward compatibility for base payload only", () => {
         const normalized = normalizeReport(
             {
                 reportData: {
@@ -114,28 +136,15 @@ describe("normalizeReport", () => {
                         startTime: 100,
                         endTime: 200,
                         fights: [],
-                        rankings: JSON.stringify({
-                            data: [
-                                { name: "Alyra", bestPerformanceAverage: 95.4 },
-                            ],
-                        }),
                         masterData: {
-                            actors: [
-                                { id: 1, name: "Alyra", subType: "Paladin" },
-                            ],
+                            actors: [{ id: 1, name: "Alyra", subType: "Paladin" }],
                         },
                     },
                 },
             },
-            {
-                reportCode: "abc",
-                gameFamily: "retail",
-                rawUrl: "https://www.warcraftlogs.com/reports/abc",
-            },
+            parsed,
         );
 
-        expect(normalized.players[0]?.bestParse).toBe(95.4);
-        expect(normalized.players[0]?.avgParse).toBeUndefined();
-        expect(normalized.players[0]?.executionScore).toBeUndefined();
+        expect(normalized.players[0]?.name).toBe("Alyra");
     });
 });

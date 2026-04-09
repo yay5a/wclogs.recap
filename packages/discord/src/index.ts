@@ -78,6 +78,27 @@ const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 
 const previewCustomId = "post_recap";
 const recapState = new Map<string, ReturnType<typeof buildRecapSummary>>();
+const MAX_HIGHLIGHTS = 4;
+
+const toTitleCase = (value: string): string =>
+    value
+        .split(/[_-]/g)
+        .map((part) =>
+            part.length > 0 ? part[0].toUpperCase() + part.slice(1) : part,
+        )
+        .join(" ");
+
+const formatGameFamilyLabel = (value: string): string => {
+    if (value === "mop_classic") return "MoP Classic";
+    if (value === "retail") return "Retail";
+    return toTitleCase(value);
+};
+
+const formatShortMetric = (metric: string): string =>
+    metric
+        .replace(/([A-Z])/g, " $1")
+        .replace(/[_-]/g, " ")
+        .trim();
 
 interface DiscordInteractionData {
     name?: string;
@@ -117,9 +138,20 @@ const buildRecapPreviewBody = (
     embeds: [
         {
             title: `Preview: ${summary.reportTitle}`,
-            description:
-                `Bosses killed: ${summary.bossesKilled} • ${summary.gameFamily}` +
-                ` • compare=${summary.compareModeUsed}`,
+            description: [
+                `Bosses killed: ${summary.bossesKilled} • ${formatGameFamilyLabel(summary.gameFamily)}`,
+                summary.bestAverageParse
+                    ? `Best overall: ${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`
+                    : undefined,
+                summary.bestSingleBossParse
+                    ? `Best single boss: ${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)})`
+                    : undefined,
+                ...summary.raidSuperlatives
+                    .slice(0, 2)
+                    .map((entry) => `${entry.label}: ${entry.text}`),
+            ]
+                .filter((line): line is string => Boolean(line))
+                .join("\n"),
         },
     ],
     components: [
@@ -833,7 +865,11 @@ export const buildPublicRecapEmbed = (
 ) => {
     const fields: Array<{ name: string; value: string; inline?: boolean }> = [
         { name: "Report Date", value: summary.reportDateISO, inline: true },
-        { name: "Game Family", value: summary.gameFamily, inline: true },
+        {
+            name: "Game Family",
+            value: formatGameFamilyLabel(summary.gameFamily),
+            inline: true,
+        },
         {
             name: "Bosses Killed",
             value: String(summary.bossesKilled),
@@ -841,12 +877,12 @@ export const buildPublicRecapEmbed = (
         },
         {
             name: "Compare Mode",
-            value: summary.compareModeUsed,
+            value: toTitleCase(summary.compareModeUsed),
             inline: true,
         },
         {
             name: "Accountability",
-            value: summary.accountabilityVisibility,
+            value: toTitleCase(summary.accountabilityVisibility),
             inline: true,
         },
     ];
@@ -859,12 +895,12 @@ export const buildPublicRecapEmbed = (
     if (summary.bestSingleBossParse)
         fields.push({
             name: "Best Single-Boss Parse",
-            value: `${summary.bestSingleBossParse.playerName} (${summary.bestSingleBossParse.value.toFixed(1)})`,
+            value: `${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)} ${formatShortMetric(summary.bestSingleBossParse.metric)})`,
         });
     if (summary.bestAverageParse)
         fields.push({
             name: "Best Average Parse",
-            value: `${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)})`,
+            value: `${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`,
         });
     if (summary.bestExecution)
         fields.push({
@@ -876,6 +912,39 @@ export const buildPublicRecapEmbed = (
             name: "Most Improved",
             value: `${summary.mostImprovedPlayer.playerName} (+${summary.mostImprovedPlayer.delta.toFixed(1)})`,
         });
+    if (summary.topOverallParsers.length > 0) {
+        fields.push({
+            name: "Top Overall Parsers",
+            value: summary.topOverallParsers
+                .slice(0, 3)
+                .map(
+                    (entry, index) =>
+                        `${index + 1}. ${entry.playerName} ${entry.value.toFixed(1)}`,
+                )
+                .join("\n"),
+        });
+    }
+    if (summary.bossHighlights.length > 0) {
+        fields.push({
+            name: "Boss Highlights",
+            value: summary.bossHighlights
+                .slice(0, MAX_HIGHLIGHTS)
+                .map(
+                    (entry) =>
+                        `${entry.bossName}: ${entry.text.substring(0, 90)}`,
+                )
+                .join("\n"),
+        });
+    }
+    if (summary.raidSuperlatives.length > 0) {
+        fields.push({
+            name: "Raid Superlatives",
+            value: summary.raidSuperlatives
+                .slice(0, 2)
+                .map((entry) => `${entry.label}: ${entry.text}`)
+                .join("\n"),
+        });
+    }
 
     fields.push({ name: "Team Note", value: summary.teamNote });
 

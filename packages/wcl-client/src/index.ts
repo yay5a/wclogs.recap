@@ -2,11 +2,26 @@ import { GraphQLClient, gql } from "graphql-request";
 import fixture from "./fixtures/report-fixture.json" with { type: "json" };
 import type {
     GameFamily,
+    NormalizedBossPerformance,
     NormalizedFight,
+    NormalizedLeaderboardEntry,
     NormalizedPlayer,
     NormalizedReport,
 } from "@wcl/domain";
 import { ReportCacheModel } from "@wcl/db";
+import {
+    asNumber,
+    asObject,
+    asString,
+    indexLeaderboardByActorAndName,
+    normalizeName,
+    parseBossRankingsPayload,
+    parsePlayerDetailsPayload,
+    parseReportRankingsPayload,
+    parseTablePayload,
+    type ParsedTableEntry,
+    type TableDataType,
+} from "./parsers/index.js";
 
 export interface ParsedReportUrl {
     reportCode: string;
@@ -81,16 +96,14 @@ export const parseReportUrl = (url: string): ParsedReportUrl => {
     return { reportCode, gameFamily, rawUrl: normalizedInput };
 };
 
-const REPORT_QUERY = gql`
-  query ReportSummary($code: String!) {
+const BASE_REPORT_QUERY = gql`
+  query BaseReportSummary($code: String!) {
     reportData {
       report(code: $code) {
         title
         startTime
         endTime
-        zone {
-          name
-        }
+        zone { name }
         fights(killType: Kills) {
           id
           name
@@ -98,7 +111,6 @@ const REPORT_QUERY = gql`
           endTime
           kill
         }
-        rankings
         masterData {
           actors(type: "Player") {
             id
@@ -112,6 +124,50 @@ const REPORT_QUERY = gql`
   }
 `;
 
+const REPORT_RANKINGS_QUERY = gql`
+  query ReportRankings($code: String!) {
+    reportData {
+      report(code: $code) {
+        rankings(playerMetric: default)
+      }
+    }
+  }
+`;
+
+const BOSS_RANKINGS_QUERY = gql`
+  query BossRankings($code: String!, $fightIDs: Int) {
+    reportData {
+      report(code: $code) {
+        rankings(playerMetric: default, fightIDs: $fightIDs)
+      }
+    }
+  }
+`;
+
+const PLAYER_DETAILS_QUERY = gql`
+  query PlayerDetails($code: String!, $startTime: Float, $endTime: Float) {
+    reportData {
+      report(code: $code) {
+        playerDetails(startTime: $startTime, endTime: $endTime)
+      }
+    }
+  }
+`;
+
+const TABLE_QUERY = gql`
+  query ReportTable($code: String!, $fightIDs: Int) {
+    reportData {
+      report(code: $code) {
+        damageDone: table(dataType: DamageDone, fightIDs: $fightIDs)
+        healing: table(dataType: Healing, fightIDs: $fightIDs)
+        deaths: table(dataType: Deaths, fightIDs: $fightIDs)
+        interrupts: table(dataType: Interrupts, fightIDs: $fightIDs)
+        survivability: table(dataType: Survivability, fightIDs: $fightIDs)
+      }
+    }
+  }
+`;
+
 interface WclClientOptions {
     clientId: string;
     clientSecret: string;
@@ -119,105 +175,24 @@ interface WclClientOptions {
     fetchImpl?: typeof fetch;
 }
 
-type RankingMetric = {
-    bestParse?: number;
-    avgParse?: number;
-    executionScore?: number;
-};
+interface EnrichedRawReport {
+    base: unknown;
+    reportRankings?: unknown;
+    playerDetails?: unknown;
+    reportTables?: Partial<Record<TableDataType, unknown>>;
+    bossRankings: Array<{ fightId: number; bossName: string; payload: unknown }>;
+    bossTables: Array<{
+        fightId: number;
+        bossName: string;
+        tables: Partial<Record<TableDataType, unknown>>;
+    }>;
+}
 
-const asObject = (value: unknown): Record<string, unknown> | undefined =>
-    typeof value === "object" && value !== null
-        ? (value as Record<string, unknown>)
-        : undefined;
-
-const asNumber = (value: unknown): number | undefined =>
-    typeof value === "number" && Number.isFinite(value) ? value : undefined;
-
-const asString = (value: unknown): string | undefined =>
-    typeof value === "string" && value.length > 0 ? value : undefined;
-
-const pickNumber = (
-    obj: Record<string, unknown>,
-    keys: string[],
-): number | undefined => {
-    for (const key of keys) {
-        const v = asNumber(obj[key]);
-        if (typeof v === "number") return v;
-    }
-    return undefined;
-};
-
-const parseRankingsPayload = (
-    rankings: unknown,
-): Map<string, RankingMetric> => {
-    const parsedRankings =
-        typeof rankings === "string"
-            ? (JSON.parse(rankings) as unknown)
-            : rankings;
-    const root = asObject(parsedRankings);
-    if (!root) return new Map<string, RankingMetric>();
-
-    const containers: unknown[] = [
-        root,
-        ...(Array.isArray(root.data) ? root.data : []),
-        ...(Array.isArray(root.rankings) ? root.rankings : []),
-        ...(Array.isArray(root.players) ? root.players : []),
-    ];
-
-    const byName = new Map<string, RankingMetric>();
-    for (const container of containers) {
-        const entry = asObject(container);
-        if (!entry) continue;
-
-        const nestedPlayer = asObject(entry.player);
-        const nestedCharacter = asObject(entry.character);
-        const nestedActor = asObject(entry.actor);
-        const name =
-            asString(entry.name) ??
-            asString(nestedPlayer?.name) ??
-            asString(nestedCharacter?.name) ??
-            asString(nestedActor?.name);
-        if (!name) continue;
-
-        const bestParse = pickNumber(entry, [
-            "bestPerformanceAverage",
-            "bestPercent",
-            "bestParse",
-            "bestAmount",
-            "rankPercent",
-            "percentile",
-        ]);
-        const avgParse = pickNumber(entry, [
-            "performanceAverage",
-            "averagePerformance",
-            "avgParse",
-            "averageAmount",
-            "averagePercent",
-            "medianPercent",
-        ]);
-        const executionScore = pickNumber(entry, [
-            "execution",
-            "executionScore",
-            "executionPercent",
-            "executionRankPercent",
-        ]);
-
-        const prior = byName.get(name) ?? {};
-        const merged: RankingMetric = {};
-        const resolvedBestParse = bestParse ?? prior.bestParse;
-        const resolvedAvgParse = avgParse ?? prior.avgParse;
-        const resolvedExecutionScore = executionScore ?? prior.executionScore;
-        if (typeof resolvedBestParse === "number")
-            merged.bestParse = resolvedBestParse;
-        if (typeof resolvedAvgParse === "number")
-            merged.avgParse = resolvedAvgParse;
-        if (typeof resolvedExecutionScore === "number") {
-            merged.executionScore = resolvedExecutionScore;
-        }
-        byName.set(name, merged);
-    }
-
-    return byName;
+const getReportNode = (raw: unknown): Record<string, unknown> | undefined => {
+    const root = asObject(raw);
+    const data = asObject(root?.data);
+    const reportData = asObject(data?.reportData ?? root?.reportData);
+    return asObject(reportData?.report);
 };
 
 export class WclClient {
@@ -255,6 +230,81 @@ export class WclClient {
         return payload.access_token;
     }
 
+    private async fetchEnrichedRawReport(code: string): Promise<EnrichedRawReport> {
+        const base = await this.gqlClient.request(BASE_REPORT_QUERY, { code });
+        const baseReport = getReportNode(base);
+        const baseFights = baseReport && Array.isArray(baseReport.fights) ? baseReport.fights : [];
+        const fights = baseFights.flatMap((value) => {
+            const fight = asObject(value);
+            const id = asNumber(fight?.id);
+            const name = asString(fight?.name);
+            if (typeof id !== "number" || !name) return [];
+            return [{ id, name }];
+        });
+
+        const reportRankingsRaw = await this.gqlClient.request(REPORT_RANKINGS_QUERY, { code });
+        const playerDetailsRaw = await this.gqlClient.request(PLAYER_DETAILS_QUERY, {
+            code,
+            startTime: asNumber(baseReport?.startTime),
+            endTime: asNumber(baseReport?.endTime),
+        });
+        const reportTablesRaw = await this.gqlClient.request(TABLE_QUERY, {
+            code,
+            fightIDs: -1,
+        });
+
+        const bossRankings: Array<{ fightId: number; bossName: string; payload: unknown }> = [];
+        const bossTables: Array<{
+            fightId: number;
+            bossName: string;
+            tables: Partial<Record<TableDataType, unknown>>;
+        }> = [];
+
+        for (const fight of fights) {
+            const rankingsPayload = await this.gqlClient.request(BOSS_RANKINGS_QUERY, {
+                code,
+                fightIDs: fight.id,
+            });
+            bossRankings.push({
+                fightId: fight.id,
+                bossName: fight.name,
+                payload: getReportNode(rankingsPayload)?.rankings,
+            });
+
+            const tablesPayload = await this.gqlClient.request(TABLE_QUERY, {
+                code,
+                fightIDs: fight.id,
+            });
+            const tableNode = getReportNode(tablesPayload);
+            bossTables.push({
+                fightId: fight.id,
+                bossName: fight.name,
+                tables: {
+                    DamageDone: tableNode?.damageDone,
+                    Healing: tableNode?.healing,
+                    Deaths: tableNode?.deaths,
+                    Interrupts: tableNode?.interrupts,
+                    Survivability: tableNode?.survivability,
+                },
+            });
+        }
+
+        return {
+            base,
+            reportRankings: getReportNode(reportRankingsRaw)?.rankings,
+            playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
+            reportTables: {
+                DamageDone: getReportNode(reportTablesRaw)?.damageDone,
+                Healing: getReportNode(reportTablesRaw)?.healing,
+                Deaths: getReportNode(reportTablesRaw)?.deaths,
+                Interrupts: getReportNode(reportTablesRaw)?.interrupts,
+                Survivability: getReportNode(reportTablesRaw)?.survivability,
+            },
+            bossRankings,
+            bossTables,
+        };
+    }
+
     public async fetchAndNormalizeReport(
         url: string,
     ): Promise<NormalizedReport> {
@@ -268,16 +318,21 @@ export class WclClient {
 
         let rawPayload: unknown;
         if (process.env.WCL_USE_FIXTURES === "true") {
-            rawPayload = fixture;
+            rawPayload = {
+                base: fixture,
+                reportRankings: getReportNode(fixture)?.rankings,
+                playerDetails: undefined,
+                reportTables: {},
+                bossRankings: [],
+                bossTables: [],
+            } satisfies EnrichedRawReport;
         } else {
             const token = await this.getAccessToken();
             this.gqlClient.setHeader("Authorization", `Bearer ${token}`);
-            rawPayload = await this.gqlClient.request(REPORT_QUERY, {
-                code: parsed.reportCode,
-            });
+            rawPayload = await this.fetchEnrichedRawReport(parsed.reportCode);
         }
 
-        const normalized = normalizeReport(rawPayload, parsed);
+        const normalized = normalizeEnrichedReport(rawPayload, parsed);
 
         await ReportCacheModel.create({
             reportCode: parsed.reportCode,
@@ -292,14 +347,61 @@ export class WclClient {
     }
 }
 
-export const normalizeReport = (
+const summarizeBossTables = (
+    bossName: string,
+    fightId: number,
+    parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>>,
+    parseEntry?: NormalizedLeaderboardEntry,
+): NormalizedBossPerformance => {
+    const topByValue = (entries?: ParsedTableEntry[]) =>
+        (entries ?? []).sort((a, b) => b.value - a.value)[0];
+
+    const mostDeaths = (parsedTables.Deaths ?? []).sort((a, b) => b.value - a.value)[0];
+
+    return {
+        bossName,
+        fightId,
+        topParse: parseEntry,
+        topDamage: topByValue(parsedTables.DamageDone)
+            ? {
+                  playerName: topByValue(parsedTables.DamageDone)?.playerName ?? "Unknown",
+                  value: topByValue(parsedTables.DamageDone)?.value ?? 0,
+              }
+            : undefined,
+        topHealing: topByValue(parsedTables.Healing)
+            ? {
+                  playerName: topByValue(parsedTables.Healing)?.playerName ?? "Unknown",
+                  value: topByValue(parsedTables.Healing)?.value ?? 0,
+              }
+            : undefined,
+        mostDeaths: mostDeaths
+            ? {
+                  playerName: mostDeaths.playerName ?? "Unknown",
+                  value: mostDeaths.value,
+              }
+            : undefined,
+        topInterrupts: topByValue(parsedTables.Interrupts)
+            ? {
+                  playerName: topByValue(parsedTables.Interrupts)?.playerName ?? "Unknown",
+                  value: topByValue(parsedTables.Interrupts)?.value ?? 0,
+              }
+            : undefined,
+        topSurvivability: topByValue(parsedTables.Survivability)
+            ? {
+                  playerName: topByValue(parsedTables.Survivability)?.playerName ?? "Unknown",
+                  value: topByValue(parsedTables.Survivability)?.value ?? 0,
+              }
+            : undefined,
+    };
+};
+
+export const normalizeEnrichedReport = (
     raw: unknown,
     parsed: ParsedReportUrl,
 ): NormalizedReport => {
-    const root = asObject(raw);
-    const data = asObject(root?.data);
-    const reportData = asObject(data?.reportData ?? root?.reportData);
-    const report = asObject(reportData?.report);
+    const enriched = asObject(raw);
+    const base = enriched?.base ?? raw;
+    const report = getReportNode(base);
     if (!report) throw new Error("Unexpected WCL payload shape");
 
     const fights: NormalizedFight[] = (
@@ -331,7 +433,28 @@ export const normalizeReport = (
         ];
     });
 
-    const rankingByName = parseRankingsPayload(report.rankings);
+    // WCL rankings JSON may be string or object depending on resolver/game family; parser handles both.
+    const reportLeaderboards = parseReportRankingsPayload(
+        enriched?.reportRankings ?? report.rankings,
+    );
+    const bossRankingsRaw =
+        enriched && Array.isArray(enriched.bossRankings) ? enriched.bossRankings : [];
+    const bossLeaderboards = bossRankingsRaw.flatMap((value) => {
+        const boss = asObject(value);
+        if (!boss) return [];
+        const fightId = asNumber(boss.fightId);
+        const bossName = asString(boss.bossName);
+        if (typeof fightId !== "number") return [];
+        return parseBossRankingsPayload(boss.payload, { fightId, bossName });
+    });
+
+    const playerDetails = parsePlayerDetailsPayload(enriched?.playerDetails);
+    const detailByName = new Map(playerDetails.map((entry) => [normalizeName(entry.name), entry]));
+
+    const leaderboardIndex = indexLeaderboardByActorAndName([
+        ...reportLeaderboards,
+        ...bossLeaderboards,
+    ]);
 
     const players: NormalizedPlayer[] = (
         asObject(report.masterData)?.actors instanceof Array
@@ -343,28 +466,64 @@ export const normalizeReport = (
         const name = asString(actor.name);
         if (!name) return [];
 
+        const actorId = asNumber(actor.id);
+        const detail = detailByName.get(normalizeName(name));
+        // Join strategy: prefer stable actor ID from masterData/rankings, fallback to normalized name when IDs are absent.
+        const leaderboardMatches =
+            (typeof actorId === "number"
+                ? leaderboardIndex.byActorId.get(actorId)
+                : undefined) ??
+            leaderboardIndex.byName.get(normalizeName(name)) ??
+            [];
+
         const player: NormalizedPlayer = {
-            id: String(asNumber(actor.id) ?? index),
+            id: String(actorId ?? index),
+            actorId,
             name,
+            nameKey: normalizeName(name),
         };
-        const className = asString(actor.subType);
+        const className = asString(actor.subType) ?? detail?.className;
         const realm = asString(actor.server);
         if (className) player.className = className;
         if (realm) player.realm = realm;
+        if (detail?.specName) player.specName = detail.specName;
+        if (detail?.role) player.role = detail.role;
 
-        const metrics = rankingByName.get(name);
-        if (typeof metrics?.bestParse === "number") {
-            player.bestParse = metrics.bestParse;
-        }
-        if (typeof metrics?.avgParse === "number") {
-            player.avgParse = metrics.avgParse;
-        }
-        if (typeof metrics?.executionScore === "number") {
-            player.executionScore = metrics.executionScore;
+        const reportEntries = leaderboardMatches.filter((entry) => entry.scope === "report");
+        const best = [...reportEntries].sort((a, b) => b.value - a.value)[0];
+        if (best) {
+            player.bestParse = best.value;
+            player.avgParse = best.value;
         }
 
         return [player];
     });
+
+    const bossPerformances: NormalizedBossPerformance[] = [];
+    for (const fight of fights) {
+        const bossTablesRaw =
+            enriched && Array.isArray(enriched.bossTables) ? enriched.bossTables : [];
+        const bossTablePayload = bossTablesRaw.find((value) => {
+            const row = asObject(value);
+            return asNumber(row?.fightId) === fight.id;
+        });
+
+        const tableNode = asObject(bossTablePayload?.tables);
+        const parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>> = {
+            DamageDone: parseTablePayload(tableNode?.DamageDone, "DamageDone"),
+            Healing: parseTablePayload(tableNode?.Healing, "Healing"),
+            Deaths: parseTablePayload(tableNode?.Deaths, "Deaths"),
+            Interrupts: parseTablePayload(tableNode?.Interrupts, "Interrupts"),
+            Survivability: parseTablePayload(tableNode?.Survivability, "Survivability"),
+        };
+        const topBossParse = bossLeaderboards
+            .filter((entry) => entry.fightId === fight.id)
+            .sort((a, b) => b.value - a.value)[0];
+
+        bossPerformances.push(
+            summarizeBossTables(fight.name, fight.id, parsedTables, topBossParse),
+        );
+    }
 
     const normalized: NormalizedReport = {
         reportCode: parsed.reportCode,
@@ -374,6 +533,8 @@ export const normalizeReport = (
         gameFamily: parsed.gameFamily,
         fights,
         players,
+        leaderboards: [...reportLeaderboards, ...bossLeaderboards],
+        bossPerformances,
     };
 
     const zoneName = asString(asObject(report.zone)?.name);
@@ -382,5 +543,10 @@ export const normalizeReport = (
     return normalized;
 };
 
-export const retailAdapter = normalizeReport;
-export const mopClassicAdapter = normalizeReport;
+export const normalizeReport = (
+    raw: unknown,
+    parsed: ParsedReportUrl,
+): NormalizedReport => normalizeEnrichedReport({ base: raw }, parsed);
+
+export const retailAdapter = normalizeEnrichedReport;
+export const mopClassicAdapter = normalizeEnrichedReport;
