@@ -68,17 +68,23 @@ app.post(
                     .code(401)
                     .send({ error: "Missing Discord headers" });
             }
-
             const rawBody =
                 typeof (req as { rawBody?: unknown }).rawBody === "string"
                     ? (req as { rawBody: string }).rawBody
                     : "";
-            const isValid = verifyKey(
+
+            const isValid = await verifyKey(
                 rawBody,
                 signature,
                 timestamp,
                 env.DISCORD_PUBLIC_KEY,
             );
+
+            logger.info({ isValid }, "discord signature result");
+
+            if (!isValid) {
+                return reply.code(401).send({ error: "Invalid signature" });
+            }
 
             if (!isValid)
                 return reply.code(401).send({ error: "Invalid signature" });
