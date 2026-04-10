@@ -1200,9 +1200,16 @@ export class WclClient {
             throw new Error(`WCL OAuth failed: ${response.status}`);
         }
 
-        const payload = (await response.json()) as { access_token: string };
-        this.token = payload.access_token;
-        return payload.access_token;
+        const payload: unknown = await response.json();
+        const token = asString(asObject(payload)?.access_token);
+        if (!token) {
+            throw new Error(
+                "WCL OAuth response missing valid access token",
+            );
+        }
+
+        this.token = token;
+        return token;
     }
 
     private async fetchFightResurrectionCount(
