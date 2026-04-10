@@ -35,11 +35,13 @@ const SHORT_LIVED_REPORT_TTL_MS = 10 * 60 * 1000;
 const IN_PROGRESS_REPORT_TTL_MS = 2 * 60 * 1000;
 const INACCESSIBLE_REPORT_TTL_MS = 6 * 60 * 60 * 1000;
 const RECENT_REPORT_WINDOW_MS = 6 * 60 * 60 * 1000;
+// Reports are fetched from user-submitted URLs/codes, so we intentionally allow unlisted reports.
+const DEFAULT_ALLOW_UNLISTED_REPORTS = true;
 
 const BASE_REPORT_QUERY = gql`
-  query BaseReportSummary($code: String!) {
+  query BaseReportSummary($code: String!, $allowUnlisted: Boolean!) {
     reportData {
-      report(code: $code) {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
         archiveStatus {
           isArchived
           isAccessible
@@ -102,9 +104,9 @@ const BASE_REPORT_QUERY = gql`
 `;
 
 const REPORT_RANKINGS_QUERY = gql`
-  query ReportRankings($code: String!) {
+  query ReportRankings($code: String!, $allowUnlisted: Boolean!) {
     reportData {
-      report(code: $code) {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
         rankings(playerMetric: default)
       }
     }
@@ -112,9 +114,13 @@ const REPORT_RANKINGS_QUERY = gql`
 `;
 
 const BOSS_RANKINGS_QUERY = gql`
-  query BossRankings($code: String!, $fightIDs: [Int]) {
+  query BossRankings(
+    $code: String!
+    $allowUnlisted: Boolean!
+    $fightIDs: [Int]
+  ) {
     reportData {
-      report(code: $code) {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
         rankings(playerMetric: default, fightIDs: $fightIDs)
       }
     }
@@ -122,9 +128,9 @@ const BOSS_RANKINGS_QUERY = gql`
 `;
 
 const PLAYER_DETAILS_QUERY = gql`
-  query PlayerDetails($code: String!) {
+  query PlayerDetails($code: String!, $allowUnlisted: Boolean!) {
     reportData {
-      report(code: $code) {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
         playerDetails(includeCombatantInfo: true)
       }
     }
@@ -132,9 +138,9 @@ const PLAYER_DETAILS_QUERY = gql`
 `;
 
 const TABLE_QUERY = gql`
-  query ReportTable($code: String!, $fightIDs: [Int]) {
+  query ReportTable($code: String!, $allowUnlisted: Boolean!, $fightIDs: [Int]) {
     reportData {
-      report(code: $code) {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
         damageDone: table(dataType: DamageDone, fightIDs: $fightIDs)
         damageTaken: table(dataType: DamageTaken, fightIDs: $fightIDs)
         healing: table(dataType: Healing, fightIDs: $fightIDs)
@@ -150,12 +156,13 @@ const TABLE_QUERY = gql`
 const RESURRECT_EVENTS_QUERY = gql`
   query FightResurrectionEvents(
     $code: String!
+    $allowUnlisted: Boolean!
     $fightIDs: [Int]
     $startTime: Float
     $filterExpression: String
   ) {
     reportData {
-      report(code: $code) {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
         events(
           dataType: All
           fightIDs: $fightIDs
@@ -974,6 +981,7 @@ export class WclClient {
                 RESURRECT_EVENTS_QUERY,
                 {
                     code,
+                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
                     fightIDs: toFightIDs(fightId),
                     startTime,
                     filterExpression: 'type = "resurrect"',
@@ -1002,7 +1010,10 @@ export class WclClient {
     private async fetchEnrichedRawReport(
         code: string,
     ): Promise<EnrichedRawReport> {
-        const base = await this.gqlClient.request(BASE_REPORT_QUERY, { code });
+        const base = await this.gqlClient.request(BASE_REPORT_QUERY, {
+            code,
+            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+        });
         const baseReport = getReportNode(base);
         const archiveStatus = baseReport
             ? getArchiveStatus(baseReport)
@@ -1020,14 +1031,15 @@ export class WclClient {
 
         const reportRankingsRaw = await this.gqlClient.request(
             REPORT_RANKINGS_QUERY,
-            { code },
+            { code, allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS },
         );
         const playerDetailsRaw = await this.gqlClient.request(
             PLAYER_DETAILS_QUERY,
-            { code },
+            { code, allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS },
         );
         const reportTablesRaw = await this.gqlClient.request(TABLE_QUERY, {
             code,
+            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
         });
 
         const rawFights = baseReport ? parseFightSummaries(baseReport) : [];
@@ -1054,12 +1066,14 @@ export class WclClient {
                 BOSS_RANKINGS_QUERY,
                 {
                     code,
+                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
                     fightIDs,
                 },
             );
 
             const tablesPayload = await this.gqlClient.request(TABLE_QUERY, {
                 code,
+                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
                 fightIDs,
             });
 
