@@ -8,6 +8,10 @@ import type {
     NormalizedPlayer,
     NormalizedReport,
 } from "@wcl/domain";
+<<<<<<< ours
+=======
+import { createLogger } from "@wcl/shared";
+>>>>>>> theirs
 import type { ReportCacheStore } from "./report-cache-store.js";
 import {
     asNumber,
@@ -41,6 +45,7 @@ const INACCESSIBLE_REPORT_TTL_MS = 6 * 60 * 60 * 1000;
 const RECENT_REPORT_WINDOW_MS = 6 * 60 * 60 * 1000;
 // Reports are fetched from user-submitted URLs/codes, so we intentionally allow unlisted reports.
 const DEFAULT_ALLOW_UNLISTED_REPORTS = true;
+const logger = createLogger("wcl-client");
 
 const BASE_REPORT_QUERY = gql`
   query BaseReportSummary(
@@ -1227,7 +1232,7 @@ export class WclClient {
         const skippedEnrichments: string[] = [];
         const noteSkippedEnrichment = (message: string): void => {
             skippedEnrichments.push(message);
-            console.warn(`[wcl-client] ${message}`);
+            logger.warn({ reportCode: code }, message);
         };
 
         const base = await this.gqlClient.request(BASE_REPORT_QUERY, {

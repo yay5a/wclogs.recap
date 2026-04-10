@@ -13,6 +13,7 @@
     },
     "dependencies": {
         "@wcl/domain": "workspace:*",
+        "@wcl/shared": "workspace:*",
         "@wcl/wcl-client": "workspace:*",
         "discord-interactions": "^4.1.0"
     }

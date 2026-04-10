@@ -3,6 +3,7 @@ import {
     InteractionType,
     MessageComponentTypes,
 } from "discord-interactions";
+import { createLogger } from "@wcl/shared";
 import type {
     AccountabilityViewService,
     CoachingViewService,
@@ -122,6 +123,7 @@ export type CommandDefinition =
     | MessageCommandDefinition;
 
 const DISCORD_API_BASE_URL = "https://discord.com/api/v10";
+const logger = createLogger("discord");
 const EPHEMERAL_MESSAGE_FLAG = 64;
 const STRING_OPTION_TYPE = 3;
 const INTEGER_OPTION_TYPE = 4;
@@ -237,11 +239,14 @@ const logReportRecapStep = (
     step: string,
     startedAt: number,
 ) => {
-    console.info("report recap step complete", {
-        interactionId,
-        step,
-        durationMs: toDurationMs(startedAt),
-    });
+    logger.info(
+        {
+            interactionId,
+            step,
+            durationMs: toDurationMs(startedAt),
+        },
+        "report recap step complete",
+    );
 };
 
 export const buildRecapPreviewBody = (
@@ -351,10 +356,13 @@ export const safeEditOriginalInteractionResponse = async (
     try {
         await editOriginalInteractionResponse(applicationId, token, body);
     } catch (error) {
-        console.error("failed to edit original interaction response", {
-            error,
-            applicationId,
-        });
+        logger.error(
+            {
+                error,
+                applicationId,
+            },
+            "failed to edit original interaction response",
+        );
     }
 };
 
@@ -375,11 +383,14 @@ const processReportRecapInteraction = async (
     const interactionToken = interaction.token;
 
     if (!applicationId || !interactionToken) {
-        console.error("report recap missing application id or token", {
-            interactionId,
-            applicationIdPresent: Boolean(applicationId),
-            tokenPresent: Boolean(interactionToken),
-        });
+        logger.error(
+            {
+                interactionId,
+                applicationIdPresent: Boolean(applicationId),
+                tokenPresent: Boolean(interactionToken),
+            },
+            "report recap missing application id or token",
+        );
         return;
     }
 
@@ -446,11 +457,14 @@ const processReportRecapInteraction = async (
         );
         logReportRecapStep(interactionId, "original_response_edit", editStart);
     } catch (error) {
-        console.error("report recap processing failed", {
-            error,
-            interactionId,
-            guildId,
-        });
+        logger.error(
+            {
+                error,
+                interactionId,
+                guildId,
+            },
+            "report recap processing failed",
+        );
         const errorMessage =
             error instanceof Error ? error.message.toLowerCase() : "";
         const userFacingContent = errorMessage.includes("report code")
@@ -769,14 +783,17 @@ const registerCommandSet = async (
 ): Promise<void> => {
     const payload = buildDiscordCommandPayloads(commandDefinitions);
 
-    console.info("registering Discord commands", {
-        guildId: guildId ?? null,
-        payloadCount: payload.length,
-        commands: payload.map((command) => ({
-            name: command.name,
-            type: command.type,
-        })),
-    });
+    logger.info(
+        {
+            guildId: guildId ?? null,
+            payloadCount: payload.length,
+            commands: payload.map((command) => ({
+                name: command.name,
+                type: command.type,
+            })),
+        },
+        "registering Discord commands",
+    );
 
     const response = await fetch(endpoint, {
         method: "PUT",
@@ -955,10 +972,13 @@ export const handleInteraction = async (
                     (o as { name?: unknown }).name === "recap",
             ) as { options?: unknown } | undefined;
             const url = getStringOption(recap?.options, "url");
-            console.info("report recap url received", {
-                interactionId: typedInteraction.id,
-                rawUrl: url ?? null,
-            });
+            logger.info(
+                {
+                    interactionId: typedInteraction.id,
+                    rawUrl: url ?? null,
+                },
+                "report recap url received",
+            );
 
             if (!url || typeof url !== "string") {
                 return {
