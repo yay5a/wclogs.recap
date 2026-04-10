@@ -1,9 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
-// Quarantined: this suite imports src/index.ts, which currently depends on @wcl/shared's dist entrypoint.
-// In clean test runs, @wcl/shared may not be built yet, so module resolution fails before assertions execute.
-// Re-enable after workspace test setup guarantees @wcl/shared is resolvable from source or prebuilt for vitest.
-describe.skip("index contract", () => {
+describe("index contract", () => {
     vi.mock(
         "@wcl/shared",
         () => ({
@@ -102,6 +99,7 @@ describe.skip("index contract", () => {
                                         startTime: 100,
                                         endTime: 150,
                                         kill: true,
+                                        encounterID: 1001,
                                     },
                                 ],
                                 masterData: {
@@ -128,6 +126,7 @@ describe.skip("index contract", () => {
                     bossRankings: [
                         {
                             fightId: 1,
+                            encounterID: 1001,
                             bossName: "Boss",
                             payload: { rankings: [{ playerID: 1, name: "Alyra", bestPercent: 97 }] },
                         },
@@ -135,6 +134,7 @@ describe.skip("index contract", () => {
                     bossTables: [
                         {
                             fightId: 1,
+                            encounterID: 1001,
                             bossName: "Boss",
                             tables: {
                                 DamageDone: { entries: [{ id: 1, name: "Alyra", total: 123 }] },
