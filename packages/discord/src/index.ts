@@ -26,28 +26,7 @@ interface HandleOptions {
 
 type RecapSummary = ReturnType<typeof buildRecapSummary>;
 
-interface RecapPreviewSummary {
-    reportTitle: RecapSummary["reportTitle"];
-    titleLine: RecapSummary["titleLine"];
-    secondaryLine: RecapSummary["secondaryLine"];
-    reportDateISO: RecapSummary["reportDateISO"];
-    reportDateLabel: RecapSummary["reportDateLabel"];
-    killTimeLabel: RecapSummary["killTimeLabel"];
-    pullCount: RecapSummary["pullCount"];
-    reportLink: RecapSummary["reportLink"];
-    gameFamily: RecapSummary["gameFamily"];
-    bossesKilled: RecapSummary["bossesKilled"];
-    compareModeUsed: RecapSummary["compareModeUsed"];
-    accountabilityVisibility: RecapSummary["accountabilityVisibility"];
-    coachingShareability: RecapSummary["coachingShareability"];
-    recapPostMode: RecapSummary["recapPostMode"];
-    zoneName?: RecapSummary["zoneName"];
-    fastestPhaseTimes: RecapSummary["fastestPhaseTimes"];
-    bestPlayerParses: RecapSummary["bestPlayerParses"];
-    topDamageTaken: RecapSummary["topDamageTaken"];
-    topHealers: RecapSummary["topHealers"];
-    totals: RecapSummary["totals"];
-}
+type RecapPreviewSummary = RecapSummary;
 
 interface SavePreviewStateInput {
     guildId: string;
@@ -412,30 +391,8 @@ export const buildRecapPreviewBody = (
     ],
 });
 
-const toRecapPreviewSummary = (summary: RecapSummary): RecapPreviewSummary => {
-    return {
-        reportTitle: summary.reportTitle,
-        titleLine: summary.titleLine,
-        secondaryLine: summary.secondaryLine,
-        reportDateISO: summary.reportDateISO,
-        reportDateLabel: summary.reportDateLabel,
-        killTimeLabel: summary.killTimeLabel,
-        pullCount: summary.pullCount,
-        reportLink: summary.reportLink,
-        gameFamily: summary.gameFamily,
-        bossesKilled: summary.bossesKilled,
-        compareModeUsed: summary.compareModeUsed,
-        accountabilityVisibility: summary.accountabilityVisibility,
-        coachingShareability: summary.coachingShareability,
-        recapPostMode: summary.recapPostMode,
-        zoneName: summary.zoneName,
-        fastestPhaseTimes: summary.fastestPhaseTimes,
-        bestPlayerParses: summary.bestPlayerParses,
-        topDamageTaken: summary.topDamageTaken,
-        topHealers: summary.topHealers,
-        totals: summary.totals,
-    };
-};
+const toRecapPreviewSummary = (summary: RecapSummary): RecapPreviewSummary =>
+    summary;
 
 export const editOriginalInteractionResponse = async (
     applicationId: string,
@@ -1130,10 +1087,12 @@ export const handleInteraction = async (
 
             if (action === OFFICERS_RECAP_ACTION) {
                 const previewState =
-                    await options.recapPreviewStateService.getValidPreviewState({
-                        reportCode,
-                        guildId,
-                    });
+                    await options.recapPreviewStateService.getValidPreviewState(
+                        {
+                            reportCode,
+                            guildId,
+                        },
+                    );
 
                 if (!previewState) {
                     return {
@@ -1174,10 +1133,12 @@ export const handleInteraction = async (
             // Consume preview state before triggering side effects so duplicate
             // button presses/replayed interactions become a no-op.
             const previewState =
-                await options.recapPreviewStateService.consumeValidPreviewState({
-                    reportCode,
-                    guildId,
-                });
+                await options.recapPreviewStateService.consumeValidPreviewState(
+                    {
+                        reportCode,
+                        guildId,
+                    },
+                );
 
             if (!previewState) {
                 logger.info(
@@ -1276,7 +1237,10 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         fields.push({
             name: "Fastest Phase Times",
             value: summary.fastestPhaseTimes
-                .map((phase) => `${phase.label}: ${formatPhase(phase.durationMs)}`)
+                .map(
+                    (phase) =>
+                        `${phase.label}: ${formatPhase(phase.durationMs)}`,
+                )
                 .join("\n"),
         });
     }
@@ -1321,7 +1285,8 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         name: "Totals",
         value: [
             `Total deaths: ${summary.totals.totalDeaths}`,
-            summary.totals.mostWipesBoss && typeof summary.totals.mostWipesCount === "number"
+            summary.totals.mostWipesBoss &&
+            typeof summary.totals.mostWipesCount === "number"
                 ? `Most wipes: ${summary.totals.mostWipesBoss} (${summary.totals.mostWipesCount} pulls/attempts)`
                 : undefined,
             `Raid damage taken: ${summary.totals.raidDamageTaken}`,

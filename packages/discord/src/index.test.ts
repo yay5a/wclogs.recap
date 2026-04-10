@@ -62,7 +62,9 @@ const makeReport = (): NormalizedReport => ({
     ],
 });
 
-const makePreviewSummary = () => ({
+type PreviewSummary = Parameters<typeof buildRecapPreviewBody>[0];
+
+const makePreviewSummary = (): PreviewSummary => ({
     reportTitle: "Boss - Mythic - Zone",
     titleLine: "Boss - Mythic - Zone",
     secondaryLine: "Guild on Realm-US",
@@ -88,6 +90,10 @@ const makePreviewSummary = () => ({
         battleRezzes: 0,
         kicks: 0,
     },
+    topOverallParsers: [],
+    bossHighlights: [],
+    raidSuperlatives: [],
+    teamNote: "Team note",
 });
 
 afterEach(() => {
@@ -303,7 +309,6 @@ describe("command registration endpoints", () => {
         } satisfies Partial<DiscordCommandRegistrationError>);
     });
 });
-
 
 describe("Discord HTTP contract behavior", () => {
     it("sends Authorization, Content-Type, and User-Agent for command registration", async () => {
@@ -537,6 +542,10 @@ describe("handleInteraction", () => {
             expect(
                 recapPreviewStateService.savePreviewState,
             ).toHaveBeenCalledOnce();
+            expect(editFetch).toHaveBeenCalledWith(
+                expect.stringContaining("/webhooks/"),
+                expect.objectContaining({ method: "PATCH" }),
+            );
         });
         const patchCall = editFetch.mock.calls.find(
             ([url]) =>
@@ -703,8 +712,9 @@ describe("handleInteraction", () => {
             },
         );
 
-        expect((firstResponse as { data?: { embeds?: unknown[] } }).data?.embeds)
-            .toHaveLength(1);
+        expect(
+            (firstResponse as { data?: { embeds?: unknown[] } }).data?.embeds,
+        ).toHaveLength(1);
         expect(secondResponse).toMatchObject({
             type: expect.any(Number),
             data: {
@@ -715,10 +725,16 @@ describe("handleInteraction", () => {
         });
         expect(
             recapPreviewStateService.consumeValidPreviewState,
-        ).toHaveBeenNthCalledWith(1, { reportCode: "ABC123", guildId: "guild-1" });
+        ).toHaveBeenNthCalledWith(1, {
+            reportCode: "ABC123",
+            guildId: "guild-1",
+        });
         expect(
             recapPreviewStateService.consumeValidPreviewState,
-        ).toHaveBeenNthCalledWith(2, { reportCode: "ABC123", guildId: "guild-1" });
+        ).toHaveBeenNthCalledWith(2, {
+            reportCode: "ABC123",
+            guildId: "guild-1",
+        });
         expect(
             coachingViewService.buildShareableCoachingView,
         ).toHaveBeenCalledTimes(1);
@@ -734,9 +750,9 @@ describe("handleInteraction", () => {
         expect(
             trendTrackingService.recomputeTrendsForGuild,
         ).toHaveBeenCalledTimes(1);
-        expect(trendTrackingService.recomputeTrendsForGuild).toHaveBeenCalledWith(
-            "guild-1",
-        );
+        expect(
+            trendTrackingService.recomputeTrendsForGuild,
+        ).toHaveBeenCalledWith("guild-1");
     });
 
     it("rejects officers-only details component when recap is unrestricted", async () => {
@@ -824,9 +840,9 @@ describe("embed rendering", () => {
             "Totals",
             "Report",
         ]);
-        expect(embed.fields.find((field) => field.name === "Totals")?.value).toContain(
-            "Most wipes: Mug'Zee (12 pulls/attempts)",
-        );
+        expect(
+            embed.fields.find((field) => field.name === "Totals")?.value,
+        ).toContain("Most wipes: Mug'Zee (12 pulls/attempts)");
     });
 
     it("degrades cleanly when optional fields are missing", () => {
