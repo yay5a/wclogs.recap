@@ -66,6 +66,10 @@ const BASE_REPORT_QUERY = gql`
         zone {
           name
           frozen
+          difficulties {
+            id
+            name
+          }
         }
         guild {
           name
@@ -372,6 +376,8 @@ type BossPerformanceRecap = NormalizedBossPerformance & {
     kicks?: number;
 };
 
+// Best-effort fallback labels only. Difficulty IDs are zone-specific in practice;
+// prefer Zone.difficulties metadata from the report's zone when present.
 const WCL_DIFFICULTY_LABELS = new Map<number, string>([
     [1, "LFR"],
     [2, "Flex"],
@@ -437,8 +443,34 @@ const toFightIDs = (
     return Array.isArray(fightIDs) ? fightIDs : [fightIDs];
 };
 
-const getDifficultyLabel = (difficulty?: number): string | undefined => {
+const getZoneDifficultyLabels = (
+    report?: Record<string, unknown>,
+): Map<number, string> => {
+    const zone = asObject(report?.zone);
+    const rows = zone && Array.isArray(zone.difficulties) ? zone.difficulties : [];
+
+    const labels = new Map<number, string>();
+    for (const value of rows) {
+        const row = asObject(value);
+        const id = asNumber(row?.id);
+        const name = asString(row?.name);
+        if (typeof id === "number" && typeof name === "string" && name.length > 0) {
+            labels.set(id, name);
+        }
+    }
+
+    return labels;
+};
+
+const getDifficultyLabel = (
+    difficulty?: number,
+    report?: Record<string, unknown>,
+): string | undefined => {
     if (typeof difficulty !== "number") return undefined;
+    const zoneDifficultyName = getZoneDifficultyLabels(report).get(difficulty);
+    if (zoneDifficultyName) return zoneDifficultyName;
+    // TODO(world-data): when we add world/game data lookups, resolve zone-specific
+    // difficulty names from canonical zone metadata before using static fallbacks.
     return WCL_DIFFICULTY_LABELS.get(difficulty) ?? `Difficulty ${difficulty}`;
 };
 
@@ -649,6 +681,7 @@ const shouldUseCachedReport = (cached: {
     const state = getReportCacheState(cached.rawPayload);
 
     if (state === "completed") {
+        // Completed includes frozen zones; these are stable and safe to cache forever.
         return true;
     }
 
@@ -1602,7 +1635,7 @@ export const normalizeEnrichedReport = (
         const summaryFightRow = encounterFights.find(
             (fight) => fight.id === summaryFight.fightId,
         );
-        const difficultyName = getDifficultyLabel(summaryFight.difficulty);
+        const difficultyName = getDifficultyLabel(summaryFight.difficulty, report);
         const fightDurationMs = summaryFightRow
             ? summaryFightRow.endTime - summaryFightRow.startTime
             : undefined;
