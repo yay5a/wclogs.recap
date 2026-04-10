@@ -1,5 +1,6 @@
 import type { NormalizedLeaderboardEntry } from "@wcl/domain";
 import {
+    asArray,
     asNumber,
     asObject,
     asString,
@@ -44,13 +45,26 @@ const readMetric = (
     return null;
 };
 
-const collectContainers = (root: Record<string, unknown>): unknown[] => [
-    ...(Array.isArray(root.data) ? root.data : []),
-    ...(Array.isArray(root.rankings) ? root.rankings : []),
-    ...(Array.isArray(root.players) ? root.players : []),
-    ...(Array.isArray(root.entries) ? root.entries : []),
-    root,
-];
+const collectContainers = (parsed: unknown): unknown[] => {
+    const root = asObject(parsed);
+    if (!root) return asArray(parsed) ?? [];
+
+    const data = asObject(root.data);
+    const rankings = asObject(root.rankings);
+    const entries = asObject(root.entries);
+
+    return [
+        ...(asArray(root.data) ?? []),
+        ...(asArray(root.rankings) ?? []),
+        ...(asArray(root.players) ?? []),
+        ...(asArray(root.entries) ?? []),
+        ...(asArray(data?.rankings) ?? []),
+        ...(asArray(data?.entries) ?? []),
+        ...(asArray(rankings?.data) ?? []),
+        ...(asArray(entries?.data) ?? []),
+        root,
+    ];
+};
 
 const toLeaderboardEntry = (
     item: unknown,
@@ -128,17 +142,22 @@ export const parseReportRankingsPayload = (
     warn: DebugWarn = defaultDebugWarn,
 ): NormalizedLeaderboardEntry[] => {
     const parsed = parseUnknownJson(payload, warn, "report rankings");
-    const root = asObject(parsed);
-    if (!root) return [];
+    const candidates = collectContainers(parsed);
+    if (candidates.length === 0) {
+        warn("rankings parser (report payload): unrecognized payload shape", {
+            payload: parsed,
+        });
+        return [];
+    }
 
     const results: NormalizedLeaderboardEntry[] = [];
-    for (const candidate of collectContainers(root)) {
+    for (const candidate of candidates) {
         const normalized = toLeaderboardEntry(candidate, "report", warn);
         if (normalized) results.push(normalized);
     }
 
     if (results.length === 0) {
-        warn("report rankings parser: no leaderboard entries detected", {
+        warn("rankings parser (report payload): no leaderboard entries detected", {
             payload: parsed,
         });
     }
@@ -151,13 +170,26 @@ export const parseBossRankingsPayload = (
     warn: DebugWarn = defaultDebugWarn,
 ): NormalizedLeaderboardEntry[] => {
     const parsed = parseUnknownJson(payload, warn, "boss rankings");
-    const root = asObject(parsed);
-    if (!root) return [];
+    const candidates = collectContainers(parsed);
+    if (candidates.length === 0) {
+        warn("rankings parser (boss payload): unrecognized payload shape", {
+            payload: parsed,
+            context,
+        });
+        return [];
+    }
 
     const results: NormalizedLeaderboardEntry[] = [];
-    for (const candidate of collectContainers(root)) {
+    for (const candidate of candidates) {
         const normalized = toLeaderboardEntry(candidate, "boss", warn, context);
         if (normalized) results.push(normalized);
+    }
+
+    if (results.length === 0) {
+        warn("rankings parser (boss payload): no leaderboard entries detected", {
+            payload: parsed,
+            context,
+        });
     }
 
     return results;

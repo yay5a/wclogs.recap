@@ -9,6 +9,9 @@ export const asObject = (value: unknown): Record<string, unknown> | undefined =>
         ? (value as Record<string, unknown>)
         : undefined;
 
+export const asArray = (value: unknown): unknown[] | undefined =>
+    Array.isArray(value) ? value : undefined;
+
 export const asNumber = (value: unknown): number | undefined =>
     typeof value === "number" && Number.isFinite(value) ? value : undefined;
 

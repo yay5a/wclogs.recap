@@ -1,4 +1,5 @@
 import {
+    asArray,
     asObject,
     asString,
     defaultDebugWarn,
@@ -13,13 +14,21 @@ export interface ParsedPlayerDetail {
     role?: string;
 }
 
-const collectPlayerNodes = (root: Record<string, unknown>): unknown[] => {
+const collectPlayerNodes = (parsed: unknown): unknown[] => {
+    const root = asObject(parsed);
+    if (!root) return asArray(parsed) ?? [];
+
     const players = asObject(root.players);
+    const details = asObject(root.details);
+    const playerDetails = asObject(root.playerDetails);
     return [
-        ...(Array.isArray(root.data) ? root.data : []),
-        ...(Array.isArray(root.entries) ? root.entries : []),
-        ...(Array.isArray(root.composition) ? root.composition : []),
-        ...(players && Array.isArray(players.data) ? players.data : []),
+        ...(asArray(root.data) ?? []),
+        ...(asArray(root.entries) ?? []),
+        ...(asArray(root.composition) ?? []),
+        ...(asArray(root.players) ?? []),
+        ...(asArray(players?.data) ?? []),
+        ...(asArray(playerDetails?.data) ?? []),
+        ...(asArray(details?.players) ?? []),
         root,
     ];
 };
@@ -29,11 +38,16 @@ export const parsePlayerDetailsPayload = (
     warn: DebugWarn = defaultDebugWarn,
 ): ParsedPlayerDetail[] => {
     const parsed = parseUnknownJson(payload, warn, "playerDetails");
-    const root = asObject(parsed);
-    if (!root) return [];
+    const rows = collectPlayerNodes(parsed);
+    if (rows.length === 0) {
+        warn("playerDetails parser (report payload): unrecognized payload shape", {
+            payload: parsed,
+        });
+        return [];
+    }
 
     const results: ParsedPlayerDetail[] = [];
-    for (const candidate of collectPlayerNodes(root)) {
+    for (const candidate of rows) {
         const entry = asObject(candidate);
         if (!entry) continue;
 
@@ -55,7 +69,9 @@ export const parsePlayerDetailsPayload = (
     }
 
     if (results.length === 0) {
-        warn("playerDetails parser: no player details extracted", { payload: parsed });
+        warn("playerDetails parser (report payload): no player details extracted", {
+            payload: parsed,
+        });
     }
 
     return results;

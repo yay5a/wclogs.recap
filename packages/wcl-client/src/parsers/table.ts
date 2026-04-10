@@ -1,4 +1,5 @@
 import {
+    asArray,
     asNumber,
     asObject,
     asString,
@@ -41,19 +42,22 @@ export const parseTablePayload = (
 ): ParsedTableEntry[] => {
     const parsed = parseUnknownJson(payload, warn, `table:${dataType}`);
     const root = asObject(parsed);
-    if (!root) {
-        warn(`table parser: invalid root for ${dataType}`, { payload });
-        return [];
-    }
-
-    const rows = [
-        ...(Array.isArray(root.entries) ? root.entries : []),
-        ...(Array.isArray(root.composition) ? root.composition : []),
-        ...(Array.isArray(root.data) ? root.data : []),
-    ];
+    const rows = root
+        ? [
+              ...(asArray(root.entries) ?? []),
+              ...(asArray(root.composition) ?? []),
+              ...(asArray(root.data) ?? []),
+              ...(asArray(root.players) ?? []),
+              ...(asArray(asObject(root.table)?.entries) ?? []),
+              ...(asArray(asObject(root.table)?.data) ?? []),
+              ...(asArray(asObject(root.details)?.entries) ?? []),
+          ]
+        : (asArray(parsed) ?? []);
 
     if (rows.length === 0) {
-        warn(`table parser: no rows for ${dataType}`, { payload: parsed });
+        warn(`table parser (${dataType} payload): unrecognized payload shape`, {
+            payload: parsed,
+        });
     }
 
     return rows.flatMap((row) => {
@@ -62,7 +66,12 @@ export const parseTablePayload = (
 
         // WCL table rows vary across report types; probe multiple keys for totals and IDs.
         const value = findValue(entry, VALUE_KEY_BY_TYPE[dataType]);
-        if (typeof value !== "number") return [];
+        if (typeof value !== "number") {
+            warn(`table parser (${dataType} payload): skipped malformed row`, {
+                row: entry,
+            });
+            return [];
+        }
 
         const playerId =
             asNumber(entry.id) ??
