@@ -424,10 +424,11 @@ describe("handleInteraction", () => {
             },
         );
 
-        await Promise.resolve();
-        expect(
-            recapPreviewStateService.savePreviewState,
-        ).toHaveBeenCalledOnce();
+        await vi.waitFor(() => {
+            expect(
+                recapPreviewStateService.savePreviewState,
+            ).toHaveBeenCalledOnce();
+        });
         const patchCall = editFetch.mock.calls.find(
             ([url]) =>
                 typeof url === "string" &&
