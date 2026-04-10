@@ -95,6 +95,8 @@ const BASE_REPORT_QUERY = gql`
           fightPercentage
           size
           lastPhase
+          lastPhaseAsAbsoluteIndex
+          lastPhaseIsIntermission
           inProgress
           originalEncounterID
           wipeCalledTime
@@ -214,7 +216,11 @@ interface FightSummaryRow {
     bossPercentage?: number;
     fightPercentage?: number;
     size?: number;
+    // lastPhase follows schema phase-number semantics (phase type count, not absolute index).
     lastPhase?: number;
+    // absolute index includes intermissions and aligns with phaseTransitions/PhaseMetadata ids.
+    lastPhaseAsAbsoluteIndex?: number;
+    lastPhaseIsIntermission?: boolean;
     inProgress?: boolean;
     originalEncounterID?: number;
     wipeCalledTime?: number;
@@ -491,6 +497,11 @@ const parseFightSummaries = (
         const averageItemLevel = asNumber(fight.averageItemLevel);
         const size = asNumber(fight.size);
         const lastPhase = asNumber(fight.lastPhase);
+        const lastPhaseAsAbsoluteIndex = asNumber(fight.lastPhaseAsAbsoluteIndex);
+        const lastPhaseIsIntermission =
+            typeof fight.lastPhaseIsIntermission === "boolean"
+                ? fight.lastPhaseIsIntermission
+                : undefined;
         const inProgress =
             typeof fight.inProgress === "boolean" ? fight.inProgress : undefined;
         const originalEncounterID = asNumber(fight.originalEncounterID);
@@ -517,6 +528,12 @@ const parseFightSummaries = (
                     : {}),
                 ...(typeof size === "number" ? { size } : {}),
                 ...(typeof lastPhase === "number" ? { lastPhase } : {}),
+                ...(typeof lastPhaseAsAbsoluteIndex === "number"
+                    ? { lastPhaseAsAbsoluteIndex }
+                    : {}),
+                ...(typeof lastPhaseIsIntermission === "boolean"
+                    ? { lastPhaseIsIntermission }
+                    : {}),
                 ...(typeof inProgress === "boolean" ? { inProgress } : {}),
                 ...(typeof originalEncounterID === "number"
                     ? { originalEncounterID }
@@ -620,9 +637,8 @@ const parseEncounterPhases = (
                     // We conditionally include the property only if it exists on the source.
                     ...(phase && "isIntermission" in phase
                         ? {
-                              isIntermission: Boolean(
-                                  (phase as any).isIntermission,
-                              ),
+                              isIntermission:
+                                  phase.isIntermission === true,
                           }
                         : {}),
                 };
@@ -752,6 +768,10 @@ const computeFastestPhaseTimes = (
             (left, right) => left.startTime - right.startTime,
         );
 
+        // phaseTransitions.id and PhaseMetadata.id are schema "absolute phase index"
+        // values (normal phases + intermissions in one sequence). Keep this index for
+        // timing windows, then filter intermissions via metadata before recording fastest
+        // "real phase" timings.
         let currentPhaseId = 1;
         let currentStart = fight.startTime;
 
