@@ -541,6 +541,129 @@ describe("handleInteraction", () => {
         });
     });
 
+    it("treats duplicate post attempts as idempotent and skips side effects on replay", async () => {
+        const recapPreviewStateService = {
+            savePreviewState: vi.fn(),
+            getValidPreviewState: vi.fn(),
+            consumeValidPreviewState: vi
+                .fn()
+                .mockResolvedValueOnce({
+                    guildId: "guild-1",
+                    channelId: "channel-1",
+                    reportCode: "ABC123",
+                    sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+                    summaryPayload: {
+                        reportTitle: "Raid Night",
+                        reportDateISO: new Date(0).toISOString(),
+                        gameFamily: "retail",
+                        bossesKilled: 1,
+                        compareModeUsed: "mixed",
+                        accountabilityVisibility: "officers-only",
+                        coachingShareability: "private",
+                        recapPostMode: "preview-and-post",
+                        topOverallParsers: [],
+                        bossHighlights: [],
+                        raidSuperlatives: [],
+                        teamNote: "Good work!",
+                    },
+                    createdByUserId: "user-1",
+                    createdAt: new Date(0),
+                    expiresAt: new Date(Date.now() + 60_000),
+                    interactionId: "preview-interaction-1",
+                    messageId: "preview-message-1",
+                })
+                .mockResolvedValueOnce(null),
+            deletePreviewState: vi.fn(),
+        };
+        const guildConfigStore: GuildConfigStore = {
+            getGuildConfig: vi.fn(),
+            saveGuildConfig: vi.fn(),
+        };
+        const wclClient = {
+            fetchAndNormalizeReport: vi.fn(),
+            findPreviousRaidSummaries: vi.fn(),
+        } as never;
+        const coachingViewService = {
+            buildShareableCoachingView: vi.fn().mockResolvedValue(undefined),
+        };
+        const accountabilityViewService = {
+            buildAccountabilityView: vi.fn().mockResolvedValue(undefined),
+        };
+        const trendTrackingService = {
+            recomputeTrendsForGuild: vi.fn().mockResolvedValue(undefined),
+            ingestRaidHistory: vi.fn().mockResolvedValue(undefined),
+        };
+
+        const firstResponse = await handleInteraction(
+            {
+                id: "post-interaction-1",
+                type: InteractionType.MESSAGE_COMPONENT,
+                guild_id: "guild-1",
+                data: { custom_id: "recap:v1:post:ABC123:guild-1" },
+            },
+            {
+                wclClient,
+                guildConfigStore,
+                recapPreviewStateService,
+                coachingViewService,
+                accountabilityViewService,
+                trendTrackingService,
+            },
+        );
+
+        const secondResponse = await handleInteraction(
+            {
+                id: "post-interaction-2",
+                type: InteractionType.MESSAGE_COMPONENT,
+                guild_id: "guild-1",
+                data: { custom_id: "recap:v1:post:ABC123:guild-1" },
+            },
+            {
+                wclClient,
+                guildConfigStore,
+                recapPreviewStateService,
+                coachingViewService,
+                accountabilityViewService,
+                trendTrackingService,
+            },
+        );
+
+        expect((firstResponse as { data?: { embeds?: unknown[] } }).data?.embeds)
+            .toHaveLength(1);
+        expect(secondResponse).toMatchObject({
+            type: expect.any(Number),
+            data: {
+                content:
+                    "This recap preview has already been posted or expired. Please run /report recap again.",
+                flags: 64,
+            },
+        });
+        expect(
+            recapPreviewStateService.consumeValidPreviewState,
+        ).toHaveBeenNthCalledWith(1, { reportCode: "ABC123", guildId: "guild-1" });
+        expect(
+            recapPreviewStateService.consumeValidPreviewState,
+        ).toHaveBeenNthCalledWith(2, { reportCode: "ABC123", guildId: "guild-1" });
+        expect(
+            coachingViewService.buildShareableCoachingView,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+            coachingViewService.buildShareableCoachingView,
+        ).toHaveBeenCalledWith("ABC123");
+        expect(
+            accountabilityViewService.buildAccountabilityView,
+        ).toHaveBeenCalledTimes(1);
+        expect(
+            accountabilityViewService.buildAccountabilityView,
+        ).toHaveBeenCalledWith("ABC123", "officers-only");
+        expect(
+            trendTrackingService.recomputeTrendsForGuild,
+        ).toHaveBeenCalledTimes(1);
+        expect(trendTrackingService.recomputeTrendsForGuild).toHaveBeenCalledWith(
+            "guild-1",
+        );
+    });
+
     it("rejects officers-only details component when recap is unrestricted", async () => {
         const wclClient = {
             fetchAndNormalizeReport: vi.fn(),

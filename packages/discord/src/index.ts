@@ -1176,6 +1176,15 @@ export const handleInteraction = async (
                 });
 
             if (!previewState) {
+                logger.info(
+                    {
+                        action: "recap.post.consume_preview_state_noop",
+                        guildId,
+                        reportCode,
+                        interactionId: typedInteraction.id,
+                    },
+                    "recap post ignored because preview state was already consumed or expired",
+                );
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                     data: {
