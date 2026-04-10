@@ -39,7 +39,16 @@ const RECENT_REPORT_WINDOW_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_ALLOW_UNLISTED_REPORTS = true;
 
 const BASE_REPORT_QUERY = gql`
-  query BaseReportSummary($code: String!, $allowUnlisted: Boolean!) {
+  query BaseReportSummary(
+    $code: String!
+    $allowUnlisted: Boolean!
+    $includeRateLimitData: Boolean! = false
+  ) {
+    rateLimitData @include(if: $includeRateLimitData) {
+      limitPerHour
+      pointsSpentThisHour
+      pointsResetIn
+    }
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
         archiveStatus {
@@ -244,11 +253,21 @@ interface EnrichedRawReport {
     base: unknown;
     // TODO(domain): expose archive accessibility status on NormalizedReport when the domain model supports it.
     archiveAccessLimited?: boolean;
+    rateLimitData?: RateLimitDataSnapshot;
+    skippedEnrichments?: string[];
     reportRankings?: unknown;
     playerDetails?: unknown;
     reportTables?: Partial<Record<TableDataType, unknown>>;
     encounterSummaries: EncounterSummaryRow[];
 }
+
+interface RateLimitDataSnapshot {
+    limitPerHour: number;
+    pointsSpentThisHour: number;
+    pointsResetIn: number;
+}
+
+type RatePressureLevel = "normal" | "high" | "critical";
 
 type BossPerformanceRecap = NormalizedBossPerformance & {
     encounterId?: number;
@@ -309,6 +328,48 @@ const getReportNode = (raw: unknown): Record<string, unknown> | undefined => {
     const data = asObject(root?.data);
     const reportData = asObject(data?.reportData ?? root?.reportData);
     return asObject(reportData?.report);
+};
+
+const getRateLimitData = (raw: unknown): RateLimitDataSnapshot | undefined => {
+    const root = asObject(raw);
+    const data = asObject(root?.data ?? root);
+    const rateLimitData = asObject(data?.rateLimitData);
+    const limitPerHour = asNumber(rateLimitData?.limitPerHour);
+    const pointsSpentThisHour = asNumber(rateLimitData?.pointsSpentThisHour);
+    const pointsResetIn = asNumber(rateLimitData?.pointsResetIn);
+
+    if (
+        typeof limitPerHour !== "number" ||
+        typeof pointsSpentThisHour !== "number" ||
+        typeof pointsResetIn !== "number"
+    ) {
+        return undefined;
+    }
+
+    return { limitPerHour, pointsSpentThisHour, pointsResetIn };
+};
+
+const getRatePressure = (
+    rateLimitData?: RateLimitDataSnapshot,
+): { level: RatePressureLevel; usage: number } => {
+    if (!rateLimitData || rateLimitData.limitPerHour <= 0) {
+        return { level: "normal", usage: 0 };
+    }
+
+    const usage = rateLimitData.pointsSpentThisHour / rateLimitData.limitPerHour;
+    const remainingPoints =
+        rateLimitData.limitPerHour - rateLimitData.pointsSpentThisHour;
+    const nearReset = rateLimitData.pointsResetIn <= 90;
+
+    if (usage >= 0.97 || (usage >= 0.9 && remainingPoints <= 25 && !nearReset)) {
+        return { level: "critical", usage };
+    }
+
+    if (usage >= 0.85 || (usage >= 0.8 && !nearReset)) {
+        return { level: "high", usage };
+    }
+
+    return { level: "normal", usage };
 };
 
 const toFightIDs = (
@@ -1010,10 +1071,19 @@ export class WclClient {
     private async fetchEnrichedRawReport(
         code: string,
     ): Promise<EnrichedRawReport> {
+        const skippedEnrichments: string[] = [];
+        const noteSkippedEnrichment = (message: string): void => {
+            skippedEnrichments.push(message);
+            console.warn(`[wcl-client] ${message}`);
+        };
+
         const base = await this.gqlClient.request(BASE_REPORT_QUERY, {
             code,
             allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+            includeRateLimitData: true,
         });
+        const rateLimitData = getRateLimitData(base);
+        const ratePressure = getRatePressure(rateLimitData);
         const baseReport = getReportNode(base);
         const archiveStatus = baseReport
             ? getArchiveStatus(baseReport)
@@ -1025,6 +1095,8 @@ export class WclClient {
             return {
                 base,
                 archiveAccessLimited: true,
+                ...(rateLimitData ? { rateLimitData } : {}),
+                ...(skippedEnrichments.length > 0 ? { skippedEnrichments } : {}),
                 encounterSummaries: [],
             };
         }
@@ -1062,25 +1134,46 @@ export class WclClient {
 
             const fightIDs = toFightIDs(summaryFight.id);
 
-            const rankingsPayload = await this.gqlClient.request(
-                BOSS_RANKINGS_QUERY,
-                {
-                    code,
-                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                    fightIDs,
-                },
-            );
+            let rankingsPayload: unknown;
+            let tableNode: Record<string, unknown> | undefined;
+            let resurrects = 0;
 
-            const tablesPayload = await this.gqlClient.request(TABLE_QUERY, {
-                code,
-                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                fightIDs,
-            });
+            if (ratePressure.level === "critical") {
+                noteSkippedEnrichment(
+                    `Skipped encounter enrichments for fight ${summaryFight.id} (${summaryFight.name}) due to critical rate pressure (${Math.round(ratePressure.usage * 100)}% used).`,
+                );
+            } else {
+                rankingsPayload = await this.gqlClient.request(
+                    BOSS_RANKINGS_QUERY,
+                    {
+                        code,
+                        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                        fightIDs,
+                    },
+                );
 
-            const tableNode = getReportNode(tablesPayload);
-            const resurrects = summaryFight.kill
-                ? await this.fetchFightResurrectionCount(code, summaryFight.id)
-                : 0;
+                if (ratePressure.level === "high") {
+                    noteSkippedEnrichment(
+                        `Skipped encounter table/resurrect enrichments for fight ${summaryFight.id} (${summaryFight.name}) due to high rate pressure (${Math.round(ratePressure.usage * 100)}% used).`,
+                    );
+                } else {
+                    const tablesPayload = await this.gqlClient.request(
+                        TABLE_QUERY,
+                        {
+                            code,
+                            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                            fightIDs,
+                        },
+                    );
+                    tableNode = getReportNode(tablesPayload);
+                    resurrects = summaryFight.kill
+                        ? await this.fetchFightResurrectionCount(
+                              code,
+                              summaryFight.id,
+                          )
+                        : 0;
+                }
+            }
 
             // Construct the encounter summary without assigning undefined to optional properties.
             const summary: EncounterSummaryRow = {
@@ -1110,6 +1203,8 @@ export class WclClient {
 
         return {
             base,
+            ...(rateLimitData ? { rateLimitData } : {}),
+            ...(skippedEnrichments.length > 0 ? { skippedEnrichments } : {}),
             reportRankings: getReportNode(reportRankingsRaw)?.rankings,
             playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
             reportTables: {
