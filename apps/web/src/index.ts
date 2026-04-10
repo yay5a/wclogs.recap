@@ -16,7 +16,8 @@ import {
     registerGlobalCommands,
     registerGuildCommands,
 } from "@wcl/discord";
-import { createLogger, parseEnv } from "@wcl/shared";
+import { createLogger } from "@wcl/shared";
+import { parseWebEnv } from "./config.js";
 import { WclClient, type ReportCacheStore } from "@wcl/wcl-client";
 import { loadEnvFile } from "node:process";
 import { existsSync } from "node:fs";
@@ -32,7 +33,7 @@ if (existsSync(envPath)) {
     loadEnvFile(envPath);
 }
 
-const env = parseEnv(process.env);
+const env = parseWebEnv(process.env);
 const logger = createLogger("web");
 const app = Fastify({ logger: false });
 

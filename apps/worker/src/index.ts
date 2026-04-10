@@ -1,5 +1,6 @@
 import { JobModel, MongoTrendTrackingService, connectMongo } from "@wcl/db";
-import { createLogger, parseEnv } from "@wcl/shared";
+import { createLogger } from "@wcl/shared";
+import { parseWorkerEnv } from "./config.js";
 import { loadEnvFile } from "node:process";
 import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -14,7 +15,7 @@ if (existsSync(envPath)) {
     loadEnvFile(envPath);
 }
 
-const env = parseEnv(process.env);
+const env = parseWorkerEnv(process.env);
 const logger = createLogger("worker");
 
 export interface Queue {
