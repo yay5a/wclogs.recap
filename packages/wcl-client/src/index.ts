@@ -215,6 +215,19 @@ interface EncounterSummaryRow {
     tables: Partial<Record<TableDataType, unknown>>;
 }
 
+const getBossEncounterId = (fight: FightSummaryRow): number | undefined => {
+    if (fight.encounterID > 0) return fight.encounterID;
+    if (
+        fight.encounterID === 0 &&
+        typeof fight.originalEncounterID === "number" &&
+        fight.originalEncounterID > 0
+    ) {
+        return fight.originalEncounterID;
+    }
+
+    return undefined;
+};
+
 interface EnrichedRawReport {
     base: unknown;
     reportRankings?: unknown;
@@ -375,7 +388,7 @@ const parseFightSummaries = (
                 name,
                 startTime,
                 endTime,
-                kill: Boolean(fight.kill),
+                kill: fight.kill === true,
                 phaseTransitions,
                 ...(typeof difficulty === "number" ? { difficulty } : {}),
                 ...(typeof averageItemLevel === "number"
@@ -517,6 +530,9 @@ const pickEncounterSummaryFight = (
     }
 
     return [...fights].sort((left, right) => {
+        // fightPercentage tracks encounter completion for wipes and is the schema-backed
+        // progress metric; bossPercentage is only remaining active boss health at pull end.
+        // Prefer fightPercentage for wipe depth ordering and keep bossPercentage as fallback.
         const leftProgress = left.fightPercentage ?? -Infinity;
         const rightProgress = right.fightPercentage ?? -Infinity;
         if (leftProgress !== rightProgress) return rightProgress - leftProgress;
@@ -980,11 +996,12 @@ export class WclClient {
         const fightsByEncounterId = new Map<number, FightSummaryRow[]>();
 
         for (const fight of rawFights) {
-            if (fight.encounterID <= 0) continue;
+            const encounterID = getBossEncounterId(fight);
+            if (typeof encounterID !== "number") continue;
 
-            const existing = fightsByEncounterId.get(fight.encounterID) ?? [];
+            const existing = fightsByEncounterId.get(encounterID) ?? [];
             existing.push(fight);
-            fightsByEncounterId.set(fight.encounterID, existing);
+            fightsByEncounterId.set(encounterID, existing);
         }
 
         const encounterSummaries: EncounterSummaryRow[] = [];
@@ -1223,9 +1240,11 @@ export const normalizeEnrichedReport = (
     const fightsByEncounterId = new Map<number, FightSummaryRow[]>();
 
     for (const fight of allEncounterFights) {
-        const existing = fightsByEncounterId.get(fight.encounterID) ?? [];
+        const encounterID = getBossEncounterId(fight);
+        if (typeof encounterID !== "number") continue;
+        const existing = fightsByEncounterId.get(encounterID) ?? [];
         existing.push(fight);
-        fightsByEncounterId.set(fight.encounterID, existing);
+        fightsByEncounterId.set(encounterID, existing);
     }
 
     const summaryByEncounterId = new Map<number, EncounterSummaryRow>(
