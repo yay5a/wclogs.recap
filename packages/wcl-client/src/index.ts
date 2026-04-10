@@ -104,6 +104,18 @@ const BASE_REPORT_QUERY = gql`
             id
             startTime
           }
+          dungeonPulls {
+            encounterID
+            kill
+            id
+            name
+            startTime
+            endTime
+            maps
+            enemyNPCs
+            x
+            y
+          }
         }
         masterData {
           actors(type: "Player") {
@@ -204,6 +216,15 @@ interface FightPhaseTransition {
     startTime: number;
 }
 
+interface DungeonPullSummaryRow {
+    id: number;
+    encounterID: number;
+    name: string;
+    startTime: number;
+    endTime: number;
+    kill: boolean;
+}
+
 interface FightSummaryRow {
     id: number;
     encounterID: number;
@@ -225,6 +246,7 @@ interface FightSummaryRow {
     originalEncounterID?: number;
     wipeCalledTime?: number;
     phaseTransitions: FightPhaseTransition[];
+    dungeonPulls?: DungeonPullSummaryRow[];
 }
 
 type ReportCacheState = "in_progress" | "recent" | "completed" | "inaccessible";
@@ -281,6 +303,9 @@ const getBossEncounterId = (fight: FightSummaryRow): number | undefined => {
 
     return undefined;
 };
+
+const hasDungeonPullData = (fight: FightSummaryRow): boolean =>
+    Array.isArray(fight.dungeonPulls) && fight.dungeonPulls.length > 0;
 
 interface EnrichedRawReport {
     base: unknown;
@@ -506,6 +531,37 @@ const parseFightSummaries = (
             typeof fight.inProgress === "boolean" ? fight.inProgress : undefined;
         const originalEncounterID = asNumber(fight.originalEncounterID);
         const wipeCalledTime = asNumber(fight.wipeCalledTime);
+        const dungeonPulls = (
+            Array.isArray(fight.dungeonPulls) ? fight.dungeonPulls : []
+        ).flatMap((pullValue) => {
+            const pull = asObject(pullValue);
+            const pullId = asNumber(pull?.id);
+            const pullEncounterID = asNumber(pull?.encounterID);
+            const pullName = asString(pull?.name);
+            const pullStartTime = asNumber(pull?.startTime);
+            const pullEndTime = asNumber(pull?.endTime);
+
+            if (
+                typeof pullId !== "number" ||
+                typeof pullEncounterID !== "number" ||
+                typeof pullName !== "string" ||
+                typeof pullStartTime !== "number" ||
+                typeof pullEndTime !== "number"
+            ) {
+                return [];
+            }
+
+            return [
+                {
+                    id: pullId,
+                    encounterID: pullEncounterID,
+                    name: pullName,
+                    startTime: pullStartTime,
+                    endTime: pullEndTime,
+                    kill: pull?.kill === true,
+                } satisfies DungeonPullSummaryRow,
+            ];
+        });
 
         return [
             {
@@ -541,6 +597,7 @@ const parseFightSummaries = (
                 ...(typeof wipeCalledTime === "number"
                     ? { wipeCalledTime }
                     : {}),
+                ...(dungeonPulls.length > 0 ? { dungeonPulls } : {}),
             },
         ];
     });
@@ -1316,6 +1373,7 @@ export const normalizeEnrichedReport = (
     }
 
     const allEncounterFights = parseFightSummaries(report);
+    const reportContainsDungeonPulls = allEncounterFights.some(hasDungeonPullData);
     const killFights = allEncounterFights.filter((fight) => fight.kill);
     const fightsToExpose =
         killFights.length > 0 ? killFights : allEncounterFights;
@@ -1569,18 +1627,26 @@ export const normalizeEnrichedReport = (
             ...(realmName ? { realmName } : {}),
             ...(zoneName ? { zoneName } : {}),
             reportUrl: parsed.rawUrl,
-            fastestPhaseTimes: computeFastestPhaseTimes(
-                encounterFights,
-                phaseMetadataByEncounterId.get(encounterID) ?? [],
-            ),
             bestParses,
-            topDamageTaken: mapTableRows(parsedTables.DamageTaken),
-            topHealers: mapTableRows(parsedTables.Healing),
-            deaths: sumTableValues(parsedTables.Deaths),
-            raidDamageTaken: sumTableValues(parsedTables.DamageTaken),
-            dispels: sumTableValues(parsedTables.Dispels),
-            battleRezzes: summaryFight.resurrects ?? 0,
-            kicks: sumTableValues(parsedTables.Interrupts),
+            ...((summaryFightRow && hasDungeonPullData(summaryFightRow)) ||
+            reportContainsDungeonPulls
+                ? {
+                      // TODO(dungeon): add dedicated Mythic+/dungeon recap fields derived from dungeonPulls
+                      // instead of raid-boss phase/table aggregates.
+                  }
+                : {
+                      fastestPhaseTimes: computeFastestPhaseTimes(
+                          encounterFights,
+                          phaseMetadataByEncounterId.get(encounterID) ?? [],
+                      ),
+                      topDamageTaken: mapTableRows(parsedTables.DamageTaken),
+                      topHealers: mapTableRows(parsedTables.Healing),
+                      deaths: sumTableValues(parsedTables.Deaths),
+                      raidDamageTaken: sumTableValues(parsedTables.DamageTaken),
+                      dispels: sumTableValues(parsedTables.Dispels),
+                      battleRezzes: summaryFight.resurrects ?? 0,
+                      kicks: sumTableValues(parsedTables.Interrupts),
+                  }),
         };
 
         bossPerformances.push(recap);

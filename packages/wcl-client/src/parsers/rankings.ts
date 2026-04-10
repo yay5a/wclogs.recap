@@ -17,6 +17,9 @@ const METRIC_KEY_CANDIDATES = [
     "execution",
     "executionScore",
     "rankPercent",
+    // Dungeon-oriented rankings can use playerScore/playerSpeed metrics.
+    "playerscore",
+    "playerspeed",
 ] as const;
 
 const readMetric = (
