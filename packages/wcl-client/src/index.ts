@@ -8,10 +8,7 @@ import type {
     NormalizedPlayer,
     NormalizedReport,
 } from "@wcl/domain";
-<<<<<<< ours
-=======
 import { createLogger } from "@wcl/shared";
->>>>>>> theirs
 import type { ReportCacheStore } from "./report-cache-store.js";
 import {
     asNumber,
@@ -426,12 +423,16 @@ const getRatePressure = (
         return { level: "normal", usage: 0 };
     }
 
-    const usage = rateLimitData.pointsSpentThisHour / rateLimitData.limitPerHour;
+    const usage =
+        rateLimitData.pointsSpentThisHour / rateLimitData.limitPerHour;
     const remainingPoints =
         rateLimitData.limitPerHour - rateLimitData.pointsSpentThisHour;
     const nearReset = rateLimitData.pointsResetIn <= 90;
 
-    if (usage >= 0.97 || (usage >= 0.9 && remainingPoints <= 25 && !nearReset)) {
+    if (
+        usage >= 0.97 ||
+        (usage >= 0.9 && remainingPoints <= 25 && !nearReset)
+    ) {
         return { level: "critical", usage };
     }
 
@@ -453,14 +454,19 @@ const getZoneDifficultyLabels = (
     report?: Record<string, unknown>,
 ): Map<number, string> => {
     const zone = asObject(report?.zone);
-    const rows = zone && Array.isArray(zone.difficulties) ? zone.difficulties : [];
+    const rows =
+        zone && Array.isArray(zone.difficulties) ? zone.difficulties : [];
 
     const labels = new Map<number, string>();
     for (const value of rows) {
         const row = asObject(value);
         const id = asNumber(row?.id);
         const name = asString(row?.name);
-        if (typeof id === "number" && typeof name === "string" && name.length > 0) {
+        if (
+            typeof id === "number" &&
+            typeof name === "string" &&
+            name.length > 0
+        ) {
             labels.set(id, name);
         }
     }
@@ -560,13 +566,17 @@ const parseFightSummaries = (
         const averageItemLevelRaw = asNumber(fight.averageItemLevel);
         const sizeRaw = asNumber(fight.size);
         const lastPhase = asNumber(fight.lastPhase);
-        const lastPhaseAsAbsoluteIndex = asNumber(fight.lastPhaseAsAbsoluteIndex);
+        const lastPhaseAsAbsoluteIndex = asNumber(
+            fight.lastPhaseAsAbsoluteIndex,
+        );
         const lastPhaseIsIntermission =
             typeof fight.lastPhaseIsIntermission === "boolean"
                 ? fight.lastPhaseIsIntermission
                 : undefined;
         const inProgress =
-            typeof fight.inProgress === "boolean" ? fight.inProgress : undefined;
+            typeof fight.inProgress === "boolean"
+                ? fight.inProgress
+                : undefined;
         const originalEncounterIDRaw = asNumber(fight.originalEncounterID);
         const wipeCalledTimeRaw = asNumber(fight.wipeCalledTime);
         const averageItemLevel =
@@ -727,35 +737,31 @@ const parseEncounterPhases = (
         const encounterID = asNumber(row?.encounterID);
         if (typeof encounterID !== "number") continue;
 
-        const phaseRows =
-            row && Array.isArray(row.phases) ? row.phases : [];
-        const phases = phaseRows.flatMap(
-            (phaseValue) => {
-                const phase = asObject(phaseValue);
-                const id = asNumber(phase?.id);
-                const name = asString(phase?.name);
-                if (typeof id !== "number" || typeof name !== "string") {
-                    return [];
-                }
+        const phaseRows = row && Array.isArray(row.phases) ? row.phases : [];
+        const phases = phaseRows.flatMap((phaseValue) => {
+            const phase = asObject(phaseValue);
+            const id = asNumber(phase?.id);
+            const name = asString(phase?.name);
+            if (typeof id !== "number" || typeof name !== "string") {
+                return [];
+            }
 
-                // Build the phase entry, omitting isIntermission when undefined. Use optional chaining
-                // on phase to safely access isIntermission. Under exactOptionalPropertyTypes, avoid
-                // assigning undefined explicitly to optional properties.
-                const entry: EncounterPhaseRow = {
-                    id,
-                    name,
-                    // When phase is undefined or does not contain isIntermission, this will be false.
-                    // We conditionally include the property only if it exists on the source.
-                    ...(phase && "isIntermission" in phase
-                        ? {
-                              isIntermission:
-                                  phase.isIntermission === true,
-                          }
-                        : {}),
-                };
-                return [entry];
-            },
-        );
+            // Build the phase entry, omitting isIntermission when undefined. Use optional chaining
+            // on phase to safely access isIntermission. Under exactOptionalPropertyTypes, avoid
+            // assigning undefined explicitly to optional properties.
+            const entry: EncounterPhaseRow = {
+                id,
+                name,
+                // When phase is undefined or does not contain isIntermission, this will be false.
+                // We conditionally include the property only if it exists on the source.
+                ...(phase && "isIntermission" in phase
+                    ? {
+                          isIntermission: phase.isIntermission === true,
+                      }
+                    : {}),
+            };
+            return [entry];
+        });
 
         result.set(encounterID, phases);
     }
@@ -1254,7 +1260,9 @@ export class WclClient {
                 base,
                 archiveAccessLimited: true,
                 ...(rateLimitData ? { rateLimitData } : {}),
-                ...(skippedEnrichments.length > 0 ? { skippedEnrichments } : {}),
+                ...(skippedEnrichments.length > 0
+                    ? { skippedEnrichments }
+                    : {}),
                 encounterSummaries: [],
             };
         }
@@ -1431,7 +1439,8 @@ export const normalizeEnrichedReport = (
     }
 
     const allEncounterFights = parseFightSummaries(report);
-    const reportContainsDungeonPulls = allEncounterFights.some(hasDungeonPullData);
+    const reportContainsDungeonPulls =
+        allEncounterFights.some(hasDungeonPullData);
     const killFights = allEncounterFights.filter((fight) => fight.kill);
     const fightsToExpose =
         killFights.length > 0 ? killFights : allEncounterFights;
@@ -1660,7 +1669,10 @@ export const normalizeEnrichedReport = (
         const summaryFightRow = encounterFights.find(
             (fight) => fight.id === summaryFight.fightId,
         );
-        const difficultyName = getDifficultyLabel(summaryFight.difficulty, report);
+        const difficultyName = getDifficultyLabel(
+            summaryFight.difficulty,
+            report,
+        );
         const fightDurationMs = summaryFightRow
             ? summaryFightRow.endTime - summaryFightRow.startTime
             : undefined;
