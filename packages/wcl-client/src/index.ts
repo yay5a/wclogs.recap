@@ -66,14 +66,18 @@ const BASE_REPORT_QUERY = gql`
           id
           encounterID
           difficulty
+          averageItemLevel
           name
           startTime
           endTime
           kill
           bossPercentage
           fightPercentage
+          size
           lastPhase
           inProgress
+          originalEncounterID
+          wipeCalledTime
           phaseTransitions {
             id
             startTime
@@ -177,14 +181,18 @@ interface FightSummaryRow {
     id: number;
     encounterID: number;
     difficulty?: number;
+    averageItemLevel?: number;
     name: string;
     startTime: number;
     endTime: number;
     kill: boolean;
     bossPercentage?: number;
     fightPercentage?: number;
+    size?: number;
     lastPhase?: number;
     inProgress?: boolean;
+    originalEncounterID?: number;
+    wipeCalledTime?: number;
     phaseTransitions: FightPhaseTransition[];
 }
 
@@ -352,9 +360,13 @@ const parseFightSummaries = (
         const difficulty = asNumber(fight.difficulty);
         const bossPercentage = asNumber(fight.bossPercentage);
         const fightPercentage = asNumber(fight.fightPercentage);
+        const averageItemLevel = asNumber(fight.averageItemLevel);
+        const size = asNumber(fight.size);
         const lastPhase = asNumber(fight.lastPhase);
         const inProgress =
-            "inProgress" in fight ? Boolean(fight.inProgress) : undefined;
+            typeof fight.inProgress === "boolean" ? fight.inProgress : undefined;
+        const originalEncounterID = asNumber(fight.originalEncounterID);
+        const wipeCalledTime = asNumber(fight.wipeCalledTime);
 
         return [
             {
@@ -366,14 +378,24 @@ const parseFightSummaries = (
                 kill: Boolean(fight.kill),
                 phaseTransitions,
                 ...(typeof difficulty === "number" ? { difficulty } : {}),
+                ...(typeof averageItemLevel === "number"
+                    ? { averageItemLevel }
+                    : {}),
                 ...(typeof bossPercentage === "number"
                     ? { bossPercentage }
                     : {}),
                 ...(typeof fightPercentage === "number"
                     ? { fightPercentage }
                     : {}),
+                ...(typeof size === "number" ? { size } : {}),
                 ...(typeof lastPhase === "number" ? { lastPhase } : {}),
                 ...(typeof inProgress === "boolean" ? { inProgress } : {}),
+                ...(typeof originalEncounterID === "number"
+                    ? { originalEncounterID }
+                    : {}),
+                ...(typeof wipeCalledTime === "number"
+                    ? { wipeCalledTime }
+                    : {}),
             },
         ];
     });
