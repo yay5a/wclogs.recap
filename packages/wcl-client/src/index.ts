@@ -1473,6 +1473,16 @@ export const normalizeEnrichedReport = (
 
     const reportLeaderboards = parseReportRankingsPayload(
         enriched?.reportRankings ?? report.rankings,
+        (message, context) => {
+            logger.warn(
+                {
+                    reportCode: parsed.reportCode,
+                    section: "report_rankings",
+                    context,
+                },
+                message,
+            );
+        },
     );
 
     const encounterSummaries = parseEncounterSummariesFromRaw(enriched);
@@ -1482,7 +1492,21 @@ export const normalizeEnrichedReport = (
             fightId: summary.fightId,
         };
 
-        return parseBossRankingsPayload(summary.rankings, context);
+        return parseBossRankingsPayload(
+            summary.rankings,
+            context,
+            (message, parserContext) => {
+                logger.warn(
+                    {
+                        reportCode: parsed.reportCode,
+                        fightId: summary.fightId,
+                        section: "boss_rankings",
+                        context: parserContext,
+                    },
+                    message,
+                );
+            },
+        );
     });
 
     const playerDetails = parsePlayerDetailsPayload(enriched?.playerDetails);
@@ -1620,7 +1644,21 @@ export const normalizeEnrichedReport = (
             Object.fromEntries(
                 REPORT_TABLE_DATA_TYPES.map((dataType) => [
                     dataType,
-                    parseTablePayload(tableNode?.[dataType], dataType),
+                    parseTablePayload(
+                        tableNode?.[dataType],
+                        dataType,
+                        (message, context) => {
+                            logger.warn(
+                                {
+                                    reportCode: parsed.reportCode,
+                                    fightId: summaryFight.fightId,
+                                    section: `table:${dataType}`,
+                                    context,
+                                },
+                                message,
+                            );
+                        },
+                    ),
                 ]),
             );
 

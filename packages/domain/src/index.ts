@@ -70,6 +70,48 @@ export interface NormalizedLeaderboardEntry {
 export interface NormalizedBossPerformance {
     bossName: string;
     fightId: number;
+    encounterId?: number;
+    difficulty?: number;
+    difficultyName?: string;
+    kill?: boolean;
+    pullCount?: number;
+    fightDate?: number;
+    fightDurationMs?: number;
+    guildName?: string;
+    realmName?: string;
+    zoneName?: string;
+    reportUrl?: string;
+    fastestPhaseTimes?: Array<{
+        phaseId: number;
+        label: string;
+        name?: string;
+        durationMs: number;
+    }>;
+    bestParses?: Array<{
+        playerName: string;
+        parse: number;
+        amount?: number;
+        metric?: string;
+        className?: string;
+        specName?: string;
+    }>;
+    topDamageTaken?: Array<{
+        playerName: string;
+        value: number;
+        className?: string;
+        specName?: string;
+    }>;
+    topHealers?: Array<{
+        playerName: string;
+        value: number;
+        className?: string;
+        specName?: string;
+    }>;
+    deaths?: number;
+    raidDamageTaken?: number;
+    dispels?: number;
+    battleRezzes?: number;
+    kicks?: number;
     topParse?: NormalizedLeaderboardEntry;
     topDamage?: { playerName: string; value: number };
     topHealing?: { playerName: string; value: number };
@@ -93,7 +135,13 @@ export interface NormalizedReport {
 
 export interface RecapSummary {
     reportTitle: string;
+    titleLine: string;
+    secondaryLine: string;
     reportDateISO: string;
+    reportDateLabel: string;
+    killTimeLabel: string;
+    pullCount: number;
+    reportLink: string;
     gameFamily: GameFamily;
     zoneName?: string;
     bossesKilled: number;
@@ -101,6 +149,25 @@ export interface RecapSummary {
     accountabilityVisibility: AccountabilityVisibility;
     coachingShareability: CoachingShareability;
     recapPostMode: RecapPostMode;
+    fastestPhaseTimes: Array<{ label: string; durationMs: number; name?: string }>;
+    bestPlayerParses: Array<{
+        playerName: string;
+        parse: number;
+        metricLabel: string;
+        amount?: number;
+        classSpecLabel?: string;
+    }>;
+    topDamageTaken: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
+    topHealers: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
+    totals: {
+        totalDeaths: number;
+        mostWipesBoss?: string;
+        mostWipesCount?: number;
+        raidDamageTaken: number;
+        dispels: number;
+        battleRezzes: number;
+        kicks: number;
+    };
     bestSingleBossParse?: {
         playerName: string;
         value: number;
@@ -140,95 +207,121 @@ interface BuildRecapSummaryOptions {
     guildConfig?: GuildConfig;
 }
 
-const pushUniqueSuperlative = (
-    target: Array<{ label: string; text: string }>,
-    label: string,
-    text: string,
-): void => {
-    if (target.some((x) => x.label === label && x.text === text)) return;
-    target.push({ label, text });
+const toMetricLabel = (value: string | undefined): string => {
+    if (!value) return "DPS";
+    return value
+        .replace(/([A-Z])/g, " $1")
+        .replace(/[_-]/g, " ")
+        .trim()
+        .toUpperCase();
 };
 
-const hasPlayerIdentity = (
-    entry: NormalizedLeaderboardEntry | undefined,
-): entry is NormalizedLeaderboardEntry & {
-    playerId: number;
-    playerName: string;
-} => typeof entry?.playerId === "number" && Boolean(entry.playerName);
+const formatDateMmDdYyyy = (timestampMs: number): string => {
+    const date = new Date(timestampMs);
+    const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+    const day = String(date.getUTCDate()).padStart(2, "0");
+    const year = String(date.getUTCFullYear());
+    return `${month}/${day}/${year}`;
+};
 
-const hasBossFightLinkage = (
-    entry: NormalizedLeaderboardEntry | undefined,
-): entry is NormalizedLeaderboardEntry & {
-    bossName: string;
-    fightId: number;
-} => Boolean(entry?.bossName) && typeof entry?.fightId === "number";
+const formatDurationMmSs = (durationMs: number): string => {
+    const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+};
+
+const toClassSpecLabel = (className?: string, specName?: string): string | undefined => {
+    if (specName && className) return `${specName} ${className}`;
+    return specName ?? className;
+};
 
 export const buildRecapSummary = (
     report: NormalizedReport,
     previousPlayers?: NormalizedPlayer[],
     options?: BuildRecapSummaryOptions,
 ): RecapSummary => {
+    void previousPlayers;
     const killed = report.fights.filter((f) => f.kill).length;
 
-    const reportLeaderboard = (report.leaderboards ?? []).filter(
-        (entry) => entry.scope === "report",
-    );
-    const bossLeaderboard = (report.leaderboards ?? []).filter(
-        (entry) => entry.scope === "boss",
-    );
-
-    // Metric assumption (phase 1): rankings(playerMetric: default) is treated as parse-like percentile.
-    const byReportValue = [...reportLeaderboard].sort(
-        (a, b) => b.value - a.value,
-    );
-    const byBossValue = [...bossLeaderboard].sort((a, b) => b.value - a.value);
-
-    const byParseFallback = [...report.players]
-        .filter((p) => typeof p.bestParse === "number")
-        .sort((a, b) => (b.bestParse ?? 0) - (a.bestParse ?? 0));
-    const byExec = [...report.players]
-        .filter((p) => typeof p.executionScore === "number")
-        .sort((a, b) => (b.executionScore ?? 0) - (a.executionScore ?? 0));
-
-    const previousByActorId = new Map(
-        (previousPlayers ?? [])
-            .filter((player) => typeof player.actorId === "number")
-            .map((player) => [player.actorId as number, player]),
-    );
-    const previousByName = new Map(
-        (previousPlayers ?? []).map((player) => [
-            player.name.toLowerCase(),
-            player,
-        ]),
-    );
-    const improved = report.players
-        .map((player) => {
-            const previous =
-                (typeof player.actorId === "number"
-                    ? previousByActorId.get(player.actorId)
-                    : undefined) ??
-                previousByName.get(player.name.toLowerCase());
-            if (
-                !previous ||
-                typeof player.avgParse !== "number" ||
-                typeof previous.avgParse !== "number"
-            ) {
-                return undefined;
-            }
-            return {
-                playerName: player.name,
-                delta: player.avgParse - previous.avgParse,
-            };
-        })
-        .filter((value): value is { playerName: string; delta: number } =>
-            Boolean(value),
-        )
-        .sort((a, b) => b.delta - a.delta);
-
     const guildConfig = options?.guildConfig;
+    const bossPerformances = [...(report.bossPerformances ?? [])];
+    const selectedBoss =
+        [...bossPerformances]
+            .filter((boss) => boss.kill)
+            .sort((left, right) => (right.fightDate ?? 0) - (left.fightDate ?? 0))[0] ??
+        [...bossPerformances].sort(
+            (left, right) => (right.fightDate ?? 0) - (left.fightDate ?? 0),
+        )[0];
+
+    const bossName = selectedBoss?.bossName ?? report.fights.at(-1)?.name ?? report.title;
+    const difficultyLabel = selectedBoss?.difficultyName ?? "Unknown Difficulty";
+    const zoneName = selectedBoss?.zoneName ?? report.zoneName;
+    const titleLine = `${bossName} - ${difficultyLabel}${zoneName ? ` - ${zoneName}` : ""}`;
+    const secondaryLine = selectedBoss?.guildName
+        ? `${selectedBoss.guildName} on ${selectedBoss.realmName ?? "Unknown Realm"}`
+        : "Unknown Guild on Unknown Realm";
+    const pullCount = selectedBoss?.pullCount ?? 0;
+    const killTimeLabel = formatDurationMmSs(selectedBoss?.fightDurationMs ?? 0);
+    const reportDateMs = selectedBoss?.fightDate ?? report.startTime;
+
+    const bestPlayerParses = (selectedBoss?.bestParses ?? [])
+        .slice(0, 3)
+        .map((entry) => {
+            const classSpecLabel = toClassSpecLabel(
+                entry.className,
+                entry.specName,
+            );
+            return {
+                playerName: entry.playerName,
+                parse: entry.parse,
+                metricLabel: toMetricLabel(entry.metric),
+                ...(typeof entry.amount === "number"
+                    ? { amount: entry.amount }
+                    : {}),
+                ...(classSpecLabel ? { classSpecLabel } : {}),
+            };
+        });
+    const topDamageTaken = (selectedBoss?.topDamageTaken ?? [])
+        .slice(0, 3)
+        .map((entry) => {
+            const classSpecLabel = toClassSpecLabel(
+                entry.className,
+                entry.specName,
+            );
+            return {
+                playerName: entry.playerName,
+                value: entry.value,
+                ...(classSpecLabel ? { classSpecLabel } : {}),
+            };
+        });
+    const topHealers = (selectedBoss?.topHealers ?? []).slice(0, 3).map((entry) => {
+        const classSpecLabel = toClassSpecLabel(entry.className, entry.specName);
+        return {
+            playerName: entry.playerName,
+            value: entry.value,
+            ...(classSpecLabel ? { classSpecLabel } : {}),
+        };
+    });
+
+    const mostWipesEntry = [...bossPerformances]
+        .map((boss) => ({
+            bossName: boss.bossName,
+            wipes: Math.max(0, (boss.pullCount ?? 0) - (boss.kill ? 1 : 0)),
+        }))
+        .sort((left, right) => right.wipes - left.wipes)[0];
+
     const summary: RecapSummary = {
-        reportTitle: report.title,
-        reportDateISO: new Date(report.startTime).toISOString(),
+        reportTitle: titleLine,
+        titleLine,
+        secondaryLine,
+        reportDateISO: new Date(reportDateMs).toISOString(),
+        reportDateLabel: formatDateMmDdYyyy(reportDateMs),
+        killTimeLabel,
+        pullCount,
+        reportLink:
+            selectedBoss?.reportUrl ??
+            `https://www.warcraftlogs.com/reports/${report.reportCode}`,
         gameFamily: report.gameFamily,
         bossesKilled: killed,
         compareModeUsed: guildConfig?.compareModeDefault ?? "character",
@@ -237,114 +330,34 @@ export const buildRecapSummary = (
         coachingShareability:
             guildConfig?.coachingShareabilityDefault ?? "private",
         recapPostMode: guildConfig?.recapPostModeDefault ?? "preview-and-post",
+        fastestPhaseTimes: (selectedBoss?.fastestPhaseTimes ?? []).map((phase) => ({
+            label: phase.label,
+            durationMs: phase.durationMs,
+            ...(phase.name ? { name: phase.name } : {}),
+        })),
+        bestPlayerParses,
+        topDamageTaken,
+        topHealers,
+        totals: {
+            totalDeaths: selectedBoss?.deaths ?? 0,
+            ...(mostWipesEntry && mostWipesEntry.wipes > 0
+                ? {
+                      mostWipesBoss: mostWipesEntry.bossName,
+                      mostWipesCount: mostWipesEntry.wipes,
+                  }
+                : {}),
+            raidDamageTaken: selectedBoss?.raidDamageTaken ?? 0,
+            dispels: selectedBoss?.dispels ?? 0,
+            battleRezzes: selectedBoss?.battleRezzes ?? 0,
+            kicks: selectedBoss?.kicks ?? 0,
+        },
         topOverallParsers: [],
         bossHighlights: [],
         raidSuperlatives: [],
         teamNote: deriveDeterministicTeamNote(killed),
     };
 
-    if (report.zoneName) summary.zoneName = report.zoneName;
-
-    for (const entry of byReportValue.slice(0, 3)) {
-        if (!hasPlayerIdentity(entry)) continue;
-        summary.topOverallParsers.push({
-            playerName: entry.playerName,
-            value: entry.value,
-            metric: entry.metric,
-        });
-    }
-    if (summary.topOverallParsers.length === 0) {
-        for (const player of byParseFallback.slice(0, 3)) {
-            summary.topOverallParsers.push({
-                playerName: player.name,
-                value: player.bestParse ?? 0,
-                metric: "bestParse",
-            });
-        }
-    }
-
-    const topReport = byReportValue.find((entry) => hasPlayerIdentity(entry));
-    if (topReport) {
-        summary.bestAverageParse = {
-            playerName: topReport.playerName,
-            value: topReport.value,
-            metric: topReport.metric,
-        };
-    }
-
-    const topBoss = byBossValue.find(
-        (entry) => hasPlayerIdentity(entry) && hasBossFightLinkage(entry),
-    );
-    if (topBoss) {
-        summary.bestSingleBossParse = {
-            playerName: topBoss.playerName,
-            value: topBoss.value,
-            bossName: topBoss.bossName,
-            fightId: topBoss.fightId,
-            metric: topBoss.metric,
-        };
-    }
-
-    if (byExec[0]) {
-        summary.bestExecution = {
-            playerName: byExec[0].name,
-            value: byExec[0].executionScore ?? 0,
-        };
-    }
-
-    if (improved[0] && improved[0].delta > 0) {
-        summary.mostImprovedPlayer = improved[0];
-    }
-
-    for (const boss of report.bossPerformances ?? []) {
-        const parts: string[] = [];
-        if (boss.topParse?.playerName) {
-            parts.push(
-                `Parse ${boss.topParse.playerName} (${boss.topParse.value.toFixed(1)})`,
-            );
-        }
-        if (boss.topDamage)
-            parts.push(
-                `DPS ${boss.topDamage.playerName} (${boss.topDamage.value.toFixed(0)})`,
-            );
-        if (boss.topHealing)
-            parts.push(
-                `HPS ${boss.topHealing.playerName} (${boss.topHealing.value.toFixed(0)})`,
-            );
-        if (boss.topInterrupts)
-            parts.push(
-                `INT ${boss.topInterrupts.playerName} (${boss.topInterrupts.value.toFixed(0)})`,
-            );
-        if (parts.length > 0) {
-            summary.bossHighlights.push({
-                bossName: boss.bossName,
-                fightId: boss.fightId,
-                text: parts.slice(0, 2).join(" • "),
-            });
-        }
-
-        if (boss.mostDeaths) {
-            pushUniqueSuperlative(
-                summary.raidSuperlatives,
-                "Most deaths",
-                `${boss.mostDeaths.playerName} (${boss.mostDeaths.value.toFixed(0)}) on ${boss.bossName}`,
-            );
-        }
-        if (boss.topSurvivability) {
-            pushUniqueSuperlative(
-                summary.raidSuperlatives,
-                "Survivor",
-                `${boss.topSurvivability.playerName} (${boss.topSurvivability.value.toFixed(1)}) on ${boss.bossName}`,
-            );
-        }
-    }
-
-    if (summary.raidSuperlatives.length === 0 && summary.bestExecution) {
-        summary.raidSuperlatives.push({
-            label: "Execution anchor",
-            text: `${summary.bestExecution.playerName} (${summary.bestExecution.value.toFixed(1)})`,
-        });
-    }
+    if (zoneName) summary.zoneName = zoneName;
 
     return summary;
 };

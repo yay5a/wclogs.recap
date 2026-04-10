@@ -62,6 +62,34 @@ const makeReport = (): NormalizedReport => ({
     ],
 });
 
+const makePreviewSummary = () => ({
+    reportTitle: "Boss - Mythic - Zone",
+    titleLine: "Boss - Mythic - Zone",
+    secondaryLine: "Guild on Realm-US",
+    reportDateISO: new Date(0).toISOString(),
+    reportDateLabel: "01/01/1970",
+    killTimeLabel: "05:32",
+    pullCount: 9,
+    reportLink: "https://www.warcraftlogs.com/reports/ABC123",
+    gameFamily: "retail" as const,
+    bossesKilled: 1,
+    compareModeUsed: "mixed" as const,
+    accountabilityVisibility: "officers-only" as const,
+    coachingShareability: "shareable" as const,
+    recapPostMode: "preview-and-post" as const,
+    fastestPhaseTimes: [],
+    bestPlayerParses: [],
+    topDamageTaken: [],
+    topHealers: [],
+    totals: {
+        totalDeaths: 0,
+        raidDamageTaken: 0,
+        dispels: 0,
+        battleRezzes: 0,
+        kicks: 0,
+    },
+});
+
 afterEach(() => {
     vi.restoreAllMocks();
 });
@@ -427,18 +455,7 @@ describe("handleInteraction", () => {
                 reportCode: "ABC123",
                 sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
                 summaryPayload: {
-                    reportTitle: "Raid Night",
-                    reportDateISO: new Date(0).toISOString(),
-                    gameFamily: "retail",
-                    bossesKilled: 1,
-                    compareModeUsed: "mixed",
-                    accountabilityVisibility: "officers-only",
-                    coachingShareability: "shareable",
-                    recapPostMode: "preview-and-post",
-                    topOverallParsers: [],
-                    bossHighlights: [],
-                    raidSuperlatives: [],
-                    teamNote: "Team note",
+                    ...makePreviewSummary(),
                 },
                 createdByUserId: "user-1",
                 createdAt: new Date(),
@@ -450,18 +467,7 @@ describe("handleInteraction", () => {
                 reportCode: "ABC123",
                 sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
                 summaryPayload: {
-                    reportTitle: "Raid Night",
-                    reportDateISO: new Date(0).toISOString(),
-                    gameFamily: "retail",
-                    bossesKilled: 1,
-                    compareModeUsed: "mixed",
-                    accountabilityVisibility: "officers-only",
-                    coachingShareability: "shareable",
-                    recapPostMode: "preview-and-post",
-                    topOverallParsers: [],
-                    bossHighlights: [],
-                    raidSuperlatives: [],
-                    teamNote: "Team note",
+                    ...makePreviewSummary(),
                 },
                 createdByUserId: "user-1",
                 createdAt: new Date(),
@@ -632,18 +638,8 @@ describe("handleInteraction", () => {
                     reportCode: "ABC123",
                     sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
                     summaryPayload: {
-                        reportTitle: "Raid Night",
-                        reportDateISO: new Date(0).toISOString(),
-                        gameFamily: "retail",
-                        bossesKilled: 1,
-                        compareModeUsed: "mixed",
-                        accountabilityVisibility: "officers-only",
+                        ...makePreviewSummary(),
                         coachingShareability: "private",
-                        recapPostMode: "preview-and-post",
-                        topOverallParsers: [],
-                        bossHighlights: [],
-                        raidSuperlatives: [],
-                        teamNote: "Good work!",
                     },
                     createdByUserId: "user-1",
                     createdAt: new Date(0),
@@ -762,18 +758,8 @@ describe("handleInteraction", () => {
                 reportCode: "ABC123",
                 sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
                 summaryPayload: {
-                    reportTitle: "Raid Night",
-                    reportDateISO: new Date(0).toISOString(),
-                    gameFamily: "retail",
-                    bossesKilled: 1,
-                    compareModeUsed: "mixed",
+                    ...makePreviewSummary(),
                     accountabilityVisibility: "off",
-                    coachingShareability: "shareable",
-                    recapPostMode: "preview-and-post",
-                    topOverallParsers: [],
-                    bossHighlights: [],
-                    raidSuperlatives: [],
-                    teamNote: "Team note",
                 },
                 createdByUserId: "user-1",
                 createdAt: new Date(),
@@ -799,119 +785,60 @@ describe("handleInteraction", () => {
 });
 
 describe("embed rendering", () => {
-    it("renders richer public recap fields when available", () => {
+    it("renders MVP recap field set", () => {
         const embed = buildPublicRecapEmbed({
-            reportTitle: "Raid Night",
-            reportDateISO: new Date(0).toISOString(),
-            gameFamily: "mop_classic",
-            bossesKilled: 3,
-            compareModeUsed: "mixed",
-            accountabilityVisibility: "officers-only",
-            coachingShareability: "shareable",
-            recapPostMode: "preview-and-post",
-            bestAverageParse: {
-                playerName: "Alyra",
-                value: 95,
-                metric: "bestPerformanceAverage",
-            },
-            bestSingleBossParse: {
-                playerName: "Alyra",
-                value: 99,
-                bossName: "Boss",
-                fightId: 1,
-                metric: "bestPercent",
-            },
-            bestExecution: { playerName: "Alyra", value: 90 },
-            topOverallParsers: [],
-            bossHighlights: [
-                { bossName: "Boss", fightId: 1, text: "DPS Alyra (12345)" },
+            ...makePreviewSummary(),
+            fastestPhaseTimes: [
+                { label: "P1", durationMs: 120000 },
+                { label: "P2", durationMs: 180000 },
+            ],
+            bestPlayerParses: [
                 {
-                    bossName: "Boss 2",
-                    fightId: 2,
-                    text: "Execution win on mechanics",
+                    playerName: "Alyra",
+                    parse: 99,
+                    amount: 250000,
+                    metricLabel: "DPS",
+                    classSpecLabel: "Shadow Priest",
                 },
             ],
-            raidSuperlatives: [
-                { label: "Most deaths", text: "Alyra (1) on Boss" },
-            ],
-            teamNote: "Team note",
+            topDamageTaken: [{ playerName: "Tanky", value: 12345 }],
+            topHealers: [{ playerName: "Healz", value: 67890 }],
+            totals: {
+                totalDeaths: 5,
+                mostWipesBoss: "Mug'Zee",
+                mostWipesCount: 12,
+                raidDamageTaken: 1234567,
+                dispels: 8,
+                battleRezzes: 2,
+                kicks: 11,
+            },
         });
 
-        expect(embed).toMatchInlineSnapshot(`
-          {
-            "fields": [
-              {
-                "name": "Raid Facts",
-                "value": "Date: 1970-01-01T00:00:00.000Z
-          Game: MoP Classic
-          Bosses Killed: 3
-          Compare Mode: Mixed",
-              },
-              {
-                "name": "Headline Winners",
-                "value": "Best single-boss parse: Alyra on Boss (99.0 best Percent)
-          Best average parse: Alyra (95.0 best Performance Average)
-          Best execution: Alyra (90.0)",
-              },
-              {
-                "name": "Top Performers by Boss",
-                "value": "• Boss: DPS Alyra (12345)
-          • Boss 2: Execution win on mechanics",
-              },
-              {
-                "name": "Superlatives",
-                "value": "Most deaths: Alyra (1) on Boss",
-              },
-              {
-                "name": "Team Note",
-                "value": "Team note",
-              },
-            ],
-            "title": "Raid Night",
-          }
-        `);
+        expect(embed.title).toBe("Boss - Mythic - Zone");
+        expect(embed.fields.map((field) => field.name)).toEqual([
+            "Raid",
+            "Fastest Phase Times",
+            "Best Player Parses",
+            "Top Damage Taken",
+            "Top Healers",
+            "Totals",
+            "Report",
+        ]);
+        expect(embed.fields.find((field) => field.name === "Totals")?.value).toContain(
+            "Most wipes: Mug'Zee (12 pulls/attempts)",
+        );
     });
 
     it("degrades cleanly when optional fields are missing", () => {
         const embed = buildPublicRecapEmbed({
-            reportTitle: "Raid Night",
-            reportDateISO: new Date(0).toISOString(),
-            gameFamily: "retail",
-            bossesKilled: 0,
-            compareModeUsed: "character",
-            accountabilityVisibility: "off",
-            coachingShareability: "private",
-            recapPostMode: "preview-only",
-            topOverallParsers: [],
-            bossHighlights: [
-                { bossName: "Boss", fightId: 1, text: "Only one" },
-            ],
-            raidSuperlatives: [],
-            teamNote: "Team note",
+            ...makePreviewSummary(),
         });
 
-        expect(embed).toMatchInlineSnapshot(`
-          {
-            "fields": [
-              {
-                "name": "Raid Facts",
-                "value": "Date: 1970-01-01T00:00:00.000Z
-          Game: Retail
-          Bosses Killed: 0
-          Compare Mode: Character",
-              },
-              {
-                "name": "Top Performers by Boss",
-                "value": "• Boss: Only one",
-              },
-              {
-                "name": "Team Note",
-                "value": "Team note",
-              },
-            ],
-            "title": "Raid Night",
-          }
-        `);
+        expect(embed.fields.map((field) => field.name)).toEqual([
+            "Raid",
+            "Totals",
+            "Report",
+        ]);
     });
 });
 
@@ -919,22 +846,15 @@ describe("preview rendering", () => {
     it("includes required compact preview lines", () => {
         const body = buildRecapPreviewBody(
             {
-                reportTitle: "Raid Night",
-                reportDateISO: new Date(0).toISOString(),
-                gameFamily: "retail",
-                bossesKilled: 2,
-                compareModeUsed: "mixed",
-                accountabilityVisibility: "officers-only",
-                coachingShareability: "private",
-                recapPostMode: "preview-and-post",
-                topOverallParsers: [],
-                bossHighlights: [],
-                raidSuperlatives: [
-                    { label: "Most Deaths", text: "Alyra (2)" },
-                    { label: "Top Damage", text: "Borin (12345)" },
-                    { label: "Ignored", text: "Will not render" },
+                ...makePreviewSummary(),
+                bestPlayerParses: [
+                    {
+                        playerName: "Alyra",
+                        parse: 99,
+                        metricLabel: "DPS",
+                        amount: 250000,
+                    },
                 ],
-                teamNote: "Team note",
             },
             "ABC123",
             "guild-1",
@@ -943,30 +863,16 @@ describe("preview rendering", () => {
         const description =
             (body.embeds?.[0] as { description?: string } | undefined)
                 ?.description ?? "";
-        expect(description).toContain("Bosses killed: 2");
-        expect(description).toContain("🏆 Best parse overall: n/a");
-        expect(description).toContain("🏆 Best average parse: n/a");
-        expect(description).toContain("🏆 Best single-boss parse: n/a");
-        expect(description).toContain("Most Deaths: Alyra (2)");
-        expect(description).toContain("Top Damage: Borin (12345)");
-        expect(description).not.toContain("Ignored");
+        expect(description).toContain("Guild on Realm-US");
+        expect(description).toContain("Kill Time: 05:32 (9 Pulls)");
+        expect(description).toContain("Date: 01/01/1970");
+        expect(description).toContain("Best Parse: Alyra (99.0)");
     });
 
     it("uses durable recap component ids for preview buttons", () => {
         const body = buildRecapPreviewBody(
             {
-                reportTitle: "Raid Night",
-                reportDateISO: new Date(0).toISOString(),
-                gameFamily: "retail",
-                bossesKilled: 2,
-                compareModeUsed: "mixed",
-                accountabilityVisibility: "officers-only",
-                coachingShareability: "private",
-                recapPostMode: "preview-and-post",
-                topOverallParsers: [],
-                bossHighlights: [],
-                raidSuperlatives: [],
-                teamNote: "Team note",
+                ...makePreviewSummary(),
             },
             "ABC123",
             "guild-1",

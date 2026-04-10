@@ -28,7 +28,13 @@ type RecapSummary = ReturnType<typeof buildRecapSummary>;
 
 interface RecapPreviewSummary {
     reportTitle: RecapSummary["reportTitle"];
+    titleLine: RecapSummary["titleLine"];
+    secondaryLine: RecapSummary["secondaryLine"];
     reportDateISO: RecapSummary["reportDateISO"];
+    reportDateLabel: RecapSummary["reportDateLabel"];
+    killTimeLabel: RecapSummary["killTimeLabel"];
+    pullCount: RecapSummary["pullCount"];
+    reportLink: RecapSummary["reportLink"];
     gameFamily: RecapSummary["gameFamily"];
     bossesKilled: RecapSummary["bossesKilled"];
     compareModeUsed: RecapSummary["compareModeUsed"];
@@ -36,14 +42,11 @@ interface RecapPreviewSummary {
     coachingShareability: RecapSummary["coachingShareability"];
     recapPostMode: RecapSummary["recapPostMode"];
     zoneName?: RecapSummary["zoneName"];
-    bestSingleBossParse?: RecapSummary["bestSingleBossParse"];
-    bestAverageParse?: RecapSummary["bestAverageParse"];
-    bestExecution?: RecapSummary["bestExecution"];
-    mostImprovedPlayer?: RecapSummary["mostImprovedPlayer"];
-    topOverallParsers: RecapSummary["topOverallParsers"];
-    bossHighlights: RecapSummary["bossHighlights"];
-    raidSuperlatives: RecapSummary["raidSuperlatives"];
-    teamNote: RecapSummary["teamNote"];
+    fastestPhaseTimes: RecapSummary["fastestPhaseTimes"];
+    bestPlayerParses: RecapSummary["bestPlayerParses"];
+    topDamageTaken: RecapSummary["topDamageTaken"];
+    topHealers: RecapSummary["topHealers"];
+    totals: RecapSummary["totals"];
 }
 
 interface SavePreviewStateInput {
@@ -140,7 +143,6 @@ const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 const RECAP_COMPONENT_PREFIX = "recap:v1";
 const POST_RECAP_ACTION = "post";
 const OFFICERS_RECAP_ACTION = "officers";
-const MAX_HIGHLIGHTS = 4;
 const DEFAULT_PREVIEW_STATE_TTL_SECONDS = 900;
 
 const toTitleCase = (value: string): string =>
@@ -152,23 +154,6 @@ const toTitleCase = (value: string): string =>
                 : part,
         )
         .join(" ");
-
-const formatGameFamilyLabel = (value: string): string => {
-    if (value === "mop_classic") return "MoP Classic";
-    if (value === "retail") return "Retail";
-    return toTitleCase(value);
-};
-
-const formatShortMetric = (metric: string): string =>
-    metric
-        .replace(/([A-Z])/g, " $1")
-        .replace(/[_-]/g, " ")
-        .trim();
-
-const formatWinnerLine = (
-    label: string,
-    value: string | undefined,
-): string | undefined => (value ? `🏆 ${label}: ${value}` : undefined);
 
 const makeRecapComponentCustomId = (
     action: string,
@@ -395,33 +380,14 @@ export const buildRecapPreviewBody = (
     flags: EPHEMERAL_MESSAGE_FLAG,
     embeds: [
         {
-            title: `Preview: ${summary.reportTitle}`,
+            title: `Preview: ${summary.titleLine}`,
             description: [
-                `Bosses killed: ${summary.bossesKilled} • ${formatGameFamilyLabel(summary.gameFamily)}`,
-                formatWinnerLine(
-                    "Best parse overall",
-                    summary.topOverallParsers[0]
-                        ? `${summary.topOverallParsers[0].playerName} (${summary.topOverallParsers[0].value.toFixed(1)} ${formatShortMetric(summary.topOverallParsers[0].metric)})`
-                        : undefined,
-                ) ?? "🏆 Best parse overall: n/a",
-                formatWinnerLine(
-                    "Best average parse",
-                    summary.bestAverageParse
-                        ? `${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`
-                        : undefined,
-                ) ?? "🏆 Best average parse: n/a",
-                formatWinnerLine(
-                    "Best single-boss parse",
-                    summary.bestSingleBossParse
-                        ? `${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)} ${formatShortMetric(summary.bestSingleBossParse.metric)})`
-                        : undefined,
-                ) ?? "🏆 Best single-boss parse: n/a",
-                summary.mostImprovedPlayer
-                    ? `📈 Most improved: ${summary.mostImprovedPlayer.playerName} (+${summary.mostImprovedPlayer.delta.toFixed(1)})`
-                    : undefined,
-                ...summary.raidSuperlatives
-                    .slice(0, 2)
-                    .map((entry) => `${entry.label}: ${entry.text}`),
+                summary.secondaryLine,
+                `Kill Time: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
+                `Date: ${summary.reportDateLabel}`,
+                summary.bestPlayerParses[0]
+                    ? `Best Parse: ${summary.bestPlayerParses[0].playerName} (${summary.bestPlayerParses[0].parse.toFixed(1)})`
+                    : "Best Parse: n/a",
             ]
                 .filter((line): line is string => Boolean(line))
                 .join("\n"),
@@ -447,34 +413,28 @@ export const buildRecapPreviewBody = (
 });
 
 const toRecapPreviewSummary = (summary: RecapSummary): RecapPreviewSummary => {
-    const compactSummary: RecapPreviewSummary = {
+    return {
         reportTitle: summary.reportTitle,
+        titleLine: summary.titleLine,
+        secondaryLine: summary.secondaryLine,
         reportDateISO: summary.reportDateISO,
+        reportDateLabel: summary.reportDateLabel,
+        killTimeLabel: summary.killTimeLabel,
+        pullCount: summary.pullCount,
+        reportLink: summary.reportLink,
         gameFamily: summary.gameFamily,
         bossesKilled: summary.bossesKilled,
         compareModeUsed: summary.compareModeUsed,
         accountabilityVisibility: summary.accountabilityVisibility,
         coachingShareability: summary.coachingShareability,
         recapPostMode: summary.recapPostMode,
-        topOverallParsers: summary.topOverallParsers,
-        bossHighlights: summary.bossHighlights,
-        raidSuperlatives: summary.raidSuperlatives,
-        teamNote: summary.teamNote,
+        zoneName: summary.zoneName,
+        fastestPhaseTimes: summary.fastestPhaseTimes,
+        bestPlayerParses: summary.bestPlayerParses,
+        topDamageTaken: summary.topDamageTaken,
+        topHealers: summary.topHealers,
+        totals: summary.totals,
     };
-    if (summary.zoneName) compactSummary.zoneName = summary.zoneName;
-    if (summary.bestSingleBossParse) {
-        compactSummary.bestSingleBossParse = summary.bestSingleBossParse;
-    }
-    if (summary.bestAverageParse) {
-        compactSummary.bestAverageParse = summary.bestAverageParse;
-    }
-    if (summary.bestExecution) {
-        compactSummary.bestExecution = summary.bestExecution;
-    }
-    if (summary.mostImprovedPlayer) {
-        compactSummary.mostImprovedPlayer = summary.mostImprovedPlayer;
-    }
-    return compactSummary;
 };
 
 export const editOriginalInteractionResponse = async (
@@ -1291,81 +1251,91 @@ export const handleInteraction = async (
 };
 
 export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
+    const formatClassSpec = (value?: string): string =>
+        value ? ` • ${value}` : "";
+    const formatPhase = (durationMs: number): string => {
+        const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
+        const minutes = Math.floor(totalSeconds / 60);
+        const seconds = totalSeconds % 60;
+        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+    };
     const fields: Array<{ name: string; value: string; inline?: boolean }> = [
         {
-            name: "Raid Facts",
+            name: "Raid",
             value: [
-                `Date: ${summary.reportDateISO}`,
-                `Game: ${formatGameFamilyLabel(summary.gameFamily)}`,
-                `Bosses Killed: ${summary.bossesKilled}`,
-                `Compare Mode: ${toTitleCase(summary.compareModeUsed)}`,
-                summary.zoneName ? `Zone: ${summary.zoneName}` : undefined,
+                summary.secondaryLine,
+                `Kill Time: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
+                `Date: ${summary.reportDateLabel}`,
             ]
                 .filter((line): line is string => Boolean(line))
                 .join("\n"),
         },
     ];
 
-    const headlineWinners: string[] = [];
-    if (summary.topOverallParsers[0]) {
-        headlineWinners.push(
-            `Best parse overall: ${summary.topOverallParsers[0].playerName} (${summary.topOverallParsers[0].value.toFixed(1)} ${formatShortMetric(summary.topOverallParsers[0].metric)})`,
-        );
-    }
-    if (summary.bestSingleBossParse) {
-        headlineWinners.push(
-            `Best single-boss parse: ${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)} ${formatShortMetric(summary.bestSingleBossParse.metric)})`,
-        );
-    }
-    if (summary.bestAverageParse) {
-        headlineWinners.push(
-            `Best average parse: ${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`,
-        );
-    }
-    if (summary.bestExecution) {
-        headlineWinners.push(
-            `Best execution: ${summary.bestExecution.playerName} (${summary.bestExecution.value.toFixed(1)})`,
-        );
-    }
-    if (summary.mostImprovedPlayer) {
-        headlineWinners.push(
-            `Most improved: ${summary.mostImprovedPlayer.playerName} (+${summary.mostImprovedPlayer.delta.toFixed(1)})`,
-        );
-    }
-    if (headlineWinners.length > 0) {
+    if (summary.fastestPhaseTimes.length > 0) {
         fields.push({
-            name: "Headline Winners",
-            value: headlineWinners.slice(0, 5).join("\n"),
+            name: "Fastest Phase Times",
+            value: summary.fastestPhaseTimes
+                .map((phase) => `${phase.label}: ${formatPhase(phase.durationMs)}`)
+                .join("\n"),
         });
     }
 
-    if (summary.bossHighlights.length > 0) {
-        const bossHighlights = summary.bossHighlights.slice(0, MAX_HIGHLIGHTS);
+    if (summary.bestPlayerParses.length > 0) {
         fields.push({
-            name: "Top Performers by Boss",
-            value: bossHighlights
+            name: "Best Player Parses",
+            value: summary.bestPlayerParses
                 .map(
                     (entry) =>
-                        `• ${entry.bossName}: ${entry.text.substring(0, 95)}`,
+                        `• ${entry.playerName} ${entry.parse.toFixed(1)} (${entry.amount?.toFixed(0) ?? "n/a"} ${entry.metricLabel})${formatClassSpec(entry.classSpecLabel)}`,
                 )
                 .join("\n"),
         });
     }
 
-    if (summary.raidSuperlatives.length > 0) {
+    if (summary.topDamageTaken.length > 0) {
         fields.push({
-            name: "Superlatives",
-            value: summary.raidSuperlatives
-                .slice(0, 2)
-                .map((entry) => `${entry.label}: ${entry.text}`)
+            name: "Top Damage Taken",
+            value: summary.topDamageTaken
+                .map(
+                    (entry) =>
+                        `• ${entry.playerName} (${entry.value.toFixed(0)})${formatClassSpec(entry.classSpecLabel)}`,
+                )
                 .join("\n"),
         });
     }
 
-    fields.push({ name: "Team Note", value: summary.teamNote });
+    if (summary.topHealers.length > 0) {
+        fields.push({
+            name: "Top Healers",
+            value: summary.topHealers
+                .map(
+                    (entry) =>
+                        `• ${entry.playerName} (${entry.value.toFixed(0)})${formatClassSpec(entry.classSpecLabel)}`,
+                )
+                .join("\n"),
+        });
+    }
+
+    fields.push({
+        name: "Totals",
+        value: [
+            `Total deaths: ${summary.totals.totalDeaths}`,
+            summary.totals.mostWipesBoss && typeof summary.totals.mostWipesCount === "number"
+                ? `Most wipes: ${summary.totals.mostWipesBoss} (${summary.totals.mostWipesCount} pulls/attempts)`
+                : undefined,
+            `Raid damage taken: ${summary.totals.raidDamageTaken}`,
+            `Dispels: ${summary.totals.dispels}`,
+            `Battle rezzes: ${summary.totals.battleRezzes}`,
+            `Kicks: ${summary.totals.kicks}`,
+        ]
+            .filter((line): line is string => Boolean(line))
+            .join("\n"),
+    });
+    fields.push({ name: "Report", value: summary.reportLink });
 
     return {
-        title: summary.reportTitle,
+        title: summary.titleLine,
         fields,
     };
 }
