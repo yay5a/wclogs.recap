@@ -366,7 +366,7 @@ export const buildRecapPreviewBody = (
                 `Date: ${summary.reportDateLabel}`,
                 summary.bestPlayerParses[0]
                     ? `Best Parse: ${summary.bestPlayerParses[0].playerName} (${summary.bestPlayerParses[0].parse.toFixed(1)})`
-                    : "Best Parse: n/a",
+                    : undefined,
             ]
                 .filter((line): line is string => Boolean(line))
                 .join("\n"),
@@ -1284,10 +1284,6 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
     const totalLines = [
         typeof summary.totals.totalDeaths === "number"
             ? `Total deaths: ${summary.totals.totalDeaths}`
-            : undefined,
-        summary.totals.mostWipesBoss &&
-        typeof summary.totals.mostWipesCount === "number"
-            ? `Most wipes: ${summary.totals.mostWipesBoss} (${summary.totals.mostWipesCount} pulls/attempts)`
             : undefined,
         typeof summary.totals.raidDamageTaken === "number"
             ? `Raid damage taken: ${summary.totals.raidDamageTaken}`

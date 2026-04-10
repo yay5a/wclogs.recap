@@ -16,6 +16,11 @@ export interface ParsedTableEntry {
     value: number;
 }
 
+export interface ParsedTablePayload {
+    entries: ParsedTableEntry[];
+    isValidEmpty: boolean;
+}
+
 const VALUE_KEY_BY_TYPE: Record<TableDataType, string[]> = {
     DamageDone: ["total", "amount", "value"],
     DamageTaken: ["total", "amount", "value"],
@@ -39,7 +44,7 @@ const getTableEntries = (
     payload: unknown,
     dataType: TableDataType,
     warn: DebugWarn,
-): unknown[] => {
+): { rows: unknown[]; isValidShape: boolean } => {
     const root = asObject(payload);
     if (!root) {
         const rows = asArray(payload) ?? [];
@@ -48,7 +53,7 @@ const getTableEntries = (
                 payload,
             });
         }
-        return rows;
+        return { rows, isValidShape: rows.length > 0 };
     }
 
     const data = asObject(root.data);
@@ -67,24 +72,42 @@ const getTableEntries = (
         ...(asArray(details?.entries) ?? []),
     ];
 
-    if (rows.length === 0) {
-        warn(`table parser (${dataType} payload): unrecognized payload shape`, {
-            payload,
-        });
+    if (dataType === "Survivability") {
+        const players = asArray(data?.players) ?? [];
+        const actorTotals = asArray(data?.actortotals) ?? [];
+        if (players.length > 0 || actorTotals.length > 0) {
+            return {
+                rows: players.length > 0 ? players : actorTotals,
+                isValidShape: true,
+            };
+        }
     }
 
-    return rows;
+    const hasExplicitEmptyEntries =
+        Array.isArray(asArray(root.entries)) ||
+        Array.isArray(asArray(data?.entries));
+
+    if (rows.length === 0) {
+        if (!hasExplicitEmptyEntries) {
+            warn(`table parser (${dataType} payload): unrecognized payload shape`, {
+                payload,
+            });
+        }
+        return { rows, isValidShape: hasExplicitEmptyEntries };
+    }
+
+    return { rows, isValidShape: true };
 };
 
-export const parseTablePayload = (
+export const parseTablePayloadDetailed = (
     payload: unknown,
     dataType: TableDataType,
     warn: DebugWarn = defaultDebugWarn,
-): ParsedTableEntry[] => {
+): ParsedTablePayload => {
     const parsed = parseUnknownJson(payload, warn, `table:${dataType}`);
-    const rows = getTableEntries(parsed, dataType, warn);
+    const { rows, isValidShape } = getTableEntries(parsed, dataType, warn);
 
-    return rows.flatMap((row) => {
+    const entries = rows.flatMap((row) => {
         const entry = asObject(row);
         if (!entry) return [];
 
@@ -113,4 +136,14 @@ export const parseTablePayload = (
         };
         return [parsedEntry];
     });
+    return {
+        entries,
+        isValidEmpty: isValidShape && rows.length === 0,
+    };
 };
+
+export const parseTablePayload = (
+    payload: unknown,
+    dataType: TableDataType,
+    warn: DebugWarn = defaultDebugWarn,
+): ParsedTableEntry[] => parseTablePayloadDetailed(payload, dataType, warn).entries;

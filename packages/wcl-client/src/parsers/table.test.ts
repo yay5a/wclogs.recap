@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { parseTablePayload } from "./table.js";
+import { parseTablePayload, parseTablePayloadDetailed } from "./table.js";
 
 describe("table parser", () => {
     it("handles multiple table payload variants", () => {
@@ -26,5 +26,33 @@ describe("table parser", () => {
         const entries = parseTablePayload(null, "Healing", warn);
         expect(entries).toEqual([]);
         expect(warn).toHaveBeenCalled();
+    });
+
+    it("treats explicit empty entries as valid empty payloads", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            { data: { entries: [] } },
+            "Deaths",
+            warn,
+        );
+        expect(parsed.entries).toEqual([]);
+        expect(parsed.isValidEmpty).toBe(true);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("supports survivability payload shape", () => {
+        const parsed = parseTablePayloadDetailed(
+            {
+                data: {
+                    players: [{ id: 3, name: "Survive", survivability: 97.5 }],
+                    fights: [],
+                    actortotals: [],
+                    abilitytotals: [],
+                },
+            },
+            "Survivability",
+        );
+        expect(parsed.entries[0]?.playerName).toBe("Survive");
+        expect(parsed.entries[0]?.value).toBe(97.5);
     });
 });

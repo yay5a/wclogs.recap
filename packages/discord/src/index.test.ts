@@ -821,8 +821,6 @@ describe("embed rendering", () => {
             topHealers: [{ playerName: "Healz", value: 67890 }],
             totals: {
                 totalDeaths: 5,
-                mostWipesBoss: "Mug'Zee",
-                mostWipesCount: 12,
                 raidDamageTaken: 1234567,
                 dispels: 8,
                 battleRezzes: 2,
@@ -842,7 +840,7 @@ describe("embed rendering", () => {
         ]);
         expect(
             embed.fields.find((field) => field.name === "Totals")?.value,
-        ).toContain("Most wipes: Mug'Zee (12 pulls/attempts)");
+        ).not.toContain("Most wipes:");
     });
 
     it("degrades cleanly when optional fields are missing", () => {

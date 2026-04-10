@@ -11,13 +11,14 @@ import {
 import type { DebugWarn } from "./common.js";
 
 const METRIC_KEY_CANDIDATES = [
+    "rankPercent",
+    "bracketPercent",
     "bestPerformanceAverage",
     "performanceAverage",
     "bestPercent",
     "percentile",
     "execution",
     "executionScore",
-    "rankPercent",
     // Dungeon-oriented rankings can use playerScore/playerSpeed metrics.
     "playerscore",
     "playerspeed",
@@ -66,6 +67,37 @@ const collectContainers = (parsed: unknown): unknown[] => {
     ];
 };
 
+const collectRoleCharacters = (
+    row: Record<string, unknown>,
+): Array<{ role: string; character: Record<string, unknown> }> => {
+    const roles = asObject(row.roles);
+    if (!roles) return [];
+
+    const buckets: Array<{ role: string; key: "tanks" | "healers" | "dps" }> = [
+        { role: "tank", key: "tanks" },
+        { role: "healer", key: "healers" },
+        { role: "dps", key: "dps" },
+    ];
+
+    return buckets.flatMap(({ role, key }) => {
+        const bucket = asObject(roles[key]);
+        const characters = asArray(bucket?.characters) ?? [];
+        return characters.flatMap((character) => {
+            const normalized = asObject(character);
+            return normalized ? [{ role, character: normalized }] : [];
+        });
+    });
+};
+
+const collectFightRows = (parsed: unknown): Record<string, unknown>[] => {
+    const root = asObject(parsed);
+    if (!root) return [];
+    return (asArray(root.data) ?? []).flatMap((entry) => {
+        const row = asObject(entry);
+        return row ? [row] : [];
+    });
+};
+
 const toLeaderboardEntry = (
     item: unknown,
     scope: "report" | "boss",
@@ -104,6 +136,7 @@ const toLeaderboardEntry = (
 
     const className =
         asString(entry.className) ??
+        asString(entry.class) ??
         asString(player?.class) ??
         asString(actor?.subType);
     const specName =
@@ -119,6 +152,10 @@ const toLeaderboardEntry = (
         asNumber(entry.fightID) ?? asNumber(entry.fightId) ?? fallback?.fightId;
 
     const rank = asNumber(entry.rank);
+    const amount = asNumber(entry.amount);
+    const best = asNumber(entry.best);
+    const rankPercent = asNumber(entry.rankPercent);
+    const bracketPercent = asNumber(entry.bracketPercent);
 
     const result: NormalizedLeaderboardEntry = {
         scope,
@@ -126,6 +163,10 @@ const toLeaderboardEntry = (
         selectedMetric: metric.metric,
         value: metric.value,
         ...(typeof rank === "number" ? { rank } : {}),
+        ...(typeof amount === "number" ? { amount } : {}),
+        ...(typeof best === "number" ? { best } : {}),
+        ...(typeof rankPercent === "number" ? { rankPercent } : {}),
+        ...(typeof bracketPercent === "number" ? { bracketPercent } : {}),
         ...(typeof playerId === "number" ? { playerId } : {}),
         ...(playerName ? { playerName } : {}),
         ...(className ? { className } : {}),
@@ -143,6 +184,20 @@ export const parseReportRankingsPayload = (
 ): NormalizedLeaderboardEntry[] => {
     const parsed = parseUnknownJson(payload, warn, "report rankings");
     const candidates = collectContainers(parsed);
+    const roleEntries = collectFightRows(parsed).flatMap((fightRow) =>
+        collectRoleCharacters(fightRow).map(({ role, character }) => ({
+            ...character,
+            role,
+            fightID:
+                asNumber(character.fightID) ??
+                asNumber(fightRow.fightID) ??
+                asNumber(fightRow.fightId),
+            encounterName:
+                asString(character.encounterName) ??
+                asString(asObject(fightRow.encounter)?.name) ??
+                asString(fightRow.encounter),
+        })),
+    );
     if (candidates.length === 0) {
         warn("rankings parser (report payload): unrecognized payload shape", {
             payload: parsed,
@@ -151,7 +206,7 @@ export const parseReportRankingsPayload = (
     }
 
     const results: NormalizedLeaderboardEntry[] = [];
-    for (const candidate of candidates) {
+    for (const candidate of [...candidates, ...roleEntries]) {
         const normalized = toLeaderboardEntry(candidate, "report", warn);
         if (normalized) results.push(normalized);
     }
@@ -171,6 +226,22 @@ export const parseBossRankingsPayload = (
 ): NormalizedLeaderboardEntry[] => {
     const parsed = parseUnknownJson(payload, warn, "boss rankings");
     const candidates = collectContainers(parsed);
+    const roleEntries = collectFightRows(parsed).flatMap((fightRow) =>
+        collectRoleCharacters(fightRow).map(({ role, character }) => ({
+            ...character,
+            role,
+            fightID:
+                asNumber(character.fightID) ??
+                asNumber(fightRow.fightID) ??
+                asNumber(fightRow.fightId) ??
+                context.fightId,
+            encounterName:
+                asString(character.encounterName) ??
+                asString(asObject(fightRow.encounter)?.name) ??
+                asString(fightRow.encounter) ??
+                context.bossName,
+        })),
+    );
     if (candidates.length === 0) {
         warn("rankings parser (boss payload): unrecognized payload shape", {
             payload: parsed,
@@ -180,7 +251,7 @@ export const parseBossRankingsPayload = (
     }
 
     const results: NormalizedLeaderboardEntry[] = [];
-    for (const candidate of candidates) {
+    for (const candidate of [...candidates, ...roleEntries]) {
         const normalized = toLeaderboardEntry(candidate, "boss", warn, context);
         if (normalized) results.push(normalized);
     }

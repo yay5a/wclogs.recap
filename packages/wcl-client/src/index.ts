@@ -19,7 +19,7 @@ import {
     parseBossRankingsPayload,
     parsePlayerDetailsPayload,
     parseReportRankingsPayload,
-    parseTablePayload,
+    parseTablePayloadDetailed,
     type ParsedTableEntry,
 } from "./parsers/index.js";
 import {
@@ -486,6 +486,28 @@ const getDifficultyLabel = (
 const sumTableValues = (entries?: ParsedTableEntry[]): number | undefined => {
     if (!entries) return undefined;
     return entries.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
+};
+
+const getFightDeathsFromRankingsPayload = (
+    payload: unknown,
+    fightId: number,
+): number | undefined => {
+    if (typeof payload !== "string") return undefined;
+    try {
+        const root = asObject(JSON.parse(payload));
+        if (!root) return undefined;
+        const rows = Array.isArray(root.data) ? root.data : [];
+        for (const value of rows) {
+            const row = asObject(value);
+            const rowFightId = asNumber(row?.fightID) ?? asNumber(row?.fightId);
+            if (rowFightId !== fightId) continue;
+            const deaths = asNumber(row?.deaths);
+            if (typeof deaths === "number") return deaths;
+        }
+    } catch {
+        return undefined;
+    }
+    return undefined;
 };
 
 const getArchiveStatus = (
@@ -1346,18 +1368,6 @@ export class WclClient {
                 "Skipped playerDetails enrichment due to missing report start/end time bounds.",
             );
         }
-        let reportTablesRaw: unknown;
-        try {
-            reportTablesRaw = await this.requestGraphQl(TABLE_QUERY, {
-                code,
-                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-            });
-        } catch (error) {
-            noteSkippedEnrichment(
-                `Failed report table enrichment; continuing without report tables (${error instanceof Error ? error.message : "unknown error"}).`,
-            );
-        }
-
         const rawFights = baseReport ? parseFightSummaries(baseReport) : [];
         const encounterSummaries: EncounterSummaryRow[] = [];
         const targetFight = selectTargetBossFight(rawFights);
@@ -1382,9 +1392,6 @@ export class WclClient {
                             : {}),
                         reportRankings: getReportNode(reportRankingsRaw)?.rankings,
                         playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
-                        reportTables: mapReportTablesByType(
-                            getReportNode(reportTablesRaw),
-                        ),
                         encounterSummaries,
                     };
                 }
@@ -1393,7 +1400,7 @@ export class WclClient {
 
                 let rankingsPayload: unknown;
                 let tableNode: Record<string, unknown> | undefined;
-                let resurrects = 0;
+                let resurrects: number | undefined;
 
                 if (ratePressure.level === "critical") {
                     noteSkippedEnrichment(
@@ -1423,12 +1430,12 @@ export class WclClient {
                             },
                         );
                         tableNode = getReportNode(tablesPayload);
-                        resurrects = summaryFight.kill
-                            ? await this.fetchFightResurrectionCount(
-                                  code,
-                                  summaryFight.id,
-                              )
-                            : 0;
+                        if (summaryFight.kill) {
+                            resurrects = await this.fetchFightResurrectionCount(
+                                code,
+                                summaryFight.id,
+                            );
+                        }
                     }
                 }
 
@@ -1443,7 +1450,7 @@ export class WclClient {
                     ...(typeof summaryFight.difficulty === "number"
                         ? { difficulty: summaryFight.difficulty }
                         : {}),
-                    ...(typeof resurrects === "number" && resurrects > 0
+                    ...(typeof resurrects === "number"
                         ? { resurrects }
                         : {}),
                 };
@@ -1457,7 +1464,6 @@ export class WclClient {
             ...(skippedEnrichments.length > 0 ? { skippedEnrichments } : {}),
             reportRankings: getReportNode(reportRankingsRaw)?.rankings,
             playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
-            reportTables: mapReportTablesByType(getReportNode(reportTablesRaw)),
             encounterSummaries,
         };
     }
@@ -1696,7 +1702,7 @@ export const normalizeEnrichedReport = (
             continue;
         }
 
-        const summaryFight =
+        const summaryFight: EncounterSummaryRow | undefined =
             summaryByEncounterId.get(encounterID) ??
             (() => {
                 const fallbackFight =
@@ -1710,12 +1716,11 @@ export const normalizeEnrichedReport = (
                     bossName: fallbackFight.name,
                     fightId: fallbackFight.id,
                     kill: fallbackFight.kill,
-                    resurrects: 0,
                     tables: {},
                     ...(typeof fallbackFight.difficulty === "number"
                         ? { difficulty: fallbackFight.difficulty }
                         : {}),
-                } satisfies EncounterSummaryRow;
+                };
             })();
 
         if (!summaryFight) continue;
@@ -1728,11 +1733,16 @@ export const normalizeEnrichedReport = (
         }
 
         const tableNode = asObject(summaryFight.tables);
-        const parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>> =
+        const parsedTableResults: Partial<
+            Record<
+                TableDataType,
+                { entries: ParsedTableEntry[]; isValidEmpty: boolean }
+            >
+        > =
             Object.fromEntries(
                 REPORT_TABLE_DATA_TYPES.map((dataType) => [
                     dataType,
-                    parseTablePayload(
+                    parseTablePayloadDetailed(
                         tableNode?.[dataType],
                         dataType,
                         (message, context) => {
@@ -1747,6 +1757,13 @@ export const normalizeEnrichedReport = (
                             );
                         },
                     ),
+                ]),
+            );
+        const parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>> =
+            Object.fromEntries(
+                REPORT_TABLE_DATA_TYPES.map((dataType) => [
+                    dataType,
+                    parsedTableResults[dataType]?.entries ?? [],
                 ]),
             );
 
@@ -1795,7 +1812,13 @@ export const normalizeEnrichedReport = (
             entries: ParsedTableEntry[] | undefined,
             limit = 3,
         ) =>
-            takeTopEntries(entries, limit).map((entry) => {
+            takeTopEntries(
+                (entries ?? []).filter((entry) => {
+                    if (!entry.playerName) return false;
+                    return playerByName.has(normalizeName(entry.playerName));
+                }),
+                limit,
+            ).map((entry) => {
                 const player = entry.playerName
                     ? playerByName.get(normalizeName(entry.playerName))
                     : undefined;
@@ -1850,12 +1873,39 @@ export const normalizeEnrichedReport = (
                   }
                 : {
                       ...(() => {
-                          const deaths = sumTableValues(parsedTables.Deaths);
+                          const deathsFromTable = sumTableValues(
+                              parsedTables.Deaths,
+                          );
+                          const deaths =
+                              typeof deathsFromTable === "number"
+                                  ? deathsFromTable
+                                  : parsedTableResults.Deaths?.isValidEmpty
+                                    ? 0
+                                    : getFightDeathsFromRankingsPayload(
+                                          summaryFight.rankings,
+                                          summaryFight.fightId,
+                                      );
                           const raidDamageTaken = sumTableValues(
                               parsedTables.DamageTaken,
                           );
-                          const dispels = sumTableValues(parsedTables.Dispels);
-                          const kicks = sumTableValues(parsedTables.Interrupts);
+                          const dispelsFromTable = sumTableValues(
+                              parsedTables.Dispels,
+                          );
+                          const dispels =
+                              typeof dispelsFromTable === "number"
+                                  ? dispelsFromTable
+                                  : parsedTableResults.Dispels?.isValidEmpty
+                                    ? 0
+                                    : undefined;
+                          const kicksFromTable = sumTableValues(
+                              parsedTables.Interrupts,
+                          );
+                          const kicks =
+                              typeof kicksFromTable === "number"
+                                  ? kicksFromTable
+                                  : parsedTableResults.Interrupts?.isValidEmpty
+                                    ? 0
+                                    : undefined;
                           return {
                               ...(typeof deaths === "number" ? { deaths } : {}),
                               ...(typeof raidDamageTaken === "number"
@@ -1871,7 +1921,9 @@ export const normalizeEnrichedReport = (
                       ),
                       topDamageTaken: mapTableRows(parsedTables.DamageTaken),
                       topHealers: mapTableRows(parsedTables.Healing),
-                      battleRezzes: summaryFight.resurrects ?? 0,
+                      ...(typeof summaryFight.resurrects === "number"
+                          ? { battleRezzes: summaryFight.resurrects }
+                          : {}),
                   }),
         };
 

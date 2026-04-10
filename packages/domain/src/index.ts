@@ -65,6 +65,10 @@ export interface NormalizedLeaderboardEntry {
     selectedMetric?: string;
     value: number;
     rank?: number;
+    amount?: number;
+    best?: number;
+    rankPercent?: number;
+    bracketPercent?: number;
 }
 
 export interface NormalizedBossPerformance {
