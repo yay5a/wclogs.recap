@@ -11,13 +11,13 @@ import {
 } from "./index.js";
 
 const makeRecapSummary = (): RecapSummary => ({
-    reportTitle: "Raid Night",
-    titleLine: "Sylvanas Windrunner - Mythic - Sanctum of Domination",
-    secondaryLine: "<Asylum> on Mal'Ganis-US",
+    reportTitle: "Boss - Mythic - Zone",
+    titleLine: "Boss - Mythic - Zone",
+    secondaryLine: "Guild on Realm-US",
     reportDateISO: new Date(0).toISOString(),
     reportDateLabel: "01/01/1970",
-    killTimeLabel: "11:45",
-    pullCount: 21,
+    killTimeLabel: "05:32",
+    pullCount: 9,
     reportLink: "https://www.warcraftlogs.com/reports/ABC123",
     gameFamily: "retail",
     bossesKilled: 1,
