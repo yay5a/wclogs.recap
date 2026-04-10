@@ -102,6 +102,7 @@ app.post(
                 wclClient,
                 guildConfigStore,
                 recapPreviewStateService,
+                previewStateTtlSeconds: env.PREVIEW_STATE_TTL_SECONDS,
                 coachingViewService,
                 accountabilityViewService,
                 trendTrackingService,

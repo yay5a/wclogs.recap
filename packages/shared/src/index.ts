@@ -70,6 +70,7 @@ export const envSchema = z.object({
     WCL_API_BASE_URL: trimmed()
         .url()
         .default("https://www.warcraftlogs.com/api/v2/client"),
+    PREVIEW_STATE_TTL_SECONDS: z.coerce.number().int().positive().default(900),
 });
 
 export type AppEnv = z.infer<typeof envSchema>;

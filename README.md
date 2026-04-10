@@ -72,9 +72,9 @@ Warcraft Logs-focused Discord companion app.
 
 ## Environment and config requirements
 
-- `PREVIEW_STATE_TTL_SECONDS` (new): required for deployments that use durable
-  preview persistence. This value should be set long enough to cover moderator
-  review windows, but short enough to prevent stale recap posts.
+- `PREVIEW_STATE_TTL_SECONDS` (new): optional preview-state expiration in
+  seconds for durable preview persistence. Defaults to `900` (15 minutes). Set
+  a higher/lower value based on moderator review windows vs stale recap risk.
 - Worker job payload contract (new): queued jobs must include type-specific
   payloads. At minimum:
   - `recompute_trends`: `{ "guildId": "<discord guild id>" }`

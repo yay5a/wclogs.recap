@@ -17,6 +17,7 @@ interface HandleOptions {
     wclClient: WclClient & Partial<PreviousRaidLookup>;
     guildConfigStore: GuildConfigStore;
     recapPreviewStateService: RecapPreviewStateService;
+    previewStateTtlSeconds?: number;
     coachingViewService?: CoachingViewService;
     accountabilityViewService?: AccountabilityViewService;
     trendTrackingService?: TrendTrackingService;
@@ -131,7 +132,7 @@ const RECAP_COMPONENT_PREFIX = "recap:v1";
 const POST_RECAP_ACTION = "post";
 const OFFICERS_RECAP_ACTION = "officers";
 const MAX_HIGHLIGHTS = 4;
-const PREVIEW_STATE_TTL_MS = 15 * 60_000;
+const DEFAULT_PREVIEW_STATE_TTL_SECONDS = 900;
 
 const toTitleCase = (value: string): string =>
     value
@@ -362,6 +363,9 @@ const processReportRecapInteraction = async (
     options: HandleOptions,
     url: string,
 ): Promise<void> => {
+    const previewStateTtlMs =
+        (options.previewStateTtlSeconds ?? DEFAULT_PREVIEW_STATE_TTL_SECONDS) *
+        1000;
     const interactionId = interaction.id;
     const guildId = interaction.guild_id ?? "dm";
     const channelId = interaction.channel_id ?? "unknown";
@@ -425,7 +429,7 @@ const processReportRecapInteraction = async (
             summaryPayload: toRecapPreviewSummary(summary),
             createdByUserId,
             createdAt,
-            expiresAt: new Date(createdAt.getTime() + PREVIEW_STATE_TTL_MS),
+            expiresAt: new Date(createdAt.getTime() + previewStateTtlMs),
         };
         if (interactionId) {
             previewStateInput.interactionId = interactionId;
