@@ -76,6 +76,35 @@ const parseNestedDetailsRows = (
     });
 };
 
+const isDeathsEventRow = (entry: Record<string, unknown>): boolean => {
+    if (typeof asNumber(entry.timestamp) !== "number") return false;
+    const hasDeathPayload =
+        Array.isArray(asArray(entry.events)) ||
+        Array.isArray(asArray(entry.deathWindow)) ||
+        typeof asNumber(entry.overkill) === "number" ||
+        asObject(entry.killingBlow) !== undefined;
+
+    return hasDeathPayload;
+};
+
+const parseDeathsEventRow = (entry: Record<string, unknown>): ParsedTableEntry[] => {
+    const playerName = asString(entry.name) ?? asString(asObject(entry.actor)?.name);
+    const playerId =
+        asNumber(entry.id) ??
+        asNumber(entry.playerID) ??
+        asNumber(entry.playerId) ??
+        asNumber(entry.guid);
+
+    return [
+        {
+            dataType: "Deaths",
+            value: 1,
+            ...(typeof playerId === "number" ? { playerId } : {}),
+            ...(playerName ? { playerName } : {}),
+        },
+    ];
+};
+
 const getTableEntries = (
     payload: unknown,
     dataType: TableDataType,
@@ -109,6 +138,7 @@ const getTableEntries = (
     ];
 
     if (dataType === "Survivability") {
+        const players = asArray(data?.players) ?? [];
         const actorTotals = asArray(data?.actortotals) ?? [];
         const hasSurvivabilityEnvelope =
             Array.isArray(asArray(data?.players)) ||
@@ -117,7 +147,12 @@ const getTableEntries = (
             Array.isArray(asArray(data?.abilitytotals));
         if (hasSurvivabilityEnvelope) {
             return {
-                rows: actorTotals.length > 0 ? actorTotals : [],
+                rows:
+                    actorTotals.length > 0
+                        ? actorTotals
+                        : players.length > 0
+                          ? players
+                          : [],
                 isValidShape: true,
             };
         }
@@ -151,13 +186,24 @@ export const parseTablePayloadDetailed = (
         const entry = asObject(row);
         if (!entry) return [];
 
+        const nestedDetailEntries = parseNestedDetailsRows(entry, dataType);
+        if (nestedDetailEntries.length > 0) {
+            return nestedDetailEntries;
+        }
+
         // WCL table rows vary across report types; probe multiple keys for totals and IDs.
         const value = findValue(entry, VALUE_KEY_BY_TYPE[dataType]);
         if (typeof value !== "number") {
-            const nestedDetailEntries = parseNestedDetailsRows(entry, dataType);
-            if (nestedDetailEntries.length > 0) {
-                return nestedDetailEntries;
+            if (dataType === "Deaths" && isDeathsEventRow(entry)) {
+                return parseDeathsEventRow(entry);
             }
+
+            // Survivability payloads often include player/fight metadata rows that are valid but not
+            // currently rendered in the recap card.
+            if (dataType === "Survivability") {
+                return [];
+            }
+
             warn(`table parser (${dataType} payload): skipped malformed row`, {
                 row: entry,
             });
@@ -170,8 +216,6 @@ export const parseTablePayloadDetailed = (
             asNumber(entry.playerId);
         const playerName = asString(entry.name) ?? asString(asObject(entry.actor)?.name);
 
-        // Construct the entry object, only adding playerId and playerName when defined. exact
-        // optional property types disallow explicitly assigning undefined to optional properties.
         const parsedEntry: ParsedTableEntry = {
             dataType,
             value,

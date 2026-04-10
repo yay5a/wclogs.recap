@@ -1,5 +1,18 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { parseTablePayload, parseTablePayloadDetailed } from "./table.js";
+
+const loadProbeFixture = (name: string): unknown => {
+    const path = join(
+        process.cwd(),
+        "src",
+        "fixtures",
+        "probes",
+        `${name}.abc123xyz4567890.fight-5.json`,
+    );
+    return JSON.parse(readFileSync(path, "utf8")) as unknown;
+};
 
 describe("table parser", () => {
     it("handles multiple table payload variants", () => {
@@ -43,65 +56,76 @@ describe("table parser", () => {
     it("supports survivability payload shape", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            {
-                data: {
-                    players: [{ id: 3, name: "Survive", survivability: 97.5 }],
-                    fights: [],
-                    actortotals: [{ id: 3, name: "Survive", survivability: 97.5 }],
-                    abilitytotals: [],
-                },
-            },
+            loadProbeFixture("survivability"),
             "Survivability",
             warn,
         );
-        expect(parsed.entries[0]?.playerName).toBe("Survive");
-        expect(parsed.entries[0]?.value).toBe(97.5);
+        expect(parsed.entries[0]?.playerName).toBe("Alyra");
+        expect(parsed.entries[0]?.value).toBe(98.2);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("parses deaths event rows as one death each", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            loadProbeFixture("deaths"),
+            "Deaths",
+            warn,
+        );
+
+        expect(parsed.entries).toHaveLength(2);
+        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(2);
         expect(warn).not.toHaveBeenCalled();
     });
 
     it("parses dispels totals from nested details rows", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            {
-                data: {
-                    entries: [
-                        {
-                            name: "Spell",
-                            details: [{ name: "Alyra", total: 4 }],
-                        },
-                    ],
-                },
-            },
+            loadProbeFixture("dispels"),
             "Dispels",
             warn,
         );
 
         expect(parsed.entries).toEqual([
-            { dataType: "Dispels", playerName: "Alyra", value: 4 },
+            { dataType: "Dispels", playerId: 101, playerName: "Alyra", value: 4 },
+            { dataType: "Dispels", playerId: 102, playerName: "Bronn", value: 5 },
         ]);
+        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(9);
         expect(warn).not.toHaveBeenCalled();
     });
 
     it("parses interrupts totals from nested details rows", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            {
-                data: {
-                    entries: [
-                        {
-                            name: "Spell",
-                            details: [{ name: "Kickz", total: 7 }],
-                        },
-                    ],
-                },
-            },
+            loadProbeFixture("interrupts"),
             "Interrupts",
             warn,
         );
 
         expect(parsed.entries).toEqual([
-            { dataType: "Interrupts", playerName: "Kickz", value: 7 },
+            { dataType: "Interrupts", playerId: 101, playerName: "Alyra", value: 3 },
+            { dataType: "Interrupts", playerId: 109, playerName: "Kickz", value: 5 },
         ]);
+        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(8);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("accepts survivability metadata-only rows without malformed warnings", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            {
+                data: {
+                    players: [{ id: 3, name: "Survive" }],
+                    fights: [{ id: 5 }],
+                    actortotals: [{ id: 3, name: "Survive", class: "MAGE" }],
+                    abilitytotals: [],
+                },
+            },
+            "Survivability",
+            warn,
+        );
+
+        expect(parsed.entries).toEqual([]);
         expect(warn).not.toHaveBeenCalled();
     });
 });

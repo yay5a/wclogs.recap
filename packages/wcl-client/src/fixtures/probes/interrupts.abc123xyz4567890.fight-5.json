@@ -1,0 +1,24 @@
+{
+  "entries": [
+    {
+      "name": "Cast A",
+      "total": 8,
+      "details": [
+        {
+          "name": "Alyra",
+          "id": 101,
+          "total": 3,
+          "actors": [4721],
+          "abilities": [77221]
+        },
+        {
+          "name": "Kickz",
+          "id": 109,
+          "total": 5,
+          "actors": [4721],
+          "abilities": [77221]
+        }
+      ]
+    }
+  ]
+}

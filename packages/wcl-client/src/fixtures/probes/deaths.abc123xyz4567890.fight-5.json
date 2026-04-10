@@ -1,0 +1,59 @@
+{
+  "entries": [
+    {
+      "name": "Alyra",
+      "id": 101,
+      "timestamp": 1219023,
+      "fight": 5,
+      "damage": 8421132,
+      "healing": 284113,
+      "deathWindow": [
+        {
+          "timestamp": 1218998,
+          "type": "damage",
+          "abilityGameID": 451234,
+          "amount": 432110
+        }
+      ],
+      "overkill": 15321,
+      "events": [
+        {
+          "type": "damage",
+          "timestamp": 1219019,
+          "amount": 832219,
+          "abilityGameID": 451234
+        }
+      ],
+      "killingBlow": {
+        "name": "Astral Slam",
+        "abilityGameID": 451234,
+        "type": "damage"
+      }
+    },
+    {
+      "name": "Bronn",
+      "id": 102,
+      "timestamp": 1400022,
+      "fight": 5,
+      "damage": 9120034,
+      "healing": 118201,
+      "deathWindow": [
+        {
+          "timestamp": 1399991,
+          "type": "damage",
+          "abilityGameID": 455992,
+          "amount": 623110
+        }
+      ],
+      "overkill": 1104,
+      "events": [
+        {
+          "type": "damage",
+          "timestamp": 1400018,
+          "amount": 721101,
+          "abilityGameID": 455992
+        }
+      ]
+    }
+  ]
+}

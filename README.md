@@ -153,6 +153,25 @@ pnpm dev:worker
 docker compose up --build
 ```
 
+
+### WCL report-component probe workflow
+
+Use this when table payload shapes drift and parser fixtures need refresh:
+
+```bash
+# Requires a valid OAuth bearer token and API URL
+export WCL_API_BASE_URL="https://www.warcraftlogs.com/api/v2/client"
+export WCL_OAUTH_TOKEN="<oauth access token>"
+pnpm --filter @wcl/wcl-client probe:report-components <reportCode> <fightId>
+```
+
+This writes fixture outputs to `packages/wcl-client/src/fixtures/probes/` for:
+- deaths
+- dispels
+- interrupts
+- survivability
+- master data (`actors` and `abilities`)
+
 ## Scripts
 
 - `pnpm lint`

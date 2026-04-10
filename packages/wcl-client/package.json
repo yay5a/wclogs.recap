@@ -9,7 +9,8 @@
         "build": "tsc -p tsconfig.json",
         "lint": "eslint src --ext .ts",
         "typecheck": "tsc -p tsconfig.json --noEmit",
-        "test": "vitest run --passWithNoTests"
+        "test": "vitest run --passWithNoTests",
+        "probe:report-components": "tsx scripts/probe-report-components.ts"
     },
     "dependencies": {
         "@wcl/domain": "workspace:*",
