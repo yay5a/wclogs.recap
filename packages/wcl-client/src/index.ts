@@ -551,8 +551,8 @@ const parseFightSummaries = (
         const difficulty = asNumber(fight.difficulty);
         const bossPercentage = asNumber(fight.bossPercentage);
         const fightPercentage = asNumber(fight.fightPercentage);
-        const averageItemLevel = asNumber(fight.averageItemLevel);
-        const size = asNumber(fight.size);
+        const averageItemLevelRaw = asNumber(fight.averageItemLevel);
+        const sizeRaw = asNumber(fight.size);
         const lastPhase = asNumber(fight.lastPhase);
         const lastPhaseAsAbsoluteIndex = asNumber(fight.lastPhaseAsAbsoluteIndex);
         const lastPhaseIsIntermission =
@@ -561,8 +561,23 @@ const parseFightSummaries = (
                 : undefined;
         const inProgress =
             typeof fight.inProgress === "boolean" ? fight.inProgress : undefined;
-        const originalEncounterID = asNumber(fight.originalEncounterID);
-        const wipeCalledTime = asNumber(fight.wipeCalledTime);
+        const originalEncounterIDRaw = asNumber(fight.originalEncounterID);
+        const wipeCalledTimeRaw = asNumber(fight.wipeCalledTime);
+        const averageItemLevel =
+            typeof averageItemLevelRaw === "number" && averageItemLevelRaw > 0
+                ? averageItemLevelRaw
+                : undefined;
+        const size =
+            typeof sizeRaw === "number" && sizeRaw > 0 ? sizeRaw : undefined;
+        const originalEncounterID =
+            typeof originalEncounterIDRaw === "number" &&
+            originalEncounterIDRaw > 0
+                ? originalEncounterIDRaw
+                : undefined;
+        const wipeCalledTime =
+            typeof wipeCalledTimeRaw === "number" && wipeCalledTimeRaw >= 0
+                ? wipeCalledTimeRaw
+                : undefined;
         const dungeonPulls = (
             Array.isArray(fight.dungeonPulls) ? fight.dungeonPulls : []
         ).flatMap((pullValue) => {
