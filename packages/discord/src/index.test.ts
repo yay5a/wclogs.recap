@@ -769,21 +769,16 @@ describe("embed rendering", () => {
           Compare Mode: Mixed",
               },
               {
-                "name": "Best Single-Boss Parse",
-                "value": "Alyra on Boss (99.0 best Percent)",
+                "name": "Headline Winners",
+                "value": "Best parse overall: Alyra (95.0 best Performance Average)
+          Best single-boss parse: Alyra on Boss (99.0 best Percent)
+          Best average parse: Alyra (95.0 best Performance Average)
+          Best execution: Alyra (90.0)",
               },
               {
-                "name": "Best Average Parse",
-                "value": "Alyra (95.0 best Performance Average)",
-              },
-              {
-                "name": "Best Execution",
-                "value": "Alyra (90.0)",
-              },
-              {
-                "name": "Boss Highlights",
-                "value": "Boss: DPS Alyra (12345)
-          Boss 2: Execution win on mechanics",
+                "name": "Top Performers by Boss",
+                "value": "• Boss: DPS Alyra (12345)
+          • Boss 2: Execution win on mechanics",
               },
               {
                 "name": "Superlatives",
@@ -867,8 +862,9 @@ describe("preview rendering", () => {
             (body.embeds?.[0] as { description?: string } | undefined)
                 ?.description ?? "";
         expect(description).toContain("Bosses killed: 2");
-        expect(description).toContain("Best overall: n/a");
-        expect(description).toContain("Best single boss: n/a");
+        expect(description).toContain("🏆 Best parse overall: n/a");
+        expect(description).toContain("🏆 Best average parse: n/a");
+        expect(description).toContain("🏆 Best single-boss parse: n/a");
         expect(description).toContain("Most Deaths: Alyra (2)");
         expect(description).toContain("Top Damage: Borin (12345)");
         expect(description).not.toContain("Ignored");

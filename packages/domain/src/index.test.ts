@@ -73,6 +73,32 @@ describe("buildRecapSummary", () => {
         expect(summary.raidSuperlatives[0]?.label).toBe("Most deaths");
     });
 
+    it("surfaces most improved player when previous raid data exists", () => {
+        const summary = buildRecapSummary(
+            {
+                reportCode: "abc",
+                title: "Raid Night",
+                startTime: Date.now(),
+                endTime: Date.now(),
+                gameFamily: "retail",
+                fights: [],
+                players: [
+                    { id: "1", actorId: 1, name: "Alyra", avgParse: 89 },
+                    { id: "2", actorId: 2, name: "Borin", avgParse: 70 },
+                ],
+            },
+            [
+                { id: "old-1", actorId: 1, name: "Alyra", avgParse: 82 },
+                { id: "old-2", actorId: 2, name: "Borin", avgParse: 69 },
+            ],
+        );
+
+        expect(summary.mostImprovedPlayer).toEqual({
+            playerName: "Alyra",
+            delta: 7,
+        });
+    });
+
     it("is resilient when ranking/table sections are absent", () => {
         const summary = buildRecapSummary({
             reportCode: "abc",

@@ -298,6 +298,11 @@ export const buildRecapSummary = (
 
     for (const boss of report.bossPerformances ?? []) {
         const parts: string[] = [];
+        if (boss.topParse?.playerName) {
+            parts.push(
+                `Parse ${boss.topParse.playerName} (${boss.topParse.value.toFixed(1)})`,
+            );
+        }
         if (boss.topDamage)
             parts.push(
                 `DPS ${boss.topDamage.playerName} (${boss.topDamage.value.toFixed(0)})`,
@@ -310,11 +315,6 @@ export const buildRecapSummary = (
             parts.push(
                 `INT ${boss.topInterrupts.playerName} (${boss.topInterrupts.value.toFixed(0)})`,
             );
-        if (parts.length === 0 && boss.topParse?.playerName) {
-            parts.push(
-                `Parse ${boss.topParse.playerName} (${boss.topParse.value.toFixed(1)})`,
-            );
-        }
         if (parts.length > 0) {
             summary.bossHighlights.push({
                 bossName: boss.bossName,

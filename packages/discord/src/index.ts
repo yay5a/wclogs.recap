@@ -164,6 +164,11 @@ const formatShortMetric = (metric: string): string =>
         .replace(/[_-]/g, " ")
         .trim();
 
+const formatWinnerLine = (
+    label: string,
+    value: string | undefined,
+): string | undefined => (value ? `🏆 ${label}: ${value}` : undefined);
+
 const makeRecapComponentCustomId = (
     action: string,
     reportCode: string,
@@ -369,12 +374,27 @@ export const buildRecapPreviewBody = (
             title: `Preview: ${summary.reportTitle}`,
             description: [
                 `Bosses killed: ${summary.bossesKilled} • ${formatGameFamilyLabel(summary.gameFamily)}`,
-                summary.bestAverageParse
-                    ? `Best overall: ${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`
-                    : "Best overall: n/a",
-                summary.bestSingleBossParse
-                    ? `Best single boss: ${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)})`
-                    : "Best single boss: n/a",
+                formatWinnerLine(
+                    "Best parse overall",
+                    summary.topOverallParsers[0]
+                        ? `${summary.topOverallParsers[0].playerName} (${summary.topOverallParsers[0].value.toFixed(1)} ${formatShortMetric(summary.topOverallParsers[0].metric)})`
+                        : undefined,
+                ) ?? "🏆 Best parse overall: n/a",
+                formatWinnerLine(
+                    "Best average parse",
+                    summary.bestAverageParse
+                        ? `${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`
+                        : undefined,
+                ) ?? "🏆 Best average parse: n/a",
+                formatWinnerLine(
+                    "Best single-boss parse",
+                    summary.bestSingleBossParse
+                        ? `${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)} ${formatShortMetric(summary.bestSingleBossParse.metric)})`
+                        : undefined,
+                ) ?? "🏆 Best single-boss parse: n/a",
+                summary.mostImprovedPlayer
+                    ? `📈 Most improved: ${summary.mostImprovedPlayer.playerName} (+${summary.mostImprovedPlayer.delta.toFixed(1)})`
+                    : undefined,
                 ...summary.raidSuperlatives
                     .slice(0, 2)
                     .map((entry) => `${entry.label}: ${entry.text}`),
@@ -1262,42 +1282,47 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         },
     ];
 
+    const headlineWinners: string[] = [];
+    if (summary.topOverallParsers[0]) {
+        headlineWinners.push(
+            `Best parse overall: ${summary.topOverallParsers[0].playerName} (${summary.topOverallParsers[0].value.toFixed(1)} ${formatShortMetric(summary.topOverallParsers[0].metric)})`,
+        );
+    }
     if (summary.bestSingleBossParse) {
-        fields.push({
-            name: "Best Single-Boss Parse",
-            value: `${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)} ${formatShortMetric(summary.bestSingleBossParse.metric)})`,
-        });
+        headlineWinners.push(
+            `Best single-boss parse: ${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)} ${formatShortMetric(summary.bestSingleBossParse.metric)})`,
+        );
     }
-
     if (summary.bestAverageParse) {
-        fields.push({
-            name: "Best Average Parse",
-            value: `${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`,
-        });
+        headlineWinners.push(
+            `Best average parse: ${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`,
+        );
     }
-
     if (summary.bestExecution) {
-        fields.push({
-            name: "Best Execution",
-            value: `${summary.bestExecution.playerName} (${summary.bestExecution.value.toFixed(1)})`,
-        });
+        headlineWinners.push(
+            `Best execution: ${summary.bestExecution.playerName} (${summary.bestExecution.value.toFixed(1)})`,
+        );
     }
-
     if (summary.mostImprovedPlayer) {
+        headlineWinners.push(
+            `Most improved: ${summary.mostImprovedPlayer.playerName} (+${summary.mostImprovedPlayer.delta.toFixed(1)})`,
+        );
+    }
+    if (headlineWinners.length > 0) {
         fields.push({
-            name: "Most Improved",
-            value: `${summary.mostImprovedPlayer.playerName} (+${summary.mostImprovedPlayer.delta.toFixed(1)})`,
+            name: "Headline Winners",
+            value: headlineWinners.slice(0, 5).join("\n"),
         });
     }
 
-    if (summary.bossHighlights.length >= 2) {
+    if (summary.bossHighlights.length > 0) {
         const bossHighlights = summary.bossHighlights.slice(0, MAX_HIGHLIGHTS);
         fields.push({
-            name: "Boss Highlights",
+            name: "Top Performers by Boss",
             value: bossHighlights
                 .map(
                     (entry) =>
-                        `${entry.bossName}: ${entry.text.substring(0, 90)}`,
+                        `• ${entry.bossName}: ${entry.text.substring(0, 95)}`,
                 )
                 .join("\n"),
         });
