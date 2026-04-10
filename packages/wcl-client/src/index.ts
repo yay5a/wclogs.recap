@@ -1,4 +1,4 @@
-import { GraphQLClient, gql } from "graphql-request";
+import { GraphQLClient } from "graphql-request";
 import fixture from "./fixtures/report-fixture.json" with { type: "json" };
 import type {
     GameFamily,
@@ -44,7 +44,7 @@ const RECENT_REPORT_WINDOW_MS = 6 * 60 * 60 * 1000;
 const DEFAULT_ALLOW_UNLISTED_REPORTS = true;
 const logger = createLogger("wcl-client");
 
-const BASE_REPORT_QUERY = gql`
+const BASE_REPORT_QUERY = `
   query BaseReportSummary(
     $code: String!
     $allowUnlisted: Boolean!
@@ -136,7 +136,7 @@ const BASE_REPORT_QUERY = gql`
   }
 `;
 
-const REPORT_RANKINGS_QUERY = gql`
+const REPORT_RANKINGS_QUERY = `
   query ReportRankings($code: String!, $allowUnlisted: Boolean!) {
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
@@ -146,7 +146,7 @@ const REPORT_RANKINGS_QUERY = gql`
   }
 `;
 
-const BOSS_RANKINGS_QUERY = gql`
+const BOSS_RANKINGS_QUERY = `
   query BossRankings(
     $code: String!
     $allowUnlisted: Boolean!
@@ -160,7 +160,7 @@ const BOSS_RANKINGS_QUERY = gql`
   }
 `;
 
-const PLAYER_DETAILS_QUERY = gql`
+const PLAYER_DETAILS_QUERY = `
   query PlayerDetails($code: String!, $allowUnlisted: Boolean!) {
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
@@ -170,7 +170,7 @@ const PLAYER_DETAILS_QUERY = gql`
   }
 `;
 
-const TABLE_QUERY = gql`
+const TABLE_QUERY = `
   query ReportTable($code: String!, $allowUnlisted: Boolean!, $fightIDs: [Int]) {
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
@@ -186,7 +186,7 @@ const TABLE_QUERY = gql`
   }
 `;
 
-const RESURRECT_EVENTS_QUERY = gql`
+const RESURRECT_EVENTS_QUERY = `
   query FightResurrectionEvents(
     $code: String!
     $allowUnlisted: Boolean!
@@ -1165,6 +1165,17 @@ export class WclClient {
             : new GraphQLClient(options.apiBaseUrl);
     }
 
+    private async requestGraphQl(
+        query: string,
+        variables: Record<string, unknown>,
+    ): Promise<unknown> {
+        return await this.gqlClient.request<unknown>(query, variables);
+    }
+
+    private setAuthorizationHeader(token: string): void {
+        this.gqlClient.setHeader("Authorization", `Bearer ${token}`);
+    }
+
     private async getAccessToken(): Promise<string> {
         if (this.token) return this.token;
 
@@ -1202,7 +1213,7 @@ export class WclClient {
         let resurrects = 0;
 
         for (;;) {
-            const payload = await this.gqlClient.request(
+            const payload = await this.requestGraphQl(
                 RESURRECT_EVENTS_QUERY,
                 {
                     code,
@@ -1241,7 +1252,7 @@ export class WclClient {
             logger.warn({ reportCode: code }, message);
         };
 
-        const base = await this.gqlClient.request(BASE_REPORT_QUERY, {
+        const base = await this.requestGraphQl(BASE_REPORT_QUERY, {
             code,
             allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
             includeRateLimitData: true,
@@ -1267,15 +1278,15 @@ export class WclClient {
             };
         }
 
-        const reportRankingsRaw = await this.gqlClient.request(
+        const reportRankingsRaw = await this.requestGraphQl(
             REPORT_RANKINGS_QUERY,
             { code, allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS },
         );
-        const playerDetailsRaw = await this.gqlClient.request(
+        const playerDetailsRaw = await this.requestGraphQl(
             PLAYER_DETAILS_QUERY,
             { code, allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS },
         );
-        const reportTablesRaw = await this.gqlClient.request(TABLE_QUERY, {
+        const reportTablesRaw = await this.requestGraphQl(TABLE_QUERY, {
             code,
             allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
         });
@@ -1309,7 +1320,7 @@ export class WclClient {
                     `Skipped encounter enrichments for fight ${summaryFight.id} (${summaryFight.name}) due to critical rate pressure (${Math.round(ratePressure.usage * 100)}% used).`,
                 );
             } else {
-                rankingsPayload = await this.gqlClient.request(
+                rankingsPayload = await this.requestGraphQl(
                     BOSS_RANKINGS_QUERY,
                     {
                         code,
@@ -1323,7 +1334,7 @@ export class WclClient {
                         `Skipped encounter table/resurrect enrichments for fight ${summaryFight.id} (${summaryFight.name}) due to high rate pressure (${Math.round(ratePressure.usage * 100)}% used).`,
                     );
                 } else {
-                    const tablesPayload = await this.gqlClient.request(
+                    const tablesPayload = await this.requestGraphQl(
                         TABLE_QUERY,
                         {
                             code,
@@ -1399,7 +1410,7 @@ export class WclClient {
             } satisfies EnrichedRawReport;
         } else {
             const token = await this.getAccessToken();
-            this.gqlClient.setHeader("Authorization", `Bearer ${token}`);
+            this.setAuthorizationHeader(token);
             rawPayload = await this.fetchEnrichedRawReport(parsed.reportCode);
         }
 
