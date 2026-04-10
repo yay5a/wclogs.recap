@@ -1,4 +1,10 @@
-import { asObject, asString, defaultDebugWarn, parseUnknownJson, type DebugWarn } from "./common.js";
+import {
+    asObject,
+    asString,
+    defaultDebugWarn,
+    parseUnknownJson,
+} from "./common.js";
+import type { DebugWarn } from "./common.js";
 
 export interface ParsedPlayerDetail {
     name: string;

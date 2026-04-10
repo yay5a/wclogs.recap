@@ -6,8 +6,8 @@ import {
     defaultDebugWarn,
     normalizeName,
     parseUnknownJson,
-    type DebugWarn,
 } from "./common.js";
+import type { DebugWarn } from "./common.js";
 
 const METRIC_KEY_CANDIDATES = [
     "bestPerformanceAverage",
