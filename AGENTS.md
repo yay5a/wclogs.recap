@@ -119,6 +119,10 @@ When working with external schemas or APIs:
 - Prefer partial normalization over unsafe certainty
 - Preserve source semantics where useful, especially for archive status, in-progress state, and visibility rules
 
+- Treat `graphql-request` as a transport client, not a runtime validator
+- Do not assume GraphQL client generics guarantee runtime payload shape
+- Narrow GraphQL responses explicitly before normalization, especially when APIs expose JSON-backed fields
+
 For Warcraft Logs specifically:
 - `rankings`, `playerDetails`, `table`, `graph`, and event paginator `data` are JSON-backed and must be parsed defensively
 - archived reports may restrict access to events/tables/graphs
