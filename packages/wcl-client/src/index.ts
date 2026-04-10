@@ -8,7 +8,7 @@ import type {
     NormalizedPlayer,
     NormalizedReport,
 } from "@wcl/domain";
-import { ReportCacheModel } from "@wcl/db";
+import type { ReportCacheStore } from "./report-cache-store.js";
 import {
     asNumber,
     asObject,
@@ -213,6 +213,7 @@ interface WclClientOptions {
     clientSecret: string;
     apiBaseUrl: string;
     fetchImpl?: typeof fetch;
+    reportCacheStore?: ReportCacheStore;
 }
 
 interface FightPhaseTransition {
@@ -1360,9 +1361,9 @@ export class WclClient {
         url: string,
     ): Promise<NormalizedReport> {
         const parsed = parseReportUrl(url);
-        const cached = await ReportCacheModel.findOne({
-            reportCode: parsed.reportCode,
-        }).lean();
+        const cached = await this.options.reportCacheStore?.getByReportCode(
+            parsed.reportCode,
+        );
 
         if (
             cached &&
@@ -1371,7 +1372,7 @@ export class WclClient {
                 fetchedAt: cached.fetchedAt,
             })
         ) {
-            return cached.normalizedPayload as NormalizedReport;
+            return cached.normalizedPayload;
         }
 
         let rawPayload: unknown;
@@ -1391,22 +1392,26 @@ export class WclClient {
 
         const normalized = normalizeEnrichedReport(rawPayload, parsed);
 
-        await ReportCacheModel.findOneAndUpdate(
-            { reportCode: parsed.reportCode },
-            {
+        if (this.options.reportCacheStore) {
+            await this.options.reportCacheStore.upsert({
                 reportCode: parsed.reportCode,
                 sourceUrl: url,
                 gameFamily: parsed.gameFamily,
                 rawPayload,
                 normalizedPayload: normalized,
                 fetchedAt: new Date(),
-            },
-            { upsert: true },
-        );
+            });
+        }
 
         return normalized;
     }
 }
+
+export type {
+    ReportCacheRecord,
+    ReportCacheStore,
+    ReportCacheWriteEntry,
+} from "./report-cache-store.js";
 
 export const normalizeEnrichedReport = (
     raw: unknown,
