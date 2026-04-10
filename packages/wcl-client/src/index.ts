@@ -968,7 +968,7 @@ const parseEncounterSummariesFromRaw = (
                 fightId,
                 bossName,
                 kill: Boolean(row?.kill),
-                rankings: (row as any)?.rankings,
+                rankings: row?.rankings,
                 tables: asObject(row?.tables) ?? {},
                 ...(typeof difficulty === "number" ? { difficulty } : {}),
                 ...(typeof resurrects === "number" ? { resurrects } : {}),

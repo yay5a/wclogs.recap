@@ -17,7 +17,24 @@ export default defineConfig(
             },
         },
         rules: {
-            "@typescript-eslint/no-explicit-any": "off",
+            // Ratchet step: surface explicit `any` usage as warnings first to
+            // improve safety gradually without blocking existing workflows.
+            "@typescript-eslint/no-explicit-any": "warn",
+        },
+    },
+    {
+        files: ["packages/wcl-client/src/**/*.ts", "apps/worker/src/**/*.ts"],
+        languageOptions: {
+            parserOptions: {
+                projectService: true,
+            },
+        },
+        rules: {
+            "@typescript-eslint/no-unsafe-assignment": "warn",
+            "@typescript-eslint/no-unsafe-member-access": "warn",
+            "@typescript-eslint/no-unsafe-call": "warn",
+            "@typescript-eslint/no-unsafe-return": "warn",
+            "@typescript-eslint/no-unsafe-argument": "warn",
         },
     },
 );

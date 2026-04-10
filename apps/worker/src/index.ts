@@ -19,8 +19,25 @@ const logger = createLogger("worker");
 
 export interface Queue {
     enqueue(type: string, payload: unknown, runAt?: Date): Promise<void>;
-    pollReadyJob(): Promise<any | null>;
+    pollReadyJob(): Promise<QueueJob | null>;
 }
+
+interface QueueJob {
+    _id: unknown;
+    type: string;
+    payload: unknown;
+}
+
+const toQueueJob = (value: unknown): QueueJob | null => {
+    if (!value || typeof value !== "object") return null;
+    const row = value as Record<string, unknown>;
+    if (typeof row.type !== "string") return null;
+    return {
+        _id: row._id,
+        type: row.type,
+        payload: row.payload,
+    };
+};
 
 class MongoQueue implements Queue {
     public async enqueue(
@@ -31,12 +48,13 @@ class MongoQueue implements Queue {
         await JobModel.create({ type, payload, runAt, status: "pending" });
     }
 
-    public async pollReadyJob(): Promise<any | null> {
-        return JobModel.findOneAndUpdate(
+    public async pollReadyJob(): Promise<QueueJob | null> {
+        const row = await JobModel.findOneAndUpdate(
             { status: "pending", runAt: { $lte: new Date() } },
             { $set: { status: "running" }, $inc: { attempts: 1 } },
             { sort: { runAt: 1 }, new: true },
         );
+        return toQueueJob(row);
     }
 }
 
@@ -64,7 +82,7 @@ const parseRecomputeTrendsPayload = (payload: unknown): RecomputeTrendsPayload =
     return { guildId: guildId.trim() };
 };
 
-const handlers: Record<string, (payload: any) => Promise<void>> = {
+const handlers: Record<string, (payload: unknown) => Promise<void>> = {
     recompute_trends: async (payload: unknown) => {
         const { guildId } = parseRecomputeTrendsPayload(payload);
         logger.info({ guildId }, "recompute_trends started");
