@@ -337,20 +337,28 @@ const parseFightSummaries = (
 
             return [{ id: phaseId, startTime: transitionStart }];
         });
+        const difficulty = asNumber(fight.difficulty);
+        const bossPercentage = asNumber(fight.bossPercentage);
+        const fightPercentage = asNumber(fight.fightPercentage);
+        const lastPhase = asNumber(fight.lastPhase);
 
         return [
             {
                 id,
                 encounterID,
-                difficulty: asNumber(fight.difficulty),
                 name,
                 startTime,
                 endTime,
                 kill: Boolean(fight.kill),
-                bossPercentage: asNumber(fight.bossPercentage),
-                fightPercentage: asNumber(fight.fightPercentage),
-                lastPhase: asNumber(fight.lastPhase),
                 phaseTransitions,
+                ...(typeof difficulty === "number" ? { difficulty } : {}),
+                ...(typeof bossPercentage === "number"
+                    ? { bossPercentage }
+                    : {}),
+                ...(typeof fightPercentage === "number"
+                    ? { fightPercentage }
+                    : {}),
+                ...(typeof lastPhase === "number" ? { lastPhase } : {}),
             },
         ];
     });
@@ -365,7 +373,9 @@ const parseEncounterPhases = (
         const encounterID = asNumber(row?.encounterID);
         if (typeof encounterID !== "number") continue;
 
-        const phases = (Array.isArray(row?.phases) ? row?.phases : []).flatMap(
+        const phaseRows =
+            row && Array.isArray(row.phases) ? row.phases : [];
+        const phases = phaseRows.flatMap(
             (phaseValue) => {
                 const phase = asObject(phaseValue);
                 const id = asNumber(phase?.id);
@@ -605,13 +615,9 @@ const parseEncounterSummariesFromRaw = (
                 kill: Boolean(row?.kill),
                 rankings: (row as any)?.rankings,
                 tables: asObject(row?.tables) ?? {},
-            } as EncounterSummaryRow;
-            if (typeof difficulty === "number") {
-                (summary as { difficulty: number }).difficulty = difficulty;
-            }
-            if (typeof resurrects === "number") {
-                (summary as { resurrects: number }).resurrects = resurrects;
-            }
+                ...(typeof difficulty === "number" ? { difficulty } : {}),
+                ...(typeof resurrects === "number" ? { resurrects } : {}),
+            };
             return [summary];
         });
     }
@@ -645,10 +651,8 @@ const parseEncounterSummariesFromRaw = (
             kill: Boolean(row?.kill),
             rankings: rankingsByFightId.get(fightId),
             tables: asObject(row?.tables) ?? {},
-        } as EncounterSummaryRow;
-        if (typeof difficulty === "number") {
-            (summary as { difficulty: number }).difficulty = difficulty;
-        }
+            ...(typeof difficulty === "number" ? { difficulty } : {}),
+        };
         return [summary];
     });
 };
@@ -932,16 +936,13 @@ export class WclClient {
                     Interrupts: tableNode?.interrupts,
                     Survivability: tableNode?.survivability,
                 },
-            } as EncounterSummaryRow;
-            // Only include difficulty when defined to satisfy exactOptionalPropertyTypes
-            if (typeof summaryFight.difficulty === "number") {
-                (summary as { difficulty: number }).difficulty =
-                    summaryFight.difficulty;
-            }
-            // Include resurrects only when it is a positive number (optional property)
-            if (typeof resurrects === "number" && resurrects > 0) {
-                (summary as { resurrects: number }).resurrects = resurrects;
-            }
+                ...(typeof summaryFight.difficulty === "number"
+                    ? { difficulty: summaryFight.difficulty }
+                    : {}),
+                ...(typeof resurrects === "number" && resurrects > 0
+                    ? { resurrects }
+                    : {}),
+            };
             encounterSummaries.push(summary);
         }
 
@@ -1216,16 +1217,22 @@ export const normalizeEnrichedReport = (
                 (typeof actorId === "number"
                     ? playerByActorId.get(actorId)
                     : undefined) ?? playerByName.get(normalizeName(playerName));
+            const amount = getAmountFromLeaderboard(entry);
+            const metric = getMetricFromLeaderboard(entry);
+            const className =
+                getClassFromLeaderboard(entry) ?? player?.className;
+            const specName = getSpecFromLeaderboard(entry) ?? player?.specName;
 
             return [
                 {
                     playerName,
                     parse: entry.value,
-                    amount: getAmountFromLeaderboard(entry),
-                    metric: getMetricFromLeaderboard(entry),
-                    className:
-                        getClassFromLeaderboard(entry) ?? player?.className,
-                    specName: getSpecFromLeaderboard(entry) ?? player?.specName,
+                    ...(typeof amount === "number" ? { amount } : {}),
+                    ...(typeof metric === "string" && metric.length > 0
+                        ? { metric }
+                        : {}),
+                    ...(className ? { className } : {}),
+                    ...(specName ? { specName } : {}),
                 },
             ];
         });
@@ -1238,12 +1245,14 @@ export const normalizeEnrichedReport = (
                 const player = entry.playerName
                     ? playerByName.get(normalizeName(entry.playerName))
                     : undefined;
+                const className = player?.className;
+                const specName = player?.specName;
 
                 return {
                     playerName: entry.playerName ?? "Unknown",
                     value: entry.value ?? 0,
-                    className: player?.className,
-                    specName: player?.specName,
+                    ...(className ? { className } : {}),
+                    ...(specName ? { specName } : {}),
                 };
             });
 
