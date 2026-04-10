@@ -214,9 +214,13 @@ const jobSchema = new Schema(
         runAt: { type: Date, default: Date.now },
         attempts: { type: Number, default: 0 },
         lastError: String,
+        startedAt: Date,
+        leaseExpiresAt: { type: Date, index: true },
+        completedAt: Date,
     },
     { timestamps: true },
 );
+jobSchema.index({ status: 1, runAt: 1, leaseExpiresAt: 1 });
 
 const auditLogSchema = new Schema(
     {
