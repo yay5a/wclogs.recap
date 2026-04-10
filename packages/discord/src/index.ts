@@ -1214,6 +1214,36 @@ export const handleInteraction = async (
 export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
     const formatClassSpec = (value?: string): string =>
         value ? ` • ${value}` : "";
+    const formatCompactNumber = (value: number): string =>
+        new Intl.NumberFormat("en-US", {
+            notation: "compact",
+            maximumFractionDigits: 1,
+        }).format(value);
+    const toMetricLabel = (metricLabel?: string, metric?: string): string | undefined => {
+        const candidate = metricLabel?.trim().toUpperCase() ?? metric?.trim().toUpperCase();
+        if (!candidate) return undefined;
+        if (candidate === "DPS" || candidate === "HPS" || candidate === "DTPS") {
+            return candidate;
+        }
+        return undefined;
+    };
+    const formatBestParseRow = (entry: RecapPreviewSummary["bestPlayerParses"][number]): string => {
+        const parseValue = Number.isInteger(entry.parse)
+            ? entry.parse.toFixed(0)
+            : entry.parse.toFixed(1);
+        const metricLabel = toMetricLabel(entry.metricLabel, entry.metric);
+        const amountSection =
+            typeof entry.amount === "number"
+                ? ` | ${formatCompactNumber(entry.amount)}${metricLabel ? ` ${metricLabel}` : ""}`
+                : "";
+        const classSpec =
+            entry.classSpecLabel ??
+            [entry.specName, entry.className]
+                .filter((value): value is string => Boolean(value))
+                .join(" ");
+        const classSpecSection = classSpec ? ` - ${classSpec}` : "";
+        return `• ${entry.playerName} ${parseValue}${amountSection}${classSpecSection}`;
+    };
     const formatPhase = (durationMs: number): string => {
         const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
         const minutes = Math.floor(totalSeconds / 60);
@@ -1248,12 +1278,7 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
     if (summary.bestPlayerParses.length > 0) {
         fields.push({
             name: "Best Player Parses",
-            value: summary.bestPlayerParses
-                .map(
-                    (entry) =>
-                        `• ${entry.playerName} ${entry.parse.toFixed(1)} (${entry.amount?.toFixed(0) ?? "n/a"} ${entry.metricLabel})${formatClassSpec(entry.classSpecLabel)}`,
-                )
-                .join("\n"),
+            value: summary.bestPlayerParses.map((entry) => formatBestParseRow(entry)).join("\n"),
         });
     }
 

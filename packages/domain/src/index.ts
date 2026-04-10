@@ -158,7 +158,10 @@ export interface RecapSummary {
         playerName: string;
         parse: number;
         metricLabel: string;
+        metric?: string;
         amount?: number;
+        className?: string;
+        specName?: string;
         classSpecLabel?: string;
     }>;
     topDamageTaken: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
@@ -212,12 +215,12 @@ interface BuildRecapSummaryOptions {
 }
 
 const toMetricLabel = (value: string | undefined): string => {
-    if (!value) return "DPS";
-    return value
-        .replace(/([A-Z])/g, " $1")
-        .replace(/[_-]/g, " ")
-        .trim()
-        .toUpperCase();
+    const normalized = value?.trim().toUpperCase();
+    if (!normalized) return "DPS";
+    if (normalized === "DPS" || normalized === "HPS" || normalized === "DTPS") {
+        return normalized;
+    }
+    return "DPS";
 };
 
 const formatDateMmDdYyyy = (timestampMs: number): string => {
@@ -280,9 +283,12 @@ export const buildRecapSummary = (
                 playerName: entry.playerName,
                 parse: entry.parse,
                 metricLabel: toMetricLabel(entry.metric),
+                ...(entry.metric ? { metric: entry.metric } : {}),
                 ...(typeof entry.amount === "number"
                     ? { amount: entry.amount }
                     : {}),
+                ...(entry.className ? { className: entry.className } : {}),
+                ...(entry.specName ? { specName: entry.specName } : {}),
                 ...(classSpecLabel ? { classSpecLabel } : {}),
             };
         });

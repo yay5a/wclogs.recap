@@ -40,6 +40,42 @@ const findValue = (entry: Record<string, unknown>, keys: string[]): number | und
     return undefined;
 };
 
+const parseNestedDetailsRows = (
+    row: Record<string, unknown>,
+    dataType: TableDataType,
+): ParsedTableEntry[] => {
+    if (dataType !== "Dispels" && dataType !== "Interrupts") return [];
+
+    const details = asArray(row.details);
+    if (!details || details.length === 0) return [];
+
+    return details.flatMap((detail) => {
+        const detailRow = asObject(detail);
+        if (!detailRow) return [];
+
+        const value = findValue(detailRow, VALUE_KEY_BY_TYPE[dataType]);
+        if (typeof value !== "number") return [];
+
+        const playerName =
+            asString(detailRow.name) ??
+            asString(asObject(detailRow.actor)?.name);
+        const playerId =
+            asNumber(detailRow.id) ??
+            asNumber(detailRow.playerID) ??
+            asNumber(detailRow.playerId) ??
+            asNumber(detailRow.guid);
+
+        return [
+            {
+                dataType,
+                value,
+                ...(typeof playerId === "number" ? { playerId } : {}),
+                ...(playerName ? { playerName } : {}),
+            },
+        ];
+    });
+};
+
 const getTableEntries = (
     payload: unknown,
     dataType: TableDataType,
@@ -73,11 +109,15 @@ const getTableEntries = (
     ];
 
     if (dataType === "Survivability") {
-        const players = asArray(data?.players) ?? [];
         const actorTotals = asArray(data?.actortotals) ?? [];
-        if (players.length > 0 || actorTotals.length > 0) {
+        const hasSurvivabilityEnvelope =
+            Array.isArray(asArray(data?.players)) ||
+            Array.isArray(asArray(data?.fights)) ||
+            Array.isArray(asArray(data?.actortotals)) ||
+            Array.isArray(asArray(data?.abilitytotals));
+        if (hasSurvivabilityEnvelope) {
             return {
-                rows: players.length > 0 ? players : actorTotals,
+                rows: actorTotals.length > 0 ? actorTotals : [],
                 isValidShape: true,
             };
         }
@@ -114,6 +154,10 @@ export const parseTablePayloadDetailed = (
         // WCL table rows vary across report types; probe multiple keys for totals and IDs.
         const value = findValue(entry, VALUE_KEY_BY_TYPE[dataType]);
         if (typeof value !== "number") {
+            const nestedDetailEntries = parseNestedDetailsRows(entry, dataType);
+            if (nestedDetailEntries.length > 0) {
+                return nestedDetailEntries;
+            }
             warn(`table parser (${dataType} payload): skipped malformed row`, {
                 row: entry,
             });
