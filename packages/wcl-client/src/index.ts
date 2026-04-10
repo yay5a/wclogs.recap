@@ -117,8 +117,12 @@ const BASE_REPORT_QUERY = `
             name
             startTime
             endTime
-            maps
-            enemyNPCs
+            maps {
+             id
+          }
+            enemyNPCs {
+              id
+          }
             x
             y
           }
@@ -1203,9 +1207,7 @@ export class WclClient {
         const payload: unknown = await response.json();
         const token = asString(asObject(payload)?.access_token);
         if (!token) {
-            throw new Error(
-                "WCL OAuth response missing valid access token",
-            );
+            throw new Error("WCL OAuth response missing valid access token");
         }
 
         this.token = token;
@@ -1220,16 +1222,13 @@ export class WclClient {
         let resurrects = 0;
 
         for (;;) {
-            const payload = await this.requestGraphQl(
-                RESURRECT_EVENTS_QUERY,
-                {
-                    code,
-                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                    fightIDs: toFightIDs(fightId),
-                    startTime,
-                    filterExpression: 'type = "resurrect"',
-                },
-            );
+            const payload = await this.requestGraphQl(RESURRECT_EVENTS_QUERY, {
+                code,
+                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                fightIDs: toFightIDs(fightId),
+                startTime,
+                filterExpression: 'type = "resurrect"',
+            });
 
             const eventsNode = asObject(getReportNode(payload)?.events);
             const rows = Array.isArray(eventsNode?.data) ? eventsNode.data : [];
@@ -1258,6 +1257,19 @@ export class WclClient {
             skippedEnrichments.push(message);
             logger.warn({ reportCode: code }, message);
         };
+
+        logger.info(
+            {
+                operation: "BaseReportSummary",
+                query: BASE_REPORT_QUERY,
+                variables: {
+                    code,
+                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                    includeRateLimitData: true,
+                },
+            },
+            "sending graphql query",
+        );
 
         const base = await this.requestGraphQl(BASE_REPORT_QUERY, {
             code,
