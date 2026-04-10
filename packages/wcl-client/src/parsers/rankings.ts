@@ -19,7 +19,9 @@ const METRIC_KEY_CANDIDATES = [
     "rankPercent",
 ] as const;
 
-const readMetric = (entry: Record<string, unknown>): {
+const readMetric = (
+    entry: Record<string, unknown>,
+): {
     metric: string;
     value: number;
 } | null => {
@@ -77,25 +79,45 @@ const toLeaderboardEntry = (
         asString(actor?.name);
 
     if (!playerId && !playerName) {
-        warn("rankings parser: skipping entry with no player identity", { entry });
+        warn("rankings parser: skipping entry with no player identity", {
+            entry,
+        });
         return undefined;
     }
 
-    return {
+    const className =
+        asString(entry.className) ??
+        asString(player?.class) ??
+        asString(actor?.subType);
+    const specName =
+        asString(entry.specName) ??
+        asString(player?.spec) ??
+        asString(character?.spec);
+    const role = asString(entry.role) ?? asString(player?.role);
+    const bossName =
+        asString(entry.bossName) ??
+        asString(entry.encounterName) ??
+        fallback?.bossName;
+    const fightId =
+        asNumber(entry.fightID) ?? asNumber(entry.fightId) ?? fallback?.fightId;
+
+    const rank = asNumber(entry.rank);
+
+    const result: NormalizedLeaderboardEntry = {
         scope,
-        playerId,
-        playerName,
-        className:
-            asString(entry.className) ?? asString(player?.class) ?? asString(actor?.subType),
-        specName: asString(entry.specName) ?? asString(player?.spec) ?? asString(character?.spec),
-        role: asString(entry.role) ?? asString(player?.role),
         metric: metric.metric,
         selectedMetric: metric.metric,
         value: metric.value,
-        rank: asNumber(entry.rank),
-        bossName: asString(entry.bossName) ?? asString(entry.encounterName) ?? fallback?.bossName,
-        fightId: asNumber(entry.fightID) ?? asNumber(entry.fightId) ?? fallback?.fightId,
+        ...(typeof rank === "number" ? { rank } : {}),
+        ...(typeof playerId === "number" ? { playerId } : {}),
+        ...(playerName ? { playerName } : {}),
+        ...(className ? { className } : {}),
+        ...(specName ? { specName } : {}),
+        ...(role ? { role } : {}),
+        ...(bossName ? { bossName } : {}),
+        ...(typeof fightId === "number" ? { fightId } : {}),
     };
+    return result;
 };
 
 export const parseReportRankingsPayload = (
@@ -113,7 +135,9 @@ export const parseReportRankingsPayload = (
     }
 
     if (results.length === 0) {
-        warn("report rankings parser: no leaderboard entries detected", { payload: parsed });
+        warn("report rankings parser: no leaderboard entries detected", {
+            payload: parsed,
+        });
     }
     return results;
 };

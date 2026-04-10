@@ -361,7 +361,6 @@ describe("handleInteraction", () => {
                     teamNote: "Team note",
                 },
                 createdByUserId: "user-1",
-                customIdToken: "token-1",
                 createdAt: new Date(),
                 expiresAt: new Date(Date.now() + 60_000),
             }),
@@ -424,14 +423,11 @@ describe("handleInteraction", () => {
                 trendTrackingService,
             },
         );
-<<<<<<< ours
-        expect((preview as { type: number }).type).toBeDefined();
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
-        expect(fetchMock).toHaveBeenCalled();
-=======
 
         await Promise.resolve();
+        expect(
+            recapPreviewStateService.savePreviewState,
+        ).toHaveBeenCalledOnce();
         const patchCall = editFetch.mock.calls.find(
             ([url]) =>
                 typeof url === "string" &&
@@ -450,13 +446,12 @@ describe("handleInteraction", () => {
         const customId =
             previewBody.components?.[0]?.components?.[0]?.custom_id ?? "";
         expect(customId).toContain("recap:v1:post:ABC123:guild-1");
->>>>>>> theirs
 
         const posted = await handleInteraction(
             {
                 type: InteractionType.MESSAGE_COMPONENT,
                 guild_id: "guild-1",
-                data: { custom_id: "post_recap:token-1" },
+                data: { custom_id: "recap:v1:post:ABC123:guild-1" },
             },
             {
                 wclClient,
@@ -481,9 +476,12 @@ describe("handleInteraction", () => {
         expect(
             accountabilityViewService.buildAccountabilityView,
         ).toHaveBeenCalledWith("ABC123", "officers-only");
-        expect(recapPreviewStateService.deletePreviewState).toHaveBeenCalledWith(
-            { customIdToken: "token-1", guildId: "guild-1" },
-        );
+        expect(
+            recapPreviewStateService.deletePreviewState,
+        ).toHaveBeenCalledWith({
+            reportCode: "ABC123",
+            guildId: "guild-1",
+        });
     });
 
     it("returns an ephemeral error when preview state is missing or expired", async () => {
@@ -505,7 +503,7 @@ describe("handleInteraction", () => {
             {
                 type: InteractionType.MESSAGE_COMPONENT,
                 guild_id: "guild-1",
-                data: { custom_id: "post_recap:expired-token" },
+                data: { custom_id: "recap:v1:post:ABC123:guild-1" },
             },
             { wclClient, guildConfigStore, recapPreviewStateService },
         );
@@ -521,50 +519,43 @@ describe("handleInteraction", () => {
     });
 
     it("rejects officers-only details component when recap is unrestricted", async () => {
-        const report = makeReport();
         const wclClient = {
-            fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
-            findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+            fetchAndNormalizeReport: vi.fn(),
+            findPreviousRaidSummaries: vi.fn(),
         } as never;
+
         const guildConfigStore: GuildConfigStore = {
-            getGuildConfig: vi.fn().mockResolvedValue({
-                guildId: "guild-1",
-                defaultGameFamily: "retail",
-                compareModeDefault: "mixed",
-                accountabilityVisibility: "off",
-                coachingShareabilityDefault: "shareable",
-                recapPostModeDefault: "preview-and-post",
-            }),
+            getGuildConfig: vi.fn(),
             saveGuildConfig: vi.fn(),
         };
-        const editFetch = vi.fn().mockResolvedValue({
-            ok: true,
-            text: vi.fn().mockResolvedValue("ok"),
-        });
-        vi.stubGlobal("fetch", editFetch);
 
-        await handleInteraction(
-            {
-                type: InteractionType.APPLICATION_COMMAND,
-                guild_id: "guild-1",
-                data: {
-                    name: "report",
-                    options: [
-                        {
-                            name: "recap",
-                            options: [
-                                {
-                                    name: "url",
-                                    value: "https://www.warcraftlogs.com/reports/ABC123",
-                                },
-                            ],
-                        },
-                    ],
+        const recapPreviewStateService = {
+            savePreviewState: vi.fn(),
+            getValidPreviewState: vi.fn().mockResolvedValue({
+                guildId: "guild-1",
+                channelId: "channel-1",
+                reportCode: "ABC123",
+                sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+                summaryPayload: {
+                    reportTitle: "Raid Night",
+                    reportDateISO: new Date(0).toISOString(),
+                    gameFamily: "retail",
+                    bossesKilled: 1,
+                    compareModeUsed: "mixed",
+                    accountabilityVisibility: "off",
+                    coachingShareability: "shareable",
+                    recapPostMode: "preview-and-post",
+                    topOverallParsers: [],
+                    bossHighlights: [],
+                    raidSuperlatives: [],
+                    teamNote: "Team note",
                 },
-            },
-            { wclClient, guildConfigStore },
-        );
-        await Promise.resolve();
+                createdByUserId: "user-1",
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 60_000),
+            }),
+            deletePreviewState: vi.fn(),
+        };
 
         const restricted = await handleInteraction(
             {
@@ -572,11 +563,12 @@ describe("handleInteraction", () => {
                 guild_id: "guild-1",
                 data: { custom_id: "recap:v1:officers:ABC123:guild-1" },
             },
-            { wclClient, guildConfigStore },
+            { wclClient, guildConfigStore, recapPreviewStateService },
         );
-        expect((restricted as { data?: { content?: string } }).data?.content).toMatch(
-            /not enabled/i,
-        );
+
+        expect(
+            (restricted as { data?: { content?: string } }).data?.content,
+        ).toMatch(/not enabled/i);
     });
 });
 
@@ -613,7 +605,9 @@ describe("embed rendering", () => {
                     text: "Execution win on mechanics",
                 },
             ],
-            raidSuperlatives: [{ label: "Most deaths", text: "Alyra (1) on Boss" }],
+            raidSuperlatives: [
+                { label: "Most deaths", text: "Alyra (1) on Boss" },
+            ],
             teamNote: "Team note",
         });
 
@@ -669,7 +663,9 @@ describe("embed rendering", () => {
             coachingShareability: "private",
             recapPostMode: "preview-only",
             topOverallParsers: [],
-            bossHighlights: [{ bossName: "Boss", fightId: 1, text: "Only one" }],
+            bossHighlights: [
+                { bossName: "Boss", fightId: 1, text: "Only one" },
+            ],
             raidSuperlatives: [],
             teamNote: "Team note",
         });
@@ -751,8 +747,7 @@ describe("preview rendering", () => {
             "guild-1",
         );
 
-        const customId =
-            body.components?.[0]?.components?.[0]?.custom_id ?? "";
+        const customId = body.components?.[0]?.components?.[0]?.custom_id ?? "";
         expect(customId).toBe("recap:v1:post:ABC123:guild-1");
     });
 });

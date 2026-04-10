@@ -62,13 +62,20 @@ export const parseTablePayload = (
         const value = findValue(entry, VALUE_KEY_BY_TYPE[dataType]);
         if (typeof value !== "number") return [];
 
-        return [
-            {
-                dataType,
-                playerId: asNumber(entry.id) ?? asNumber(entry.playerID) ?? asNumber(entry.playerId),
-                playerName: asString(entry.name) ?? asString(asObject(entry.actor)?.name),
-                value,
-            },
-        ];
+        const playerId =
+            asNumber(entry.id) ??
+            asNumber(entry.playerID) ??
+            asNumber(entry.playerId);
+        const playerName = asString(entry.name) ?? asString(asObject(entry.actor)?.name);
+
+        // Construct the entry object, only adding playerId and playerName when defined. exact
+        // optional property types disallow explicitly assigning undefined to optional properties.
+        const parsedEntry: ParsedTableEntry = {
+            dataType,
+            value,
+            ...(typeof playerId === "number" ? { playerId } : {}),
+            ...(playerName ? { playerName } : {}),
+        };
+        return [parsedEntry];
     });
 };

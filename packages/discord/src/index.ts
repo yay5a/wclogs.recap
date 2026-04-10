@@ -3,7 +3,6 @@ import {
     InteractionType,
     MessageComponentTypes,
 } from "discord-interactions";
-import { randomUUID } from "node:crypto";
 import type {
     AccountabilityViewService,
     CoachingViewService,
@@ -52,7 +51,6 @@ interface SavePreviewStateInput {
     sourceUrl: string;
     summaryPayload: RecapPreviewSummary;
     createdByUserId: string;
-    customIdToken: string;
     createdAt: Date;
     expiresAt: Date;
     interactionId?: string;
@@ -60,7 +58,7 @@ interface SavePreviewStateInput {
 }
 
 interface PreviewStateLookup {
-    customIdToken: string;
+    reportCode: string;
     guildId: string;
 }
 
@@ -129,14 +127,9 @@ const INTEGER_OPTION_TYPE = 4;
 const NUMBER_OPTION_TYPE = 10;
 const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 
-<<<<<<< ours
-const previewCustomId = "post_recap";
-=======
 const RECAP_COMPONENT_PREFIX = "recap:v1";
 const POST_RECAP_ACTION = "post";
 const OFFICERS_RECAP_ACTION = "officers";
-const recapState = new Map<string, ReturnType<typeof buildRecapSummary>>();
->>>>>>> theirs
 const MAX_HIGHLIGHTS = 4;
 const PREVIEW_STATE_TTL_MS = 15 * 60_000;
 
@@ -177,11 +170,46 @@ const parseRecapComponentCustomId = (
     return { action, reportCode, guildId };
 };
 
+type OfficerDetailCapableSummary = Pick<
+    RecapPreviewSummary,
+    "accountabilityVisibility" | "coachingShareability"
+>;
+
 const requiresOfficerDetails = (
-    summary: ReturnType<typeof buildRecapSummary>,
+    summary: OfficerDetailCapableSummary,
 ): boolean =>
     summary.accountabilityVisibility === "officers-only" ||
     summary.coachingShareability === "private";
+
+const buildOfficerDetailsBody = (
+    summary: Pick<
+        RecapPreviewSummary,
+        "reportTitle" | "accountabilityVisibility" | "coachingShareability"
+    >,
+) => ({
+    flags: EPHEMERAL_MESSAGE_FLAG,
+    embeds: [
+        {
+            title: `Officers: ${summary.reportTitle}`,
+            fields: [
+                {
+                    name: "Accountability Visibility",
+                    value: toTitleCase(summary.accountabilityVisibility),
+                    inline: true,
+                },
+                {
+                    name: "Coaching Shareability",
+                    value: toTitleCase(summary.coachingShareability),
+                    inline: true,
+                },
+                {
+                    name: "Restricted Notes",
+                    value: "Use accountability/coaching exports for officer review only.",
+                },
+            ],
+        },
+    ],
+});
 
 interface DiscordInteractionData {
     name?: string;
@@ -215,16 +243,10 @@ const logReportRecapStep = (
     });
 };
 
-<<<<<<< ours
-const buildRecapPreviewBody = (
-    summary: RecapSummary,
-    customIdToken: string,
-=======
 export const buildRecapPreviewBody = (
     summary: ReturnType<typeof buildRecapSummary>,
     reportCode: string,
     guildId: string,
->>>>>>> theirs
 ) => ({
     flags: EPHEMERAL_MESSAGE_FLAG,
     embeds: [
@@ -253,15 +275,11 @@ export const buildRecapPreviewBody = (
                 {
                     type: MessageComponentTypes.BUTTON,
                     style: 1,
-<<<<<<< ours
-                    custom_id: `${previewCustomId}:${customIdToken}`,
-=======
                     custom_id: makeRecapComponentCustomId(
                         POST_RECAP_ACTION,
                         reportCode,
                         guildId,
                     ),
->>>>>>> theirs
                     label: "Post Recap",
                 },
             ],
@@ -269,7 +287,6 @@ export const buildRecapPreviewBody = (
     ],
 });
 
-<<<<<<< ours
 const toRecapPreviewSummary = (summary: RecapSummary): RecapPreviewSummary => {
     const compactSummary: RecapPreviewSummary = {
         reportTitle: summary.reportTitle,
@@ -300,35 +317,6 @@ const toRecapPreviewSummary = (summary: RecapSummary): RecapPreviewSummary => {
     }
     return compactSummary;
 };
-=======
-const buildOfficerDetailsBody = (
-    summary: ReturnType<typeof buildRecapSummary>,
-) => ({
-    flags: EPHEMERAL_MESSAGE_FLAG,
-    embeds: [
-        {
-            title: `Officers: ${summary.reportTitle}`,
-            fields: [
-                {
-                    name: "Accountability Visibility",
-                    value: toTitleCase(summary.accountabilityVisibility),
-                    inline: true,
-                },
-                {
-                    name: "Coaching Shareability",
-                    value: toTitleCase(summary.coachingShareability),
-                    inline: true,
-                },
-                {
-                    name: "Restricted Notes",
-                    value:
-                        "Use accountability/coaching exports for officer review only.",
-                },
-            ],
-        },
-    ],
-});
->>>>>>> theirs
 
 export const editOriginalInteractionResponse = async (
     applicationId: string,
@@ -428,7 +416,6 @@ const processReportRecapInteraction = async (
         });
         logReportRecapStep(interactionId, "summary_build", summaryBuildStart);
 
-        const customIdToken = randomUUID();
         const createdAt = new Date();
         const previewStateInput: SavePreviewStateInput = {
             guildId,
@@ -437,7 +424,6 @@ const processReportRecapInteraction = async (
             sourceUrl: url,
             summaryPayload: toRecapPreviewSummary(summary),
             createdByUserId,
-            customIdToken,
             createdAt,
             expiresAt: new Date(createdAt.getTime() + PREVIEW_STATE_TTL_MS),
         };
@@ -452,7 +438,7 @@ const processReportRecapInteraction = async (
         await editOriginalInteractionResponse(
             applicationId,
             interactionToken,
-            buildRecapPreviewBody(summary, customIdToken),
+            buildRecapPreviewBody(summary, report.reportCode, guildId),
         );
         logReportRecapStep(interactionId, "original_response_edit", editStart);
     } catch (error) {
@@ -991,34 +977,27 @@ export const handleInteraction = async (
 
     if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
         const id = typedInteraction.data?.custom_id;
-<<<<<<< ours
-        if (typeof id === "string" && id.startsWith(previewCustomId)) {
-            const [, customIdToken] = id.split(":");
-            const guildId = typedInteraction.guild_id ?? "dm";
-            if (!customIdToken) {
-=======
+
         if (typeof id === "string") {
             const parsedCustomId = parseRecapComponentCustomId(id);
             if (!parsedCustomId) {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: { content: "Unsupported interaction in MVP.", flags: 64 },
-                };
-            }
-            const { action, reportCode, guildId } = parsedCustomId;
-            if (!reportCode || !guildId) {
->>>>>>> theirs
-                return {
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: { content: "Invalid recap preview button.", flags: 64 },
+                    data: {
+                        content: "Unsupported interaction in MVP.",
+                        flags: 64,
+                    },
                 };
             }
 
+            const { action, reportCode, guildId } = parsedCustomId;
+
             const previewState =
                 await options.recapPreviewStateService.getValidPreviewState({
-                    customIdToken,
+                    reportCode,
                     guildId,
                 });
+
             if (!previewState) {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -1030,15 +1009,15 @@ export const handleInteraction = async (
                 };
             }
 
-<<<<<<< ours
             const summary = previewState.summaryPayload;
-=======
+
             if (action === OFFICERS_RECAP_ACTION) {
                 if (!requiresOfficerDetails(summary)) {
                     return {
                         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                         data: {
-                            content: "Officer details are not enabled for this recap.",
+                            content:
+                                "Officer details are not enabled for this recap.",
                             flags: EPHEMERAL_MESSAGE_FLAG,
                         },
                     };
@@ -1057,7 +1036,6 @@ export const handleInteraction = async (
                 };
             }
 
->>>>>>> theirs
             await options.coachingViewService?.buildShareableCoachingView(
                 previewState.reportCode,
             );
@@ -1065,13 +1043,15 @@ export const handleInteraction = async (
                 previewState.reportCode,
                 summary.accountabilityVisibility,
             );
+
             if (options.trendTrackingService) {
                 await options.trendTrackingService.recomputeTrendsForGuild(
                     previewState.guildId,
                 );
             }
+
             await options.recapPreviewStateService.deletePreviewState({
-                customIdToken,
+                reportCode,
                 guildId,
             });
 
@@ -1104,16 +1084,13 @@ export const handleInteraction = async (
             };
         }
     }
-
     return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: { content: "Unsupported interaction in MVP.", flags: 64 },
     };
 };
 
-export const buildPublicRecapEmbed = (
-    summary: RecapPreviewSummary,
-) => {
+export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
     const fields: Array<{ name: string; value: string; inline?: boolean }> = [
         {
             name: "Raid Facts",
@@ -1128,26 +1105,35 @@ export const buildPublicRecapEmbed = (
                 .join("\n"),
         },
     ];
-    if (summary.bestSingleBossParse)
+
+    if (summary.bestSingleBossParse) {
         fields.push({
             name: "Best Single-Boss Parse",
             value: `${summary.bestSingleBossParse.playerName} on ${summary.bestSingleBossParse.bossName} (${summary.bestSingleBossParse.value.toFixed(1)} ${formatShortMetric(summary.bestSingleBossParse.metric)})`,
         });
-    if (summary.bestAverageParse)
+    }
+
+    if (summary.bestAverageParse) {
         fields.push({
             name: "Best Average Parse",
             value: `${summary.bestAverageParse.playerName} (${summary.bestAverageParse.value.toFixed(1)} ${formatShortMetric(summary.bestAverageParse.metric)})`,
         });
-    if (summary.bestExecution)
+    }
+
+    if (summary.bestExecution) {
         fields.push({
             name: "Best Execution",
             value: `${summary.bestExecution.playerName} (${summary.bestExecution.value.toFixed(1)})`,
         });
-    if (summary.mostImprovedPlayer)
+    }
+
+    if (summary.mostImprovedPlayer) {
         fields.push({
             name: "Most Improved",
             value: `${summary.mostImprovedPlayer.playerName} (+${summary.mostImprovedPlayer.delta.toFixed(1)})`,
         });
+    }
+
     if (summary.bossHighlights.length >= 2) {
         const bossHighlights = summary.bossHighlights.slice(0, MAX_HIGHLIGHTS);
         fields.push({
@@ -1160,6 +1146,7 @@ export const buildPublicRecapEmbed = (
                 .join("\n"),
         });
     }
+
     if (summary.raidSuperlatives.length > 0) {
         fields.push({
             name: "Superlatives",
@@ -1176,4 +1163,4 @@ export const buildPublicRecapEmbed = (
         title: summary.reportTitle,
         fields,
     };
-};
+}

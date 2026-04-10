@@ -34,12 +34,18 @@ export const parsePlayerDetailsPayload = (
         const name = asString(entry.name) ?? asString(asObject(entry.player)?.name);
         if (!name) continue;
 
-        results.push({
+        const className = asString(entry.class) ?? asString(entry.type);
+        const specName = asString(entry.spec) ?? asString(asObject(entry.talentTree)?.name);
+        const role = asString(entry.role);
+        // Build the detail object, omitting optional properties when they are undefined. Under
+        // exactOptionalPropertyTypes, assigning undefined to an optional property is not permitted.
+        const detail: ParsedPlayerDetail = {
             name,
-            className: asString(entry.class) ?? asString(entry.type),
-            specName: asString(entry.spec) ?? asString(asObject(entry.talentTree)?.name),
-            role: asString(entry.role),
-        });
+            ...(className ? { className } : {}),
+            ...(specName ? { specName } : {}),
+            ...(role ? { role } : {}),
+        };
+        results.push(detail);
     }
 
     if (results.length === 0) {

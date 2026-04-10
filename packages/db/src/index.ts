@@ -9,6 +9,7 @@ import type {
     GuildConfigStore,
     NormalizedReport,
     RecapPostMode,
+    RecapSummary,
     CoachingShareability,
     TrendTrackingService,
 } from "@wcl/domain";
@@ -237,7 +238,6 @@ const recapPreviewStateSchema = new Schema(
         sourceUrl: { type: String, required: true },
         summaryPayload: { type: Schema.Types.Mixed, required: true },
         createdByUserId: { type: String, required: true, index: true },
-        customIdToken: { type: String, required: true, unique: true },
         interactionId: { type: String, index: true },
         messageId: { type: String, index: true },
         createdAt: { type: Date, required: true, default: Date.now },
@@ -247,6 +247,7 @@ const recapPreviewStateSchema = new Schema(
 );
 recapPreviewStateSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 recapPreviewStateSchema.index({ interactionId: 1, messageId: 1 });
+recapPreviewStateSchema.index({ guildId: 1, reportCode: 1 }, { unique: true });
 
 export const GuildSettingsModel = mongoose.model(
     "GuildSettings",
@@ -301,9 +302,8 @@ export interface RecapPreviewStateRecord {
     channelId: string;
     reportCode: string;
     sourceUrl: string;
-    summaryPayload: unknown;
+    summaryPayload: RecapSummary;
     createdByUserId: string;
-    customIdToken: string;
     interactionId?: string;
     messageId?: string;
     createdAt: Date;
@@ -315,9 +315,8 @@ export interface SaveRecapPreviewStateInput {
     channelId: string;
     reportCode: string;
     sourceUrl: string;
-    summaryPayload: unknown;
+    summaryPayload: RecapSummary;
     createdByUserId: string;
-    customIdToken: string;
     interactionId?: string;
     messageId?: string;
     createdAt: Date;
@@ -325,7 +324,7 @@ export interface SaveRecapPreviewStateInput {
 }
 
 export interface PreviewStateLookup {
-    customIdToken: string;
+    reportCode: string;
     guildId: string;
 }
 
@@ -385,6 +384,41 @@ export class MongoGuildConfigStore implements GuildConfigStore {
     }
 }
 
+const isRecapSummary = (value: unknown): value is RecapSummary => {
+    if (!value || typeof value !== "object") return false;
+    const raw = value as Record<string, unknown>;
+
+    const isGameFamily =
+        raw.gameFamily === "retail" || raw.gameFamily === "mop_classic";
+    const isCompareMode =
+        raw.compareModeUsed === "character" || raw.compareModeUsed === "mixed";
+    const isVisibility =
+        raw.accountabilityVisibility === "off" ||
+        raw.accountabilityVisibility === "officers-only" ||
+        raw.accountabilityVisibility === "shareable";
+    const isCoachingShareability =
+        raw.coachingShareability === "private" ||
+        raw.coachingShareability === "shareable";
+    const isRecapPostMode =
+        raw.recapPostMode === "preview-and-post" ||
+        raw.recapPostMode === "preview-only";
+
+    return (
+        typeof raw.reportTitle === "string" &&
+        typeof raw.reportDateISO === "string" &&
+        isGameFamily &&
+        typeof raw.bossesKilled === "number" &&
+        isCompareMode &&
+        isVisibility &&
+        isCoachingShareability &&
+        isRecapPostMode &&
+        Array.isArray(raw.topOverallParsers) &&
+        Array.isArray(raw.bossHighlights) &&
+        Array.isArray(raw.raidSuperlatives) &&
+        typeof raw.teamNote === "string"
+    );
+};
+
 const toRecapPreviewStateRecord = (
     doc: unknown,
 ): RecapPreviewStateRecord | null => {
@@ -396,10 +430,13 @@ const toRecapPreviewStateRecord = (
         typeof raw.reportCode !== "string" ||
         typeof raw.sourceUrl !== "string" ||
         typeof raw.createdByUserId !== "string" ||
-        typeof raw.customIdToken !== "string" ||
         !(raw.createdAt instanceof Date) ||
         !(raw.expiresAt instanceof Date)
     ) {
+        return null;
+    }
+
+    if (!isRecapSummary(raw.summaryPayload)) {
         return null;
     }
 
@@ -410,7 +447,6 @@ const toRecapPreviewStateRecord = (
         sourceUrl: raw.sourceUrl,
         summaryPayload: raw.summaryPayload,
         createdByUserId: raw.createdByUserId,
-        customIdToken: raw.customIdToken,
         createdAt: raw.createdAt,
         expiresAt: raw.expiresAt,
     };
@@ -428,7 +464,7 @@ export class MongoRecapPreviewStateStore {
         input: SaveRecapPreviewStateInput,
     ): Promise<RecapPreviewStateRecord> {
         const saved = await RecapPreviewStateModel.findOneAndUpdate(
-            { customIdToken: input.customIdToken },
+            { guildId: input.guildId, reportCode: input.reportCode },
             {
                 $set: {
                     guildId: input.guildId,
@@ -437,7 +473,6 @@ export class MongoRecapPreviewStateStore {
                     sourceUrl: input.sourceUrl,
                     summaryPayload: input.summaryPayload,
                     createdByUserId: input.createdByUserId,
-                    customIdToken: input.customIdToken,
                     interactionId: input.interactionId,
                     messageId: input.messageId,
                     createdAt: input.createdAt,
@@ -462,7 +497,7 @@ export class MongoRecapPreviewStateStore {
         lookup: PreviewStateLookup,
     ): Promise<RecapPreviewStateRecord | null> {
         const found = await RecapPreviewStateModel.findOne({
-            customIdToken: lookup.customIdToken,
+            reportCode: lookup.reportCode,
             guildId: lookup.guildId,
             expiresAt: { $gt: new Date() },
         }).lean();
@@ -471,7 +506,7 @@ export class MongoRecapPreviewStateStore {
 
     public async deletePreviewState(lookup: PreviewStateLookup): Promise<void> {
         await RecapPreviewStateModel.deleteOne({
-            customIdToken: lookup.customIdToken,
+            reportCode: lookup.reportCode,
             guildId: lookup.guildId,
         });
     }
@@ -600,9 +635,9 @@ export class MongoTrendTrackingService implements TrendTrackingService {
         type PlayerIdentity = {
             key: string;
             guildId: string;
-            playerProfileId?: Schema.Types.ObjectId;
-            playerName?: string;
             snapshots: PlayerSummary[];
+            playerProfileId?: mongoose.Types.ObjectId;
+            playerName?: string;
         };
 
         const players = new Map<string, PlayerIdentity>();
@@ -612,25 +647,32 @@ export class MongoTrendTrackingService implements TrendTrackingService {
                 rawProfileId instanceof mongoose.Types.ObjectId
                     ? rawProfileId
                     : undefined;
+
             const name =
                 typeof summary.characterName === "string" &&
                 summary.characterName.trim().length > 0
                     ? summary.characterName.trim()
                     : undefined;
-            const key = profileId ? `profile:${String(profileId)}` : `name:${name ?? "unknown"}`;
+
+            const key = profileId
+                ? `profile:${String(profileId)}`
+                : `name:${name ?? "unknown"}`;
+
             const existing = players.get(key);
             if (existing) {
                 existing.snapshots.push(summary as PlayerSummary);
                 continue;
             }
 
-            players.set(key, {
+            const playerIdentity: PlayerIdentity = {
                 key,
                 guildId,
-                playerProfileId: profileId,
-                playerName: profileId ? undefined : name,
                 snapshots: [summary as PlayerSummary],
-            });
+                ...(profileId ? { playerProfileId: profileId } : {}),
+                ...(!profileId && name ? { playerName: name } : {}),
+            };
+
+            players.set(key, playerIdentity);
         }
 
         const windows = [
@@ -640,10 +682,16 @@ export class MongoTrendTrackingService implements TrendTrackingService {
 
         const average = (values: number[]): number | undefined => {
             if (values.length === 0) return undefined;
-            return values.reduce((acc, value) => acc + value, 0) / values.length;
+            return (
+                values.reduce((acc, value) => acc + value, 0) / values.length
+            );
         };
 
-        const operations: Array<Record<string, unknown>> = [];
+        type TrendBulkWriteOperations = NonNullable<
+            Parameters<typeof TrendSnapshotModel.bulkWrite>[0]
+        >;
+        const operations: TrendBulkWriteOperations = [];
+
         for (const player of players.values()) {
             for (const window of windows) {
                 if (player.snapshots.length < window.size) {
@@ -653,28 +701,36 @@ export class MongoTrendTrackingService implements TrendTrackingService {
                 const samples = player.snapshots.slice(-window.size);
                 const parseValues = samples
                     .map((sample) => sample.averageParse)
-                    .filter((value): value is number => typeof value === "number");
+                    .filter(
+                        (value): value is number => typeof value === "number",
+                    );
                 const executionValues = samples
                     .map((sample) => sample.executionScore)
-                    .filter((value): value is number => typeof value === "number");
+                    .filter(
+                        (value): value is number => typeof value === "number",
+                    );
+
                 const parseAverage = average(parseValues);
                 const executionAverage = average(executionValues);
 
-                const baseFilter: Record<string, unknown> = {
-                    guildId,
-                    metric: "",
-                    window: window.label,
-                };
-                if (player.playerProfileId) {
-                    baseFilter.playerProfileId = player.playerProfileId;
-                } else if (player.playerName) {
-                    baseFilter.playerName = player.playerName;
-                } else {
+                const identityFilter = player.playerProfileId
+                    ? { playerProfileId: player.playerProfileId }
+                    : player.playerName
+                      ? { playerName: player.playerName }
+                      : undefined;
+
+                if (!identityFilter) {
                     continue;
                 }
 
                 const enqueueMetric = (metric: string, value: number) => {
-                    const filter = { ...baseFilter, metric };
+                    const filter = {
+                        guildId,
+                        metric,
+                        window: window.label,
+                        ...identityFilter,
+                    };
+
                     operations.push({
                         updateOne: {
                             filter,
@@ -701,10 +757,13 @@ export class MongoTrendTrackingService implements TrendTrackingService {
         }
 
         if (operations.length === 0) {
-            console.info("trend recomputation skipped; no trend windows derived", {
-                guildId,
-                players: players.size,
-            });
+            console.info(
+                "trend recomputation skipped; no trend windows derived",
+                {
+                    guildId,
+                    players: players.size,
+                },
+            );
             return;
         }
 

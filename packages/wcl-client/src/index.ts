@@ -353,46 +353,71 @@ const summarizeBossTables = (
     parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>>,
     parseEntry?: NormalizedLeaderboardEntry,
 ): NormalizedBossPerformance => {
+    // Find the top entry by value for a given table type. Return undefined if no entries exist.
     const topByValue = (entries?: ParsedTableEntry[]) =>
-        (entries ?? []).sort((a, b) => b.value - a.value)[0];
+        (entries ?? [])
+            .slice()
+            .sort((a, b) => b.value - a.value)[0] as ParsedTableEntry | undefined;
 
-    const mostDeaths = (parsedTables.Deaths ?? []).sort((a, b) => b.value - a.value)[0];
+    // Precompute top performers for each category. Avoid assigning undefined values directly to the result object
+    // because exactOptionalPropertyTypes requires optional properties to be omitted entirely when absent.
+    const topParse = parseEntry;
 
-    return {
+    const topDamageEntry = topByValue(parsedTables.DamageDone);
+    const topDamage = topDamageEntry
+        ? {
+              playerName: topDamageEntry.playerName ?? "Unknown",
+              value: topDamageEntry.value ?? 0,
+          }
+        : undefined;
+
+    const topHealingEntry = topByValue(parsedTables.Healing);
+    const topHealing = topHealingEntry
+        ? {
+              playerName: topHealingEntry.playerName ?? "Unknown",
+              value: topHealingEntry.value ?? 0,
+          }
+        : undefined;
+
+    const mostDeathsEntry = (parsedTables.Deaths ?? [])
+        .slice()
+        .sort((a, b) => b.value - a.value)[0] as ParsedTableEntry | undefined;
+    const mostDeaths = mostDeathsEntry
+        ? {
+              playerName: mostDeathsEntry.playerName ?? "Unknown",
+              value: mostDeathsEntry.value,
+          }
+        : undefined;
+
+    const topInterruptsEntry = topByValue(parsedTables.Interrupts);
+    const topInterrupts = topInterruptsEntry
+        ? {
+              playerName: topInterruptsEntry.playerName ?? "Unknown",
+              value: topInterruptsEntry.value ?? 0,
+          }
+        : undefined;
+
+    const topSurvivabilityEntry = topByValue(parsedTables.Survivability);
+    const topSurvivability = topSurvivabilityEntry
+        ? {
+              playerName: topSurvivabilityEntry.playerName ?? "Unknown",
+              value: topSurvivabilityEntry.value ?? 0,
+          }
+        : undefined;
+
+    // Build the result object, only including optional properties when they are defined. This avoids assigning
+    // undefined values to optional properties under exactOptionalPropertyTypes.
+    const result: NormalizedBossPerformance = {
         bossName,
         fightId,
-        topParse: parseEntry,
-        topDamage: topByValue(parsedTables.DamageDone)
-            ? {
-                  playerName: topByValue(parsedTables.DamageDone)?.playerName ?? "Unknown",
-                  value: topByValue(parsedTables.DamageDone)?.value ?? 0,
-              }
-            : undefined,
-        topHealing: topByValue(parsedTables.Healing)
-            ? {
-                  playerName: topByValue(parsedTables.Healing)?.playerName ?? "Unknown",
-                  value: topByValue(parsedTables.Healing)?.value ?? 0,
-              }
-            : undefined,
-        mostDeaths: mostDeaths
-            ? {
-                  playerName: mostDeaths.playerName ?? "Unknown",
-                  value: mostDeaths.value,
-              }
-            : undefined,
-        topInterrupts: topByValue(parsedTables.Interrupts)
-            ? {
-                  playerName: topByValue(parsedTables.Interrupts)?.playerName ?? "Unknown",
-                  value: topByValue(parsedTables.Interrupts)?.value ?? 0,
-              }
-            : undefined,
-        topSurvivability: topByValue(parsedTables.Survivability)
-            ? {
-                  playerName: topByValue(parsedTables.Survivability)?.playerName ?? "Unknown",
-                  value: topByValue(parsedTables.Survivability)?.value ?? 0,
-              }
-            : undefined,
+        ...(topParse ? { topParse } : {}),
+        ...(topDamage ? { topDamage } : {}),
+        ...(topHealing ? { topHealing } : {}),
+        ...(mostDeaths ? { mostDeaths } : {}),
+        ...(topInterrupts ? { topInterrupts } : {}),
+        ...(topSurvivability ? { topSurvivability } : {}),
     };
+    return result;
 };
 
 export const normalizeEnrichedReport = (
@@ -445,7 +470,11 @@ export const normalizeEnrichedReport = (
         const fightId = asNumber(boss.fightId);
         const bossName = asString(boss.bossName);
         if (typeof fightId !== "number") return [];
-        return parseBossRankingsPayload(boss.payload, { fightId, bossName });
+        // Only include bossName and fightId properties in the context when they are defined.
+        const context: { bossName?: string; fightId?: number } = {};
+        if (typeof fightId === "number") context.fightId = fightId;
+        if (bossName) context.bossName = bossName;
+        return parseBossRankingsPayload(boss.payload, context);
     });
 
     const playerDetails = parsePlayerDetailsPayload(enriched?.playerDetails);
@@ -476,12 +505,16 @@ export const normalizeEnrichedReport = (
             leaderboardIndex.byName.get(normalizeName(name)) ??
             [];
 
+        // Build the player object without assigning undefined to optional properties. The actorId
+        // property is added only when a numeric actorId is present; otherwise it is omitted entirely.
         const player: NormalizedPlayer = {
             id: String(actorId ?? index),
-            actorId,
             name,
             nameKey: normalizeName(name),
         };
+        if (typeof actorId === "number") {
+            player.actorId = actorId;
+        }
         const className = asString(actor.subType) ?? detail?.className;
         const realm = asString(actor.server);
         if (className) player.className = className;
@@ -489,6 +522,8 @@ export const normalizeEnrichedReport = (
         if (detail?.specName) player.specName = detail.specName;
         if (detail?.role) player.role = detail.role;
 
+        // Determine best and average parse values only when leaderboard entries exist. The properties
+        // bestParse and avgParse are omitted unless a best entry is found.
         const reportEntries = leaderboardMatches.filter((entry) => entry.scope === "report");
         const best = [...reportEntries].sort((a, b) => b.value - a.value)[0];
         if (best) {
