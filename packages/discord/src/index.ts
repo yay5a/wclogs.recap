@@ -123,6 +123,9 @@ export type CommandDefinition =
     | MessageCommandDefinition;
 
 const DISCORD_API_BASE_URL = "https://discord.com/api/v10";
+const DISCORD_USER_AGENT =
+    "DiscordBot (https://github.com/yay5a/wclogs.recap, 0.1.0)";
+const MAX_RATE_LIMIT_RETRIES = 1;
 const logger = createLogger("discord");
 const EPHEMERAL_MESSAGE_FLAG = 64;
 const STRING_OPTION_TYPE = 3;
@@ -233,6 +236,109 @@ interface DiscordInteraction {
 }
 
 const toDurationMs = (startedAt: number): number => Date.now() - startedAt;
+const delay = (ms: number): Promise<void> =>
+    new Promise((resolve) => setTimeout(resolve, ms));
+
+const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
+    typeof value === "object" && value !== null;
+
+interface DiscordRateLimitMetadata {
+    retryAfterMs: number;
+    global: boolean | null;
+}
+
+const readDiscordRateLimitMetadata = async (
+    response: Response,
+): Promise<DiscordRateLimitMetadata | null> => {
+    const retryAfterHeader = response.headers.get("Retry-After");
+    const headerRetryAfterSeconds = retryAfterHeader
+        ? Number.parseFloat(retryAfterHeader)
+        : Number.NaN;
+    if (
+        Number.isFinite(headerRetryAfterSeconds) &&
+        headerRetryAfterSeconds >= 0
+    ) {
+        return {
+            retryAfterMs: Math.ceil(headerRetryAfterSeconds * 1000),
+            global: null,
+        };
+    }
+
+    try {
+        const body = (await response.clone().json()) as unknown;
+        if (!isObjectRecord(body)) return null;
+        const retryAfterValue = body.retry_after;
+        const globalValue = body.global;
+        if (
+            typeof retryAfterValue === "number" &&
+            Number.isFinite(retryAfterValue) &&
+            retryAfterValue >= 0
+        ) {
+            return {
+                retryAfterMs: Math.ceil(retryAfterValue * 1000),
+                global: typeof globalValue === "boolean" ? globalValue : null,
+            };
+        }
+    } catch {
+        return null;
+    }
+
+    return null;
+};
+
+interface DiscordApiRequestOptions {
+    endpoint: string;
+    method: "PATCH" | "PUT";
+    route: string;
+    botToken?: string;
+    body?: unknown;
+    maxRateLimitRetries?: number;
+}
+
+const discordApiRequest = async ({
+    endpoint,
+    method,
+    route,
+    botToken,
+    body,
+    maxRateLimitRetries = MAX_RATE_LIMIT_RETRIES,
+}: DiscordApiRequestOptions): Promise<Response> => {
+    for (let attempt = 0; ; attempt += 1) {
+        const response = await fetch(endpoint, {
+            method,
+            headers: {
+                "User-Agent": DISCORD_USER_AGENT,
+                ...(botToken ? { Authorization: `Bot ${botToken}` } : {}),
+                ...(body !== undefined
+                    ? { "Content-Type": "application/json" }
+                    : {}),
+            },
+            ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+        });
+
+        if (response.status !== 429) return response;
+        if (attempt >= maxRateLimitRetries) return response;
+
+        const rateLimitMetadata = await readDiscordRateLimitMetadata(response);
+        if (!rateLimitMetadata) {
+            throw new Error(
+                `Discord rate limit response missing retry timing for route ${route}.`,
+            );
+        }
+
+        logger.warn(
+            {
+                route,
+                attempt: attempt + 1,
+                retryAfterMs: rateLimitMetadata.retryAfterMs,
+                global: rateLimitMetadata.global,
+            },
+            "discord API rate limit hit; retrying request",
+        );
+
+        await delay(rateLimitMetadata.retryAfterMs);
+    }
+};
 
 const logReportRecapStep = (
     interactionId: string | undefined,
@@ -329,16 +435,13 @@ export const editOriginalInteractionResponse = async (
     token: string,
     body: unknown,
 ): Promise<void> => {
-    const response = await fetch(
-        `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}/messages/@original`,
-        {
-            method: "PATCH",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify(body),
-        },
-    );
+    const endpoint = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}/messages/@original`;
+    const response = await discordApiRequest({
+        endpoint,
+        method: "PATCH",
+        route: "/webhooks/{applicationId}/{token}/messages/@original",
+        body,
+    });
 
     if (!response.ok) {
         const errorBody = await response.text();
@@ -795,13 +898,15 @@ const registerCommandSet = async (
         "registering Discord commands",
     );
 
-    const response = await fetch(endpoint, {
+    const response = await discordApiRequest({
+        endpoint,
         method: "PUT",
-        headers: {
-            Authorization: `Bot ${botToken}`,
-            "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
+        route:
+            targetScope === "global"
+                ? "/applications/{applicationId}/commands"
+                : "/applications/{applicationId}/guilds/{guildId}/commands",
+        botToken,
+        body: payload,
     });
 
     const text = await response.text();
