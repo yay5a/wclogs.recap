@@ -31,6 +31,11 @@ export interface ParsedReportUrl {
 
 const REPORT_CODE_PATTERN = /^[A-Za-z0-9]+$/;
 
+const SHORT_LIVED_REPORT_TTL_MS = 10 * 60 * 1000;
+const IN_PROGRESS_REPORT_TTL_MS = 2 * 60 * 1000;
+const INACCESSIBLE_REPORT_TTL_MS = 6 * 60 * 60 * 1000;
+const RECENT_REPORT_WINDOW_MS = 6 * 60 * 60 * 1000;
+
 const BASE_REPORT_QUERY = gql`
   query BaseReportSummary($code: String!) {
     reportData {
@@ -38,7 +43,10 @@ const BASE_REPORT_QUERY = gql`
         title
         startTime
         endTime
-        zone { name }
+        zone {
+          name
+          frozen
+        }
         guild {
           name
           server {
@@ -65,6 +73,7 @@ const BASE_REPORT_QUERY = gql`
           bossPercentage
           fightPercentage
           lastPhase
+          inProgress
           phaseTransitions {
             id
             startTime
@@ -175,8 +184,11 @@ interface FightSummaryRow {
     bossPercentage?: number;
     fightPercentage?: number;
     lastPhase?: number;
+    inProgress?: boolean;
     phaseTransitions: FightPhaseTransition[];
 }
+
+type ReportCacheState = "in_progress" | "recent" | "completed" | "inaccessible";
 
 interface EncounterPhaseRow {
     id: number;
@@ -341,6 +353,8 @@ const parseFightSummaries = (
         const bossPercentage = asNumber(fight.bossPercentage);
         const fightPercentage = asNumber(fight.fightPercentage);
         const lastPhase = asNumber(fight.lastPhase);
+        const inProgress =
+            "inProgress" in fight ? Boolean(fight.inProgress) : undefined;
 
         return [
             {
@@ -359,9 +373,66 @@ const parseFightSummaries = (
                     ? { fightPercentage }
                     : {}),
                 ...(typeof lastPhase === "number" ? { lastPhase } : {}),
+                ...(typeof inProgress === "boolean" ? { inProgress } : {}),
             },
         ];
     });
+
+const isWithinTtl = (fetchedAt: unknown, ttlMs: number): boolean => {
+    if (!(fetchedAt instanceof Date)) return false;
+    return Date.now() - fetchedAt.getTime() <= ttlMs;
+};
+
+const getReportCacheState = (rawPayload: unknown): ReportCacheState => {
+    const enriched = asObject(rawPayload);
+    const base = enriched?.base ?? rawPayload;
+    const report = getReportNode(base);
+
+    if (!report) {
+        return "inaccessible";
+    }
+
+    const zone = asObject(report.zone);
+    if (zone && "frozen" in zone && Boolean(zone.frozen)) {
+        return "completed";
+    }
+
+    const fights = parseFightSummaries(report);
+    if (fights.some((fight) => fight.inProgress)) {
+        return "in_progress";
+    }
+
+    const endTime = asNumber(report.endTime);
+    if (
+        typeof endTime === "number" &&
+        Date.now() - endTime <= RECENT_REPORT_WINDOW_MS
+    ) {
+        return "recent";
+    }
+
+    return "completed";
+};
+
+const shouldUseCachedReport = (cached: {
+    rawPayload: unknown;
+    fetchedAt?: Date;
+}): boolean => {
+    const state = getReportCacheState(cached.rawPayload);
+
+    if (state === "completed") {
+        return true;
+    }
+
+    if (state === "in_progress") {
+        return isWithinTtl(cached.fetchedAt, IN_PROGRESS_REPORT_TTL_MS);
+    }
+
+    if (state === "recent") {
+        return isWithinTtl(cached.fetchedAt, SHORT_LIVED_REPORT_TTL_MS);
+    }
+
+    return isWithinTtl(cached.fetchedAt, INACCESSIBLE_REPORT_TTL_MS);
+};
 
 const parseEncounterPhases = (
     report: Record<string, unknown>,
@@ -971,7 +1042,13 @@ export class WclClient {
             reportCode: parsed.reportCode,
         }).lean();
 
-        if (cached) {
+        if (
+            cached &&
+            shouldUseCachedReport({
+                rawPayload: cached.rawPayload,
+                fetchedAt: cached.fetchedAt,
+            })
+        ) {
             return cached.normalizedPayload as NormalizedReport;
         }
 
@@ -992,14 +1069,18 @@ export class WclClient {
 
         const normalized = normalizeEnrichedReport(rawPayload, parsed);
 
-        await ReportCacheModel.create({
-            reportCode: parsed.reportCode,
-            sourceUrl: url,
-            gameFamily: parsed.gameFamily,
-            rawPayload,
-            normalizedPayload: normalized,
-            fetchedAt: new Date(),
-        });
+        await ReportCacheModel.findOneAndUpdate(
+            { reportCode: parsed.reportCode },
+            {
+                reportCode: parsed.reportCode,
+                sourceUrl: url,
+                gameFamily: parsed.gameFamily,
+                rawPayload,
+                normalizedPayload: normalized,
+                fetchedAt: new Date(),
+            },
+            { upsert: true },
+        );
 
         return normalized;
     }
