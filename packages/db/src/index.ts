@@ -508,6 +508,17 @@ export class MongoRecapPreviewStateStore {
         return toRecapPreviewStateRecord(found);
     }
 
+    public async consumeValidPreviewState(
+        lookup: PreviewStateLookup,
+    ): Promise<RecapPreviewStateRecord | null> {
+        const consumed = await RecapPreviewStateModel.findOneAndDelete({
+            reportCode: lookup.reportCode,
+            guildId: lookup.guildId,
+            expiresAt: { $gt: new Date() },
+        }).lean();
+        return toRecapPreviewStateRecord(consumed);
+    }
+
     public async deletePreviewState(lookup: PreviewStateLookup): Promise<void> {
         await RecapPreviewStateModel.deleteOne({
             reportCode: lookup.reportCode,

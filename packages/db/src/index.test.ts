@@ -145,6 +145,40 @@ describe("MongoRecapPreviewStateStore", () => {
             guildId: "guild-1",
         });
     });
+
+    it("consumes preview state atomically for valid entries", async () => {
+        const now = new Date("2026-04-09T00:00:00.000Z");
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        const savedState = {
+            guildId: "guild-1",
+            channelId: "channel-1",
+            reportCode: "ABC123",
+            sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+            summaryPayload: makeRecapSummary(),
+            createdByUserId: "user-1",
+            createdAt: now,
+            expiresAt: new Date(now.getTime() + 60_000),
+        };
+        const consumeLean = vi.fn().mockResolvedValue(savedState);
+        const consumeSpy = vi
+            .spyOn(RecapPreviewStateModel, "findOneAndDelete")
+            .mockReturnValue({
+                lean: consumeLean,
+            } as never);
+
+        const store = new MongoRecapPreviewStateStore();
+        await store.consumeValidPreviewState({
+            reportCode: "ABC123",
+            guildId: "guild-1",
+        });
+
+        expect(consumeSpy).toHaveBeenCalledWith({
+            reportCode: "ABC123",
+            guildId: "guild-1",
+            expiresAt: { $gt: now },
+        });
+    });
 });
 describe("MongoTrendTrackingService", () => {
     it("upserts deterministically across reruns", async () => {

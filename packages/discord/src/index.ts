@@ -71,6 +71,9 @@ export interface RecapPreviewStateService {
     getValidPreviewState(
         lookup: PreviewStateLookup,
     ): Promise<PreviewStateRecord | null>;
+    consumeValidPreviewState(
+        lookup: PreviewStateLookup,
+    ): Promise<PreviewStateRecord | null>;
     deletePreviewState(lookup: PreviewStateLookup): Promise<void>;
 }
 
@@ -1121,26 +1124,25 @@ export const handleInteraction = async (
 
             const { action, reportCode, guildId } = parsedCustomId;
 
-            const previewState =
-                await options.recapPreviewStateService.getValidPreviewState({
-                    reportCode,
-                    guildId,
-                });
-
-            if (!previewState) {
-                return {
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: {
-                        content:
-                            "This recap preview is no longer available. Please run /report recap again.",
-                        flags: 64,
-                    },
-                };
-            }
-
-            const summary = previewState.summaryPayload;
-
             if (action === OFFICERS_RECAP_ACTION) {
+                const previewState =
+                    await options.recapPreviewStateService.getValidPreviewState({
+                        reportCode,
+                        guildId,
+                    });
+
+                if (!previewState) {
+                    return {
+                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                        data: {
+                            content:
+                                "This recap preview is no longer available. Please run /report recap again.",
+                            flags: 64,
+                        },
+                    };
+                }
+
+                const summary = previewState.summaryPayload;
                 if (!requiresOfficerDetails(summary)) {
                     return {
                         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -1165,6 +1167,27 @@ export const handleInteraction = async (
                 };
             }
 
+            // Consume preview state before triggering side effects so duplicate
+            // button presses/replayed interactions become a no-op.
+            const previewState =
+                await options.recapPreviewStateService.consumeValidPreviewState({
+                    reportCode,
+                    guildId,
+                });
+
+            if (!previewState) {
+                return {
+                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                    data: {
+                        content:
+                            "This recap preview has already been posted or expired. Please run /report recap again.",
+                        flags: 64,
+                    },
+                };
+            }
+
+            const summary = previewState.summaryPayload;
+
             await options.coachingViewService?.buildShareableCoachingView(
                 previewState.reportCode,
             );
@@ -1178,11 +1201,6 @@ export const handleInteraction = async (
                     previewState.guildId,
                 );
             }
-
-            await options.recapPreviewStateService.deletePreviewState({
-                reportCode,
-                guildId,
-            });
 
             const components = requiresOfficerDetails(summary)
                 ? [

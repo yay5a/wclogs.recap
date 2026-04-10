@@ -297,6 +297,7 @@ describe("handleInteraction", () => {
         const recapPreviewStateService = {
             savePreviewState: vi.fn(),
             getValidPreviewState: vi.fn(),
+            consumeValidPreviewState: vi.fn(),
             deletePreviewState: vi.fn(),
         };
 
@@ -342,6 +343,29 @@ describe("handleInteraction", () => {
         const recapPreviewStateService = {
             savePreviewState: vi.fn().mockResolvedValue(undefined),
             getValidPreviewState: vi.fn().mockResolvedValue({
+                guildId: "guild-1",
+                channelId: "channel-1",
+                reportCode: "ABC123",
+                sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+                summaryPayload: {
+                    reportTitle: "Raid Night",
+                    reportDateISO: new Date(0).toISOString(),
+                    gameFamily: "retail",
+                    bossesKilled: 1,
+                    compareModeUsed: "mixed",
+                    accountabilityVisibility: "officers-only",
+                    coachingShareability: "shareable",
+                    recapPostMode: "preview-and-post",
+                    topOverallParsers: [],
+                    bossHighlights: [],
+                    raidSuperlatives: [],
+                    teamNote: "Team note",
+                },
+                createdByUserId: "user-1",
+                createdAt: new Date(),
+                expiresAt: new Date(Date.now() + 60_000),
+            }),
+            consumeValidPreviewState: vi.fn().mockResolvedValue({
                 guildId: "guild-1",
                 channelId: "channel-1",
                 reportCode: "ABC123",
@@ -478,17 +502,15 @@ describe("handleInteraction", () => {
             accountabilityViewService.buildAccountabilityView,
         ).toHaveBeenCalledWith("ABC123", "officers-only");
         expect(
-            recapPreviewStateService.deletePreviewState,
-        ).toHaveBeenCalledWith({
-            reportCode: "ABC123",
-            guildId: "guild-1",
-        });
+            recapPreviewStateService.consumeValidPreviewState,
+        ).toHaveBeenCalledWith({ reportCode: "ABC123", guildId: "guild-1" });
     });
 
     it("returns an ephemeral error when preview state is missing or expired", async () => {
         const recapPreviewStateService = {
             savePreviewState: vi.fn(),
             getValidPreviewState: vi.fn().mockResolvedValue(null),
+            consumeValidPreviewState: vi.fn().mockResolvedValue(null),
             deletePreviewState: vi.fn(),
         };
         const guildConfigStore: GuildConfigStore = {
@@ -513,7 +535,7 @@ describe("handleInteraction", () => {
             type: expect.any(Number),
             data: {
                 content:
-                    "This recap preview is no longer available. Please run /report recap again.",
+                    "This recap preview has already been posted or expired. Please run /report recap again.",
                 flags: 64,
             },
         });
@@ -555,6 +577,7 @@ describe("handleInteraction", () => {
                 createdAt: new Date(),
                 expiresAt: new Date(Date.now() + 60_000),
             }),
+            consumeValidPreviewState: vi.fn(),
             deletePreviewState: vi.fn(),
         };
 
