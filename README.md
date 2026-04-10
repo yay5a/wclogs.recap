@@ -1,4 +1,6 @@
 Warcraft Logs-focused Discord companion app.
+![MVP Image](/packages/discord/mvp-image.png)
+
 
 ## Implemented in this run
 
