@@ -276,6 +276,85 @@ describe("command registration endpoints", () => {
     });
 });
 
+
+describe("Discord HTTP contract behavior", () => {
+    it("sends Authorization, Content-Type, and User-Agent for command registration", async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: true,
+            status: 200,
+            statusText: "OK",
+            text: vi.fn().mockResolvedValue("ok"),
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await registerGlobalCommands("app123", "token123");
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            "https://discord.com/api/v10/applications/app123/commands",
+            expect.objectContaining({
+                method: "PUT",
+                headers: expect.objectContaining({
+                    Authorization: "Bot token123",
+                    "Content-Type": "application/json",
+                    "User-Agent": expect.stringContaining("DiscordBot"),
+                }),
+            }),
+        );
+    });
+
+    it("retries once on 429 using retry_after from response body", async () => {
+        vi.useFakeTimers();
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce({
+                ok: false,
+                status: 429,
+                statusText: "Too Many Requests",
+                headers: new Headers(),
+                clone: vi.fn().mockReturnValue({
+                    json: vi.fn().mockResolvedValue({
+                        retry_after: 0.01,
+                        global: false,
+                    }),
+                }),
+                text: vi.fn().mockResolvedValue('{"message":"rate limited"}'),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                status: 200,
+                statusText: "OK",
+                text: vi.fn().mockResolvedValue("ok"),
+            });
+        vi.stubGlobal("fetch", fetchMock);
+
+        const pending = registerGlobalCommands("app123", "token123");
+        await vi.runAllTimersAsync();
+        await pending;
+
+        expect(fetchMock).toHaveBeenCalledTimes(2);
+        vi.useRealTimers();
+    });
+
+    it("does not retry 429 when retry timing is unavailable", async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 429,
+            statusText: "Too Many Requests",
+            headers: new Headers(),
+            clone: vi.fn().mockReturnValue({
+                json: vi.fn().mockRejectedValue(new Error("bad json")),
+            }),
+            text: vi.fn().mockResolvedValue('{"message":"rate limited"}'),
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await expect(
+            registerGlobalCommands("app123", "token123"),
+        ).rejects.toBeInstanceOf(DiscordCommandRegistrationError);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe("handleInteraction", () => {
     it("saves guild config values", async () => {
         const saveGuildConfig = vi.fn().mockResolvedValue({
@@ -770,8 +849,7 @@ describe("embed rendering", () => {
               },
               {
                 "name": "Headline Winners",
-                "value": "Best parse overall: Alyra (95.0 best Performance Average)
-          Best single-boss parse: Alyra on Boss (99.0 best Percent)
+                "value": "Best single-boss parse: Alyra on Boss (99.0 best Percent)
           Best average parse: Alyra (95.0 best Performance Average)
           Best execution: Alyra (90.0)",
               },
@@ -821,6 +899,10 @@ describe("embed rendering", () => {
           Game: Retail
           Bosses Killed: 0
           Compare Mode: Character",
+              },
+              {
+                "name": "Top Performers by Boss",
+                "value": "• Boss: Only one",
               },
               {
                 "name": "Team Note",

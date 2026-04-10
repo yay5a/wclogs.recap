@@ -95,6 +95,9 @@ importers:
       '@wcl/domain':
         specifier: workspace:*
         version: link:../domain
+      '@wcl/shared':
+        specifier: workspace:*
+        version: link:../shared
       '@wcl/wcl-client':
         specifier: workspace:*
         version: link:../wcl-client
@@ -122,12 +125,12 @@ importers:
 
   packages/wcl-client:
     dependencies:
-      '@wcl/db':
-        specifier: workspace:*
-        version: link:../db
       '@wcl/domain':
         specifier: workspace:*
         version: link:../domain
+      '@wcl/shared':
+        specifier: workspace:*
+        version: link:../shared
       graphql-request:
         specifier: ^7.1.2
         version: 7.4.0(graphql@16.13.2)

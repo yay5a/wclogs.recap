@@ -129,6 +129,7 @@ const DISCORD_API_BASE_URL = "https://discord.com/api/v10";
 const DISCORD_USER_AGENT =
     "DiscordBot (https://github.com/yay5a/wclogs.recap, 0.1.0)";
 const MAX_RATE_LIMIT_RETRIES = 1;
+const MAX_RATE_LIMIT_WAIT_MS = 30_000;
 const logger = createLogger("discord");
 const EPHEMERAL_MESSAGE_FLAG = 64;
 const STRING_OPTION_TYPE = 3;
@@ -253,38 +254,48 @@ const isObjectRecord = (value: unknown): value is Record<string, unknown> =>
 interface DiscordRateLimitMetadata {
     retryAfterMs: number;
     global: boolean | null;
+    source: "header" | "body";
 }
+
+const parseRetryAfterSeconds = (value: unknown): number | null => {
+    if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+        return value;
+    }
+    if (typeof value === "string") {
+        const parsed = Number.parseFloat(value);
+        if (Number.isFinite(parsed) && parsed >= 0) {
+            return parsed;
+        }
+    }
+    return null;
+};
 
 const readDiscordRateLimitMetadata = async (
     response: Response,
 ): Promise<DiscordRateLimitMetadata | null> => {
-    const retryAfterHeader = response.headers.get("Retry-After");
-    const headerRetryAfterSeconds = retryAfterHeader
-        ? Number.parseFloat(retryAfterHeader)
-        : Number.NaN;
-    if (
-        Number.isFinite(headerRetryAfterSeconds) &&
-        headerRetryAfterSeconds >= 0
-    ) {
+    const retryAfterFromHeader = parseRetryAfterSeconds(
+        response.headers.get("Retry-After") ??
+            response.headers.get("X-RateLimit-Reset-After"),
+    );
+
+    if (retryAfterFromHeader !== null) {
         return {
-            retryAfterMs: Math.ceil(headerRetryAfterSeconds * 1000),
+            retryAfterMs: Math.ceil(retryAfterFromHeader * 1000),
             global: null,
+            source: "header",
         };
     }
 
     try {
         const body = (await response.clone().json()) as unknown;
         if (!isObjectRecord(body)) return null;
-        const retryAfterValue = body.retry_after;
+        const retryAfterValue = parseRetryAfterSeconds(body.retry_after);
         const globalValue = body.global;
-        if (
-            typeof retryAfterValue === "number" &&
-            Number.isFinite(retryAfterValue) &&
-            retryAfterValue >= 0
-        ) {
+        if (retryAfterValue !== null) {
             return {
                 retryAfterMs: Math.ceil(retryAfterValue * 1000),
                 global: typeof globalValue === "boolean" ? globalValue : null,
+                source: "body",
             };
         }
     } catch {
@@ -329,22 +340,35 @@ const discordApiRequest = async ({
 
         const rateLimitMetadata = await readDiscordRateLimitMetadata(response);
         if (!rateLimitMetadata) {
-            throw new Error(
-                `Discord rate limit response missing retry timing for route ${route}.`,
+            logger.warn(
+                {
+                    route,
+                    attempt: attempt + 1,
+                    status: response.status,
+                },
+                "discord API rate limit hit without retry timing; skipping retry",
             );
+            return response;
         }
+
+        const retryAfterMs = Math.min(
+            rateLimitMetadata.retryAfterMs,
+            MAX_RATE_LIMIT_WAIT_MS,
+        );
 
         logger.warn(
             {
                 route,
                 attempt: attempt + 1,
-                retryAfterMs: rateLimitMetadata.retryAfterMs,
+                status: response.status,
+                retryAfterMs,
+                retryAfterSource: rateLimitMetadata.source,
                 global: rateLimitMetadata.global,
             },
             "discord API rate limit hit; retrying request",
         );
 
-        await delay(rateLimitMetadata.retryAfterMs);
+        await delay(retryAfterMs);
     }
 };
 
