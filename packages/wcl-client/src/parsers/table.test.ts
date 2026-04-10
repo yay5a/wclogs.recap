@@ -7,12 +7,17 @@ describe("table parser", () => {
             { entries: [{ id: 1, name: "Alyra", total: 12345 }] },
             "DamageDone",
         );
+        const healing = parseTablePayload(
+            { data: { entries: [{ id: 2, name: "Healz", total: 67890 }] } },
+            "Healing",
+        );
         const deaths = parseTablePayload(
             { data: [{ id: 1, name: "Alyra", deaths: 2 }] },
             "Deaths",
         );
 
         expect(damage[0]?.value).toBe(12345);
+        expect(healing[0]?.value).toBe(67890);
         expect(deaths[0]?.value).toBe(2);
     });
 

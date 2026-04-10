@@ -35,30 +35,54 @@ const findValue = (entry: Record<string, unknown>, keys: string[]): number | und
     return undefined;
 };
 
+const getTableEntries = (
+    payload: unknown,
+    dataType: TableDataType,
+    warn: DebugWarn,
+): unknown[] => {
+    const root = asObject(payload);
+    if (!root) {
+        const rows = asArray(payload) ?? [];
+        if (rows.length === 0) {
+            warn(`table parser (${dataType} payload): unrecognized payload shape`, {
+                payload,
+            });
+        }
+        return rows;
+    }
+
+    const data = asObject(root.data);
+    const table = asObject(root.table);
+    const details = asObject(root.details);
+
+    const rows = [
+        ...(asArray(root.entries) ?? []),
+        ...(asArray(root.composition) ?? []),
+        ...(asArray(root.data) ?? []),
+        ...(asArray(data?.entries) ?? []),
+        ...(asArray(data?.data) ?? []),
+        ...(asArray(root.players) ?? []),
+        ...(asArray(table?.entries) ?? []),
+        ...(asArray(table?.data) ?? []),
+        ...(asArray(details?.entries) ?? []),
+    ];
+
+    if (rows.length === 0) {
+        warn(`table parser (${dataType} payload): unrecognized payload shape`, {
+            payload,
+        });
+    }
+
+    return rows;
+};
+
 export const parseTablePayload = (
     payload: unknown,
     dataType: TableDataType,
     warn: DebugWarn = defaultDebugWarn,
 ): ParsedTableEntry[] => {
     const parsed = parseUnknownJson(payload, warn, `table:${dataType}`);
-    const root = asObject(parsed);
-    const rows = root
-        ? [
-              ...(asArray(root.entries) ?? []),
-              ...(asArray(root.composition) ?? []),
-              ...(asArray(root.data) ?? []),
-              ...(asArray(root.players) ?? []),
-              ...(asArray(asObject(root.table)?.entries) ?? []),
-              ...(asArray(asObject(root.table)?.data) ?? []),
-              ...(asArray(asObject(root.details)?.entries) ?? []),
-          ]
-        : (asArray(parsed) ?? []);
-
-    if (rows.length === 0) {
-        warn(`table parser (${dataType} payload): unrecognized payload shape`, {
-            payload: parsed,
-        });
-    }
+    const rows = getTableEntries(parsed, dataType, warn);
 
     return rows.flatMap((row) => {
         const entry = asObject(row);

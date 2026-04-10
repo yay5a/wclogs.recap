@@ -1281,22 +1281,34 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         });
     }
 
-    fields.push({
-        name: "Totals",
-        value: [
-            `Total deaths: ${summary.totals.totalDeaths}`,
-            summary.totals.mostWipesBoss &&
-            typeof summary.totals.mostWipesCount === "number"
-                ? `Most wipes: ${summary.totals.mostWipesBoss} (${summary.totals.mostWipesCount} pulls/attempts)`
-                : undefined,
-            `Raid damage taken: ${summary.totals.raidDamageTaken}`,
-            `Dispels: ${summary.totals.dispels}`,
-            `Battle rezzes: ${summary.totals.battleRezzes}`,
-            `Kicks: ${summary.totals.kicks}`,
-        ]
-            .filter((line): line is string => Boolean(line))
-            .join("\n"),
-    });
+    const totalLines = [
+        typeof summary.totals.totalDeaths === "number"
+            ? `Total deaths: ${summary.totals.totalDeaths}`
+            : undefined,
+        summary.totals.mostWipesBoss &&
+        typeof summary.totals.mostWipesCount === "number"
+            ? `Most wipes: ${summary.totals.mostWipesBoss} (${summary.totals.mostWipesCount} pulls/attempts)`
+            : undefined,
+        typeof summary.totals.raidDamageTaken === "number"
+            ? `Raid damage taken: ${summary.totals.raidDamageTaken}`
+            : undefined,
+        typeof summary.totals.dispels === "number"
+            ? `Dispels: ${summary.totals.dispels}`
+            : undefined,
+        typeof summary.totals.battleRezzes === "number"
+            ? `Battle rezzes: ${summary.totals.battleRezzes}`
+            : undefined,
+        typeof summary.totals.kicks === "number"
+            ? `Kicks: ${summary.totals.kicks}`
+            : undefined,
+    ].filter((line): line is string => Boolean(line));
+
+    if (totalLines.length > 0) {
+        fields.push({
+            name: "Totals",
+            value: totalLines.join("\n"),
+        });
+    }
     fields.push({ name: "Report", value: summary.reportLink });
 
     return {

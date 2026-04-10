@@ -119,6 +119,6 @@ describe("buildRecapSummary MVP output", () => {
         expect(summary.bestPlayerParses).toEqual([]);
         expect(summary.topDamageTaken).toEqual([]);
         expect(summary.topHealers).toEqual([]);
-        expect(summary.totals.totalDeaths).toBe(0);
+        expect(summary.totals.totalDeaths).toBeUndefined();
     });
 });

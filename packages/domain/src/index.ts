@@ -160,13 +160,13 @@ export interface RecapSummary {
     topDamageTaken: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
     topHealers: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
     totals: {
-        totalDeaths: number;
+        totalDeaths?: number;
         mostWipesBoss?: string;
         mostWipesCount?: number;
-        raidDamageTaken: number;
-        dispels: number;
-        battleRezzes: number;
-        kicks: number;
+        raidDamageTaken?: number;
+        dispels?: number;
+        battleRezzes?: number;
+        kicks?: number;
     };
     bestSingleBossParse?: {
         playerName: string;
@@ -339,17 +339,27 @@ export const buildRecapSummary = (
         topDamageTaken,
         topHealers,
         totals: {
-            totalDeaths: selectedBoss?.deaths ?? 0,
+            ...(typeof selectedBoss?.deaths === "number"
+                ? { totalDeaths: selectedBoss.deaths }
+                : {}),
             ...(mostWipesEntry && mostWipesEntry.wipes > 0
                 ? {
                       mostWipesBoss: mostWipesEntry.bossName,
                       mostWipesCount: mostWipesEntry.wipes,
                   }
                 : {}),
-            raidDamageTaken: selectedBoss?.raidDamageTaken ?? 0,
-            dispels: selectedBoss?.dispels ?? 0,
-            battleRezzes: selectedBoss?.battleRezzes ?? 0,
-            kicks: selectedBoss?.kicks ?? 0,
+            ...(typeof selectedBoss?.raidDamageTaken === "number"
+                ? { raidDamageTaken: selectedBoss.raidDamageTaken }
+                : {}),
+            ...(typeof selectedBoss?.dispels === "number"
+                ? { dispels: selectedBoss.dispels }
+                : {}),
+            ...(typeof selectedBoss?.battleRezzes === "number"
+                ? { battleRezzes: selectedBoss.battleRezzes }
+                : {}),
+            ...(typeof selectedBoss?.kicks === "number"
+                ? { kicks: selectedBoss.kicks }
+                : {}),
         },
         topOverallParsers: [],
         bossHighlights: [],
