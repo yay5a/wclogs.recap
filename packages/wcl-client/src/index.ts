@@ -40,6 +40,11 @@ const BASE_REPORT_QUERY = gql`
   query BaseReportSummary($code: String!) {
     reportData {
       report(code: $code) {
+        archiveStatus {
+          isArchived
+          isAccessible
+          archiveDate
+        }
         title
         startTime
         endTime
@@ -230,6 +235,8 @@ const getBossEncounterId = (fight: FightSummaryRow): number | undefined => {
 
 interface EnrichedRawReport {
     base: unknown;
+    // TODO(domain): expose archive accessibility status on NormalizedReport when the domain model supports it.
+    archiveAccessLimited?: boolean;
     reportRankings?: unknown;
     playerDetails?: unknown;
     reportTables?: Partial<Record<TableDataType, unknown>>;
@@ -311,6 +318,19 @@ const getDifficultyLabel = (difficulty?: number): string | undefined => {
 
 const sumTableValues = (entries?: ParsedTableEntry[]): number =>
     (entries ?? []).reduce((sum, entry) => sum + (entry.value ?? 0), 0);
+
+const getArchiveStatus = (
+    report: Record<string, unknown>,
+): { isArchived: boolean; isAccessible: boolean; archiveDate?: number } => {
+    const archiveStatus = asObject(report.archiveStatus);
+    const archiveDate = asNumber(archiveStatus?.archiveDate);
+
+    return {
+        isArchived: Boolean(archiveStatus?.isArchived),
+        isAccessible: Boolean(archiveStatus?.isAccessible),
+        ...(typeof archiveDate === "number" ? { archiveDate } : {}),
+    };
+};
 
 const takeTopEntries = (
     entries: ParsedTableEntry[] | undefined,
@@ -430,6 +450,11 @@ const getReportCacheState = (rawPayload: unknown): ReportCacheState => {
     const zone = asObject(report.zone);
     if (zone && "frozen" in zone && Boolean(zone.frozen)) {
         return "completed";
+    }
+
+    const archiveStatus = getArchiveStatus(report);
+    if (archiveStatus.isArchived && !archiveStatus.isAccessible) {
+        return "inaccessible";
     }
 
     const fights = parseFightSummaries(report);
@@ -979,6 +1004,19 @@ export class WclClient {
     ): Promise<EnrichedRawReport> {
         const base = await this.gqlClient.request(BASE_REPORT_QUERY, { code });
         const baseReport = getReportNode(base);
+        const archiveStatus = baseReport
+            ? getArchiveStatus(baseReport)
+            : undefined;
+        const isArchiveAccessLimited =
+            archiveStatus?.isArchived && !archiveStatus.isAccessible;
+
+        if (isArchiveAccessLimited) {
+            return {
+                base,
+                archiveAccessLimited: true,
+                encounterSummaries: [],
+            };
+        }
 
         const reportRankingsRaw = await this.gqlClient.request(
             REPORT_RANKINGS_QUERY,
