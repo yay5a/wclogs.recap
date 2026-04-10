@@ -20,8 +20,12 @@ import {
     parseReportRankingsPayload,
     parseTablePayload,
     type ParsedTableEntry,
-    type TableDataType,
 } from "./parsers/index.js";
+import {
+    KILL_TYPES,
+    REPORT_TABLE_DATA_TYPES,
+    type TableDataType,
+} from "./schema-enums.js";
 
 export interface ParsedReportUrl {
     reportCode: string;
@@ -78,7 +82,7 @@ const BASE_REPORT_QUERY = gql`
             isIntermission
           }
         }
-        fights(killType: Encounters) {
+        fights(killType: ${KILL_TYPES[1]}) {
           id
           encounterID
           difficulty
@@ -150,13 +154,13 @@ const TABLE_QUERY = gql`
   query ReportTable($code: String!, $allowUnlisted: Boolean!, $fightIDs: [Int]) {
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
-        damageDone: table(dataType: DamageDone, fightIDs: $fightIDs)
-        damageTaken: table(dataType: DamageTaken, fightIDs: $fightIDs)
-        healing: table(dataType: Healing, fightIDs: $fightIDs)
-        deaths: table(dataType: Deaths, fightIDs: $fightIDs)
-        dispels: table(dataType: Dispels, fightIDs: $fightIDs)
-        interrupts: table(dataType: Interrupts, fightIDs: $fightIDs)
-        survivability: table(dataType: Survivability, fightIDs: $fightIDs)
+        damageDone: table(dataType: ${REPORT_TABLE_DATA_TYPES[0]}, fightIDs: $fightIDs)
+        damageTaken: table(dataType: ${REPORT_TABLE_DATA_TYPES[1]}, fightIDs: $fightIDs)
+        healing: table(dataType: ${REPORT_TABLE_DATA_TYPES[2]}, fightIDs: $fightIDs)
+        deaths: table(dataType: ${REPORT_TABLE_DATA_TYPES[3]}, fightIDs: $fightIDs)
+        dispels: table(dataType: ${REPORT_TABLE_DATA_TYPES[4]}, fightIDs: $fightIDs)
+        interrupts: table(dataType: ${REPORT_TABLE_DATA_TYPES[5]}, fightIDs: $fightIDs)
+        survivability: table(dataType: ${REPORT_TABLE_DATA_TYPES[6]}, fightIDs: $fightIDs)
       }
     }
   }
@@ -173,7 +177,7 @@ const RESURRECT_EVENTS_QUERY = gql`
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
         events(
-          dataType: All
+          dataType: ${KILL_TYPES[0]}
           fightIDs: $fightIDs
           startTime: $startTime
           filterExpression: $filterExpression
@@ -235,6 +239,29 @@ interface EncounterSummaryRow {
     resurrects?: number;
     tables: Partial<Record<TableDataType, unknown>>;
 }
+
+const TABLE_FIELD_BY_TYPE: Record<
+    (typeof REPORT_TABLE_DATA_TYPES)[number],
+    string
+> = {
+    DamageDone: "damageDone",
+    DamageTaken: "damageTaken",
+    Healing: "healing",
+    Deaths: "deaths",
+    Dispels: "dispels",
+    Interrupts: "interrupts",
+    Survivability: "survivability",
+};
+
+const mapReportTablesByType = (
+    tableNode: Record<string, unknown> | undefined,
+): Partial<Record<TableDataType, unknown>> =>
+    Object.fromEntries(
+        REPORT_TABLE_DATA_TYPES.map((dataType) => [
+            dataType,
+            tableNode?.[TABLE_FIELD_BY_TYPE[dataType]],
+        ]),
+    );
 
 const getBossEncounterId = (fight: FightSummaryRow): number | undefined => {
     if (fight.encounterID > 0) return fight.encounterID;
@@ -1182,15 +1209,7 @@ export class WclClient {
                 fightId: summaryFight.id,
                 kill: summaryFight.kill,
                 rankings: getReportNode(rankingsPayload)?.rankings,
-                tables: {
-                    DamageDone: tableNode?.damageDone,
-                    DamageTaken: tableNode?.damageTaken,
-                    Healing: tableNode?.healing,
-                    Deaths: tableNode?.deaths,
-                    Dispels: tableNode?.dispels,
-                    Interrupts: tableNode?.interrupts,
-                    Survivability: tableNode?.survivability,
-                },
+                tables: mapReportTablesByType(tableNode),
                 ...(typeof summaryFight.difficulty === "number"
                     ? { difficulty: summaryFight.difficulty }
                     : {}),
@@ -1207,15 +1226,7 @@ export class WclClient {
             ...(skippedEnrichments.length > 0 ? { skippedEnrichments } : {}),
             reportRankings: getReportNode(reportRankingsRaw)?.rankings,
             playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
-            reportTables: {
-                DamageDone: getReportNode(reportTablesRaw)?.damageDone,
-                DamageTaken: getReportNode(reportTablesRaw)?.damageTaken,
-                Healing: getReportNode(reportTablesRaw)?.healing,
-                Deaths: getReportNode(reportTablesRaw)?.deaths,
-                Dispels: getReportNode(reportTablesRaw)?.dispels,
-                Interrupts: getReportNode(reportTablesRaw)?.interrupts,
-                Survivability: getReportNode(reportTablesRaw)?.survivability,
-            },
+            reportTables: mapReportTablesByType(getReportNode(reportTablesRaw)),
             encounterSummaries,
         };
     }
@@ -1443,27 +1454,12 @@ export const normalizeEnrichedReport = (
 
         const tableNode = asObject(summaryFight.tables);
         const parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>> =
-            {
-                DamageDone: parseTablePayload(
-                    tableNode?.DamageDone,
-                    "DamageDone",
-                ),
-                DamageTaken: parseTablePayload(
-                    tableNode?.DamageTaken,
-                    "DamageTaken",
-                ),
-                Healing: parseTablePayload(tableNode?.Healing, "Healing"),
-                Deaths: parseTablePayload(tableNode?.Deaths, "Deaths"),
-                Dispels: parseTablePayload(tableNode?.Dispels, "Dispels"),
-                Interrupts: parseTablePayload(
-                    tableNode?.Interrupts,
-                    "Interrupts",
-                ),
-                Survivability: parseTablePayload(
-                    tableNode?.Survivability,
-                    "Survivability",
-                ),
-            };
+            Object.fromEntries(
+                REPORT_TABLE_DATA_TYPES.map((dataType) => [
+                    dataType,
+                    parseTablePayload(tableNode?.[dataType], dataType),
+                ]),
+            );
 
         const bossEntries = [
             ...(bossLeaderboardsByFightId.get(summaryFight.fightId) ?? []),

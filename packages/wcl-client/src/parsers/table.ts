@@ -6,16 +6,7 @@ import {
     parseUnknownJson,
 } from "./common.js";
 import type { DebugWarn } from "./common.js";
-
-export type TableDataType =
-    | "DamageDone"
-    | "DamageTaken"
-    | "Healing"
-    | "Deaths"
-    | "Interrupts"
-    | "Dispels"
-    | "Survivability"
-    | "Summary";
+import type { TableDataType } from "../schema-enums.js";
 
 export interface ParsedTableEntry {
     dataType: TableDataType;
