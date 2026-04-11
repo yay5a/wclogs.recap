@@ -142,27 +142,42 @@ app.get("/api/auth/wcl/callback", async (request, reply) => {
     reply.clearCookie("wcl_oauth_state", { path: "/" });
 
     if (!tokenResponse.ok) {
+        logger.error(
+            { status: tokenResponse.status, tokenPayload },
+            "WCL token exchange failed",
+        );
+
         return reply.code(500).send({
             ok: false,
             message: "WCL token exchange failed",
             status: tokenResponse.status,
-            tokenPayload,
         });
     }
 
+    logger.info(
+        {
+            hasAccessToken: typeof tokenPayload.access_token === "string",
+            tokenType: tokenPayload.token_type ?? null,
+            scope: tokenPayload.scope ?? null,
+        },
+        "WCL token exchange succeeded",
+    );
+
     return reply.send({
         ok: true,
-        message: "WCL token exchange succeeded",
-        hasAccessToken: typeof tokenPayload.access_token === "string",
-        tokenType: tokenPayload.token_type ?? null,
-        expiresIn: tokenPayload.expires_in ?? null,
-        scope: tokenPayload.scope ?? null,
+        message: "WCL authorization completed",
     });
 });
 
 app.get("/api/auth/wcl/login", async (_request, reply) => {
     const clientId = env.WCL_CLIENT_ID;
     const redirectUri = env.WCL_REDIRECT_URI;
+
+    if (!clientId || !redirectUri) {
+        return reply.code(500).send({
+            message: "Missing WCL_CLIENT_ID or WCL_REDIRECT_URI",
+        });
+    }
 
     const state = crypto.randomUUID();
 
@@ -174,13 +189,6 @@ app.get("/api/auth/wcl/login", async (_request, reply) => {
         signed: true,
         maxAge: 60 * 10,
     });
-
-    if (!clientId || !redirectUri) {
-        return reply.code(500).send({
-            message: "Missing WCL_CLIENT_ID or WCL_REDIRECT_URI",
-        });
-    }
-
     const authorizeUrl = new URL(
         "https://www.warcraftlogs.com/oauth/authorize",
     );
