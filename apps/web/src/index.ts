@@ -81,6 +81,22 @@ await app.register(fastifyCookie, {
 
 app.get("/health", async () => ({ status: "ok" }));
 
+app.get("/api/auth/wcl/status", async (_request, reply) => {
+    const auth = await wclUserAuthStore.get();
+
+    return reply.send({
+        ok: true,
+        authorized: !!auth,
+        provider: auth?.provider ?? null,
+        hasAccessToken: typeof auth?.accessToken === "string",
+        hasRefreshToken: typeof auth?.refreshToken === "string",
+        tokenType: auth?.tokenType ?? null,
+        scope: auth?.scope ?? null,
+        expiresAt: auth?.expiresAt ?? null,
+        updatedAt: auth?.updatedAt ?? null,
+    });
+});
+
 app.get("/api/auth/wcl/callback", async (request, reply) => {
     const query = request.query as {
         code?: string;
@@ -180,15 +196,6 @@ app.get("/api/auth/wcl/callback", async (request, reply) => {
 
     await wclUserAuthStore.upsert(authRecord);
 
-    logger.info(
-        {
-            hasAccessToken: typeof tokenPayload.access_token === "string",
-            tokenType: tokenPayload.token_type ?? null,
-            scope: tokenPayload.scope ?? null,
-        },
-        "WCL token exchange succeeded",
-    );
-
     return reply.send({
         ok: true,
         message: "WCL authorization completed",
@@ -224,6 +231,57 @@ app.get("/api/auth/wcl/login", async (_request, reply) => {
     authorizeUrl.searchParams.set("state", state);
 
     return reply.redirect(authorizeUrl.toString());
+});
+
+app.get("/api/auth/wcl/test-user", async (_request, reply) => {
+    const auth = await wclUserAuthStore.get();
+
+    if (!auth?.accessToken) {
+        return reply.code(400).send({
+            ok: false,
+            message: "No stored WCL user access token",
+        });
+    }
+
+    const response = await fetch("https://www.warcraftlogs.com/api/v2/user", {
+        method: "POST",
+        headers: {
+            Authorization: `Bearer ${auth.accessToken}`,
+            "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            query: `
+              query {
+                reportComponentData {
+                  list {
+                    key
+                    name
+                  }
+                }
+              }
+            `,
+        }),
+    });
+
+    const payload = (await response.json()) as unknown;
+
+    if (!response.ok) {
+        logger.error(
+            { status: response.status, payload },
+            "WCL user API test failed",
+        );
+
+        return reply.code(500).send({
+            ok: false,
+            message: "WCL user API test failed",
+            status: response.status,
+        });
+    }
+
+    return reply.send({
+        ok: true,
+        payload,
+    });
 });
 
 app.post(
