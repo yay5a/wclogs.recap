@@ -72,6 +72,16 @@ const trendTrackingService = new MongoTrendTrackingService();
 
 app.get("/health", async () => ({ status: "ok" }));
 
+app.get("/api/auth/wcl/callback", async (request, reply) => {
+    const query = request.query as Record<string, unknown>;
+
+    return reply.send({
+        ok: true,
+        route: "wcl callback placeholder",
+        query,
+    });
+});
+
 app.get("/api/auth/wcl/login", async (_request, reply) => {
     const clientId = process.env.WCL_CLIENT_ID;
     const redirectUri = process.env.WCL_REDIRECT_URI;
