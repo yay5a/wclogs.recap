@@ -251,30 +251,43 @@ app.get("/api/auth/wcl/test-user", async (_request, reply) => {
         },
         body: JSON.stringify({
             query: `
-              query {
-                reportComponentData {
-                  list {
-                    key
-                    name
-                  }
-                }
-              }
+    query {
+      reportComponentData {
+        list {
+          key
+          name
+         }
+        }
+       }
             `,
         }),
     });
 
-    const payload = (await response.json()) as unknown;
+    const payload = (await response.json()) as {
+        data?: unknown;
+        errors?: unknown;
+    };
 
     if (!response.ok) {
         logger.error(
             { status: response.status, payload },
-            "WCL user API test failed",
+            "WCL user API HTTP request failed",
         );
 
         return reply.code(500).send({
             ok: false,
-            message: "WCL user API test failed",
+            message: "WCL user API HTTP request failed",
             status: response.status,
+        });
+    }
+
+    if (Array.isArray(payload.errors) && payload.errors.length > 0) {
+        logger.error({ payload }, "WCL user API GraphQL error");
+
+        return reply.code(502).send({
+            ok: false,
+            message: "WCL user API GraphQL error",
+            payload,
         });
     }
 

@@ -18,7 +18,7 @@ const getEnv = (key: string): string => {
 };
 
 const userApiBaseUrl =
-    process.env.WCL_USER_API_BASE_URL?.trim() ||
+    process.env.WCL_API_BASE_URL?.trim() ||
     "https://www.warcraftlogs.com/api/v2/user";
 
 await connectMongo(getEnv("MONGODB_URI"));
@@ -217,14 +217,6 @@ const asString = (value: unknown): string | undefined =>
 const asNumber = (value: unknown): number | undefined =>
     typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
-const getEnv = (key: string): string => {
-    const value = process.env[key]?.trim();
-    if (!value) {
-        throw new Error(`Missing required environment variable: ${key}`);
-    }
-    return value;
-};
-
 interface ProbeArgs {
     reportCode: string;
     fightId: number;
@@ -275,7 +267,12 @@ const getArgs = (): ProbeArgs => {
         throw new Error(`Unknown argument: ${flag}`);
     }
 
-    return { reportCode, fightId, encounterId, players };
+    return {
+        reportCode,
+        fightId,
+        players,
+        ...(typeof encounterId === "number" ? { encounterId } : {}),
+    };
 };
 
 const writeProbeFiles = async (
