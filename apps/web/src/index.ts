@@ -71,10 +71,28 @@ const accountabilityViewService = new MongoAccountabilityViewService();
 const trendTrackingService = new MongoTrendTrackingService();
 
 app.get("/health", async () => ({ status: "ok" }));
-app.get("/api/auth/wcl/login", async () => ({
-    ok: true,
-    route: "wcl login placeholder",
-}));
+
+app.get("/api/auth/wcl/login", async (_request, reply) => {
+    const clientId = process.env.WCL_CLIENT_ID;
+    const redirectUri = process.env.WCL_REDIRECT_URI;
+
+    if (!clientId || !redirectUri) {
+        return reply.code(500).send({
+            message: "Missing WCL_CLIENT_ID or WCL_REDIRECT_URI",
+        });
+    }
+
+    const authorizeUrl = new URL(
+        "https://www.warcraftlogs.com/oauth/authorize",
+    );
+    authorizeUrl.searchParams.set("client_id", clientId);
+    authorizeUrl.searchParams.set("redirect_uri", redirectUri);
+    authorizeUrl.searchParams.set("response_type", "code");
+
+    return;
+
+    reply.redirect(authorizeUrl.toString());
+});
 
 app.post(
     "/discord/interactions",
