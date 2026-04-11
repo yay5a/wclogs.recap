@@ -57,13 +57,6 @@ await app.register(fastifyRawBody, {
     runFirst: true,
 });
 
-const wclClient = new WclClient({
-    clientId: env.WCL_CLIENT_ID,
-    clientSecret: env.WCL_CLIENT_SECRET,
-    apiBaseUrl: env.WCL_API_BASE_URL,
-    reportCacheStore,
-});
-
 const guildConfigStore = new MongoGuildConfigStore();
 const recapPreviewStateService = new MongoRecapPreviewStateStore();
 const coachingViewService = new MongoCoachingViewService();
