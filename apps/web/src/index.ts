@@ -79,18 +79,60 @@ await app.register(fastifyCookie, {
 app.get("/health", async () => ({ status: "ok" }));
 
 app.get("/api/auth/wcl/callback", async (request, reply) => {
-    const query = request.query as Record<string, unknown>;
+    const query = request.query as {
+        code?: string;
+        state?: string;
+        error?: string;
+    };
+
+    if (query.error) {
+        return reply.code(400).send({
+            ok: false,
+            message: "WCL authorization failed or was denied",
+            error: query.error,
+        });
+    }
+
+    if (!query.code || !query.state) {
+        return reply.code(400).send({
+            ok: false,
+            message: "Missing code or state",
+        });
+    }
+
+    const cookie = request.unsignCookie(request.cookies.wcl_oauth_state ?? "");
+
+    if (!cookie.valid || cookie.value !== query.state) {
+        return reply.code(400).send({
+            ok: false,
+            message: "Invalid OAuth state",
+        });
+    }
+
+    reply.clearCookie("wcl_oauth_state", { path: "/" });
 
     return reply.send({
         ok: true,
-        route: "wcl callback placeholder",
-        query,
+        message: "WCL callback reached with valid state",
+        codePreview: `${query.code.slice(0, 12)}...`,
+        hasState: true,
     });
 });
 
 app.get("/api/auth/wcl/login", async (_request, reply) => {
     const clientId = process.env.WCL_CLIENT_ID;
     const redirectUri = env.WCL_REDIRECT_URI;
+
+    const state = crypto.randomUUID();
+
+    reply.setCookie("wcl_oauth_state", state, {
+        path: "/",
+        httpOnly: true,
+        secure: true,
+        sameSite: "lax",
+        signed: true,
+        maxAge: 60 * 10,
+    });
 
     if (!clientId || !redirectUri) {
         return reply.code(500).send({
