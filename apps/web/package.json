@@ -12,6 +12,7 @@
         "test": "vitest run --passWithNoTests"
     },
     "dependencies": {
+        "@fastify/cookie": "^11.0.2",
         "@wcl/db": "workspace:*",
         "@wcl/discord": "workspace:*",
         "@wcl/shared": "workspace:*",

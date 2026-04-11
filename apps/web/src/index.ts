@@ -1,5 +1,7 @@
 import Fastify from "fastify";
 import fastifyRawBody from "fastify-raw-body";
+import fastifyCookie from "@fastify/cookie";
+import crypto from "node:crypto";
 import { verifyKey } from "discord-interactions";
 import {
     connectMongo,
@@ -70,6 +72,10 @@ const coachingViewService = new MongoCoachingViewService();
 const accountabilityViewService = new MongoAccountabilityViewService();
 const trendTrackingService = new MongoTrendTrackingService();
 
+await app.register(fastifyCookie, {
+    secret: env.COOKIE_SECRET,
+});
+
 app.get("/health", async () => ({ status: "ok" }));
 
 app.get("/api/auth/wcl/callback", async (request, reply) => {
@@ -84,7 +90,7 @@ app.get("/api/auth/wcl/callback", async (request, reply) => {
 
 app.get("/api/auth/wcl/login", async (_request, reply) => {
     const clientId = process.env.WCL_CLIENT_ID;
-    const redirectUri = process.env.WCL_REDIRECT_URI;
+    const redirectUri = env.WCL_REDIRECT_URI;
 
     if (!clientId || !redirectUri) {
         return reply.code(500).send({
