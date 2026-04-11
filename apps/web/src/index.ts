@@ -11,6 +11,7 @@ import {
     MongoGuildConfigStore,
     MongoRecapPreviewStateStore,
     MongoTrendTrackingService,
+    MongoWclUserAuthStore,
     ReportCacheModel,
 } from "@wcl/db";
 import {
@@ -72,6 +73,7 @@ const recapPreviewStateService = new MongoRecapPreviewStateStore();
 const coachingViewService = new MongoCoachingViewService();
 const accountabilityViewService = new MongoAccountabilityViewService();
 const trendTrackingService = new MongoTrendTrackingService();
+const wclUserAuthStore = new MongoWclUserAuthStore();
 
 await app.register(fastifyCookie, {
     secret: env.COOKIE_SECRET,
@@ -153,6 +155,28 @@ app.get("/api/auth/wcl/callback", async (request, reply) => {
             status: tokenResponse.status,
         });
     }
+
+    await wclUserAuthStore.upsert({
+        provider: "warcraftlogs",
+        accessToken: tokenPayload.access_token!,
+        refreshToken:
+            typeof tokenPayload.refresh_token === "string"
+                ? tokenPayload.refresh_token
+                : undefined,
+        tokenType:
+            typeof tokenPayload.token_type === "string"
+                ? tokenPayload.token_type
+                : undefined,
+        scope:
+            typeof tokenPayload.scope === "string"
+                ? tokenPayload.scope
+                : undefined,
+        expiresAt:
+            typeof tokenPayload.expires_in === "number"
+                ? new Date(Date.now() + tokenPayload.expires_in * 1000)
+                : undefined,
+        updatedAt: new Date(),
+    });
 
     logger.info(
         {

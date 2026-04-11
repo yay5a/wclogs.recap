@@ -15,6 +15,9 @@ import type {
 } from "@wcl/domain";
 import { defaultGuildConfigFor } from "@wcl/domain";
 
+export * from "./models/wcl-user-auth-model.js";
+export * from "./mongo-wcl-user-auth-store.js";
+
 export const connectMongo = async (uri: string) => mongoose.connect(uri);
 
 const guildSettingsSchema = new Schema(
