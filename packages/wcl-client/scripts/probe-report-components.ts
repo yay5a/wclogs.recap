@@ -1,5 +1,5 @@
 import { GraphQLClient } from "graphql-request";
-import { resolveWclAccessToken } from "../src/oauth.js";
+import { connectMongo, MongoWclUserAuthStore } from "@wcl/db";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import {
@@ -9,19 +9,34 @@ import {
     type EncounterPhaseMetadata,
 } from "../src/probes/phase-timings.js";
 
-const tokenOptions = {
-    ...(process.env.WCL_OAUTH_TOKEN
-        ? { explicitToken: process.env.WCL_OAUTH_TOKEN }
-        : {}),
-    ...(process.env.WCL_CLIENT_ID
-        ? { clientId: process.env.WCL_CLIENT_ID }
-        : {}),
-    ...(process.env.WCL_CLIENT_SECRET
-        ? { clientSecret: process.env.WCL_CLIENT_SECRET }
-        : {}),
+const getEnv = (key: string): string => {
+    const value = process.env[key]?.trim();
+    if (!value) {
+        throw new Error(`Missing required environment variable: ${key}`);
+    }
+    return value;
 };
 
-const token = await resolveWclAccessToken(tokenOptions);
+const userApiBaseUrl =
+    process.env.WCL_USER_API_BASE_URL?.trim() ||
+    "https://www.warcraftlogs.com/api/v2/user";
+
+await connectMongo(getEnv("MONGODB_URI"));
+
+const wclUserAuthStore = new MongoWclUserAuthStore();
+const storedAuth = await wclUserAuthStore.get();
+
+if (!storedAuth?.accessToken) {
+    throw new Error(
+        "No stored WCL user access token found. Complete /api/auth/wcl/login first.",
+    );
+}
+
+const client = new GraphQLClient(userApiBaseUrl, {
+    headers: {
+        Authorization: `Bearer ${storedAuth.accessToken}`,
+    },
+});
 
 interface EvaluateScriptResponse {
     output?: unknown;
@@ -338,12 +353,6 @@ const run = async (): Promise<void> => {
         encounterId: requestedEncounterId,
         players,
     } = getArgs();
-
-    const client = new GraphQLClient(getEnv("WCL_API_BASE_URL"), {
-        headers: {
-            Authorization: `Bearer ${token}`,
-        },
-    });
 
     const outputDir = join(
         process.cwd(),
