@@ -1218,13 +1218,23 @@ export class WclClient {
 
     private async getAccessToken(): Promise<string> {
         if (this.token) return this.token;
-        const token = await resolveWclAccessToken({
-            explicitToken: process.env.WCL_OAUTH_TOKEN,
-            clientId: this.options.clientId ?? process.env.WCL_CLIENT_ID,
-            clientSecret:
-                this.options.clientSecret ?? process.env.WCL_CLIENT_SECRET,
-            fetchImpl: this.options.fetchImpl,
-        });
+
+        const tokenOptions = {
+            ...(process.env.WCL_OAUTH_TOKEN
+                ? { explicitToken: process.env.WCL_OAUTH_TOKEN }
+                : {}),
+            ...(this.options.clientId
+                ? { clientId: this.options.clientId }
+                : {}),
+            ...(this.options.clientSecret
+                ? { clientSecret: this.options.clientSecret }
+                : {}),
+            ...(this.options.fetchImpl
+                ? { fetchImpl: this.options.fetchImpl }
+                : {}),
+        };
+
+        const token = await resolveWclAccessToken(tokenOptions);
 
         this.token = token;
         return token;

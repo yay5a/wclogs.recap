@@ -71,6 +71,10 @@ const accountabilityViewService = new MongoAccountabilityViewService();
 const trendTrackingService = new MongoTrendTrackingService();
 
 app.get("/health", async () => ({ status: "ok" }));
+app.get("/api/auth/wcl/login", async () => ({
+    ok: true,
+    route: "wcl login placeholder",
+}));
 
 app.post(
     "/discord/interactions",
