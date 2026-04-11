@@ -8,6 +8,7 @@ import type {
     NormalizedPlayer,
     NormalizedReport,
 } from "@wcl/domain";
+import { resolveWclAccessToken } from "./oauth.js";
 import { createLogger } from "@wcl/shared";
 import type { ReportCacheStore } from "./report-cache-store.js";
 import {
@@ -838,7 +839,9 @@ const selectTargetBossFight = (
         .sort((left, right) => right.endTime - left.endTime)[0];
     if (latestKill) return latestKill;
 
-    return [...bossFights].sort((left, right) => right.endTime - left.endTime)[0];
+    return [...bossFights].sort(
+        (left, right) => right.endTime - left.endTime,
+    )[0];
 };
 
 const getMetricFromLeaderboard = (
@@ -1215,33 +1218,13 @@ export class WclClient {
 
     private async getAccessToken(): Promise<string> {
         if (this.token) return this.token;
-
-        const auth = Buffer.from(
-            `${this.options.clientId}:${this.options.clientSecret}`,
-        ).toString("base64");
-        const fetchImpl = this.options.fetchImpl ?? fetch;
-
-        const response = await fetchImpl(
-            "https://www.warcraftlogs.com/oauth/token",
-            {
-                method: "POST",
-                headers: {
-                    Authorization: `Basic ${auth}`,
-                    "Content-Type": "application/x-www-form-urlencoded",
-                },
-                body: "grant_type=client_credentials",
-            },
-        );
-
-        if (!response.ok) {
-            throw new Error(`WCL OAuth failed: ${response.status}`);
-        }
-
-        const payload: unknown = await response.json();
-        const token = asString(asObject(payload)?.access_token);
-        if (!token) {
-            throw new Error("WCL OAuth response missing valid access token");
-        }
+        const token = await resolveWclAccessToken({
+            explicitToken: process.env.WCL_OAUTH_TOKEN,
+            clientId: this.options.clientId ?? process.env.WCL_CLIENT_ID,
+            clientSecret:
+                this.options.clientSecret ?? process.env.WCL_CLIENT_SECRET,
+            fetchImpl: this.options.fetchImpl,
+        });
 
         this.token = token;
         return token;
@@ -1332,10 +1315,13 @@ export class WclClient {
 
         let reportRankingsRaw: unknown;
         try {
-            reportRankingsRaw = await this.requestGraphQl(REPORT_RANKINGS_QUERY, {
-                code,
-                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-            });
+            reportRankingsRaw = await this.requestGraphQl(
+                REPORT_RANKINGS_QUERY,
+                {
+                    code,
+                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                },
+            );
         } catch (error) {
             noteSkippedEnrichment(
                 `Failed report rankings enrichment; continuing without report rankings (${error instanceof Error ? error.message : "unknown error"}).`,
@@ -1390,8 +1376,10 @@ export class WclClient {
                         ...(skippedEnrichments.length > 0
                             ? { skippedEnrichments }
                             : {}),
-                        reportRankings: getReportNode(reportRankingsRaw)?.rankings,
-                        playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
+                        reportRankings:
+                            getReportNode(reportRankingsRaw)?.rankings,
+                        playerDetails:
+                            getReportNode(playerDetailsRaw)?.playerDetails,
                         encounterSummaries,
                     };
                 }
@@ -1450,9 +1438,7 @@ export class WclClient {
                     ...(typeof summaryFight.difficulty === "number"
                         ? { difficulty: summaryFight.difficulty }
                         : {}),
-                    ...(typeof resurrects === "number"
-                        ? { resurrects }
-                        : {}),
+                    ...(typeof resurrects === "number" ? { resurrects } : {}),
                 };
                 encounterSummaries.push(summary);
             }
@@ -1697,8 +1683,14 @@ export const normalizeEnrichedReport = (
 
     const bossPerformances: NormalizedBossPerformance[] = [];
 
-    for (const [encounterID, encounterFights] of fightsByEncounterId.entries()) {
-        if (typeof targetEncounterId === "number" && encounterID !== targetEncounterId) {
+    for (const [
+        encounterID,
+        encounterFights,
+    ] of fightsByEncounterId.entries()) {
+        if (
+            typeof targetEncounterId === "number" &&
+            encounterID !== targetEncounterId
+        ) {
             continue;
         }
 
@@ -1707,7 +1699,9 @@ export const normalizeEnrichedReport = (
             (() => {
                 const fallbackFight =
                     targetBossFight &&
-                    encounterFights.some((fight) => fight.id === targetBossFight.id)
+                    encounterFights.some(
+                        (fight) => fight.id === targetBossFight.id,
+                    )
                         ? targetBossFight
                         : pickEncounterSummaryFight(encounterFights);
                 if (!fallbackFight) return undefined;
@@ -1738,27 +1732,26 @@ export const normalizeEnrichedReport = (
                 TableDataType,
                 { entries: ParsedTableEntry[]; isValidEmpty: boolean }
             >
-        > =
-            Object.fromEntries(
-                REPORT_TABLE_DATA_TYPES.map((dataType) => [
+        > = Object.fromEntries(
+            REPORT_TABLE_DATA_TYPES.map((dataType) => [
+                dataType,
+                parseTablePayloadDetailed(
+                    tableNode?.[dataType],
                     dataType,
-                    parseTablePayloadDetailed(
-                        tableNode?.[dataType],
-                        dataType,
-                        (message, context) => {
-                            logger.warn(
-                                {
-                                    reportCode: parsed.reportCode,
-                                    fightId: summaryFight.fightId,
-                                    section: `table:${dataType}`,
-                                    context,
-                                },
-                                message,
-                            );
-                        },
-                    ),
-                ]),
-            );
+                    (message, context) => {
+                        logger.warn(
+                            {
+                                reportCode: parsed.reportCode,
+                                fightId: summaryFight.fightId,
+                                section: `table:${dataType}`,
+                                context,
+                            },
+                            message,
+                        );
+                    },
+                ),
+            ]),
+        );
         const parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>> =
             Object.fromEntries(
                 REPORT_TABLE_DATA_TYPES.map((dataType) => [
@@ -1911,7 +1904,9 @@ export const normalizeEnrichedReport = (
                               ...(typeof raidDamageTaken === "number"
                                   ? { raidDamageTaken }
                                   : {}),
-                              ...(typeof dispels === "number" ? { dispels } : {}),
+                              ...(typeof dispels === "number"
+                                  ? { dispels }
+                                  : {}),
                               ...(typeof kicks === "number" ? { kicks } : {}),
                           };
                       })(),
