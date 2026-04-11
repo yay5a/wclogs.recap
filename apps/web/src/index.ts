@@ -2,6 +2,7 @@ import Fastify from "fastify";
 import fastifyRawBody from "fastify-raw-body";
 import fastifyCookie from "@fastify/cookie";
 import crypto from "node:crypto";
+import { Buffer } from "node:buffer";
 import { verifyKey } from "discord-interactions";
 import {
     connectMongo,
@@ -109,13 +110,53 @@ app.get("/api/auth/wcl/callback", async (request, reply) => {
         });
     }
 
+    const basicAuth = Buffer.from(
+        `${env.WCL_CLIENT_ID}:${env.WCL_CLIENT_SECRET}`,
+    ).toString("base64");
+
+    const tokenResponse = await fetch(
+        "https://www.warcraftlogs.com/oauth/token",
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Basic ${basicAuth}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                grant_type: "authorization_code",
+                code: query.code,
+                redirect_uri: env.WCL_REDIRECT_URI,
+            }),
+        },
+    );
+
+    const tokenPayload = (await tokenResponse.json()) as {
+        access_token?: string;
+        refresh_token?: string;
+        expires_in?: number;
+        token_type?: string;
+        scope?: string;
+        [key: string]: unknown;
+    };
+
     reply.clearCookie("wcl_oauth_state", { path: "/" });
+
+    if (!tokenResponse.ok) {
+        return reply.code(500).send({
+            ok: false,
+            message: "WCL token exchange failed",
+            status: tokenResponse.status,
+            tokenPayload,
+        });
+    }
 
     return reply.send({
         ok: true,
-        message: "WCL callback reached with valid state",
-        codePreview: `${query.code.slice(0, 12)}...`,
-        hasState: true,
+        message: "WCL token exchange succeeded",
+        hasAccessToken: typeof tokenPayload.access_token === "string",
+        tokenType: tokenPayload.token_type ?? null,
+        expiresIn: tokenPayload.expires_in ?? null,
+        scope: tokenPayload.scope ?? null,
     });
 });
 
