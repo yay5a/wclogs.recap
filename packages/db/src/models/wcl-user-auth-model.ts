@@ -1,6 +1,16 @@
-import { Schema, model, models } from "mongoose";
+import { Schema, model, models, type Model } from "mongoose";
 
-const wclUserAuthSchema = new Schema(
+export type WclUserAuthDocument = {
+    provider: "warcraftlogs";
+    accessToken: string;
+    refreshToken?: string;
+    tokenType?: string;
+    scope?: string;
+    expiresAt?: Date;
+    updatedAt: Date;
+};
+
+const wclUserAuthSchema = new Schema<WclUserAuthDocument>(
     {
         provider: { type: String, required: true, unique: true },
         accessToken: { type: String, required: true },
@@ -15,15 +25,6 @@ const wclUserAuthSchema = new Schema(
     },
 );
 
-export type WclUserAuthDocument = {
-    provider: "warcraftlogs";
-    accessToken: string;
-    refreshToken?: string;
-    tokenType?: string;
-    scope?: string;
-    expiresAt?: Date;
-    updatedAt: Date;
-};
-
-export const WclUserAuthModel =
-    models.WclUserAuth ?? model("WclUserAuth", wclUserAuthSchema);
+export const WclUserAuthModel: Model<WclUserAuthDocument> =
+    (models.WclUserAuth as Model<WclUserAuthDocument> | undefined) ??
+    model<WclUserAuthDocument>("WclUserAuth", wclUserAuthSchema);

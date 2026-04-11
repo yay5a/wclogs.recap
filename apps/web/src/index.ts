@@ -156,27 +156,29 @@ app.get("/api/auth/wcl/callback", async (request, reply) => {
         });
     }
 
-    await wclUserAuthStore.upsert({
-        provider: "warcraftlogs",
+    const authRecord = {
+        provider: "warcraftlogs" as const,
         accessToken: tokenPayload.access_token!,
-        refreshToken:
-            typeof tokenPayload.refresh_token === "string"
-                ? tokenPayload.refresh_token
-                : undefined,
-        tokenType:
-            typeof tokenPayload.token_type === "string"
-                ? tokenPayload.token_type
-                : undefined,
-        scope:
-            typeof tokenPayload.scope === "string"
-                ? tokenPayload.scope
-                : undefined,
-        expiresAt:
-            typeof tokenPayload.expires_in === "number"
-                ? new Date(Date.now() + tokenPayload.expires_in * 1000)
-                : undefined,
         updatedAt: new Date(),
-    });
+        ...(typeof tokenPayload.refresh_token === "string"
+            ? { refreshToken: tokenPayload.refresh_token }
+            : {}),
+        ...(typeof tokenPayload.token_type === "string"
+            ? { tokenType: tokenPayload.token_type }
+            : {}),
+        ...(typeof tokenPayload.scope === "string"
+            ? { scope: tokenPayload.scope }
+            : {}),
+        ...(typeof tokenPayload.expires_in === "number"
+            ? {
+                  expiresAt: new Date(
+                      Date.now() + tokenPayload.expires_in * 1000,
+                  ),
+              }
+            : {}),
+    };
+
+    await wclUserAuthStore.upsert(authRecord);
 
     logger.info(
         {
