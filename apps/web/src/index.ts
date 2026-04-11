@@ -120,7 +120,7 @@ app.get("/api/auth/wcl/callback", async (request, reply) => {
 });
 
 app.get("/api/auth/wcl/login", async (_request, reply) => {
-    const clientId = process.env.WCL_CLIENT_ID;
+    const clientId = env.WCL_CLIENT_ID;
     const redirectUri = env.WCL_REDIRECT_URI;
 
     const state = crypto.randomUUID();
@@ -146,6 +146,7 @@ app.get("/api/auth/wcl/login", async (_request, reply) => {
     authorizeUrl.searchParams.set("client_id", clientId);
     authorizeUrl.searchParams.set("redirect_uri", redirectUri);
     authorizeUrl.searchParams.set("response_type", "code");
+    authorizeUrl.searchParams.set("state", state);
 
     return reply.redirect(authorizeUrl.toString());
 });
