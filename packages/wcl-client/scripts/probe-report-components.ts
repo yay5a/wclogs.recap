@@ -19,10 +19,9 @@ const tokenOptions = {
     ...(process.env.WCL_CLIENT_SECRET
         ? { clientSecret: process.env.WCL_CLIENT_SECRET }
         : {}),
-    ...(fetchImpl ? { fetchImpl } : {}),
 };
 
-const token = await resolveWclAccessToken({ tokenOptions });
+const token = await resolveWclAccessToken(tokenOptions);
 
 interface EvaluateScriptResponse {
     output?: unknown;
@@ -171,9 +170,18 @@ query ProbeBossRankings($reportCode: String!, $fightId: [Int]) {
 `;
 
 const CHARACTER_RANKINGS_QUERY = `
-query ProbeCharacterEncounterRankings($name: String!, $encounterId: Int!) {
+query ProbeCharacterEncounterRankings(
+  $name: String!
+  $serverSlug: String!
+  $serverRegion: String!
+  $encounterId: Int!
+) {
   characterData {
-    character(name: $name) {
+    character(
+      name: $name
+      serverSlug: $serverSlug
+      serverRegion: $serverRegion
+    ) {
       encounterRankings(encounterID: $encounterId)
     }
   }
@@ -336,7 +344,7 @@ const run = async (): Promise<void> => {
             Authorization: `Bearer ${token}`,
         },
     });
-    ``;
+
     const outputDir = join(
         process.cwd(),
         "packages/wcl-client/src/fixtures/probes",
