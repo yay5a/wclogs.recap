@@ -89,9 +89,7 @@ app.get("/api/auth/wcl/login", async (_request, reply) => {
     authorizeUrl.searchParams.set("redirect_uri", redirectUri);
     authorizeUrl.searchParams.set("response_type", "code");
 
-    return;
-
-    reply.redirect(authorizeUrl.toString());
+    return reply.redirect(authorizeUrl.toString());
 });
 
 app.post(
