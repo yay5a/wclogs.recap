@@ -1,4 +1,4 @@
-import { Schema, model, models, type Model } from "mongoose";
+import mongoose, { Schema, type Model } from "mongoose";
 
 export type WclUserAuthDocument = {
     provider: "warcraftlogs";
@@ -26,5 +26,5 @@ const wclUserAuthSchema = new Schema<WclUserAuthDocument>(
 );
 
 export const WclUserAuthModel: Model<WclUserAuthDocument> =
-    (models.WclUserAuth as Model<WclUserAuthDocument> | undefined) ??
-    model<WclUserAuthDocument>("WclUserAuth", wclUserAuthSchema);
+    (mongoose.models.WclUserAuth as Model<WclUserAuthDocument> | undefined) ??
+    mongoose.model<WclUserAuthDocument>("WclUserAuth", wclUserAuthSchema);
