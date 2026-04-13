@@ -233,33 +233,143 @@ app.get("/api/auth/wcl/login", async (_request, reply) => {
     return reply.redirect(authorizeUrl.toString());
 });
 
-app.get("/api/auth/wcl/test-user", async (_request, reply) => {
-    const auth = await wclUserAuthStore.get();
+app.get("/api/probe/wcl/public", async (request, reply) => {
+    const query = request.query as {
+        reportCode?: string;
+        fightId?: string;
+    };
 
-    if (!auth?.accessToken) {
+    const reportCode = query.reportCode?.trim();
+    const fightId = Number(query.fightId);
+
+    if (!reportCode) {
         return reply.code(400).send({
             ok: false,
-            message: "No stored WCL user access token",
+            message: "Missing reportCode query parameter",
         });
     }
 
-    const response = await fetch("https://www.warcraftlogs.com/api/v2/user", {
+    if (!Number.isInteger(fightId) || fightId <= 0) {
+        return reply.code(400).send({
+            ok: false,
+            message: "Missing or invalid fightId query parameter",
+        });
+    }
+
+    const basicAuth = Buffer.from(
+        `${env.WCL_CLIENT_ID}:${env.WCL_CLIENT_SECRET}`,
+    ).toString("base64");
+
+    const tokenResponse = await fetch(
+        "https://www.warcraftlogs.com/oauth/token",
+        {
+            method: "POST",
+            headers: {
+                Authorization: `Basic ${basicAuth}`,
+                "Content-Type": "application/x-www-form-urlencoded",
+            },
+            body: new URLSearchParams({
+                grant_type: "client_credentials",
+            }),
+        },
+    );
+
+    const tokenPayload = (await tokenResponse.json()) as {
+        access_token?: string;
+        [key: string]: unknown;
+    };
+
+    if (!tokenResponse.ok || !tokenPayload.access_token) {
+        logger.error(
+            { status: tokenResponse.status, tokenPayload },
+            "WCL client token exchange failed",
+        );
+
+        return reply.code(500).send({
+            ok: false,
+            message: "WCL client token exchange failed",
+            status: tokenResponse.status,
+        });
+    }
+
+    const response = await fetch("https://www.warcraftlogs.com/api/v2/client", {
         method: "POST",
         headers: {
-            Authorization: `Bearer ${auth.accessToken}`,
+            Authorization: `Bearer ${tokenPayload.access_token}`,
             "Content-Type": "application/json",
         },
         body: JSON.stringify({
             query: `
-    query {
-      reportComponentData {
-        list {
-          key
+query ProbePublicReport($code: String!, $fightIDs: [Int]) {
+  rateLimitData {
+    limitPerHour
+    pointsSpentThisHour
+    pointsResetIn
+  }
+  reportData {
+    report(code: $code, allowUnlisted: true) {
+      title
+      startTime
+      endTime
+      zone {
+        name
+        difficulties {
+          id
           name
-         }
         }
-       }
+      }
+      guild {
+        name
+        server {
+          name
+          region { compactName }
+        }
+      }
+      phases {
+        encounterID
+        phases {
+          id
+          name
+          isIntermission
+        }
+      }
+      fights(killType: All) {
+        id
+        encounterID
+        difficulty
+        name
+        startTime
+        endTime
+        kill
+        originalEncounterID
+        phaseTransitions {
+          id
+          startTime
+        }
+      }
+      masterData {
+        actors(type: "Player") {
+          id
+          name
+          subType
+          server
+        }
+      }
+      rankings(playerMetric: default, fightIDs: $fightIDs)
+      damageTaken: table(dataType: DamageTaken, fightIDs: $fightIDs)
+      healing: table(dataType: Healing, fightIDs: $fightIDs)
+      deaths: table(dataType: Deaths, fightIDs: $fightIDs)
+      dispels: table(dataType: Dispels, fightIDs: $fightIDs)
+      interrupts: table(dataType: Interrupts, fightIDs: $fightIDs)
+      survivability: table(dataType: Survivability, fightIDs: $fightIDs)
+    }
+  }
+}
             `,
+            variables: {
+                code: reportCode,
+                fightIDs: [fightId],
+            },
         }),
     });
 
@@ -271,22 +381,23 @@ app.get("/api/auth/wcl/test-user", async (_request, reply) => {
     if (!response.ok) {
         logger.error(
             { status: response.status, payload },
-            "WCL user API HTTP request failed",
+            "WCL public API HTTP request failed",
         );
 
         return reply.code(500).send({
             ok: false,
-            message: "WCL user API HTTP request failed",
+            message: "WCL public API HTTP request failed",
             status: response.status,
+            payload,
         });
     }
 
     if (Array.isArray(payload.errors) && payload.errors.length > 0) {
-        logger.error({ payload }, "WCL user API GraphQL error");
+        logger.error({ payload }, "WCL public API GraphQL error");
 
         return reply.code(502).send({
             ok: false,
-            message: "WCL user API GraphQL error",
+            message: "WCL public API GraphQL error",
             payload,
         });
     }

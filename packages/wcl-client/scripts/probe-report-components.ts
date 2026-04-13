@@ -1,7 +1,13 @@
 import { GraphQLClient } from "graphql-request";
-import { connectMongo, MongoWclUserAuthStore } from "@wcl/db";
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import {
+    resolveWclAccessToken,
+} from "../src/oauth.js";
+import {
+    KILL_TYPES,
+    REPORT_TABLE_DATA_TYPES,
+} from "../src/schema-enums.js";
 import {
     deriveEncounterPhaseTimes,
     summarizeRankingsPayload,
@@ -9,46 +15,7 @@ import {
     type EncounterPhaseMetadata,
 } from "../src/probes/phase-timings.js";
 
-const getEnv = (key: string): string => {
-    const value = process.env[key]?.trim();
-    if (!value) {
-        throw new Error(`Missing required environment variable: ${key}`);
-    }
-    return value;
-};
-
-const userApiBaseUrl =
-    process.env.WCL_API_BASE_URL?.trim() ||
-    "https://www.warcraftlogs.com/api/v2/user";
-
-await connectMongo(getEnv("MONGODB_URI"));
-
-const wclUserAuthStore = new MongoWclUserAuthStore();
-const storedAuth = await wclUserAuthStore.get();
-
-if (!storedAuth?.accessToken) {
-    throw new Error(
-        "No stored WCL user access token found. Complete /api/auth/wcl/login first.",
-    );
-}
-
-const client = new GraphQLClient(userApiBaseUrl, {
-    headers: {
-        Authorization: `Bearer ${storedAuth.accessToken}`,
-    },
-});
-
-interface EvaluateScriptResponse {
-    output?: unknown;
-    logs?: unknown;
-    error?: unknown;
-}
-
-interface ScriptProbeDefinition {
-    name: "deaths" | "dispels" | "interrupts" | "survivability";
-    contents: string;
-    filterFightIds: boolean;
-}
+const DEFAULT_ALLOW_UNLISTED_REPORTS = true;
 
 interface ProbeManifestEntry {
     probeFamily: string;
@@ -59,148 +26,161 @@ interface ProbeManifestEntry {
     summary?: string;
 }
 
-interface MasterDataActorRow {
-    id: number;
-    name: string;
-}
-
-const SCRIPT_PROBES: ScriptProbeDefinition[] = [
-    {
-        name: "deaths",
-        contents:
-            'return report.table({ dataType: "Deaths", fightIDs: filter.fightIDs });',
-        filterFightIds: true,
-    },
-    {
-        name: "dispels",
-        contents:
-            'return report.table({ dataType: "Dispels", fightIDs: filter.fightIDs });',
-        filterFightIds: true,
-    },
-    {
-        name: "interrupts",
-        contents:
-            'return report.table({ dataType: "Interrupts", fightIDs: filter.fightIDs });',
-        filterFightIds: true,
-    },
-    {
-        name: "survivability",
-        contents:
-            'return report.table({ dataType: "Survivability", fightIDs: filter.fightIDs });',
-        filterFightIds: true,
-    },
-];
-
-const EVALUATE_QUERY = `
-query ProbeReportComponent(
-  $reportCode: String!
-  $contents: String!
-  $filter: ReportComponentFilter
-  $debug: Boolean!
-) {
-  reportComponentData {
-    evaluateScript(
-      reportCode: $reportCode
-      contents: $contents
-      filter: $filter
-      debug: $debug
-    ) {
-      output
-      logs
-      error
-    }
-  }
-}
-`;
-
-const MASTER_DATA_QUERY = `
-query ProbeMasterData($reportCode: String!) {
-  reportData {
-    report(code: $reportCode, allowUnlisted: true) {
-      masterData {
-        actors(type: "Player") {
-          id
-          name
-          type
-          subType
+const BASE_REPORT_QUERY = `
+  query BaseReportSummary(
+    $code: String!
+    $allowUnlisted: Boolean!
+  ) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        archiveStatus {
+          isArchived
+          isAccessible
+          archiveDate
         }
-        abilities {
-          gameID
-          name
-          type
-        }
-      }
-    }
-  }
-}
-`;
-
-const BASE_REPORT_FOR_PHASES_QUERY = `
-query ProbeEncounterPhases($reportCode: String!) {
-  reportData {
-    report(code: $reportCode, allowUnlisted: true) {
-      phases {
-        encounterID
-        phases {
-          id
-          name
-          isIntermission
-        }
-      }
-      fights(killType: All) {
-        id
-        encounterID
+        title
         startTime
         endTime
-        kill
-        originalEncounterID
-        phaseTransitions {
+        zone {
+          name
+          frozen
+          difficulties {
+            id
+            name
+          }
+        }
+        guild {
+          name
+          server {
+            name
+            region { compactName }
+          }
+        }
+        phases {
+          encounterID
+          phases {
+            id
+            name
+            isIntermission
+          }
+        }
+        fights(killType: ${KILL_TYPES[1]}) {
           id
+          encounterID
+          difficulty
+          averageItemLevel
+          name
           startTime
+          endTime
+          kill
+          bossPercentage
+          fightPercentage
+          size
+          lastPhase
+          lastPhaseAsAbsoluteIndex
+          lastPhaseIsIntermission
+          inProgress
+          originalEncounterID
+          wipeCalledTime
+          phaseTransitions {
+            id
+            startTime
+          }
+        }
+        masterData {
+          actors(type: "Player") {
+            id
+            name
+            subType
+            server
+          }
         }
       }
     }
   }
-}
 `;
 
 const REPORT_RANKINGS_QUERY = `
-query ProbeReportRankings($reportCode: String!) {
-  reportData {
-    report(code: $reportCode, allowUnlisted: true) {
-      rankings(playerMetric: default)
+  query ReportRankings($code: String!, $allowUnlisted: Boolean!) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        rankings(playerMetric: default)
+      }
     }
   }
-}
 `;
 
 const BOSS_RANKINGS_QUERY = `
-query ProbeBossRankings($reportCode: String!, $fightId: [Int]) {
-  reportData {
-    report(code: $reportCode, allowUnlisted: true) {
-      rankings(playerMetric: default, fightIDs: $fightId)
+  query BossRankings(
+    $code: String!
+    $allowUnlisted: Boolean!
+    $fightIDs: [Int]
+  ) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        rankings(playerMetric: default, fightIDs: $fightIDs)
+      }
     }
   }
-}
 `;
 
-const CHARACTER_RANKINGS_QUERY = `
-query ProbeCharacterEncounterRankings(
-  $name: String!
-  $serverSlug: String!
-  $serverRegion: String!
-  $encounterId: Int!
-) {
-  characterData {
-    character(
-      name: $name
-      serverSlug: $serverSlug
-      serverRegion: $serverRegion
-    ) {
-      encounterRankings(encounterID: $encounterId)
+const PLAYER_DETAILS_QUERY = `
+  query PlayerDetails(
+    $code: String!
+    $allowUnlisted: Boolean!
+    $startTime: Float!
+    $endTime: Float!
+  ) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        playerDetails(
+          includeCombatantInfo: true
+          startTime: $startTime
+          endTime: $endTime
+        )
+      }
     }
   }
-}
+`;
+
+const TABLE_QUERY = `
+  query ReportTable($code: String!, $allowUnlisted: Boolean!, $fightIDs: [Int]) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        damageDone: table(dataType: ${REPORT_TABLE_DATA_TYPES[0]}, fightIDs: $fightIDs)
+        damageTaken: table(dataType: ${REPORT_TABLE_DATA_TYPES[1]}, fightIDs: $fightIDs)
+        healing: table(dataType: ${REPORT_TABLE_DATA_TYPES[2]}, fightIDs: $fightIDs)
+        deaths: table(dataType: ${REPORT_TABLE_DATA_TYPES[3]}, fightIDs: $fightIDs)
+        dispels: table(dataType: ${REPORT_TABLE_DATA_TYPES[4]}, fightIDs: $fightIDs)
+        interrupts: table(dataType: ${REPORT_TABLE_DATA_TYPES[5]}, fightIDs: $fightIDs)
+        survivability: table(dataType: ${REPORT_TABLE_DATA_TYPES[6]}, fightIDs: $fightIDs)
+      }
+    }
+  }
+`;
+
+const RESURRECT_EVENTS_QUERY = `
+  query FightResurrectionEvents(
+    $code: String!
+    $allowUnlisted: Boolean!
+    $fightIDs: [Int]
+    $startTime: Float
+    $filterExpression: String
+  ) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        events(
+          dataType: ${KILL_TYPES[0]}
+          fightIDs: $fightIDs
+          startTime: $startTime
+          filterExpression: $filterExpression
+        ) {
+          data
+          nextPageTimestamp
+        }
+      }
+    }
+  }
 `;
 
 const asObject = (value: unknown): Record<string, unknown> | undefined =>
@@ -211,9 +191,6 @@ const asObject = (value: unknown): Record<string, unknown> | undefined =>
 const asArray = (value: unknown): unknown[] | undefined =>
     Array.isArray(value) ? value : undefined;
 
-const asString = (value: unknown): string | undefined =>
-    typeof value === "string" ? value : undefined;
-
 const asNumber = (value: unknown): number | undefined =>
     typeof value === "number" && Number.isFinite(value) ? value : undefined;
 
@@ -221,7 +198,6 @@ interface ProbeArgs {
     reportCode: string;
     fightId: number;
     encounterId?: number;
-    players: string[];
 }
 
 const getArgs = (): ProbeArgs => {
@@ -231,7 +207,7 @@ const getArgs = (): ProbeArgs => {
 
     if (!reportCode) {
         throw new Error(
-            "Usage: pnpm --filter @wcl/wcl-client probe:report-components <reportCode> <fightId> [--encounter <encounterId>] [--player <nameOrId>]...",
+            "Usage: pnpm --filter @wcl/wcl-client probe:report-components <reportCode> <fightId> [--encounter <encounterId>]",
         );
     }
 
@@ -240,7 +216,6 @@ const getArgs = (): ProbeArgs => {
     }
 
     let encounterId: number | undefined;
-    const players: string[] = [];
 
     for (let index = 2; index < args.length; index += 1) {
         const flag = args[index];
@@ -255,22 +230,12 @@ const getArgs = (): ProbeArgs => {
             index += 1;
             continue;
         }
-        if (flag === "--player") {
-            const value = args[index + 1]?.trim();
-            if (!value) {
-                throw new Error("--player expects a non-empty player token");
-            }
-            players.push(value);
-            index += 1;
-            continue;
-        }
         throw new Error(`Unknown argument: ${flag}`);
     }
 
     return {
         reportCode,
         fightId,
-        players,
         ...(typeof encounterId === "number" ? { encounterId } : {}),
     };
 };
@@ -343,13 +308,39 @@ const resolveEncounterId = (
     return selectedFight.encounterID;
 };
 
+const getReportNode = (payload: unknown): Record<string, unknown> | undefined =>
+    asObject(asObject(payload)?.reportData)?.report;
+
+const summarizeTopLevelKeys = (value: unknown): string => {
+    const node = asObject(value);
+    const keys = node ? Object.keys(node) : [];
+    return keys.length > 0 ? keys.join(", ") : "<none>";
+};
+
 const run = async (): Promise<void> => {
-    const {
-        reportCode,
-        fightId,
-        encounterId: requestedEncounterId,
-        players,
-    } = getArgs();
+    const { reportCode, fightId, encounterId: requestedEncounterId } = getArgs();
+
+    const token = await resolveWclAccessToken({
+        ...(process.env.WCL_OAUTH_TOKEN?.trim()
+            ? { explicitToken: process.env.WCL_OAUTH_TOKEN.trim() }
+            : {}),
+        ...(process.env.WCL_CLIENT_ID?.trim()
+            ? { clientId: process.env.WCL_CLIENT_ID.trim() }
+            : {}),
+        ...(process.env.WCL_CLIENT_SECRET?.trim()
+            ? { clientSecret: process.env.WCL_CLIENT_SECRET.trim() }
+            : {}),
+    });
+
+    const apiBaseUrl =
+        process.env.WCL_API_BASE_URL?.trim() ||
+        "https://www.warcraftlogs.com/api/v2/client";
+
+    const client = new GraphQLClient(apiBaseUrl, {
+        headers: {
+            Authorization: `Bearer ${token}`,
+        },
+    });
 
     const outputDir = join(
         process.cwd(),
@@ -359,68 +350,32 @@ const run = async (): Promise<void> => {
 
     const manifest: ProbeManifestEntry[] = [];
 
-    for (const probe of SCRIPT_PROBES) {
-        const result = await client.request<unknown>(EVALUATE_QUERY, {
-            reportCode,
-            contents: probe.contents,
-            filter: probe.filterFightIds ? { fightIDs: [fightId] } : {},
-            debug: true,
-        });
-
-        const evaluateScript = asObject(
-            asObject(asObject(result)?.reportComponentData)?.evaluateScript,
-        ) as EvaluateScriptResponse | undefined;
-
-        manifest.push(
-            await writeProbeFiles(
-                outputDir,
-                `${probe.name}.${reportCode}.fight-${fightId}`,
-                {
-                    reportCode,
-                    fightId,
-                    probe: probe.name,
-                    output: evaluateScript?.output ?? null,
-                    logs: evaluateScript?.logs,
-                    error: evaluateScript?.error,
-                },
-            ),
-        );
-    }
-
-    const masterDataResult = await client.request<unknown>(MASTER_DATA_QUERY, {
-        reportCode,
+    const baseReportResult = await client.request<unknown>(BASE_REPORT_QUERY, {
+        code: reportCode,
+        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
     });
-    const masterData = asObject(
-        asObject(asObject(asObject(masterDataResult)?.reportData)?.report)
-            ?.masterData,
-    );
-    const masterDataActors = (asArray(masterData?.actors) ?? []).flatMap(
-        (value) => {
-            const row = asObject(value);
-            const id = asNumber(row?.id);
-            const name = asString(row?.name);
-            if (typeof id !== "number" || typeof name !== "string") return [];
-            const actor: MasterDataActorRow = { id, name };
-            return [actor];
+    const baseReport = getReportNode(baseReportResult) ?? null;
+    const baseReportEntry = await writeProbeFiles(
+        outputDir,
+        `base-report.${reportCode}`,
+        {
+            reportCode,
+            probe: "base-report",
+            output: baseReport,
         },
     );
-    manifest.push(
-        await writeProbeFiles(outputDir, `master-data.${reportCode}`, {
-            reportCode,
-            probe: "master-data",
-            output: masterData ?? null,
-        }),
-    );
+    const fightsForSummary = asArray(asObject(baseReport)?.fights) ?? [];
+    baseReportEntry.summary = `keys=[${summarizeTopLevelKeys(baseReport)}] fights=${fightsForSummary.length}`;
+    manifest.push(baseReportEntry);
 
     const reportRankingsResult = await client.request<unknown>(
         REPORT_RANKINGS_QUERY,
         {
-            reportCode,
+            code: reportCode,
+            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
         },
     );
-    const reportRankings = asObject(
-        asObject(asObject(reportRankingsResult)?.reportData)?.report,
-    )?.rankings;
+    const reportRankings = getReportNode(reportRankingsResult)?.rankings;
     const reportRankingsSummary = summarizeRankingsPayload(reportRankings);
     const reportRankingsEntry = await writeProbeFiles(
         outputDir,
@@ -434,16 +389,12 @@ const run = async (): Promise<void> => {
     reportRankingsEntry.summary = reportRankingsSummary.logLine;
     manifest.push(reportRankingsEntry);
 
-    const bossRankingsResult = await client.request<unknown>(
-        BOSS_RANKINGS_QUERY,
-        {
-            reportCode,
-            fightId: [fightId],
-        },
-    );
-    const bossRankings = asObject(
-        asObject(asObject(bossRankingsResult)?.reportData)?.report,
-    )?.rankings;
+    const bossRankingsResult = await client.request<unknown>(BOSS_RANKINGS_QUERY, {
+        code: reportCode,
+        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+        fightIDs: [fightId],
+    });
+    const bossRankings = getReportNode(bossRankingsResult)?.rankings;
     const bossRankingsSummary = summarizeRankingsPayload(bossRankings);
     const bossRankingsEntry = await writeProbeFiles(
         outputDir,
@@ -458,52 +409,147 @@ const run = async (): Promise<void> => {
     bossRankingsEntry.summary = bossRankingsSummary.logLine;
     manifest.push(bossRankingsEntry);
 
-    const phaseResult = await client.request<unknown>(
-        BASE_REPORT_FOR_PHASES_QUERY,
+    const baseReportNode = asObject(baseReport);
+    const reportStartTime = asNumber(baseReportNode?.startTime);
+    const reportEndTime = asNumber(baseReportNode?.endTime);
+    if (typeof reportStartTime !== "number" || typeof reportEndTime !== "number") {
+        throw new Error("Base report payload is missing startTime/endTime for player-details probing");
+    }
+
+    const playerDetailsResult = await client.request<unknown>(PLAYER_DETAILS_QUERY, {
+        code: reportCode,
+        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+        startTime: reportStartTime,
+        endTime: reportEndTime,
+    });
+    const playerDetails = getReportNode(playerDetailsResult)?.playerDetails;
+    const playerDetailsNode = asObject(playerDetails);
+    const playerDetailsKeys = summarizeTopLevelKeys(playerDetails);
+    const playerEntryCount = Object.values(playerDetailsNode ?? {}).reduce(
+        (count, value) => count + (Array.isArray(value) ? value.length : 0),
+        0,
+    );
+    const playerDetailsEntry = await writeProbeFiles(
+        outputDir,
+        `player-details.${reportCode}`,
         {
             reportCode,
+            probe: "player-details",
+            output: playerDetails ?? null,
         },
     );
-    const report = asObject(asObject(phaseResult)?.reportData)?.report;
+    playerDetailsEntry.summary = `keys=[${playerDetailsKeys}] entries=${playerEntryCount}`;
+    manifest.push(playerDetailsEntry);
 
-    const fights = (asArray(report && asObject(report)?.fights) ?? [])
+    const tableResult = await client.request<unknown>(TABLE_QUERY, {
+        code: reportCode,
+        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+        fightIDs: [fightId],
+    });
+    const fightTables = getReportNode(tableResult) ?? null;
+    const fightTableKeys = summarizeTopLevelKeys(fightTables);
+    const fightTablesEntry = await writeProbeFiles(
+        outputDir,
+        `fight-tables.${reportCode}.fight-${fightId}`,
+        {
+            reportCode,
+            fightId,
+            probe: "fight-tables",
+            output: fightTables,
+        },
+    );
+    fightTablesEntry.summary = `tableKeys=[${fightTableKeys}]`;
+    manifest.push(fightTablesEntry);
+
+    let startTime: number | undefined;
+    const resurrectPages: unknown[] = [];
+    const combinedEvents: unknown[] = [];
+
+    for (;;) {
+        const resurrectResult = await client.request<unknown>(RESURRECT_EVENTS_QUERY, {
+            code: reportCode,
+            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+            fightIDs: [fightId],
+            ...(typeof startTime === "number" ? { startTime } : {}),
+            filterExpression: 'type = "resurrect"',
+        });
+
+        const eventsNode = asObject(getReportNode(resurrectResult)?.events);
+        const rows = asArray(eventsNode?.data) ?? [];
+        resurrectPages.push(eventsNode ?? null);
+        combinedEvents.push(...rows);
+
+        const nextPageTimestamp = asNumber(eventsNode?.nextPageTimestamp);
+        if (typeof nextPageTimestamp !== "number") {
+            const resurrectEventsEntry = await writeProbeFiles(
+                outputDir,
+                `resurrect-events.${reportCode}.fight-${fightId}`,
+                {
+                    reportCode,
+                    fightId,
+                    probe: "resurrect-events",
+                    output: {
+                        pages: resurrectPages,
+                        events: combinedEvents,
+                        nextPageTimestamp: null,
+                    },
+                },
+            );
+            resurrectEventsEntry.summary = `events=${combinedEvents.length} nextPageTimestamp=false`;
+            manifest.push(resurrectEventsEntry);
+            break;
+        }
+
+        startTime = nextPageTimestamp;
+    }
+
+    const masterData = asObject(baseReportNode?.masterData) ?? null;
+    manifest.push(
+        await writeProbeFiles(outputDir, `master-data.${reportCode}`, {
+            reportCode,
+            probe: "master-data",
+            output: masterData,
+        }),
+    );
+
+    const fights = (asArray(baseReportNode?.fights) ?? [])
         .map((value): EncounterFightForTimings | undefined => {
             const row = asObject(value);
             const id = asNumber(row?.id);
             const encounterID =
-                asNumber(row?.encounterID) ??
-                asNumber(row?.originalEncounterID);
-            const startTime = asNumber(row?.startTime);
-            const endTime = asNumber(row?.endTime);
+                asNumber(row?.encounterID) ?? asNumber(row?.originalEncounterID);
+            const start = asNumber(row?.startTime);
+            const end = asNumber(row?.endTime);
+
             if (
                 typeof id !== "number" ||
                 typeof encounterID !== "number" ||
-                typeof startTime !== "number" ||
-                typeof endTime !== "number"
+                typeof start !== "number" ||
+                typeof end !== "number"
             ) {
                 return undefined;
             }
 
-            const phaseTransitions = (
-                asArray(row?.phaseTransitions) ?? []
-            ).flatMap((transition) => {
-                const normalized = asObject(transition);
-                const transitionId = asNumber(normalized?.id);
-                const transitionStart = asNumber(normalized?.startTime);
-                if (
-                    typeof transitionId !== "number" ||
-                    typeof transitionStart !== "number"
-                ) {
-                    return [];
-                }
-                return [{ id: transitionId, startTime: transitionStart }];
-            });
+            const phaseTransitions = (asArray(row?.phaseTransitions) ?? []).flatMap(
+                (transition) => {
+                    const normalized = asObject(transition);
+                    const transitionId = asNumber(normalized?.id);
+                    const transitionStart = asNumber(normalized?.startTime);
+                    if (
+                        typeof transitionId !== "number" ||
+                        typeof transitionStart !== "number"
+                    ) {
+                        return [];
+                    }
+                    return [{ id: transitionId, startTime: transitionStart }];
+                },
+            );
 
             return {
                 id,
                 encounterID,
-                startTime,
-                endTime,
+                startTime: start,
+                endTime: end,
                 kill: row?.kill === true,
                 phaseTransitions,
             };
@@ -516,7 +562,7 @@ const run = async (): Promise<void> => {
         requestedEncounterId,
     );
 
-    const encounterPhases = (asArray(report && asObject(report)?.phases) ?? [])
+    const encounterPhases = (asArray(baseReportNode?.phases) ?? [])
         .map(
             (
                 value,
@@ -529,31 +575,23 @@ const run = async (): Promise<void> => {
                     return undefined;
                 }
 
-                const phases = (asArray(row?.phases) ?? []).flatMap(
-                    (phaseValue) => {
-                        const phase = asObject(phaseValue);
-                        const id = asNumber(phase?.id);
-                        const name = asString(phase?.name);
-                        if (
-                            typeof id !== "number" ||
-                            typeof name !== "string"
-                        ) {
-                            return [];
-                        }
+                const phases = (asArray(row?.phases) ?? []).flatMap((phaseValue) => {
+                    const phase = asObject(phaseValue);
+                    const id = asNumber(phase?.id);
+                    const name = typeof phase?.name === "string" ? phase.name : undefined;
+                    if (typeof id !== "number" || typeof name !== "string") {
+                        return [];
+                    }
 
-                        const metadata: EncounterPhaseMetadata = {
-                            id,
-                            name,
-                            ...(phase && "isIntermission" in phase
-                                ? {
-                                      isIntermission:
-                                          phase.isIntermission === true,
-                                  }
-                                : {}),
-                        };
-                        return [metadata];
-                    },
-                );
+                    const metadata: EncounterPhaseMetadata = {
+                        id,
+                        name,
+                        ...(phase && "isIntermission" in phase
+                            ? { isIntermission: phase.isIntermission === true }
+                            : {}),
+                    };
+                    return [metadata];
+                });
 
                 return { encounterID: currentEncounterId, phases };
             },
@@ -561,8 +599,7 @@ const run = async (): Promise<void> => {
         .flatMap((row) => (row ? [row] : []));
 
     const selectedEncounterPhases =
-        encounterPhases.find((row) => row.encounterID === encounterId)
-            ?.phases ?? [];
+        encounterPhases.find((row) => row.encounterID === encounterId)?.phases ?? [];
 
     manifest.push(
         await writeProbeFiles(
@@ -597,40 +634,6 @@ const run = async (): Promise<void> => {
         ),
     );
 
-    for (const playerToken of players) {
-        const asActorId = Number(playerToken);
-        const characterName =
-            (Number.isInteger(asActorId) && asActorId > 0
-                ? masterDataActors.find((actor) => actor.id === asActorId)?.name
-                : undefined) ?? playerToken;
-
-        const characterRankingsResult = await client.request<unknown>(
-            CHARACTER_RANKINGS_QUERY,
-            {
-                name: characterName,
-                encounterId,
-            },
-        );
-        const rankings = asObject(
-            asObject(characterRankingsResult)?.characterData,
-        );
-        const payload =
-            asObject(rankings?.character)?.encounterRankings ?? null;
-        manifest.push(
-            await writeProbeFiles(
-                outputDir,
-                `character-encounter-rankings.${reportCode}.fight-${fightId}.${playerToken}`,
-                {
-                    reportCode,
-                    fightId,
-                    encounterId,
-                    probe: "character-encounter-rankings",
-                    output: payload,
-                },
-            ),
-        );
-    }
-
     const manifestPath = join(
         outputDir,
         `probe-manifest.${reportCode}.fight-${fightId}.json`,
@@ -654,8 +657,15 @@ const run = async (): Promise<void> => {
     console.log(
         `Saved probe fixtures for report ${reportCode} fight ${fightId} to ${outputDir}`,
     );
+    console.log(`base-report summary: ${baseReportEntry.summary ?? "n/a"}`);
     console.log(`report-rankings summary: ${reportRankingsSummary.logLine}`);
     console.log(`boss-rankings summary: ${bossRankingsSummary.logLine}`);
+    console.log(`player-details summary: ${playerDetailsEntry.summary ?? "n/a"}`);
+    console.log(`fight-tables summary: ${fightTablesEntry.summary ?? "n/a"}`);
+    const resurrectSummary = manifest.find(
+        (entry) => entry.probeFamily === "resurrect-events",
+    )?.summary;
+    console.log(`resurrect-events summary: ${resurrectSummary ?? "n/a"}`);
 };
 
 run().catch((error: unknown) => {
