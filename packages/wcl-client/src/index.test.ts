@@ -289,6 +289,7 @@ describe("index contract", () => {
                     player: entry.playerName,
                     parse: entry.parse,
                     amount: Math.round(entry.amount ?? 0),
+                    metric: entry.metric,
                     className: entry.className,
                     specName: entry.specName,
                 })),
@@ -297,6 +298,7 @@ describe("index contract", () => {
                     player: "Raikami",
                     parse: 99,
                     amount: 169858,
+                    metric: "DPS",
                     className: "Hunter",
                     specName: "Survival",
                 },
@@ -304,6 +306,7 @@ describe("index contract", () => {
                     player: "Arakinak",
                     parse: 79,
                     amount: 94429,
+                    metric: "DTPS",
                     className: "Druid",
                     specName: "Guardian",
                 },
@@ -311,6 +314,7 @@ describe("index contract", () => {
                     player: "Floorroller",
                     parse: 43,
                     amount: 48423,
+                    metric: "HPS",
                     className: "Monk",
                     specName: "Mistweaver",
                 },
@@ -417,6 +421,76 @@ describe("index contract", () => {
             expect(
                 normalized.bossPerformances?.[0]?.topHealers?.map((entry) => entry.specName),
             ).toEqual(["Mistweaver", "Holy"]);
+        });
+
+        it("uses selected-fight phase windows instead of fastest windows across all pulls", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Phase policy",
+                                startTime: 100,
+                                endTime: 5000,
+                                phases: [
+                                    {
+                                        encounterID: 51579,
+                                        phases: [
+                                            { id: 1, name: "Phase 1", isIntermission: false },
+                                            { id: 2, name: "Intermission", isIntermission: true },
+                                            { id: 3, name: "Phase 2", isIntermission: false },
+                                        ],
+                                    },
+                                ],
+                                fights: [
+                                    {
+                                        id: 45,
+                                        name: "Lei Shen",
+                                        startTime: 1000,
+                                        endTime: 1200,
+                                        kill: false,
+                                        encounterID: 51579,
+                                        phaseTransitions: [{ id: 3, startTime: 1100 }],
+                                    },
+                                    {
+                                        id: 46,
+                                        name: "Lei Shen",
+                                        startTime: 2000,
+                                        endTime: 2600,
+                                        kill: true,
+                                        encounterID: 51579,
+                                        phaseTransitions: [
+                                            { id: 2, startTime: 2200 },
+                                            { id: 3, startTime: 2300 },
+                                        ],
+                                    },
+                                ],
+                                masterData: { actors: [] },
+                            },
+                        },
+                    },
+                    encounterSummaries: [
+                        {
+                            encounterID: 51579,
+                            bossName: "Lei Shen",
+                            fightId: 46,
+                            kill: true,
+                            rankings: { rankings: [] },
+                            tables: {},
+                        },
+                    ],
+                },
+                {
+                    reportCode: "abc123xyz4567890",
+                    gameFamily: "mop_classic",
+                    rawUrl: "https://classic.warcraftlogs.com/reports/abc123xyz4567890",
+                },
+            );
+
+            expect(normalized.bossPerformances?.[0]?.fastestPhaseTimes).toEqual([
+                { phaseId: 1, label: "P1", name: "Phase 1", durationMs: 200 },
+                { phaseId: 3, label: "P3", name: "Phase 2", durationMs: 300 },
+            ]);
         });
     });
 

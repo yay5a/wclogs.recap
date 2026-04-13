@@ -1297,10 +1297,11 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
     if (summary.topHealers.length > 0) {
         fields.push({
             name: "Top Healers",
-            value: summary.topHealers
+            value: [...summary.topHealers]
+                .sort((left, right) => right.value - left.value)
                 .map(
                     (entry) =>
-                        `• ${entry.playerName} (${formatCompactNumber(entry.value)})${formatClassSpec(entry.classSpecLabel)}`,
+                        `• ${entry.playerName} | ${formatCompactNumber(entry.value)} HPS${entry.classSpecLabel ? ` - ${entry.classSpecLabel}` : ""}`,
                 )
                 .join("\n"),
         });

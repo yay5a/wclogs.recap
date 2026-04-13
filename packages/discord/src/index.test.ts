@@ -849,6 +849,9 @@ describe("embed rendering", () => {
         ).toContain("67.9K");
         expect(
             embed.fields.find((field) => field.name === "Top Healers")?.value,
+        ).toContain("67.9K HPS");
+        expect(
+            embed.fields.find((field) => field.name === "Top Healers")?.value,
         ).toContain("Mistweaver Monk");
         expect(
             embed.fields.find((field) => field.name === "Best Player Parses")?.value,
@@ -859,6 +862,20 @@ describe("embed rendering", () => {
         expect(
             embed.fields.find((field) => field.name === "Totals")?.value,
         ).toContain("Raid damage taken: 1.2M");
+    });
+
+    it("renders top healers with HPS label and descending value order", () => {
+        const embed = buildPublicRecapEmbed({
+            ...makePreviewSummary(),
+            topHealers: [
+                { playerName: "Pearl", value: 4800, classSpecLabel: "Restoration Shaman" },
+                { playerName: "Floorroller", value: 48423, classSpecLabel: "Mistweaver Monk" },
+            ],
+        });
+
+        expect(embed.fields.find((field) => field.name === "Top Healers")?.value).toBe(
+            "• Floorroller | 48.4K HPS - Mistweaver Monk\n• Pearl | 4.8K HPS - Restoration Shaman",
+        );
     });
 
     it("degrades cleanly when optional fields are missing", () => {

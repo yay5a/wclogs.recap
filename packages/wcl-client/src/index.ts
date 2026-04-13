@@ -857,8 +857,17 @@ const getMetricFromLeaderboard = (
     entry: NormalizedLeaderboardEntry,
 ): string | undefined => {
     const row = asObject(entry as unknown);
-    const metric = asString(row?.metric);
-    if (metric) return metric.toUpperCase();
+    const explicitMetricCandidates = [
+        asString(row?.metric),
+        asString(row?.selectedMetric),
+        asString(row?.playerMetric),
+    ];
+    for (const metric of explicitMetricCandidates) {
+        const normalized = metric?.trim().toUpperCase();
+        if (normalized === "DPS" || normalized === "HPS" || normalized === "DTPS") {
+            return normalized;
+        }
+    }
 
     const role = asString(row?.role)?.toLowerCase();
     if (role === "healer") return "HPS";
@@ -1002,6 +1011,63 @@ const computeFastestPhaseTimes = (
             }
             return row;
         });
+};
+
+const computeSelectedFightPhaseTimes = (
+    fight: FightSummaryRow | undefined,
+    metadata: EncounterPhaseRow[],
+): Array<{
+    phaseId: number;
+    label: string;
+    name?: string;
+    durationMs: number;
+}> => {
+    if (!fight) return [];
+    const phaseById = new Map<number, EncounterPhaseRow>(
+        metadata.map((phase) => [phase.id, phase]),
+    );
+    const transitions = [...fight.phaseTransitions].sort(
+        (left, right) => left.startTime - right.startTime,
+    );
+
+    const rows: Array<{
+        phaseId: number;
+        label: string;
+        name?: string;
+        durationMs: number;
+    }> = [];
+    let currentPhaseId = 1;
+    let currentStart = fight.startTime;
+
+    for (const transition of transitions) {
+        const duration = transition.startTime - currentStart;
+        const phaseInfo = phaseById.get(currentPhaseId);
+        const isIntermission = phaseInfo ? Boolean(phaseInfo.isIntermission) : false;
+        if (duration > 0 && !isIntermission) {
+            rows.push({
+                phaseId: currentPhaseId,
+                label: `P${currentPhaseId}`,
+                durationMs: duration,
+                ...(phaseInfo?.name ? { name: phaseInfo.name } : {}),
+            });
+        }
+        currentPhaseId = transition.id;
+        currentStart = transition.startTime;
+    }
+
+    const finalDuration = fight.endTime - currentStart;
+    const finalInfo = phaseById.get(currentPhaseId);
+    const finalIsIntermission = finalInfo ? Boolean(finalInfo.isIntermission) : false;
+    if (finalDuration > 0 && !finalIsIntermission) {
+        rows.push({
+            phaseId: currentPhaseId,
+            label: `P${currentPhaseId}`,
+            durationMs: finalDuration,
+            ...(finalInfo?.name ? { name: finalInfo.name } : {}),
+        });
+    }
+
+    return rows;
 };
 
 const parseEncounterPhaseTimesFromRaw = (
@@ -2005,12 +2071,20 @@ export const normalizeEnrichedReport = (
                               ...(typeof kicks === "number" ? { kicks } : {}),
                       };
                   })(),
-                      fastestPhaseTimes:
-                          phaseTimesByEncounterId.get(encounterID) ??
-                          computeFastestPhaseTimes(
-                              encounterFights,
+                      fastestPhaseTimes: (() => {
+                          const selectedFightPhases = computeSelectedFightPhaseTimes(
+                              summaryFightRow,
                               phaseMetadataByEncounterId.get(encounterID) ?? [],
-                          ),
+                          );
+                          if (selectedFightPhases.length > 0) return selectedFightPhases;
+                          return (
+                              phaseTimesByEncounterId.get(encounterID) ??
+                              computeFastestPhaseTimes(
+                                  encounterFights,
+                                  phaseMetadataByEncounterId.get(encounterID) ?? [],
+                              )
+                          );
+                      })(),
                       topDamageTaken: mapTableRows(parsedTables.DamageTaken),
                       topHealers: bossEntries
                           .filter(
