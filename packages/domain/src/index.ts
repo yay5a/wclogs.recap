@@ -238,9 +238,15 @@ const formatDurationMmSs = (durationMs: number): string => {
     return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
 };
 
+const toDisplayClassName = (className?: string): string | undefined => {
+    if (!className) return undefined;
+    return className.replace(/([a-z])([A-Z])/g, "$1 $2");
+};
+
 const toClassSpecLabel = (className?: string, specName?: string): string | undefined => {
-    if (specName && className) return `${specName} ${className}`;
-    return specName ?? className;
+    const displayClassName = toDisplayClassName(className);
+    if (specName && displayClassName) return `${specName} ${displayClassName}`;
+    return specName ?? displayClassName;
 };
 
 export const buildRecapSummary = (

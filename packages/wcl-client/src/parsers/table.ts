@@ -76,6 +76,29 @@ const parseNestedDetailsRows = (
     });
 };
 
+const hasNestedEntries = (row: Record<string, unknown>): boolean =>
+    (asArray(row.entries) ?? []).length > 0;
+
+const flattenRows = (rows: unknown[]): unknown[] => {
+    const flattened: unknown[] = [];
+    const queue = [...rows];
+
+    while (queue.length > 0) {
+        const candidate = queue.shift();
+        if (!candidate) continue;
+        flattened.push(candidate);
+
+        const row = asObject(candidate);
+        if (!row) continue;
+        const nested = asArray(row.entries) ?? [];
+        for (const nestedRow of nested) {
+            queue.push(nestedRow);
+        }
+    }
+
+    return flattened;
+};
+
 const isDeathsEventRow = (entry: Record<string, unknown>): boolean => {
     if (typeof asNumber(entry.timestamp) !== "number") return false;
     const hasDeathPayload =
@@ -182,7 +205,7 @@ export const parseTablePayloadDetailed = (
     const parsed = parseUnknownJson(payload, warn, `table:${dataType}`);
     const { rows, isValidShape } = getTableEntries(parsed, dataType, warn);
 
-    const entries = rows.flatMap((row) => {
+    const entries = flattenRows(rows).flatMap((row) => {
         const entry = asObject(row);
         if (!entry) return [];
 
@@ -201,6 +224,10 @@ export const parseTablePayloadDetailed = (
             // Survivability payloads often include player/fight metadata rows that are valid but not
             // currently rendered in the recap card.
             if (dataType === "Survivability") {
+                return [];
+            }
+
+            if (hasNestedEntries(entry)) {
                 return [];
             }
 

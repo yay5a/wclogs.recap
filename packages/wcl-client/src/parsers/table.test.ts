@@ -14,6 +14,17 @@ const loadProbeFixture = (name: string): unknown => {
     return JSON.parse(readFileSync(path, "utf8")) as unknown;
 };
 
+const loadPublicFixture = (name: string): unknown => {
+    const path = join(
+        process.cwd(),
+        "src",
+        "fixtures",
+        "probes",
+        `${name}.v4apgdkyWQmrZ3q8.fight-46.json`,
+    );
+    return JSON.parse(readFileSync(path, "utf8")) as unknown;
+};
+
 describe("table parser", () => {
     it("handles multiple table payload variants", () => {
         const damage = parseTablePayload(
@@ -78,6 +89,18 @@ describe("table parser", () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
+    it("parses public deaths fixture event rows", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            loadPublicFixture("deaths"),
+            "Deaths",
+            warn,
+        );
+        expect(parsed.entries).toHaveLength(4);
+        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(4);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
     it("parses dispels totals from nested details rows", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
@@ -107,6 +130,28 @@ describe("table parser", () => {
             { dataType: "Interrupts", playerId: 109, playerName: "Kickz", value: 5 },
         ]);
         expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(8);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("parses public dispels nested entries details totals", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            loadPublicFixture("dispels"),
+            "Dispels",
+            warn,
+        );
+        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(1);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("parses public interrupts nested entries details totals", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            loadPublicFixture("interrupts"),
+            "Interrupts",
+            warn,
+        );
+        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(3);
         expect(warn).not.toHaveBeenCalled();
     });
 

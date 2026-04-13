@@ -1,4 +1,48 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
+const loadPublicProbeFixture = (name: string): unknown =>
+    JSON.parse(
+        readFileSync(
+            join(
+                process.cwd(),
+                "src",
+                "fixtures",
+                "probes",
+                `${name}.v4apgdkyWQmrZ3q8.fight-46.json`,
+            ),
+            "utf8",
+        ),
+    ) as unknown;
+
+const loadEncounterProbeFixture = (name: string): unknown =>
+    JSON.parse(
+        readFileSync(
+            join(
+                process.cwd(),
+                "src",
+                "fixtures",
+                "probes",
+                `${name}.v4apgdkyWQmrZ3q8.encounter-51579.json`,
+            ),
+            "utf8",
+        ),
+    ) as unknown;
+
+const loadBaseReportFixture = (): unknown =>
+    JSON.parse(
+        readFileSync(
+            join(
+                process.cwd(),
+                "src",
+                "fixtures",
+                "probes",
+                "base-report.v4apgdkyWQmrZ3q8.json",
+            ),
+            "utf8",
+        ),
+    ) as unknown;
 
 describe("index contract", () => {
     vi.mock(
@@ -171,6 +215,109 @@ describe("index contract", () => {
             );
 
             expect(normalized.players[0]?.name).toBe("Alyra");
+        });
+
+        it("normalizes selected Lei Shen fight from public probe fixtures", () => {
+            const base = loadBaseReportFixture();
+            const deaths = loadPublicProbeFixture("deaths");
+            const dispels = loadPublicProbeFixture("dispels");
+            const interrupts = loadPublicProbeFixture("interrupts");
+            const damageTaken = loadPublicProbeFixture("damage-taken");
+            const healing = loadPublicProbeFixture("healing");
+            const survivability = loadPublicProbeFixture("survivability");
+            const bossRankings = loadPublicProbeFixture("boss-rankings");
+            const encounterPhaseTimes = loadEncounterProbeFixture("encounter-phase-times");
+
+            const resurrectEvents = loadPublicProbeFixture("resurrect-events") as {
+                pages?: Array<{ data?: unknown }>;
+            };
+            const resurrectCount = (resurrectEvents.pages ?? []).reduce(
+                (total, page) => {
+                    const events = Array.isArray(page.data) ? page.data : [];
+                    return total + events.length;
+                },
+                0,
+            );
+
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: { reportData: { report: base } },
+                    encounterPhaseTimes: [encounterPhaseTimes],
+                    encounterSummaries: [
+                        {
+                            encounterID: 51579,
+                            bossName: "Lei Shen",
+                            fightId: 46,
+                            kill: true,
+                            difficulty: 3,
+                            resurrects: resurrectCount,
+                            rankings: bossRankings,
+                            tables: {
+                                DamageTaken: damageTaken,
+                                Healing: healing,
+                                Deaths: deaths,
+                                Dispels: dispels,
+                                Interrupts: interrupts,
+                                Survivability: survivability,
+                            },
+                        },
+                    ],
+                },
+                {
+                    reportCode: "v4apgdkyWQmrZ3q8",
+                    gameFamily: "mop_classic",
+                    rawUrl: "https://classic.warcraftlogs.com/reports/v4apgdkyWQmrZ3q8",
+                },
+            );
+
+            const recap = normalized.bossPerformances?.[0];
+            expect(recap?.bossName).toBe("Lei Shen");
+            expect(recap?.pullCount).toBe(1);
+            expect(recap?.fightDurationMs).toBe(440287);
+            expect(recap?.deaths).toBe(4);
+            expect(recap?.dispels).toBe(1);
+            expect(recap?.kicks).toBe(3);
+            expect(recap?.battleRezzes).toBe(1);
+            expect(recap?.fastestPhaseTimes?.map((phase) => phase.label)).toEqual([
+                "P1",
+                "P3",
+                "P5",
+            ]);
+            expect(
+                recap?.bestParses?.map((entry) => ({
+                    player: entry.playerName,
+                    parse: entry.parse,
+                    amount: Math.round(entry.amount ?? 0),
+                    className: entry.className,
+                    specName: entry.specName,
+                })),
+            ).toEqual([
+                {
+                    player: "Raikami",
+                    parse: 99,
+                    amount: 169858,
+                    className: "Hunter",
+                    specName: "Survival",
+                },
+                {
+                    player: "Arakinak",
+                    parse: 79,
+                    amount: 94429,
+                    className: "Druid",
+                    specName: "Guardian",
+                },
+                {
+                    player: "Floorroller",
+                    parse: 43,
+                    amount: 48423,
+                    className: "Monk",
+                    specName: "Mistweaver",
+                },
+            ]);
+            expect(recap?.topHealers?.map((entry) => entry.playerName)).toEqual([
+                "Floorroller",
+                "Pearl",
+            ]);
         });
     });
 });

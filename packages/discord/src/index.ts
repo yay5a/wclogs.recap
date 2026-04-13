@@ -1288,7 +1288,7 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
             value: summary.topDamageTaken
                 .map(
                     (entry) =>
-                        `• ${entry.playerName} (${entry.value.toFixed(0)})${formatClassSpec(entry.classSpecLabel)}`,
+                        `• ${entry.playerName} (${formatCompactNumber(entry.value)})${formatClassSpec(entry.classSpecLabel)}`,
                 )
                 .join("\n"),
         });
@@ -1300,7 +1300,7 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
             value: summary.topHealers
                 .map(
                     (entry) =>
-                        `• ${entry.playerName} (${entry.value.toFixed(0)})${formatClassSpec(entry.classSpecLabel)}`,
+                        `• ${entry.playerName} (${formatCompactNumber(entry.value)})${formatClassSpec(entry.classSpecLabel)}`,
                 )
                 .join("\n"),
         });
@@ -1311,7 +1311,7 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
             ? `Total deaths: ${summary.totals.totalDeaths}`
             : undefined,
         typeof summary.totals.raidDamageTaken === "number"
-            ? `Raid damage taken: ${summary.totals.raidDamageTaken}`
+            ? `Raid damage taken: ${formatCompactNumber(summary.totals.raidDamageTaken)}`
             : undefined,
         typeof summary.totals.dispels === "number"
             ? `Dispels: ${summary.totals.dispels}`

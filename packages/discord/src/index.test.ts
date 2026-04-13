@@ -818,7 +818,7 @@ describe("embed rendering", () => {
                 },
             ],
             topDamageTaken: [{ playerName: "Tanky", value: 12345 }],
-            topHealers: [{ playerName: "Healz", value: 67890 }],
+            topHealers: [{ playerName: "Healz", value: 67890, classSpecLabel: "Mistweaver Monk" }],
             totals: {
                 totalDeaths: 5,
                 raidDamageTaken: 1234567,
@@ -841,6 +841,24 @@ describe("embed rendering", () => {
         expect(
             embed.fields.find((field) => field.name === "Totals")?.value,
         ).not.toContain("Most wipes:");
+        expect(
+            embed.fields.find((field) => field.name === "Top Damage Taken")?.value,
+        ).toContain("12.3K");
+        expect(
+            embed.fields.find((field) => field.name === "Top Healers")?.value,
+        ).toContain("67.9K");
+        expect(
+            embed.fields.find((field) => field.name === "Top Healers")?.value,
+        ).toContain("Mistweaver Monk");
+        expect(
+            embed.fields.find((field) => field.name === "Best Player Parses")?.value,
+        ).toContain("250K DPS");
+        expect(
+            embed.fields.find((field) => field.name === "Best Player Parses")?.value,
+        ).toContain("Shadow Priest");
+        expect(
+            embed.fields.find((field) => field.name === "Totals")?.value,
+        ).toContain("Raid damage taken: 1.2M");
     });
 
     it("degrades cleanly when optional fields are missing", () => {

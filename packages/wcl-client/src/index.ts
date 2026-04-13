@@ -12,6 +12,7 @@ import { resolveWclAccessToken } from "./oauth.js";
 import { createLogger } from "@wcl/shared";
 import type { ReportCacheStore } from "./report-cache-store.js";
 import {
+    asArray,
     asNumber,
     asObject,
     asString,
@@ -321,6 +322,7 @@ interface EnrichedRawReport {
     reportRankings?: unknown;
     playerDetails?: unknown;
     reportTables?: Partial<Record<TableDataType, unknown>>;
+    encounterPhaseTimes?: unknown;
     encounterSummaries: EncounterSummaryRow[];
 }
 
@@ -893,15 +895,17 @@ const getActorIdFromLeaderboard = (
 };
 
 const getSpecFromLeaderboard = (
-    entry: NormalizedLeaderboardEntry,
+    entry: NormalizedLeaderboardEntry | undefined,
 ): string | undefined => {
+    if (!entry) return undefined;
     const row = asObject(entry as unknown);
     return asString(row?.specName) ?? asString(row?.spec);
 };
 
 const getClassFromLeaderboard = (
-    entry: NormalizedLeaderboardEntry,
+    entry: NormalizedLeaderboardEntry | undefined,
 ): string | undefined => {
+    if (!entry) return undefined;
     const row = asObject(entry as unknown);
     return asString(row?.className) ?? asString(row?.class);
 };
@@ -991,6 +995,49 @@ const computeFastestPhaseTimes = (
             }
             return row;
         });
+};
+
+const parseEncounterPhaseTimesFromRaw = (
+    enriched?: Record<string, unknown>,
+): Map<number, Array<{ phaseId: number; label: string; name?: string; durationMs: number }>> => {
+    const result = new Map<
+        number,
+        Array<{ phaseId: number; label: string; name?: string; durationMs: number }>
+    >();
+    if (!enriched) return result;
+
+    const rows = asArray(enriched.encounterPhaseTimes) ?? [];
+    for (const value of rows) {
+        const row = asObject(value);
+        const encounterId = asNumber(row?.encounterId);
+        if (typeof encounterId !== "number") continue;
+
+        const phaseStats =
+            asArray(asObject(row?.summary)?.nonIntermissionPhaseStats) ?? [];
+        const normalized = phaseStats.flatMap((phaseValue: unknown) => {
+            const phase = asObject(phaseValue);
+            const phaseId = asNumber(phase?.phaseId);
+            const durationMs = asNumber(phase?.fastestDurationMs);
+            if (typeof phaseId !== "number" || typeof durationMs !== "number") {
+                return [];
+            }
+            const phaseName = asString(phase?.phaseName);
+            return [
+                {
+                    phaseId,
+                    label: `P${phaseId}`,
+                    durationMs,
+                    ...(phaseName ? { name: phaseName } : {}),
+                },
+            ];
+        });
+
+        if (normalized.length > 0) {
+            result.set(encounterId, normalized);
+        }
+    }
+
+    return result;
 };
 
 const parseEncounterSummariesFromRaw = (
@@ -1661,6 +1708,7 @@ export const normalizeEnrichedReport = (
     }
 
     const phaseMetadataByEncounterId = parseEncounterPhases(report);
+    const phaseTimesByEncounterId = parseEncounterPhaseTimesFromRaw(enriched);
     const fightsByEncounterId = new Map<number, FightSummaryRow[]>();
 
     for (const fight of allEncounterFights) {
@@ -1811,6 +1859,16 @@ export const normalizeEnrichedReport = (
             ];
         });
 
+        const leaderboardByPlayerName = new Map<string, NormalizedLeaderboardEntry>();
+        for (const entry of bossEntries) {
+            const playerName = getNameFromLeaderboard(entry);
+            if (!playerName) continue;
+            const key = normalizeName(playerName);
+            if (!leaderboardByPlayerName.has(key)) {
+                leaderboardByPlayerName.set(key, entry);
+            }
+        }
+
         const mapTableRows = (
             entries: ParsedTableEntry[] | undefined,
             limit = 3,
@@ -1825,8 +1883,13 @@ export const normalizeEnrichedReport = (
                 const player = entry.playerName
                     ? playerByName.get(normalizeName(entry.playerName))
                     : undefined;
-                const className = player?.className;
-                const specName = player?.specName;
+                const leaderboardRow = entry.playerName
+                    ? leaderboardByPlayerName.get(normalizeName(entry.playerName))
+                    : undefined;
+                const className =
+                    getClassFromLeaderboard(leaderboardRow) ?? player?.className;
+                const specName =
+                    getSpecFromLeaderboard(leaderboardRow) ?? player?.specName;
 
                 return {
                     playerName: entry.playerName ?? "Unknown",
@@ -1909,7 +1972,7 @@ export const normalizeEnrichedReport = (
                                   : parsedTableResults.Interrupts?.isValidEmpty
                                     ? 0
                                     : undefined;
-                          return {
+                      return {
                               ...(typeof deaths === "number" ? { deaths } : {}),
                               ...(typeof raidDamageTaken === "number"
                                   ? { raidDamageTaken }
@@ -1918,14 +1981,48 @@ export const normalizeEnrichedReport = (
                                   ? { dispels }
                                   : {}),
                               ...(typeof kicks === "number" ? { kicks } : {}),
-                          };
-                      })(),
-                      fastestPhaseTimes: computeFastestPhaseTimes(
-                          encounterFights,
-                          phaseMetadataByEncounterId.get(encounterID) ?? [],
-                      ),
+                      };
+                  })(),
+                      fastestPhaseTimes:
+                          phaseTimesByEncounterId.get(encounterID) ??
+                          computeFastestPhaseTimes(
+                              encounterFights,
+                              phaseMetadataByEncounterId.get(encounterID) ?? [],
+                          ),
                       topDamageTaken: mapTableRows(parsedTables.DamageTaken),
-                      topHealers: mapTableRows(parsedTables.Healing),
+                      topHealers: bossEntries
+                          .filter(
+                              (entry) =>
+                                  asString(asObject(entry as unknown)?.role)?.toLowerCase() ===
+                                  "healer",
+                          )
+                          .slice(0, 3)
+                          .flatMap((entry) => {
+                              const playerName = getNameFromLeaderboard(entry);
+                              if (!playerName) return [];
+                              const value = getAmountFromLeaderboard(entry);
+                              if (typeof value !== "number") return [];
+
+                              const actorId = getActorIdFromLeaderboard(entry);
+                              const player =
+                                  (typeof actorId === "number"
+                                      ? playerByActorId.get(actorId)
+                                      : undefined) ??
+                                  playerByName.get(normalizeName(playerName));
+                              const className =
+                                  getClassFromLeaderboard(entry) ?? player?.className;
+                              const specName =
+                                  getSpecFromLeaderboard(entry) ?? player?.specName;
+
+                              return [
+                                  {
+                                      playerName,
+                                      value,
+                                      ...(className ? { className } : {}),
+                                      ...(specName ? { specName } : {}),
+                                  },
+                              ];
+                          }),
                       ...(typeof summaryFight.resurrects === "number"
                           ? { battleRezzes: summaryFight.resurrects }
                           : {}),

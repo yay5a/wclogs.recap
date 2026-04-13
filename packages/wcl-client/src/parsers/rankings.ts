@@ -141,6 +141,7 @@ const toLeaderboardEntry = (
         asString(actor?.subType);
     const specName =
         asString(entry.specName) ??
+        asString(entry.spec) ??
         asString(player?.spec) ??
         asString(character?.spec);
     const role = asString(entry.role) ?? asString(player?.role);
