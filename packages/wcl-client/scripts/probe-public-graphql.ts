@@ -432,22 +432,24 @@ const logProbe = (args: {
 const run = async (): Promise<void> => {
     const args = getArgs();
 
-const apiBaseUrl = process.env.WCL_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
-const explicitToken = process.env.WCL_OAUTH_TOKEN?.trim();
-const clientId = process.env.WCL_CLIENT_ID?.trim();
-const clientSecret = process.env.WCL_CLIENT_SECRET?.trim();
+    const apiBaseUrl =
+        process.env.WCL_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
+    const explicitToken = process.env.WCL_OAUTH_TOKEN?.trim();
+    const clientId = process.env.WCL_CLIENT_ID?.trim();
+    const clientSecret = process.env.WCL_CLIENT_SECRET?.trim();
 
-const tokenOptions = {
-    ...(explicitToken ? { explicitToken } : {}),
-    ...(explicitToken
-        ? {}
-        : {
-              clientId: clientId || getRequiredEnv("WCL_CLIENT_ID"),
-              clientSecret: clientSecret || getRequiredEnv("WCL_CLIENT_SECRET"),
-          }),
-};
+    const tokenOptions = {
+        ...(explicitToken ? { explicitToken } : {}),
+        ...(explicitToken
+            ? {}
+            : {
+                  clientId: clientId || getRequiredEnv("WCL_CLIENT_ID"),
+                  clientSecret:
+                      clientSecret || getRequiredEnv("WCL_CLIENT_SECRET"),
+              }),
+    };
 
-const token = await resolveWclAccessToken(tokenOptions);
+    const token = await resolveWclAccessToken(tokenOptions);
 
     const client = new GraphQLClient(apiBaseUrl, {
         headers: {
@@ -532,17 +534,20 @@ const token = await resolveWclAccessToken(tokenOptions);
                 phases: encounterPhases,
             },
         });
-encounterPhasesEntry.summary = `phases=${encounterPhases.length}`;
+
+        encounterPhasesEntry.summary = `phases=${encounterPhases.length}`;
         manifestEntries.push(encounterPhasesEntry);
-logProbe({
-    probeFamily: "encounter-phases",
-    reportCode: args.reportCode,
-    encounterId,
-    ...(encounterPhasesEntry.fixturePath
-        ? { outputPath: encounterPhasesEntry.fixturePath }
-        : {}),
-    summary: `phases=${encounterPhases.length}`,
-});        const phaseTimes = deriveEncounterPhaseTimes({
+        logProbe({
+            probeFamily: "encounter-phases",
+            reportCode: args.reportCode,
+            encounterId,
+            ...(encounterPhasesEntry.fixturePath
+                ? { outputPath: encounterPhasesEntry.fixturePath }
+                : {}),
+            summary: `phases=${encounterPhases.length}`,
+        });
+
+        const phaseTimes = deriveEncounterPhaseTimes({
             encounterId,
             fights,
             metadata: encounterPhases,
@@ -557,15 +562,15 @@ logProbe({
         });
         encounterPhaseTimesEntry.summary = `attempts=${phaseTimes.summary.totalAttempts} kills=${phaseTimes.summary.killCount} wipes=${phaseTimes.summary.wipeCount}`;
         manifestEntries.push(encounterPhaseTimesEntry);
-logProbe({
-    probeFamily: "encounter-phase-times",
-    reportCode: args.reportCode,
-    encounterId,
-    ...(encounterPhaseTimesEntry.fixturePath
-        ? { outputPath: encounterPhaseTimesEntry.fixturePath }
-        : {}),
-    summary: encounterPhaseTimesEntry.summary,
-});
+        logProbe({
+            probeFamily: "encounter-phase-times",
+            reportCode: args.reportCode,
+            encounterId,
+            ...(encounterPhaseTimesEntry.fixturePath
+                ? { outputPath: encounterPhaseTimesEntry.fixturePath }
+                : {}),
+            summary: encounterPhaseTimesEntry.summary,
+        });
     } catch (error) {
         manifestEntries.push(
             await writeProbeArtifacts({
@@ -598,14 +603,14 @@ logProbe({
             });
             entry.summary = summarize(payload);
             manifestEntries.push(entry);
-logProbe({
-    probeFamily,
-    reportCode: args.reportCode,
-    fightId: args.fightId,
-    ...(typeof encounterId === "number" ? { encounterId } : {}),
-    ...(entry.fixturePath ? { outputPath: entry.fixturePath } : {}),
-    summary: entry.summary,
-});
+            logProbe({
+                probeFamily,
+                reportCode: args.reportCode,
+                fightId: args.fightId,
+                ...(typeof encounterId === "number" ? { encounterId } : {}),
+                ...(entry.fixturePath ? { outputPath: entry.fixturePath } : {}),
+                summary: entry.summary,
+            });
         } catch (error) {
             const entry = await writeProbeArtifacts({
                 outputDir,
@@ -617,14 +622,17 @@ logProbe({
                 error,
             });
             manifestEntries.push(entry);
-logProbe({
-    probeFamily,
-    reportCode: args.reportCode,
-    fightId: args.fightId,
-    ...(typeof encounterId === "number" ? { encounterId } : {}),
-    ...(entry.errorPath ? { outputPath: entry.errorPath } : {}),
-    summary: entry.errorMessage ?? "request failed",
-});
+            logProbe({
+                probeFamily,
+                reportCode: args.reportCode,
+                fightId: args.fightId,
+                ...(typeof encounterId === "number" ? { encounterId } : {}),
+                ...(entry.errorPath ? { outputPath: entry.errorPath } : {}),
+                summary: entry.errorMessage ?? "request failed",
+            });
+        }
+    };
+
     await queryFamilies(
         "report-rankings",
         `report-rankings.${args.reportCode}`,
