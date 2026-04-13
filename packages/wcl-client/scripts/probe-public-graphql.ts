@@ -8,7 +8,12 @@ import {
     type EncounterFightForTimings,
     type EncounterPhaseMetadata,
 } from "../src/probes/phase-timings.js";
-import { asArray, asNumber, asObject, asString } from "../src/parsers/common.js";
+import {
+    asArray,
+    asNumber,
+    asObject,
+    asString,
+} from "../src/parsers/common.js";
 
 const DEFAULT_API_BASE_URL = "https://www.warcraftlogs.com/api/v2/client";
 
@@ -194,7 +199,9 @@ const getArgs = (): ProbeArgs => {
         if (token === "--encounter") {
             const value = Number(args[index + 1]);
             if (!Number.isInteger(value) || value <= 0) {
-                throw new Error("--encounter expects a positive integer encounter id");
+                throw new Error(
+                    "--encounter expects a positive integer encounter id",
+                );
             }
             encounterId = value;
             index += 1;
@@ -227,16 +234,21 @@ const summarizeShape = (value: unknown): string => {
     const keys = root ? Object.keys(root) : [];
     const data = asArray(root?.data);
     const dataLength = data?.length;
-    const dataSegment = typeof dataLength === "number" ? ` dataLength=${dataLength}` : "";
+    const dataSegment =
+        typeof dataLength === "number" ? ` dataLength=${dataLength}` : "";
     return `type=${rootType} keys=[${keys.join(",")}]${dataSegment}`;
 };
 
-const normalizeEncounterFights = (report: unknown): EncounterFightForTimings[] => {
-    return (asArray(asObject(report)?.fights) ?? [])
-        .flatMap((value): EncounterFightForTimings[] => {
+const normalizeEncounterFights = (
+    report: unknown,
+): EncounterFightForTimings[] => {
+    return (asArray(asObject(report)?.fights) ?? []).flatMap(
+        (value): EncounterFightForTimings[] => {
             const row = asObject(value);
             const id = asNumber(row?.id);
-            const encounterID = asNumber(row?.encounterID) ?? asNumber(row?.originalEncounterID);
+            const encounterID =
+                asNumber(row?.encounterID) ??
+                asNumber(row?.originalEncounterID);
             const startTime = asNumber(row?.startTime);
             const endTime = asNumber(row?.endTime);
             if (
@@ -248,11 +260,16 @@ const normalizeEncounterFights = (report: unknown): EncounterFightForTimings[] =
                 return [];
             }
 
-            const phaseTransitions = (asArray(row?.phaseTransitions) ?? []).flatMap((entry) => {
+            const phaseTransitions = (
+                asArray(row?.phaseTransitions) ?? []
+            ).flatMap((entry) => {
                 const transition = asObject(entry);
                 const phaseId = asNumber(transition?.id);
                 const transitionStart = asNumber(transition?.startTime);
-                if (typeof phaseId !== "number" || typeof transitionStart !== "number") {
+                if (
+                    typeof phaseId !== "number" ||
+                    typeof transitionStart !== "number"
+                ) {
                     return [];
                 }
                 return [{ id: phaseId, startTime: transitionStart }];
@@ -268,10 +285,13 @@ const normalizeEncounterFights = (report: unknown): EncounterFightForTimings[] =
                     phaseTransitions,
                 },
             ];
-        });
+        },
+    );
 };
 
-const normalizeEncounterMetadata = (report: unknown): Array<{ encounterID: number; phases: EncounterPhaseMetadata[] }> => {
+const normalizeEncounterMetadata = (
+    report: unknown,
+): Array<{ encounterID: number; phases: EncounterPhaseMetadata[] }> => {
     return (asArray(asObject(report)?.phases) ?? []).flatMap((value) => {
         const row = asObject(value);
         const encounterID = asNumber(row?.encounterID);
@@ -321,7 +341,8 @@ const resolveEncounterId = (
     return selectedFight.encounterID;
 };
 
-const getRankingsSummary = (payload: unknown): string => summarizeRankingsPayload(payload).logLine;
+const getRankingsSummary = (payload: unknown): string =>
+    summarizeRankingsPayload(payload).logLine;
 
 const writeProbeArtifacts = async (args: {
     outputDir: string;
@@ -339,7 +360,9 @@ const writeProbeArtifacts = async (args: {
         probeFamily,
         reportCode: args.reportCode,
         ...(typeof args.fightId === "number" ? { fightId: args.fightId } : {}),
-        ...(typeof args.encounterId === "number" ? { encounterId: args.encounterId } : {}),
+        ...(typeof args.encounterId === "number"
+            ? { encounterId: args.encounterId }
+            : {}),
         generatedAt: new Date().toISOString(),
         payload: args.payload ?? null,
         ...(typeof args.error !== "undefined" ? { error: args.error } : {}),
@@ -357,7 +380,11 @@ const writeProbeArtifacts = async (args: {
 
     if (typeof args.payload !== "undefined") {
         const fixturePath = join(outputDir, `${fixtureName}.json`);
-        await writeFile(fixturePath, JSON.stringify(args.payload, null, 2), "utf8");
+        await writeFile(
+            fixturePath,
+            JSON.stringify(args.payload, null, 2),
+            "utf8",
+        );
         entry.fixturePath = fixturePath;
     }
 
@@ -372,7 +399,9 @@ const writeProbeArtifacts = async (args: {
         await writeFile(errorPath, JSON.stringify(args.error, null, 2), "utf8");
         entry.errorPath = errorPath;
         entry.errorMessage =
-            args.error instanceof Error ? args.error.message : `Probe failed for ${probeFamily}`;
+            args.error instanceof Error
+                ? args.error.message
+                : `Probe failed for ${probeFamily}`;
     }
 
     return entry;
@@ -390,7 +419,9 @@ const logProbe = (args: {
         `[${args.probeFamily}]`,
         `report=${args.reportCode}`,
         ...(typeof args.fightId === "number" ? [`fight=${args.fightId}`] : []),
-        ...(typeof args.encounterId === "number" ? [`encounter=${args.encounterId}`] : []),
+        ...(typeof args.encounterId === "number"
+            ? [`encounter=${args.encounterId}`]
+            : []),
         ...(args.outputPath ? [`output=${args.outputPath}`] : []),
         args.summary,
     ];
@@ -401,19 +432,24 @@ const logProbe = (args: {
 const run = async (): Promise<void> => {
     const args = getArgs();
 
-    const apiBaseUrl = process.env.WCL_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
+    const apiBaseUrl =
+        process.env.WCL_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
     const explicitToken = process.env.WCL_OAUTH_TOKEN?.trim();
     const clientId = process.env.WCL_CLIENT_ID?.trim();
     const clientSecret = process.env.WCL_CLIENT_SECRET?.trim();
-    const token = await resolveWclAccessToken({
-        explicitToken,
+
+    const tokenOptions = {
+        ...(explicitToken ? { explicitToken } : {}),
         ...(explicitToken
             ? {}
             : {
                   clientId: clientId || getRequiredEnv("WCL_CLIENT_ID"),
-                  clientSecret: clientSecret || getRequiredEnv("WCL_CLIENT_SECRET"),
+                  clientSecret:
+                      clientSecret || getRequiredEnv("WCL_CLIENT_SECRET"),
               }),
-    });
+    };
+
+    const token = await resolveWclAccessToken(tokenOptions);
 
     const client = new GraphQLClient(apiBaseUrl, {
         headers: {
@@ -421,7 +457,7 @@ const run = async (): Promise<void> => {
         },
     });
 
-    const outputDir = join(process.cwd(), "packages/wcl-client/src/fixtures/probes");
+    const outputDir = join(process.cwd(), "src/fixtures/probes");
     await mkdir(outputDir, { recursive: true });
 
     const manifestEntries: ManifestEntry[] = [];
@@ -449,10 +485,11 @@ const run = async (): Promise<void> => {
         logProbe({
             probeFamily: "base-report",
             reportCode: args.reportCode,
-            outputPath: baseEntry.fixturePath,
+            ...(baseEntry.fixturePath
+                ? { outputPath: baseEntry.fixturePath }
+                : {}),
             summary: baseEntry.summary,
         });
-
         const masterDataEntry = await writeProbeArtifacts({
             outputDir,
             fixtureName: `master-data.${args.reportCode}`,
@@ -460,21 +497,31 @@ const run = async (): Promise<void> => {
             reportCode: args.reportCode,
             payload: asObject(reportNode)?.masterData ?? null,
         });
-        masterDataEntry.summary = summarizeShape(asObject(reportNode)?.masterData);
+        masterDataEntry.summary = summarizeShape(
+            asObject(reportNode)?.masterData,
+        );
         manifestEntries.push(masterDataEntry);
         logProbe({
             probeFamily: "master-data",
             reportCode: args.reportCode,
-            outputPath: masterDataEntry.fixturePath,
+            ...(masterDataEntry.fixturePath
+                ? { outputPath: masterDataEntry.fixturePath }
+                : {}),
             summary: masterDataEntry.summary,
         });
 
         fights = normalizeEncounterFights(reportNode);
-        encounterId = resolveEncounterId(fights, args.fightId, args.encounterId);
+        encounterId = resolveEncounterId(
+            fights,
+            args.fightId,
+            args.encounterId,
+        );
 
         const metadataByEncounter = normalizeEncounterMetadata(reportNode);
         const encounterPhases =
-            metadataByEncounter.find((entry) => entry.encounterID === encounterId)?.phases ?? [];
+            metadataByEncounter.find(
+                (entry) => entry.encounterID === encounterId,
+            )?.phases ?? [];
 
         const encounterPhasesEntry = await writeProbeArtifacts({
             outputDir,
@@ -487,17 +534,17 @@ const run = async (): Promise<void> => {
                 phases: encounterPhases,
             },
         });
-        encounterPhasesEntry.summary = summarizeShape(encounterPhasesEntry.fixturePath ? { phases: encounterPhases } : null);
+encounterPhasesEntry.summary = `phases=${encounterPhases.length}`;
         manifestEntries.push(encounterPhasesEntry);
-        logProbe({
-            probeFamily: "encounter-phases",
-            reportCode: args.reportCode,
-            encounterId,
-            outputPath: encounterPhasesEntry.fixturePath,
-            summary: `phases=${encounterPhases.length}`,
-        });
-
-        const phaseTimes = deriveEncounterPhaseTimes({
+logProbe({
+    probeFamily: "encounter-phases",
+    reportCode: args.reportCode,
+    encounterId,
+    ...(encounterPhasesEntry.fixturePath
+        ? { outputPath: encounterPhasesEntry.fixturePath }
+        : {}),
+    summary: `phases=${encounterPhases.length}`,
+});        const phaseTimes = deriveEncounterPhaseTimes({
             encounterId,
             fights,
             metadata: encounterPhases,
@@ -512,13 +559,15 @@ const run = async (): Promise<void> => {
         });
         encounterPhaseTimesEntry.summary = `attempts=${phaseTimes.summary.totalAttempts} kills=${phaseTimes.summary.killCount} wipes=${phaseTimes.summary.wipeCount}`;
         manifestEntries.push(encounterPhaseTimesEntry);
-        logProbe({
-            probeFamily: "encounter-phase-times",
-            reportCode: args.reportCode,
-            encounterId,
-            outputPath: encounterPhaseTimesEntry.fixturePath,
-            summary: encounterPhaseTimesEntry.summary,
-        });
+logProbe({
+    probeFamily: "encounter-phase-times",
+    reportCode: args.reportCode,
+    encounterId,
+    ...(encounterPhaseTimesEntry.fixturePath
+        ? { outputPath: encounterPhaseTimesEntry.fixturePath }
+        : {}),
+    summary: encounterPhaseTimesEntry.summary,
+});
     } catch (error) {
         manifestEntries.push(
             await writeProbeArtifacts({
@@ -551,14 +600,14 @@ const run = async (): Promise<void> => {
             });
             entry.summary = summarize(payload);
             manifestEntries.push(entry);
-            logProbe({
-                probeFamily,
-                reportCode: args.reportCode,
-                fightId: args.fightId,
-                ...(typeof encounterId === "number" ? { encounterId } : {}),
-                outputPath: entry.fixturePath,
-                summary: entry.summary,
-            });
+logProbe({
+    probeFamily,
+    reportCode: args.reportCode,
+    fightId: args.fightId,
+    ...(typeof encounterId === "number" ? { encounterId } : {}),
+    ...(entry.fixturePath ? { outputPath: entry.fixturePath } : {}),
+    summary: entry.summary,
+});
         } catch (error) {
             const entry = await writeProbeArtifacts({
                 outputDir,
@@ -570,25 +619,28 @@ const run = async (): Promise<void> => {
                 error,
             });
             manifestEntries.push(entry);
-            logProbe({
-                probeFamily,
-                reportCode: args.reportCode,
-                fightId: args.fightId,
-                ...(typeof encounterId === "number" ? { encounterId } : {}),
-                outputPath: entry.errorPath,
-                summary: entry.errorMessage ?? "request failed",
-            });
-        }
-    };
-
+logProbe({
+    probeFamily,
+    reportCode: args.reportCode,
+    fightId: args.fightId,
+    ...(typeof encounterId === "number" ? { encounterId } : {}),
+    ...(entry.errorPath ? { outputPath: entry.errorPath } : {}),
+    summary: entry.errorMessage ?? "request failed",
+});
     await queryFamilies(
         "report-rankings",
         `report-rankings.${args.reportCode}`,
         async () => {
-            const result = await client.request<unknown>(REPORT_RANKINGS_QUERY, {
-                reportCode: args.reportCode,
-            });
-            return asObject(asObject(asObject(result)?.reportData)?.report)?.rankings ?? null;
+            const result = await client.request<unknown>(
+                REPORT_RANKINGS_QUERY,
+                {
+                    reportCode: args.reportCode,
+                },
+            );
+            return (
+                asObject(asObject(asObject(result)?.reportData)?.report)
+                    ?.rankings ?? null
+            );
         },
         getRankingsSummary,
     );
@@ -601,18 +653,49 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightIDs: [args.fightId],
             });
-            return asObject(asObject(asObject(result)?.reportData)?.report)?.rankings ?? null;
+            return (
+                asObject(asObject(asObject(result)?.reportData)?.report)
+                    ?.rankings ?? null
+            );
         },
         getRankingsSummary,
     );
 
-    const tableFamilies: Array<{ probeFamily: ProbeFamily; dataType: string; filePrefix: string }> = [
-        { probeFamily: "table-damage-taken", dataType: "DamageTaken", filePrefix: "damage-taken" },
-        { probeFamily: "table-healing", dataType: "Healing", filePrefix: "healing" },
-        { probeFamily: "table-deaths", dataType: "Deaths", filePrefix: "deaths" },
-        { probeFamily: "table-dispels", dataType: "Dispels", filePrefix: "dispels" },
-        { probeFamily: "table-interrupts", dataType: "Interrupts", filePrefix: "interrupts" },
-        { probeFamily: "table-survivability", dataType: "Survivability", filePrefix: "survivability" },
+    const tableFamilies: Array<{
+        probeFamily: ProbeFamily;
+        dataType: string;
+        filePrefix: string;
+    }> = [
+        {
+            probeFamily: "table-damage-taken",
+            dataType: "DamageTaken",
+            filePrefix: "damage-taken",
+        },
+        {
+            probeFamily: "table-healing",
+            dataType: "Healing",
+            filePrefix: "healing",
+        },
+        {
+            probeFamily: "table-deaths",
+            dataType: "Deaths",
+            filePrefix: "deaths",
+        },
+        {
+            probeFamily: "table-dispels",
+            dataType: "Dispels",
+            filePrefix: "dispels",
+        },
+        {
+            probeFamily: "table-interrupts",
+            dataType: "Interrupts",
+            filePrefix: "interrupts",
+        },
+        {
+            probeFamily: "table-survivability",
+            dataType: "Survivability",
+            filePrefix: "survivability",
+        },
     ];
 
     for (const tableFamily of tableFamilies) {
@@ -625,7 +708,10 @@ const run = async (): Promise<void> => {
                     fightIDs: [args.fightId],
                     dataType: tableFamily.dataType,
                 });
-                return asObject(asObject(asObject(result)?.reportData)?.report)?.table ?? null;
+                return (
+                    asObject(asObject(asObject(result)?.reportData)?.report)
+                        ?.table ?? null
+                );
             },
             summarizeShape,
         );
@@ -639,18 +725,25 @@ const run = async (): Promise<void> => {
             let startTime: number | undefined;
 
             for (;;) {
-                const result = await client.request<unknown>(RESURRECT_EVENTS_QUERY, {
-                    reportCode: args.reportCode,
-                    fightIDs: [args.fightId],
-                    startTime,
-                    filterExpression: 'type = "resurrect"',
-                });
+                const result = await client.request<unknown>(
+                    RESURRECT_EVENTS_QUERY,
+                    {
+                        reportCode: args.reportCode,
+                        fightIDs: [args.fightId],
+                        startTime,
+                        filterExpression: 'type = "resurrect"',
+                    },
+                );
 
-                const events = asObject(asObject(asObject(result)?.reportData)?.report)?.events;
+                const events = asObject(
+                    asObject(asObject(result)?.reportData)?.report,
+                )?.events;
                 const eventNode = asObject(events);
                 pages.push(eventNode ?? null);
 
-                const nextPageTimestamp = asNumber(eventNode?.nextPageTimestamp);
+                const nextPageTimestamp = asNumber(
+                    eventNode?.nextPageTimestamp,
+                );
                 if (typeof nextPageTimestamp !== "number") {
                     break;
                 }
@@ -681,20 +774,37 @@ const run = async (): Promise<void> => {
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
                 generatedAt: new Date().toISOString(),
-                probeFamiliesRun: manifestEntries.map((entry) => entry.probeFamily),
+                probeFamiliesRun: manifestEntries.map(
+                    (entry) => entry.probeFamily,
+                ),
                 entries: manifestEntries.map((entry) => ({
                     ...entry,
                     ...(entry.fixturePath
-                        ? { fixturePath: relative(process.cwd(), entry.fixturePath) }
+                        ? {
+                              fixturePath: relative(
+                                  process.cwd(),
+                                  entry.fixturePath,
+                              ),
+                          }
                         : {}),
                     ...(entry.debugPath
-                        ? { debugPath: relative(process.cwd(), entry.debugPath) }
+                        ? {
+                              debugPath: relative(
+                                  process.cwd(),
+                                  entry.debugPath,
+                              ),
+                          }
                         : {}),
                     ...(entry.logsPath
                         ? { logsPath: relative(process.cwd(), entry.logsPath) }
                         : {}),
                     ...(entry.errorPath
-                        ? { errorPath: relative(process.cwd(), entry.errorPath) }
+                        ? {
+                              errorPath: relative(
+                                  process.cwd(),
+                                  entry.errorPath,
+                              ),
+                          }
                         : {}),
                 })),
             },
