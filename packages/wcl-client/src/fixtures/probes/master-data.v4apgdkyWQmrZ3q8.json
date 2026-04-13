@@ -1,0 +1,4778 @@
+{
+  "actors": [
+    {
+      "id": 1,
+      "name": "Darshaneth",
+      "subType": "DeathKnight",
+      "server": "Galakras"
+    },
+    {
+      "id": 5,
+      "name": "Floorroller",
+      "subType": "Monk",
+      "server": "Galakras"
+    },
+    {
+      "id": 6,
+      "name": "Wildin",
+      "subType": "DeathKnight",
+      "server": "Galakras"
+    },
+    {
+      "id": 9,
+      "name": "Vesper",
+      "subType": "Shaman",
+      "server": "Galakras"
+    },
+    {
+      "id": 10,
+      "name": "Deeboom",
+      "subType": "Druid",
+      "server": "Galakras"
+    },
+    {
+      "id": 12,
+      "name": "Arakinak",
+      "subType": "Druid",
+      "server": "Galakras"
+    },
+    {
+      "id": 15,
+      "name": "Jokeroftame",
+      "subType": "Hunter",
+      "server": "Galakras"
+    },
+    {
+      "id": 33,
+      "name": "Pearl",
+      "subType": "Shaman",
+      "server": "Galakras"
+    },
+    {
+      "id": 34,
+      "name": "Yaysa",
+      "subType": "Rogue",
+      "server": "Galakras"
+    },
+    {
+      "id": 40,
+      "name": "Raikami",
+      "subType": "Hunter",
+      "server": "Galakras"
+    },
+    {
+      "id": 41,
+      "name": "Manonk",
+      "subType": "Unknown",
+      "server": "Pagle"
+    },
+    {
+      "id": 43,
+      "name": "Aulsê",
+      "subType": "Unknown",
+      "server": "Pagle"
+    }
+  ],
+  "abilities": [
+    {
+      "gameID": 0,
+      "name": "Unknown Ability",
+      "type": "0"
+    },
+    {
+      "gameID": 52212,
+      "name": "Death and Decay",
+      "type": "32"
+    },
+    {
+      "gameID": 138958,
+      "name": "Spark of Zandalar",
+      "type": "1"
+    },
+    {
+      "gameID": 115175,
+      "name": "Soothing Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 125953,
+      "name": "Soothing Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 105706,
+      "name": "Potion of Mogu Power",
+      "type": "16"
+    },
+    {
+      "gameID": 77575,
+      "name": "Outbreak",
+      "type": "32"
+    },
+    {
+      "gameID": 55078,
+      "name": "Blood Plague",
+      "type": "32"
+    },
+    {
+      "gameID": 115798,
+      "name": "Weakened Blows",
+      "type": "1"
+    },
+    {
+      "gameID": 55095,
+      "name": "Frost Fever",
+      "type": "16"
+    },
+    {
+      "gameID": 43265,
+      "name": "Death and Decay",
+      "type": "32"
+    },
+    {
+      "gameID": 138702,
+      "name": "Surge of Strength",
+      "type": "1"
+    },
+    {
+      "gameID": 138342,
+      "name": "Risen Zandalari",
+      "type": "1"
+    },
+    {
+      "gameID": 138759,
+      "name": "Feathers of Fury",
+      "type": "1"
+    },
+    {
+      "gameID": 138760,
+      "name": "Mighty",
+      "type": "1"
+    },
+    {
+      "gameID": 50421,
+      "name": "Scent of Blood",
+      "type": "1"
+    },
+    {
+      "gameID": 1,
+      "name": "Melee",
+      "type": "1"
+    },
+    {
+      "gameID": 50452,
+      "name": "Blood Parasite",
+      "type": "32"
+    },
+    {
+      "gameID": 81277,
+      "name": "Blood Gorged",
+      "type": "1"
+    },
+    {
+      "gameID": 132365,
+      "name": "Vengeance",
+      "type": "1"
+    },
+    {
+      "gameID": 49222,
+      "name": "Bone Shield",
+      "type": "32"
+    },
+    {
+      "gameID": 145677,
+      "name": "Riposte",
+      "type": "1"
+    },
+    {
+      "gameID": 119611,
+      "name": "Renewing Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 93402,
+      "name": "Sunfire",
+      "type": "8"
+    },
+    {
+      "gameID": 104993,
+      "name": "Jade Spirit",
+      "type": "2"
+    },
+    {
+      "gameID": 81192,
+      "name": "Lunar Shower",
+      "type": "8"
+    },
+    {
+      "gameID": 138786,
+      "name": "Wushoolay's Lightning",
+      "type": "1"
+    },
+    {
+      "gameID": 138788,
+      "name": "Electrified",
+      "type": "1"
+    },
+    {
+      "gameID": 137590,
+      "name": "Tempus Repit",
+      "type": "64"
+    },
+    {
+      "gameID": 138963,
+      "name": "Perfect Aim",
+      "type": "1"
+    },
+    {
+      "gameID": 116335,
+      "name": "Soothing Mist",
+      "type": "1"
+    },
+    {
+      "gameID": 81256,
+      "name": "Dancing Rune Weapon",
+      "type": "1"
+    },
+    {
+      "gameID": 49028,
+      "name": "Dancing Rune Weapon",
+      "type": "1"
+    },
+    {
+      "gameID": 45470,
+      "name": "Death Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 77535,
+      "name": "Blood Shield",
+      "type": "32"
+    },
+    {
+      "gameID": 49998,
+      "name": "Death Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 105689,
+      "name": "Flask of Spring Blossoms",
+      "type": "1"
+    },
+    {
+      "gameID": 81326,
+      "name": "Physical Vulnerability",
+      "type": "1"
+    },
+    {
+      "gameID": 125950,
+      "name": "Soothing Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 96230,
+      "name": "Synapse Springs",
+      "type": "1"
+    },
+    {
+      "gameID": 126734,
+      "name": "Synapse Springs",
+      "type": "1"
+    },
+    {
+      "gameID": 8921,
+      "name": "Moonfire",
+      "type": "64"
+    },
+    {
+      "gameID": 139231,
+      "name": "Water Bolt",
+      "type": "16"
+    },
+    {
+      "gameID": 138537,
+      "name": "Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 91776,
+      "name": "Claw",
+      "type": "1"
+    },
+    {
+      "gameID": 96229,
+      "name": "Synapse Springs",
+      "type": "1"
+    },
+    {
+      "gameID": 82939,
+      "name": "Explosive Trap",
+      "type": "4"
+    },
+    {
+      "gameID": 56815,
+      "name": "Rune Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 2645,
+      "name": "Ghost Wolf",
+      "type": "8"
+    },
+    {
+      "gameID": 546,
+      "name": "Water Walking",
+      "type": "8"
+    },
+    {
+      "gameID": 421,
+      "name": "Chain Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 93400,
+      "name": "Shooting Stars",
+      "type": "8"
+    },
+    {
+      "gameID": 48721,
+      "name": "Blood Boil",
+      "type": "32"
+    },
+    {
+      "gameID": 45334,
+      "name": "Immobilized",
+      "type": "1"
+    },
+    {
+      "gameID": 16979,
+      "name": "Wild Charge",
+      "type": "1"
+    },
+    {
+      "gameID": 138756,
+      "name": "Blades of Renataki",
+      "type": "1"
+    },
+    {
+      "gameID": 138737,
+      "name": "Blades",
+      "type": "1"
+    },
+    {
+      "gameID": 48391,
+      "name": "Owlkin Frenzy",
+      "type": "1"
+    },
+    {
+      "gameID": 139251,
+      "name": "Water Bolt",
+      "type": "16"
+    },
+    {
+      "gameID": 82938,
+      "name": "Explosive Trap",
+      "type": "4"
+    },
+    {
+      "gameID": 91800,
+      "name": "Gnaw",
+      "type": "1"
+    },
+    {
+      "gameID": 81141,
+      "name": "Crimson Scourge",
+      "type": "1"
+    },
+    {
+      "gameID": 85948,
+      "name": "Festering Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 33878,
+      "name": "Mangle",
+      "type": "1"
+    },
+    {
+      "gameID": 137596,
+      "name": "Capacitance",
+      "type": "8"
+    },
+    {
+      "gameID": 120032,
+      "name": "Dancing Steel",
+      "type": "32"
+    },
+    {
+      "gameID": 138699,
+      "name": "Superluminal",
+      "type": "1"
+    },
+    {
+      "gameID": 2643,
+      "name": "Multi-Shot",
+      "type": "1"
+    },
+    {
+      "gameID": 75,
+      "name": "Auto Shot",
+      "type": "1"
+    },
+    {
+      "gameID": 324,
+      "name": "Lightning Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 88765,
+      "name": "Rolling Thunder",
+      "type": "1"
+    },
+    {
+      "gameID": 16246,
+      "name": "Clearcasting",
+      "type": "8"
+    },
+    {
+      "gameID": 137099,
+      "name": "Bind Water",
+      "type": "1"
+    },
+    {
+      "gameID": 137331,
+      "name": "Lucidity",
+      "type": "2"
+    },
+    {
+      "gameID": 126588,
+      "name": "Arcane Secrets",
+      "type": "1"
+    },
+    {
+      "gameID": 138941,
+      "name": "Death by Voodoo Gnome",
+      "type": "1"
+    },
+    {
+      "gameID": 138938,
+      "name": "Juju Madness",
+      "type": "32"
+    },
+    {
+      "gameID": 55050,
+      "name": "Heart Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 83077,
+      "name": "Improved Serpent Sting",
+      "type": "8"
+    },
+    {
+      "gameID": 118253,
+      "name": "Serpent Sting",
+      "type": "8"
+    },
+    {
+      "gameID": 55090,
+      "name": "Scourge Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 53365,
+      "name": "Unholy Strength",
+      "type": "1"
+    },
+    {
+      "gameID": 140049,
+      "name": "Wounding Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 70890,
+      "name": "Scourge Strike",
+      "type": "32"
+    },
+    {
+      "gameID": 43996,
+      "name": "Lightning Blast",
+      "type": "8"
+    },
+    {
+      "gameID": 138366,
+      "name": "Lightning Arrow",
+      "type": "8"
+    },
+    {
+      "gameID": 126659,
+      "name": "Quickened Tongues",
+      "type": "1"
+    },
+    {
+      "gameID": 115151,
+      "name": "Renewing Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 77758,
+      "name": "Thrash",
+      "type": "1"
+    },
+    {
+      "gameID": 68285,
+      "name": "Leader of the Pack",
+      "type": "1"
+    },
+    {
+      "gameID": 34299,
+      "name": "Leader of the Pack",
+      "type": "1"
+    },
+    {
+      "gameID": 13812,
+      "name": "Explosive Trap",
+      "type": "4"
+    },
+    {
+      "gameID": 81280,
+      "name": "Blood Burst",
+      "type": "32"
+    },
+    {
+      "gameID": 139218,
+      "name": "Storm Weapon",
+      "type": "8"
+    },
+    {
+      "gameID": 47541,
+      "name": "Death Coil",
+      "type": "32"
+    },
+    {
+      "gameID": 81340,
+      "name": "Sudden Doom",
+      "type": "1"
+    },
+    {
+      "gameID": 117050,
+      "name": "Glaive Toss",
+      "type": "9"
+    },
+    {
+      "gameID": 47632,
+      "name": "Death Coil",
+      "type": "32"
+    },
+    {
+      "gameID": 51460,
+      "name": "Runic Corruption",
+      "type": "32"
+    },
+    {
+      "gameID": 91342,
+      "name": "Shadow Infusion",
+      "type": "1"
+    },
+    {
+      "gameID": 6807,
+      "name": "Maul",
+      "type": "1"
+    },
+    {
+      "gameID": 58180,
+      "name": "Infected Wounds",
+      "type": "8"
+    },
+    {
+      "gameID": 45297,
+      "name": "Chain Lightning Overload",
+      "type": "8"
+    },
+    {
+      "gameID": 139220,
+      "name": "Storm Weapon",
+      "type": "8"
+    },
+    {
+      "gameID": 120761,
+      "name": "Glaive Toss",
+      "type": "1"
+    },
+    {
+      "gameID": 121414,
+      "name": "Glaive Toss",
+      "type": "1"
+    },
+    {
+      "gameID": 770,
+      "name": "Faerie Fire",
+      "type": "8"
+    },
+    {
+      "gameID": 113746,
+      "name": "Mystic Touch",
+      "type": "1"
+    },
+    {
+      "gameID": 77767,
+      "name": "Cobra Shot",
+      "type": "8"
+    },
+    {
+      "gameID": 145109,
+      "name": "Ysera's Gift",
+      "type": "8"
+    },
+    {
+      "gameID": 124682,
+      "name": "Enveloping Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 132120,
+      "name": "Enveloping Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 115867,
+      "name": "Mana Tea",
+      "type": "1"
+    },
+    {
+      "gameID": 118974,
+      "name": "Viper Venom",
+      "type": "8"
+    },
+    {
+      "gameID": 50334,
+      "name": "Berserk",
+      "type": "1"
+    },
+    {
+      "gameID": 16959,
+      "name": "Primal Fury",
+      "type": "1"
+    },
+    {
+      "gameID": 135286,
+      "name": "Tooth and Claw",
+      "type": "1"
+    },
+    {
+      "gameID": 109132,
+      "name": "Roll",
+      "type": "1"
+    },
+    {
+      "gameID": 124974,
+      "name": "Nature's Vigil",
+      "type": "8"
+    },
+    {
+      "gameID": 124988,
+      "name": "Nature's Vigil",
+      "type": "8"
+    },
+    {
+      "gameID": 45462,
+      "name": "Plague Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 91954,
+      "name": "Energize",
+      "type": "8"
+    },
+    {
+      "gameID": 132402,
+      "name": "Savage Defense",
+      "type": "8"
+    },
+    {
+      "gameID": 62606,
+      "name": "Savage Defense",
+      "type": "8"
+    },
+    {
+      "gameID": 8042,
+      "name": "Earth Shock",
+      "type": "8"
+    },
+    {
+      "gameID": 88767,
+      "name": "Fulmination",
+      "type": "8"
+    },
+    {
+      "gameID": 139597,
+      "name": "Muscle Memory",
+      "type": "1"
+    },
+    {
+      "gameID": 115695,
+      "name": "Jab",
+      "type": "1"
+    },
+    {
+      "gameID": 126890,
+      "name": "Ancient Teachings of the Monastery",
+      "type": "8"
+    },
+    {
+      "gameID": 117895,
+      "name": "Eminence (Statue)",
+      "type": "8"
+    },
+    {
+      "gameID": 48707,
+      "name": "Anti-Magic Shell",
+      "type": "32"
+    },
+    {
+      "gameID": 88747,
+      "name": "Wild Mushroom",
+      "type": "8"
+    },
+    {
+      "gameID": 109085,
+      "name": "Lord Blastington's Scope of Doom",
+      "type": "1"
+    },
+    {
+      "gameID": 100784,
+      "name": "Blackout Kick",
+      "type": "1"
+    },
+    {
+      "gameID": 127722,
+      "name": "Serpent's Zeal",
+      "type": "1"
+    },
+    {
+      "gameID": 138574,
+      "name": "Dire Beast",
+      "type": "8"
+    },
+    {
+      "gameID": 120679,
+      "name": "Dire Beast",
+      "type": "8"
+    },
+    {
+      "gameID": 82716,
+      "name": "Energize",
+      "type": "8"
+    },
+    {
+      "gameID": 136953,
+      "name": "Frostbolt",
+      "type": "1"
+    },
+    {
+      "gameID": 145110,
+      "name": "Ysera's Gift",
+      "type": "8"
+    },
+    {
+      "gameID": 89265,
+      "name": "Eclipse Energy",
+      "type": "1"
+    },
+    {
+      "gameID": 78674,
+      "name": "Starsurge",
+      "type": "72"
+    },
+    {
+      "gameID": 49088,
+      "name": "Anti-Magic Shell",
+      "type": "32"
+    },
+    {
+      "gameID": 119381,
+      "name": "Leg Sweep",
+      "type": "1"
+    },
+    {
+      "gameID": 130736,
+      "name": "Soul Reaper",
+      "type": "1"
+    },
+    {
+      "gameID": 115098,
+      "name": "Chi Wave",
+      "type": "8"
+    },
+    {
+      "gameID": 132467,
+      "name": "Chi Wave",
+      "type": "8"
+    },
+    {
+      "gameID": 138363,
+      "name": "Summon Thunderhawk",
+      "type": "1"
+    },
+    {
+      "gameID": 138374,
+      "name": "Lightning Blast",
+      "type": "8"
+    },
+    {
+      "gameID": 132463,
+      "name": "Chi Wave",
+      "type": "8"
+    },
+    {
+      "gameID": 125359,
+      "name": "Tiger Power",
+      "type": "1"
+    },
+    {
+      "gameID": 100787,
+      "name": "Tiger Palm",
+      "type": "1"
+    },
+    {
+      "gameID": 118674,
+      "name": "Vital Mists",
+      "type": "1"
+    },
+    {
+      "gameID": 5176,
+      "name": "Wrath",
+      "type": "8"
+    },
+    {
+      "gameID": 779,
+      "name": "Swipe",
+      "type": "1"
+    },
+    {
+      "gameID": 114868,
+      "name": "Soul Reaper",
+      "type": "32"
+    },
+    {
+      "gameID": 135601,
+      "name": "Tooth and Claw",
+      "type": "1"
+    },
+    {
+      "gameID": 33745,
+      "name": "Lacerate",
+      "type": "1"
+    },
+    {
+      "gameID": 48505,
+      "name": "Starfall",
+      "type": "64"
+    },
+    {
+      "gameID": 139206,
+      "name": "Focused Lightning",
+      "type": "1"
+    },
+    {
+      "gameID": 136881,
+      "name": "Deluge",
+      "type": "1"
+    },
+    {
+      "gameID": 26364,
+      "name": "Lightning Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 93622,
+      "name": "Gore",
+      "type": "1"
+    },
+    {
+      "gameID": 50288,
+      "name": "Starfall",
+      "type": "64"
+    },
+    {
+      "gameID": 137597,
+      "name": "Lightning Strike",
+      "type": "8"
+    },
+    {
+      "gameID": 137087,
+      "name": "Deluge",
+      "type": "1"
+    },
+    {
+      "gameID": 81283,
+      "name": "Fungal Growth",
+      "type": "8"
+    },
+    {
+      "gameID": 88751,
+      "name": "Wild Mushroom",
+      "type": "8"
+    },
+    {
+      "gameID": 78777,
+      "name": "Wild Mushroom: Detonate",
+      "type": "8"
+    },
+    {
+      "gameID": 137422,
+      "name": "Focused Lightning",
+      "type": "1"
+    },
+    {
+      "gameID": 137088,
+      "name": "Deluge",
+      "type": "16"
+    },
+    {
+      "gameID": 63560,
+      "name": "Dark Transformation",
+      "type": "32"
+    },
+    {
+      "gameID": 91778,
+      "name": "Sweeping Claws",
+      "type": "1"
+    },
+    {
+      "gameID": 139210,
+      "name": "Focused Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 136952,
+      "name": "Frostbolt",
+      "type": "16"
+    },
+    {
+      "gameID": 47528,
+      "name": "Mind Freeze",
+      "type": "16"
+    },
+    {
+      "gameID": 22812,
+      "name": "Barkskin",
+      "type": "8"
+    },
+    {
+      "gameID": 53301,
+      "name": "Explosive Shot",
+      "type": "4"
+    },
+    {
+      "gameID": 1130,
+      "name": "Hunter's Mark",
+      "type": "64"
+    },
+    {
+      "gameID": 53351,
+      "name": "Kill Shot",
+      "type": "1"
+    },
+    {
+      "gameID": 137374,
+      "name": "Focused Lightning Detonation",
+      "type": "8"
+    },
+    {
+      "gameID": 80964,
+      "name": "Skull Bash",
+      "type": "1"
+    },
+    {
+      "gameID": 93985,
+      "name": "Skull Bash",
+      "type": "1"
+    },
+    {
+      "gameID": 115313,
+      "name": "Summon Jade Serpent Statue",
+      "type": "1"
+    },
+    {
+      "gameID": 96171,
+      "name": "Will of the Necropolis",
+      "type": "1"
+    },
+    {
+      "gameID": 81162,
+      "name": "Will of the Necropolis",
+      "type": "1"
+    },
+    {
+      "gameID": 48792,
+      "name": "Icebound Fortitude",
+      "type": "1"
+    },
+    {
+      "gameID": 138979,
+      "name": "Soul Barrier",
+      "type": "1"
+    },
+    {
+      "gameID": 124041,
+      "name": "Gift of the Serpent",
+      "type": "8"
+    },
+    {
+      "gameID": 48982,
+      "name": "Rune Tap",
+      "type": "32"
+    },
+    {
+      "gameID": 55233,
+      "name": "Vampiric Blood",
+      "type": "1"
+    },
+    {
+      "gameID": 135597,
+      "name": "Tooth and Claw",
+      "type": "1"
+    },
+    {
+      "gameID": 128985,
+      "name": "Blessing of the Celestials",
+      "type": "1"
+    },
+    {
+      "gameID": 47568,
+      "name": "Empower Rune Weapon",
+      "type": "1"
+    },
+    {
+      "gameID": 136986,
+      "name": "Throw Spear",
+      "type": "1"
+    },
+    {
+      "gameID": 137096,
+      "name": "Berserking",
+      "type": "1"
+    },
+    {
+      "gameID": 137066,
+      "name": "Throw Spear",
+      "type": "1"
+    },
+    {
+      "gameID": 136989,
+      "name": "Throw Spear",
+      "type": "1"
+    },
+    {
+      "gameID": 1249074,
+      "name": "Forgotten Jade",
+      "type": "1"
+    },
+    {
+      "gameID": 116849,
+      "name": "Life Cocoon",
+      "type": "8"
+    },
+    {
+      "gameID": 137070,
+      "name": "Retrieve Spear",
+      "type": "1"
+    },
+    {
+      "gameID": 137072,
+      "name": "Retrieve Spear",
+      "type": "1"
+    },
+    {
+      "gameID": 137077,
+      "name": "Spear Spin",
+      "type": "1"
+    },
+    {
+      "gameID": 108199,
+      "name": "Gorefiend's Grasp",
+      "type": "32"
+    },
+    {
+      "gameID": 3674,
+      "name": "Black Arrow",
+      "type": "32"
+    },
+    {
+      "gameID": 137079,
+      "name": "Spear Spin",
+      "type": "1"
+    },
+    {
+      "gameID": 22842,
+      "name": "Frenzied Regeneration",
+      "type": "1"
+    },
+    {
+      "gameID": 46585,
+      "name": "Raise Dead",
+      "type": "1"
+    },
+    {
+      "gameID": 61336,
+      "name": "Survival Instincts",
+      "type": "1"
+    },
+    {
+      "gameID": 115310,
+      "name": "Revival",
+      "type": "8"
+    },
+    {
+      "gameID": 81070,
+      "name": "Eclipse",
+      "type": "8"
+    },
+    {
+      "gameID": 48517,
+      "name": "Eclipse (Solar)",
+      "type": "1"
+    },
+    {
+      "gameID": 16886,
+      "name": "Nature's Grace",
+      "type": "8"
+    },
+    {
+      "gameID": 82948,
+      "name": "Snake Trap",
+      "type": "8"
+    },
+    {
+      "gameID": 82949,
+      "name": "Snake Trap",
+      "type": "16"
+    },
+    {
+      "gameID": 108196,
+      "name": "Death Siphon",
+      "type": "48"
+    },
+    {
+      "gameID": 116783,
+      "name": "Death Siphon",
+      "type": "32"
+    },
+    {
+      "gameID": 138960,
+      "name": "Zandalari Warrior",
+      "type": "1"
+    },
+    {
+      "gameID": 64803,
+      "name": "Entrapment",
+      "type": "8"
+    },
+    {
+      "gameID": 34655,
+      "name": "Deadly Poison",
+      "type": "8"
+    },
+    {
+      "gameID": 121125,
+      "name": "Touch of Death Notification",
+      "type": "1"
+    },
+    {
+      "gameID": 123981,
+      "name": "Perdition",
+      "type": "1"
+    },
+    {
+      "gameID": 116888,
+      "name": "Shroud of Purgatory",
+      "type": "32"
+    },
+    {
+      "gameID": 114556,
+      "name": "Purgatory",
+      "type": "1"
+    },
+    {
+      "gameID": 5760,
+      "name": "Numbing Poison",
+      "type": "8"
+    },
+    {
+      "gameID": 123273,
+      "name": "Surging Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 116995,
+      "name": "Surging Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 116956,
+      "name": "Grace of Air",
+      "type": "1"
+    },
+    {
+      "gameID": 24932,
+      "name": "Leader of the Pack",
+      "type": "1"
+    },
+    {
+      "gameID": 24907,
+      "name": "Moonkin Aura",
+      "type": "8"
+    },
+    {
+      "gameID": 1126,
+      "name": "Mark of the Wild",
+      "type": "8"
+    },
+    {
+      "gameID": 77747,
+      "name": "Burning Wrath",
+      "type": "1"
+    },
+    {
+      "gameID": 57330,
+      "name": "Horn of Winter",
+      "type": "1"
+    },
+    {
+      "gameID": 104282,
+      "name": "Well Fed",
+      "type": "1"
+    },
+    {
+      "gameID": 61999,
+      "name": "Raise Ally",
+      "type": "32"
+    },
+    {
+      "gameID": 1249665,
+      "name": "Bear Hug",
+      "type": "1"
+    },
+    {
+      "gameID": 102795,
+      "name": "Bear Hug",
+      "type": "1"
+    },
+    {
+      "gameID": 56453,
+      "name": "Lock and Load",
+      "type": "1"
+    },
+    {
+      "gameID": 2823,
+      "name": "Deadly Poison",
+      "type": "1"
+    },
+    {
+      "gameID": 3408,
+      "name": "Crippling Poison",
+      "type": "1"
+    },
+    {
+      "gameID": 113742,
+      "name": "Swiftblade's Cunning",
+      "type": "1"
+    },
+    {
+      "gameID": 51470,
+      "name": "Elemental Oath",
+      "type": "1"
+    },
+    {
+      "gameID": 104275,
+      "name": "Well Fed",
+      "type": "1"
+    },
+    {
+      "gameID": 19506,
+      "name": "Trueshot Aura",
+      "type": "64"
+    },
+    {
+      "gameID": 1784,
+      "name": "Stealth",
+      "type": "1"
+    },
+    {
+      "gameID": 31665,
+      "name": "Master of Subtlety",
+      "type": "1"
+    },
+    {
+      "gameID": 112942,
+      "name": "Shadow Focus",
+      "type": "1"
+    },
+    {
+      "gameID": 56222,
+      "name": "Dark Command",
+      "type": "1"
+    },
+    {
+      "gameID": 51505,
+      "name": "Lava Burst",
+      "type": "4"
+    },
+    {
+      "gameID": 114867,
+      "name": "Soul Reaper",
+      "type": "32"
+    },
+    {
+      "gameID": 8050,
+      "name": "Flame Shock",
+      "type": "4"
+    },
+    {
+      "gameID": 403,
+      "name": "Lightning Bolt",
+      "type": "8"
+    },
+    {
+      "gameID": 77451,
+      "name": "Lava Burst Overload",
+      "type": "4"
+    },
+    {
+      "gameID": 82987,
+      "name": "Telluric Currents",
+      "type": "1"
+    },
+    {
+      "gameID": 53,
+      "name": "Backstab",
+      "type": "1"
+    },
+    {
+      "gameID": 93068,
+      "name": "Master Poisoner",
+      "type": "1"
+    },
+    {
+      "gameID": 45284,
+      "name": "Lightning Bolt Overload",
+      "type": "8"
+    },
+    {
+      "gameID": 2818,
+      "name": "Deadly Poison",
+      "type": "8"
+    },
+    {
+      "gameID": 16511,
+      "name": "Hemorrhage",
+      "type": "1"
+    },
+    {
+      "gameID": 113780,
+      "name": "Deadly Poison",
+      "type": "8"
+    },
+    {
+      "gameID": 89775,
+      "name": "Hemorrhage",
+      "type": "1"
+    },
+    {
+      "gameID": 77761,
+      "name": "Stampeding Roar",
+      "type": "1"
+    },
+    {
+      "gameID": 115399,
+      "name": "Black Ox Brew",
+      "type": "1"
+    },
+    {
+      "gameID": 115294,
+      "name": "Mana Tea",
+      "type": "1"
+    },
+    {
+      "gameID": 96268,
+      "name": "Death's Advance",
+      "type": "32"
+    },
+    {
+      "gameID": 54861,
+      "name": "Nitro Boosts",
+      "type": "1"
+    },
+    {
+      "gameID": 139319,
+      "name": "Storm Weapon",
+      "type": "8"
+    },
+    {
+      "gameID": 105697,
+      "name": "Virmen's Bite",
+      "type": "16"
+    },
+    {
+      "gameID": 139885,
+      "name": "Stealth",
+      "type": "1"
+    },
+    {
+      "gameID": 139364,
+      "name": "Spirit Lantern",
+      "type": "1"
+    },
+    {
+      "gameID": 48518,
+      "name": "Eclipse (Lunar)",
+      "type": "1"
+    },
+    {
+      "gameID": 1978,
+      "name": "Serpent Sting",
+      "type": "8"
+    },
+    {
+      "gameID": 2912,
+      "name": "Starfire",
+      "type": "64"
+    },
+    {
+      "gameID": 139559,
+      "name": "Storm Energy",
+      "type": "8"
+    },
+    {
+      "gameID": 139322,
+      "name": "Storm Energy",
+      "type": "8"
+    },
+    {
+      "gameID": 139321,
+      "name": "Storm Energy",
+      "type": "8"
+    },
+    {
+      "gameID": 49576,
+      "name": "Death Grip",
+      "type": "32"
+    },
+    {
+      "gameID": 51399,
+      "name": "Death Grip",
+      "type": "1"
+    },
+    {
+      "gameID": 3044,
+      "name": "Arcane Shot",
+      "type": "64"
+    },
+    {
+      "gameID": 139320,
+      "name": "Storm Weapon",
+      "type": "8"
+    },
+    {
+      "gameID": 6795,
+      "name": "Growl",
+      "type": "1"
+    },
+    {
+      "gameID": 106922,
+      "name": "Might of Ursoc",
+      "type": "1"
+    },
+    {
+      "gameID": 115189,
+      "name": "Anticipation",
+      "type": "1"
+    },
+    {
+      "gameID": 1943,
+      "name": "Rupture",
+      "type": "1"
+    },
+    {
+      "gameID": 98440,
+      "name": "Relentless Strikes",
+      "type": "1"
+    },
+    {
+      "gameID": 108238,
+      "name": "Renewal",
+      "type": "8"
+    },
+    {
+      "gameID": 124991,
+      "name": "Nature's Vigil",
+      "type": "8"
+    },
+    {
+      "gameID": 5277,
+      "name": "Evasion",
+      "type": "1"
+    },
+    {
+      "gameID": 31224,
+      "name": "Cloak of Shadows",
+      "type": "1"
+    },
+    {
+      "gameID": 2098,
+      "name": "Dispatch",
+      "type": "1"
+    },
+    {
+      "gameID": 59547,
+      "name": "Gift of the Naaru",
+      "type": "2"
+    },
+    {
+      "gameID": 77762,
+      "name": "Lava Surge",
+      "type": "4"
+    },
+    {
+      "gameID": 5487,
+      "name": "Bear Form",
+      "type": "1"
+    },
+    {
+      "gameID": 104274,
+      "name": "Well Fed",
+      "type": "1"
+    },
+    {
+      "gameID": 77769,
+      "name": "Trap Launcher",
+      "type": "1"
+    },
+    {
+      "gameID": 43308,
+      "name": "Find Fish",
+      "type": "1"
+    },
+    {
+      "gameID": 5118,
+      "name": "Aspect of the Cheetah",
+      "type": "8"
+    },
+    {
+      "gameID": 117667,
+      "name": "Legacy of the Emperor",
+      "type": "1"
+    },
+    {
+      "gameID": 20484,
+      "name": "Rebirth",
+      "type": "8"
+    },
+    {
+      "gameID": 134522,
+      "name": "Dressed to Kill",
+      "type": "1"
+    },
+    {
+      "gameID": 104271,
+      "name": "Well Fed",
+      "type": "1"
+    },
+    {
+      "gameID": 24858,
+      "name": "Moonkin Form",
+      "type": "1"
+    },
+    {
+      "gameID": 104276,
+      "name": "Well Fed",
+      "type": "1"
+    },
+    {
+      "gameID": 17057,
+      "name": "Bear Form",
+      "type": "1"
+    },
+    {
+      "gameID": 120954,
+      "name": "Fortifying Brew",
+      "type": "1"
+    },
+    {
+      "gameID": 115203,
+      "name": "Fortifying Brew",
+      "type": "1"
+    },
+    {
+      "gameID": 131317,
+      "name": "Alliance Firework",
+      "type": "1"
+    },
+    {
+      "gameID": 96228,
+      "name": "Synapse Springs",
+      "type": "1"
+    },
+    {
+      "gameID": 99,
+      "name": "Incapacitating Roar",
+      "type": "1"
+    },
+    {
+      "gameID": 148467,
+      "name": "Deterrence",
+      "type": "1"
+    },
+    {
+      "gameID": 48263,
+      "name": "Veteran of the Third War",
+      "type": "1"
+    },
+    {
+      "gameID": 105694,
+      "name": "Flask of the Earth",
+      "type": "1"
+    },
+    {
+      "gameID": 781,
+      "name": "Disengage",
+      "type": "1"
+    },
+    {
+      "gameID": 93435,
+      "name": "Roar of Courage",
+      "type": "1"
+    },
+    {
+      "gameID": 16827,
+      "name": "Claw",
+      "type": "1"
+    },
+    {
+      "gameID": 24450,
+      "name": "Prowl",
+      "type": "1"
+    },
+    {
+      "gameID": 36554,
+      "name": "Shadowstep",
+      "type": "1"
+    },
+    {
+      "gameID": 8676,
+      "name": "Ambush",
+      "type": "1"
+    },
+    {
+      "gameID": 91021,
+      "name": "Find Weakness",
+      "type": "1"
+    },
+    {
+      "gameID": 53401,
+      "name": "Rabid",
+      "type": "1"
+    },
+    {
+      "gameID": 120360,
+      "name": "Barrage",
+      "type": "1"
+    },
+    {
+      "gameID": 120361,
+      "name": "Barrage",
+      "type": "1"
+    },
+    {
+      "gameID": 141004,
+      "name": "Lightning Strike",
+      "type": "8"
+    },
+    {
+      "gameID": 61684,
+      "name": "Dash",
+      "type": "1"
+    },
+    {
+      "gameID": 116680,
+      "name": "Thunder Focus Tea",
+      "type": "8"
+    },
+    {
+      "gameID": 116670,
+      "name": "Vivify",
+      "type": "8"
+    },
+    {
+      "gameID": 105691,
+      "name": "Flask of the Warm Sun",
+      "type": "1"
+    },
+    {
+      "gameID": 32747,
+      "name": "Arcane Torrent",
+      "type": "1"
+    },
+    {
+      "gameID": 47476,
+      "name": "Strangulate",
+      "type": "32"
+    },
+    {
+      "gameID": 52127,
+      "name": "Water Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 51730,
+      "name": "Earthliving Weapon",
+      "type": "8"
+    },
+    {
+      "gameID": 61295,
+      "name": "Riptide",
+      "type": "8"
+    },
+    {
+      "gameID": 53390,
+      "name": "Tidal Waves",
+      "type": "1"
+    },
+    {
+      "gameID": 105284,
+      "name": "Ancestral Vigor",
+      "type": "8"
+    },
+    {
+      "gameID": 5394,
+      "name": "Healing Stream Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 119523,
+      "name": "Healing Stream Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 138304,
+      "name": "Healing Stream Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 52042,
+      "name": "Healing Stream Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 1966,
+      "name": "Feint",
+      "type": "1"
+    },
+    {
+      "gameID": 73920,
+      "name": "Healing Rain",
+      "type": "8"
+    },
+    {
+      "gameID": 117014,
+      "name": "Elemental Blast",
+      "type": "28"
+    },
+    {
+      "gameID": 126577,
+      "name": "Inner Brilliance",
+      "type": "1"
+    },
+    {
+      "gameID": 73921,
+      "name": "Healing Rain",
+      "type": "8"
+    },
+    {
+      "gameID": 104510,
+      "name": "Windsong",
+      "type": "32"
+    },
+    {
+      "gameID": 118522,
+      "name": "Elemental Blast: Critical Strike",
+      "type": "28"
+    },
+    {
+      "gameID": 51945,
+      "name": "Earthliving",
+      "type": "8"
+    },
+    {
+      "gameID": 104509,
+      "name": "Windsong",
+      "type": "32"
+    },
+    {
+      "gameID": 120588,
+      "name": "Elemental Blast Overload",
+      "type": "28"
+    },
+    {
+      "gameID": 974,
+      "name": "Earth Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 379,
+      "name": "Earth Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 138703,
+      "name": "Acceleration",
+      "type": "1"
+    },
+    {
+      "gameID": 1064,
+      "name": "Chain Heal",
+      "type": "8"
+    },
+    {
+      "gameID": 101033,
+      "name": "Resurgence",
+      "type": "8"
+    },
+    {
+      "gameID": 8004,
+      "name": "Healing Surge",
+      "type": "8"
+    },
+    {
+      "gameID": 105702,
+      "name": "Potion of the Jade Serpent",
+      "type": "1"
+    },
+    {
+      "gameID": 5229,
+      "name": "Enrage",
+      "type": "1"
+    },
+    {
+      "gameID": 35079,
+      "name": "Misdirection",
+      "type": "1"
+    },
+    {
+      "gameID": 34477,
+      "name": "Misdirection",
+      "type": "1"
+    },
+    {
+      "gameID": 110804,
+      "name": "Lightning Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 14183,
+      "name": "Premeditation",
+      "type": "1"
+    },
+    {
+      "gameID": 5171,
+      "name": "Slice and Dice",
+      "type": "1"
+    },
+    {
+      "gameID": 50285,
+      "name": "Dust Cloud",
+      "type": "8"
+    },
+    {
+      "gameID": 82728,
+      "name": "Fervor",
+      "type": "1"
+    },
+    {
+      "gameID": 82726,
+      "name": "Fervor",
+      "type": "1"
+    },
+    {
+      "gameID": 52752,
+      "name": "Ancestral Awakening",
+      "type": "8"
+    },
+    {
+      "gameID": 138856,
+      "name": "Cloudburst",
+      "type": "1"
+    },
+    {
+      "gameID": 117952,
+      "name": "Crackling Jade Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 123333,
+      "name": "Crackling Jade Lightning",
+      "type": "1"
+    },
+    {
+      "gameID": 123904,
+      "name": "Invoke Xuen, the White Tiger",
+      "type": "8"
+    },
+    {
+      "gameID": 123996,
+      "name": "Crackling Tiger Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": -8,
+      "name": "Melee",
+      "type": "8"
+    },
+    {
+      "gameID": 137162,
+      "name": "Static Burst",
+      "type": "8"
+    },
+    {
+      "gameID": 52128,
+      "name": "Water Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 124007,
+      "name": "Tiger Leap",
+      "type": "8"
+    },
+    {
+      "gameID": 138146,
+      "name": "Lightning Strike",
+      "type": "8"
+    },
+    {
+      "gameID": 124009,
+      "name": "Tiger Lust",
+      "type": "1"
+    },
+    {
+      "gameID": 138349,
+      "name": "Static Wound",
+      "type": "8"
+    },
+    {
+      "gameID": 137399,
+      "name": "Focused Lightning",
+      "type": "1"
+    },
+    {
+      "gameID": 120273,
+      "name": "Tiger Strikes",
+      "type": "1"
+    },
+    {
+      "gameID": 138389,
+      "name": "Static Wound",
+      "type": "8"
+    },
+    {
+      "gameID": 120274,
+      "name": "Tiger Strikes",
+      "type": "1"
+    },
+    {
+      "gameID": 137423,
+      "name": "Focused Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 137180,
+      "name": "Thundering Throw",
+      "type": "1"
+    },
+    {
+      "gameID": 137371,
+      "name": "Thundering Throw",
+      "type": "8"
+    },
+    {
+      "gameID": 137370,
+      "name": "Thundering Throw",
+      "type": "1"
+    },
+    {
+      "gameID": 42650,
+      "name": "Army of the Dead",
+      "type": "32"
+    },
+    {
+      "gameID": 42651,
+      "name": "Army of the Dead",
+      "type": "32"
+    },
+    {
+      "gameID": 68992,
+      "name": "Darkflight",
+      "type": "1"
+    },
+    {
+      "gameID": 49206,
+      "name": "Summon Gargoyle",
+      "type": "32"
+    },
+    {
+      "gameID": 49016,
+      "name": "Unholy Frenzy",
+      "type": "1"
+    },
+    {
+      "gameID": 30823,
+      "name": "Shamanistic Rage",
+      "type": "1"
+    },
+    {
+      "gameID": 114050,
+      "name": "Ascendance",
+      "type": "1"
+    },
+    {
+      "gameID": 114049,
+      "name": "Ascendance",
+      "type": "1"
+    },
+    {
+      "gameID": 16166,
+      "name": "Master of the Elements",
+      "type": "8"
+    },
+    {
+      "gameID": 131894,
+      "name": "A Murder of Crows",
+      "type": "1"
+    },
+    {
+      "gameID": 3045,
+      "name": "Rapid Fire",
+      "type": "1"
+    },
+    {
+      "gameID": 51963,
+      "name": "Gargoyle Strike",
+      "type": "40"
+    },
+    {
+      "gameID": 121818,
+      "name": "Stampede",
+      "type": "8"
+    },
+    {
+      "gameID": 79206,
+      "name": "Spiritwalker's Grace",
+      "type": "8"
+    },
+    {
+      "gameID": 131900,
+      "name": "A Murder of Crows",
+      "type": "1"
+    },
+    {
+      "gameID": 117663,
+      "name": "Fire Elemental Totem",
+      "type": "4"
+    },
+    {
+      "gameID": 2894,
+      "name": "Fire Elemental Totem",
+      "type": "4"
+    },
+    {
+      "gameID": -4,
+      "name": "Melee",
+      "type": "4"
+    },
+    {
+      "gameID": 57984,
+      "name": "Fire Blast",
+      "type": "4"
+    },
+    {
+      "gameID": 120668,
+      "name": "Stormlash Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 102560,
+      "name": "Incarnation: Chosen of Elune",
+      "type": "1"
+    },
+    {
+      "gameID": 120676,
+      "name": "Stormlash Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 120687,
+      "name": "Stormlash",
+      "type": "8"
+    },
+    {
+      "gameID": 106898,
+      "name": "Stampeding Roar",
+      "type": "1"
+    },
+    {
+      "gameID": 104423,
+      "name": "Windsong",
+      "type": "32"
+    },
+    {
+      "gameID": 138133,
+      "name": "Lightning Fissure Conduction",
+      "type": "8"
+    },
+    {
+      "gameID": 132158,
+      "name": "Nature's Swiftness",
+      "type": "1"
+    },
+    {
+      "gameID": 5185,
+      "name": "Healing Touch",
+      "type": "8"
+    },
+    {
+      "gameID": 137313,
+      "name": "Lightning Storm",
+      "type": "1"
+    },
+    {
+      "gameID": 2983,
+      "name": "Sprint",
+      "type": "1"
+    },
+    {
+      "gameID": 1856,
+      "name": "Vanish",
+      "type": "1"
+    },
+    {
+      "gameID": 137261,
+      "name": "Lightning Storm",
+      "type": "8"
+    },
+    {
+      "gameID": 51052,
+      "name": "Anti-Magic Zone",
+      "type": "32"
+    },
+    {
+      "gameID": 145629,
+      "name": "Anti-Magic Zone",
+      "type": "32"
+    },
+    {
+      "gameID": 60192,
+      "name": "Freezing Trap",
+      "type": "16"
+    },
+    {
+      "gameID": 111923,
+      "name": "Fortitude",
+      "type": "8"
+    },
+    {
+      "gameID": 117666,
+      "name": "Legacy of the Emperor",
+      "type": "1"
+    },
+    {
+      "gameID": 60202,
+      "name": "Freezing Trap",
+      "type": "16"
+    },
+    {
+      "gameID": 147362,
+      "name": "Counter Shot",
+      "type": "1"
+    },
+    {
+      "gameID": 48743,
+      "name": "Death Pact",
+      "type": "32"
+    },
+    {
+      "gameID": 740,
+      "name": "Tranquility",
+      "type": "8"
+    },
+    {
+      "gameID": 108280,
+      "name": "Healing Tide Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 114942,
+      "name": "Healing Tide",
+      "type": "8"
+    },
+    {
+      "gameID": 44203,
+      "name": "Tranquility",
+      "type": "8"
+    },
+    {
+      "gameID": 91797,
+      "name": "Monstrous Blow",
+      "type": "1"
+    },
+    {
+      "gameID": 121279,
+      "name": "Lifeblood",
+      "type": "8"
+    },
+    {
+      "gameID": 139888,
+      "name": "Ancient Venom",
+      "type": "8"
+    },
+    {
+      "gameID": 116841,
+      "name": "Tiger's Lust",
+      "type": "1"
+    },
+    {
+      "gameID": 139485,
+      "name": "Dark Winds",
+      "type": "1"
+    },
+    {
+      "gameID": 106996,
+      "name": "Astral Storm",
+      "type": "64"
+    },
+    {
+      "gameID": 106998,
+      "name": "Astral Storm",
+      "type": "64"
+    },
+    {
+      "gameID": 102216,
+      "name": "Skinning",
+      "type": "1"
+    },
+    {
+      "gameID": 115921,
+      "name": "Legacy of the Emperor",
+      "type": "1"
+    },
+    {
+      "gameID": 101546,
+      "name": "Spinning Crane Kick",
+      "type": "1"
+    },
+    {
+      "gameID": 129881,
+      "name": "Spinning Crane Kick",
+      "type": "1"
+    },
+    {
+      "gameID": 117640,
+      "name": "Spinning Crane Kick",
+      "type": "8"
+    },
+    {
+      "gameID": 107270,
+      "name": "Spinning Crane Kick",
+      "type": "1"
+    },
+    {
+      "gameID": 139550,
+      "name": "Torment",
+      "type": "32"
+    },
+    {
+      "gameID": 768,
+      "name": "Cat Form",
+      "type": "1"
+    },
+    {
+      "gameID": 109260,
+      "name": "Iron Hawk",
+      "type": "8"
+    },
+    {
+      "gameID": 33661,
+      "name": "Crush Armor",
+      "type": "1"
+    },
+    {
+      "gameID": 139895,
+      "name": "Spiritfire Beam",
+      "type": "4"
+    },
+    {
+      "gameID": 139461,
+      "name": "Spirit Light",
+      "type": "4"
+    },
+    {
+      "gameID": 116617,
+      "name": "Pestilence",
+      "type": "32"
+    },
+    {
+      "gameID": 91807,
+      "name": "Shambling Rush",
+      "type": "1"
+    },
+    {
+      "gameID": 110803,
+      "name": "Lightning Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 136709,
+      "name": "Uncontrolled Abomination",
+      "type": "1"
+    },
+    {
+      "gameID": 138427,
+      "name": "Berserker Frenzy",
+      "type": "1"
+    },
+    {
+      "gameID": 3409,
+      "name": "Crippling Poison",
+      "type": "8"
+    },
+    {
+      "gameID": 121411,
+      "name": "Crimson Tempest",
+      "type": "1"
+    },
+    {
+      "gameID": 122233,
+      "name": "Crimson Tempest",
+      "type": "1"
+    },
+    {
+      "gameID": 51723,
+      "name": "Fan of Knives",
+      "type": "1"
+    },
+    {
+      "gameID": 139903,
+      "name": "Chain Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 139900,
+      "name": "Stormcloud",
+      "type": "8"
+    },
+    {
+      "gameID": 136767,
+      "name": "Triple Puncture",
+      "type": "1"
+    },
+    {
+      "gameID": 136741,
+      "name": "Double Swipe",
+      "type": "1"
+    },
+    {
+      "gameID": 136739,
+      "name": "Double Swipe",
+      "type": "1"
+    },
+    {
+      "gameID": 136740,
+      "name": "Double Swipe",
+      "type": "1"
+    },
+    {
+      "gameID": 57934,
+      "name": "Tricks of the Trade",
+      "type": "1"
+    },
+    {
+      "gameID": 51713,
+      "name": "Shadow Dance",
+      "type": "1"
+    },
+    {
+      "gameID": 121471,
+      "name": "Shadow Blades",
+      "type": "1"
+    },
+    {
+      "gameID": 121473,
+      "name": "Shadow Blade",
+      "type": "32"
+    },
+    {
+      "gameID": 59628,
+      "name": "Tricks of the Trade",
+      "type": "1"
+    },
+    {
+      "gameID": 57933,
+      "name": "Tricks of the Trade",
+      "type": "1"
+    },
+    {
+      "gameID": 121474,
+      "name": "Shadow Blade Off-hand",
+      "type": "32"
+    },
+    {
+      "gameID": 1833,
+      "name": "Cheap Shot",
+      "type": "1"
+    },
+    {
+      "gameID": 136769,
+      "name": "Charge",
+      "type": "1"
+    },
+    {
+      "gameID": 136770,
+      "name": "Double Swipe",
+      "type": "1"
+    },
+    {
+      "gameID": 136725,
+      "name": "Sand Trap",
+      "type": "8"
+    },
+    {
+      "gameID": 49560,
+      "name": "Death Grip",
+      "type": "1"
+    },
+    {
+      "gameID": 136719,
+      "name": "Blazing Sunlight",
+      "type": "4"
+    },
+    {
+      "gameID": 136723,
+      "name": "Sand Trap",
+      "type": "8"
+    },
+    {
+      "gameID": 77130,
+      "name": "Purify Spirit",
+      "type": "8"
+    },
+    {
+      "gameID": 115450,
+      "name": "Detox",
+      "type": "1"
+    },
+    {
+      "gameID": 136708,
+      "name": "Stone Gaze",
+      "type": "1"
+    },
+    {
+      "gameID": 136797,
+      "name": "Dino-Mending",
+      "type": "1"
+    },
+    {
+      "gameID": 137237,
+      "name": "Dino Form",
+      "type": "1"
+    },
+    {
+      "gameID": 137294,
+      "name": "Headache",
+      "type": "1"
+    },
+    {
+      "gameID": 137240,
+      "name": "Cracked Shell",
+      "type": "1"
+    },
+    {
+      "gameID": 73651,
+      "name": "Recuperate",
+      "type": "1"
+    },
+    {
+      "gameID": 136653,
+      "name": "Rending Charge",
+      "type": "1"
+    },
+    {
+      "gameID": 136654,
+      "name": "Rending Charge",
+      "type": "1"
+    },
+    {
+      "gameID": 58984,
+      "name": "Shadowmeld",
+      "type": "1"
+    },
+    {
+      "gameID": 136587,
+      "name": "Venom Bolt Volley",
+      "type": "8"
+    },
+    {
+      "gameID": 78675,
+      "name": "Solar Beam",
+      "type": "8"
+    },
+    {
+      "gameID": 32182,
+      "name": "Heroism",
+      "type": "8"
+    },
+    {
+      "gameID": 57723,
+      "name": "Exhaustion",
+      "type": "1"
+    },
+    {
+      "gameID": 136817,
+      "name": "Bestial Cry",
+      "type": "1"
+    },
+    {
+      "gameID": 136710,
+      "name": "Deadly Plague",
+      "type": "32"
+    },
+    {
+      "gameID": 138610,
+      "name": "Fiery Core",
+      "type": "4"
+    },
+    {
+      "gameID": 138607,
+      "name": "Call Flames",
+      "type": "4"
+    },
+    {
+      "gameID": 138668,
+      "name": "Frost Bulwark",
+      "type": "16"
+    },
+    {
+      "gameID": 138693,
+      "name": "Bloodletting",
+      "type": "1"
+    },
+    {
+      "gameID": 140636,
+      "name": "Conjure Elementals",
+      "type": "1"
+    },
+    {
+      "gameID": 1850,
+      "name": "Dash",
+      "type": "1"
+    },
+    {
+      "gameID": 138739,
+      "name": "Sand Bolt",
+      "type": "8"
+    },
+    {
+      "gameID": 138652,
+      "name": "Eruption",
+      "type": "4"
+    },
+    {
+      "gameID": 138740,
+      "name": "Sand Bolt",
+      "type": "8"
+    },
+    {
+      "gameID": 138651,
+      "name": "Molten Barrage",
+      "type": "4"
+    },
+    {
+      "gameID": 138540,
+      "name": "Berserker Frenzy",
+      "type": "1"
+    },
+    {
+      "gameID": 50842,
+      "name": "Blood Boil",
+      "type": "32"
+    },
+    {
+      "gameID": 138690,
+      "name": "Glacial Freeze Totem",
+      "type": "16"
+    },
+    {
+      "gameID": 138678,
+      "name": "Glacial Freeze",
+      "type": "16"
+    },
+    {
+      "gameID": 97547,
+      "name": "Solar Beam",
+      "type": "8"
+    },
+    {
+      "gameID": 138687,
+      "name": "Glacial Freeze",
+      "type": "16"
+    },
+    {
+      "gameID": 122465,
+      "name": "Dematerialize",
+      "type": "1"
+    },
+    {
+      "gameID": 59752,
+      "name": "Will to Survive",
+      "type": "1"
+    },
+    {
+      "gameID": 138742,
+      "name": "Choking Sands",
+      "type": "8"
+    },
+    {
+      "gameID": 61391,
+      "name": "Typhoon",
+      "type": "8"
+    },
+    {
+      "gameID": 138966,
+      "name": "Shadow Bolt",
+      "type": "32"
+    },
+    {
+      "gameID": 139115,
+      "name": "Shadow Power",
+      "type": "1"
+    },
+    {
+      "gameID": 139212,
+      "name": "Seal of the Loa",
+      "type": "1"
+    },
+    {
+      "gameID": 139228,
+      "name": "Light of the Loa",
+      "type": "2"
+    },
+    {
+      "gameID": 1766,
+      "name": "Kick",
+      "type": "1"
+    },
+    {
+      "gameID": 138658,
+      "name": "Eruption",
+      "type": "4"
+    },
+    {
+      "gameID": 73685,
+      "name": "Unleash Life",
+      "type": "8"
+    },
+    {
+      "gameID": 73680,
+      "name": "Unleash Elements",
+      "type": "8"
+    },
+    {
+      "gameID": 126389,
+      "name": "Goblin Glider",
+      "type": "1"
+    },
+    {
+      "gameID": 140115,
+      "name": "Visions of Demise",
+      "type": "32"
+    },
+    {
+      "gameID": 139205,
+      "name": "Visions of Grandeur",
+      "type": "2"
+    },
+    {
+      "gameID": 1604,
+      "name": "Dazed",
+      "type": "1"
+    },
+    {
+      "gameID": 140385,
+      "name": "Visions of Demise",
+      "type": "32"
+    },
+    {
+      "gameID": 134856,
+      "name": "Zandalari Warcry",
+      "type": "1"
+    },
+    {
+      "gameID": 140400,
+      "name": "Mark of the Prophet",
+      "type": "32"
+    },
+    {
+      "gameID": 140414,
+      "name": "Cleave",
+      "type": "1"
+    },
+    {
+      "gameID": 140422,
+      "name": "Strength of the Loa",
+      "type": "1"
+    },
+    {
+      "gameID": 116705,
+      "name": "Spear Hand Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 139114,
+      "name": "Shadow Power",
+      "type": "32"
+    },
+    {
+      "gameID": 450762,
+      "name": "Ancestral Vision",
+      "type": "8"
+    },
+    {
+      "gameID": 52150,
+      "name": "Raise Dead",
+      "type": "1"
+    },
+    {
+      "gameID": 139213,
+      "name": "Mark of the Loa",
+      "type": "2"
+    },
+    {
+      "gameID": 116709,
+      "name": "Spear Hand Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 139223,
+      "name": "Judgment of the Loa",
+      "type": "2"
+    },
+    {
+      "gameID": 136189,
+      "name": "Sand Bolt",
+      "type": "8"
+    },
+    {
+      "gameID": 137344,
+      "name": "Wrath of the Loa",
+      "type": "2"
+    },
+    {
+      "gameID": 139189,
+      "name": "Infinite Power",
+      "type": "1"
+    },
+    {
+      "gameID": 115072,
+      "name": "Expel Harm",
+      "type": "8"
+    },
+    {
+      "gameID": 137133,
+      "name": "Reckless Charge",
+      "type": "8"
+    },
+    {
+      "gameID": 136190,
+      "name": "Sand Bolt",
+      "type": "8"
+    },
+    {
+      "gameID": 136442,
+      "name": "Possessed",
+      "type": "1"
+    },
+    {
+      "gameID": 116847,
+      "name": "Rushing Jade Wind",
+      "type": "8"
+    },
+    {
+      "gameID": 148187,
+      "name": "Rushing Jade Wind",
+      "type": "1"
+    },
+    {
+      "gameID": 136521,
+      "name": "Quicksand",
+      "type": "8"
+    },
+    {
+      "gameID": 137122,
+      "name": "Reckless Charge",
+      "type": "8"
+    },
+    {
+      "gameID": 136857,
+      "name": "Entrapped",
+      "type": "8"
+    },
+    {
+      "gameID": 136860,
+      "name": "Quicksand",
+      "type": "8"
+    },
+    {
+      "gameID": 136878,
+      "name": "Ensnared",
+      "type": "8"
+    },
+    {
+      "gameID": 82941,
+      "name": "Ice Trap",
+      "type": "16"
+    },
+    {
+      "gameID": 82940,
+      "name": "Ice Trap",
+      "type": "16"
+    },
+    {
+      "gameID": 136990,
+      "name": "Frostbite",
+      "type": "16"
+    },
+    {
+      "gameID": 136922,
+      "name": "Frostbite",
+      "type": "16"
+    },
+    {
+      "gameID": 136937,
+      "name": "Frostbite",
+      "type": "16"
+    },
+    {
+      "gameID": 82654,
+      "name": "Widow Venom",
+      "type": "1"
+    },
+    {
+      "gameID": 137203,
+      "name": "Blessed Loa Spirit",
+      "type": "2"
+    },
+    {
+      "gameID": 137303,
+      "name": "Blessed Gift",
+      "type": "1"
+    },
+    {
+      "gameID": 139195,
+      "name": "Restoration of the Infinite",
+      "type": "8"
+    },
+    {
+      "gameID": 136904,
+      "name": "Frigid Assault",
+      "type": "16"
+    },
+    {
+      "gameID": 136903,
+      "name": "Frigid Assault",
+      "type": "16"
+    },
+    {
+      "gameID": 136911,
+      "name": "Frigid Assault",
+      "type": "16"
+    },
+    {
+      "gameID": 55502,
+      "name": "Lifeblood",
+      "type": "8"
+    },
+    {
+      "gameID": 112071,
+      "name": "Celestial Alignment",
+      "type": "1"
+    },
+    {
+      "gameID": 73981,
+      "name": "Redirect",
+      "type": "1"
+    },
+    {
+      "gameID": 137149,
+      "name": "Overload",
+      "type": "8"
+    },
+    {
+      "gameID": 137151,
+      "name": "Overload",
+      "type": "8"
+    },
+    {
+      "gameID": 137347,
+      "name": "Wrath of the Loa",
+      "type": "32"
+    },
+    {
+      "gameID": 136917,
+      "name": "Biting Cold",
+      "type": "16"
+    },
+    {
+      "gameID": 136992,
+      "name": "Biting Cold",
+      "type": "16"
+    },
+    {
+      "gameID": 136991,
+      "name": "Biting Cold",
+      "type": "16"
+    },
+    {
+      "gameID": 130650,
+      "name": "Water Spirit",
+      "type": "1"
+    },
+    {
+      "gameID": 31365,
+      "name": "Self Fear",
+      "type": "32"
+    },
+    {
+      "gameID": 114052,
+      "name": "Ascendance",
+      "type": "1"
+    },
+    {
+      "gameID": 114083,
+      "name": "Restorative Mists",
+      "type": "8"
+    },
+    {
+      "gameID": 117588,
+      "name": "Meteor",
+      "type": "4"
+    },
+    {
+      "gameID": 3714,
+      "name": "Path of Frost",
+      "type": "1"
+    },
+    {
+      "gameID": 98008,
+      "name": "Spirit Link Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 98021,
+      "name": "Spirit Link",
+      "type": "8"
+    },
+    {
+      "gameID": 134030,
+      "name": "Kick Shell",
+      "type": "2"
+    },
+    {
+      "gameID": 83242,
+      "name": "Call Pet 2",
+      "type": "1"
+    },
+    {
+      "gameID": 139316,
+      "name": "Putrify",
+      "type": "8"
+    },
+    {
+      "gameID": 135103,
+      "name": "Drain the Weak",
+      "type": "1"
+    },
+    {
+      "gameID": 3,
+      "name": "Falling",
+      "type": "1"
+    },
+    {
+      "gameID": 140814,
+      "name": "Spray Water",
+      "type": "1"
+    },
+    {
+      "gameID": 136753,
+      "name": "Slashing Talons",
+      "type": "1"
+    },
+    {
+      "gameID": 136751,
+      "name": "Sonic Screech",
+      "type": "1"
+    },
+    {
+      "gameID": 57994,
+      "name": "Wind Shear",
+      "type": "8"
+    },
+    {
+      "gameID": 408,
+      "name": "Kidney Shot",
+      "type": "1"
+    },
+    {
+      "gameID": 135101,
+      "name": "Drain the Weak",
+      "type": "1"
+    },
+    {
+      "gameID": 135102,
+      "name": "Drain the Weak",
+      "type": "1"
+    },
+    {
+      "gameID": 16190,
+      "name": "Mana Tide Totem",
+      "type": "8"
+    },
+    {
+      "gameID": 135251,
+      "name": "Snapping Bite",
+      "type": "1"
+    },
+    {
+      "gameID": 134476,
+      "name": "Rockfall",
+      "type": "8"
+    },
+    {
+      "gameID": 136294,
+      "name": "Call of Tortos",
+      "type": "1"
+    },
+    {
+      "gameID": 133974,
+      "name": "Spinning Shell",
+      "type": "1"
+    },
+    {
+      "gameID": 135373,
+      "name": "Entrapment",
+      "type": "8"
+    },
+    {
+      "gameID": 135299,
+      "name": "Tar Trap",
+      "type": "16"
+    },
+    {
+      "gameID": 134920,
+      "name": "Quake Stomp",
+      "type": "1"
+    },
+    {
+      "gameID": 134011,
+      "name": "Spinning Shell",
+      "type": "1"
+    },
+    {
+      "gameID": 133971,
+      "name": "Shell Block",
+      "type": "1"
+    },
+    {
+      "gameID": 136010,
+      "name": "Growing Fury",
+      "type": "1"
+    },
+    {
+      "gameID": 134539,
+      "name": "Rockfall",
+      "type": "8"
+    },
+    {
+      "gameID": 133939,
+      "name": "Furious Stone Breath",
+      "type": "8"
+    },
+    {
+      "gameID": 134031,
+      "name": "Kick Shell",
+      "type": "1"
+    },
+    {
+      "gameID": 134092,
+      "name": "Shell Concussion",
+      "type": "1"
+    },
+    {
+      "gameID": 134091,
+      "name": "Shell Concussion",
+      "type": "1"
+    },
+    {
+      "gameID": 136431,
+      "name": "Shell Concussion",
+      "type": "1"
+    },
+    {
+      "gameID": 115176,
+      "name": "Zen Meditation",
+      "type": "8"
+    },
+    {
+      "gameID": 133946,
+      "name": "Furious Stone Breath",
+      "type": "8"
+    },
+    {
+      "gameID": 16591,
+      "name": "Noggenfogger Elixir",
+      "type": "1"
+    },
+    {
+      "gameID": 24604,
+      "name": "Furious Howl",
+      "type": "1"
+    },
+    {
+      "gameID": 17253,
+      "name": "Bite",
+      "type": "1"
+    },
+    {
+      "gameID": 115129,
+      "name": "Expel Harm",
+      "type": "8"
+    },
+    {
+      "gameID": 134847,
+      "name": "Party Mechanimal",
+      "type": "1"
+    },
+    {
+      "gameID": 140616,
+      "name": "Shale Shards",
+      "type": "1"
+    },
+    {
+      "gameID": 140598,
+      "name": "Fungal Explosion",
+      "type": "8"
+    },
+    {
+      "gameID": 140628,
+      "name": "Lightning Nova",
+      "type": "8"
+    },
+    {
+      "gameID": 140630,
+      "name": "Siphon Life",
+      "type": "32"
+    },
+    {
+      "gameID": 140629,
+      "name": "Eternal Prison",
+      "type": "32"
+    },
+    {
+      "gameID": 140618,
+      "name": "Crush Armor",
+      "type": "1"
+    },
+    {
+      "gameID": 140684,
+      "name": "Corrosive Breath",
+      "type": "8"
+    },
+    {
+      "gameID": 140685,
+      "name": "Corrosive Breath",
+      "type": "8"
+    },
+    {
+      "gameID": 140686,
+      "name": "Corrosive Breath",
+      "type": "8"
+    },
+    {
+      "gameID": 140619,
+      "name": "Crystal Barbs",
+      "type": "1"
+    },
+    {
+      "gameID": 136,
+      "name": "Mend Pet",
+      "type": "8"
+    },
+    {
+      "gameID": 140682,
+      "name": "Choking Mists",
+      "type": "8"
+    },
+    {
+      "gameID": 124199,
+      "name": "G91 Landshark",
+      "type": "4"
+    },
+    {
+      "gameID": 140626,
+      "name": "Grow",
+      "type": "1"
+    },
+    {
+      "gameID": 140620,
+      "name": "Fungi Spores",
+      "type": "1"
+    },
+    {
+      "gameID": 45477,
+      "name": "Icy Touch",
+      "type": "16"
+    },
+    {
+      "gameID": 115546,
+      "name": "Provoke",
+      "type": "1"
+    },
+    {
+      "gameID": 116189,
+      "name": "Provoke",
+      "type": "1"
+    },
+    {
+      "gameID": 140600,
+      "name": "Sonic Call",
+      "type": "8"
+    },
+    {
+      "gameID": 55709,
+      "name": "Heart of the Phoenix",
+      "type": "8"
+    },
+    {
+      "gameID": 55711,
+      "name": "Weakened Heart",
+      "type": "8"
+    },
+    {
+      "gameID": 54114,
+      "name": "Heart of the Phoenix",
+      "type": "8"
+    },
+    {
+      "gameID": 139841,
+      "name": "Arctic Freeze",
+      "type": "16"
+    },
+    {
+      "gameID": 139838,
+      "name": "Rot Armor",
+      "type": "8"
+    },
+    {
+      "gameID": 139839,
+      "name": "Rot Armor",
+      "type": "8"
+    },
+    {
+      "gameID": 139840,
+      "name": "Rot Armor",
+      "type": "8"
+    },
+    {
+      "gameID": 139842,
+      "name": "Arctic Freeze",
+      "type": "16"
+    },
+    {
+      "gameID": 139843,
+      "name": "Arctic Freeze",
+      "type": "16"
+    },
+    {
+      "gameID": 139548,
+      "name": "Rampage",
+      "type": "4"
+    },
+    {
+      "gameID": 139549,
+      "name": "Rampage",
+      "type": "16"
+    },
+    {
+      "gameID": 139551,
+      "name": "Rampage",
+      "type": "8"
+    },
+    {
+      "gameID": 137729,
+      "name": "Ignite Flesh",
+      "type": "4"
+    },
+    {
+      "gameID": 137730,
+      "name": "Ignite Flesh",
+      "type": "4"
+    },
+    {
+      "gameID": 137731,
+      "name": "Ignite Flesh",
+      "type": "4"
+    },
+    {
+      "gameID": 8024,
+      "name": "Flametongue Weapon",
+      "type": "4"
+    },
+    {
+      "gameID": 139857,
+      "name": "Torrent of Ice",
+      "type": "1"
+    },
+    {
+      "gameID": 139866,
+      "name": "Torrent of Ice",
+      "type": "1"
+    },
+    {
+      "gameID": 14185,
+      "name": "Preparation",
+      "type": "1"
+    },
+    {
+      "gameID": 139822,
+      "name": "Cinders",
+      "type": "4"
+    },
+    {
+      "gameID": 139909,
+      "name": "Icy Ground",
+      "type": "16"
+    },
+    {
+      "gameID": 139922,
+      "name": "Icy Ground",
+      "type": "16"
+    },
+    {
+      "gameID": 115927,
+      "name": "Liberation",
+      "type": "1"
+    },
+    {
+      "gameID": 118922,
+      "name": "Posthaste",
+      "type": "1"
+    },
+    {
+      "gameID": 19263,
+      "name": "Deterrence",
+      "type": "1"
+    },
+    {
+      "gameID": 29166,
+      "name": "Innervate",
+      "type": "8"
+    },
+    {
+      "gameID": 774,
+      "name": "Rejuvenation",
+      "type": "8"
+    },
+    {
+      "gameID": 134483,
+      "name": "Corpse Spider Web Spawn",
+      "type": "1"
+    },
+    {
+      "gameID": 115070,
+      "name": "Stance of the Wise Serpent",
+      "type": "1"
+    },
+    {
+      "gameID": 103985,
+      "name": "Stance of the Fierce Tiger",
+      "type": "1"
+    },
+    {
+      "gameID": 83244,
+      "name": "Call Pet 4",
+      "type": "1"
+    },
+    {
+      "gameID": 139498,
+      "name": "Web Spray",
+      "type": "8"
+    },
+    {
+      "gameID": 134510,
+      "name": "Web Spray",
+      "type": "8"
+    },
+    {
+      "gameID": 112844,
+      "name": "Cocoon",
+      "type": "8"
+    },
+    {
+      "gameID": 119607,
+      "name": "Renewing Mist",
+      "type": "8"
+    },
+    {
+      "gameID": 134470,
+      "name": "Luciferase",
+      "type": "1"
+    },
+    {
+      "gameID": 134472,
+      "name": "Luciferase",
+      "type": "8"
+    },
+    {
+      "gameID": 1742,
+      "name": "Cower",
+      "type": "1"
+    },
+    {
+      "gameID": 137528,
+      "name": "Feed Young",
+      "type": "1"
+    },
+    {
+      "gameID": 138052,
+      "name": "Quills",
+      "type": "1"
+    },
+    {
+      "gameID": 134321,
+      "name": "Eat",
+      "type": "1"
+    },
+    {
+      "gameID": 134381,
+      "name": "Quills",
+      "type": "1"
+    },
+    {
+      "gameID": 134322,
+      "name": "Morph",
+      "type": "1"
+    },
+    {
+      "gameID": 138923,
+      "name": "Caw",
+      "type": "1"
+    },
+    {
+      "gameID": 104277,
+      "name": "Well Fed",
+      "type": "1"
+    },
+    {
+      "gameID": 123982,
+      "name": "Purgatory",
+      "type": "1"
+    },
+    {
+      "gameID": 140092,
+      "name": "Infected Talons",
+      "type": "8"
+    },
+    {
+      "gameID": 139296,
+      "name": "Cheep",
+      "type": "1"
+    },
+    {
+      "gameID": 134339,
+      "name": "Daedalian Wings",
+      "type": "1"
+    },
+    {
+      "gameID": 140571,
+      "name": "Lesson of Icarus",
+      "type": "1"
+    },
+    {
+      "gameID": 139298,
+      "name": "Cheep",
+      "type": "1"
+    },
+    {
+      "gameID": 133755,
+      "name": "Flight",
+      "type": "1"
+    },
+    {
+      "gameID": 140741,
+      "name": "Primal Nutriment",
+      "type": "1"
+    },
+    {
+      "gameID": 112879,
+      "name": "Primal Nutriment",
+      "type": "1"
+    },
+    {
+      "gameID": 138319,
+      "name": "Feed Pool",
+      "type": "8"
+    },
+    {
+      "gameID": 134256,
+      "name": "Slimed",
+      "type": "8"
+    },
+    {
+      "gameID": 134375,
+      "name": "Caw",
+      "type": "1"
+    },
+    {
+      "gameID": 134366,
+      "name": "Talon Rake",
+      "type": "1"
+    },
+    {
+      "gameID": 138309,
+      "name": "Slimed",
+      "type": "8"
+    },
+    {
+      "gameID": 134380,
+      "name": "Quills",
+      "type": "1"
+    },
+    {
+      "gameID": 134370,
+      "name": "Down Draft",
+      "type": "1"
+    },
+    {
+      "gameID": 108271,
+      "name": "Astral Shift",
+      "type": "1"
+    },
+    {
+      "gameID": 140129,
+      "name": "Cheep",
+      "type": "1"
+    },
+    {
+      "gameID": 134656,
+      "name": "Scanning",
+      "type": "1"
+    },
+    {
+      "gameID": 140502,
+      "name": "Eye Sore",
+      "type": "64"
+    },
+    {
+      "gameID": 134668,
+      "name": "Gnawed Upon",
+      "type": "1"
+    },
+    {
+      "gameID": 136837,
+      "name": "Impact",
+      "type": "8"
+    },
+    {
+      "gameID": 139949,
+      "name": "Acidic Splash",
+      "type": "1"
+    },
+    {
+      "gameID": 104272,
+      "name": "Well Fed",
+      "type": "1"
+    },
+    {
+      "gameID": 137095,
+      "name": "Pierce the Veil",
+      "type": "32"
+    },
+    {
+      "gameID": 137152,
+      "name": "Harsh Light",
+      "type": "1"
+    },
+    {
+      "gameID": 137103,
+      "name": "Harsh Light",
+      "type": "1"
+    },
+    {
+      "gameID": 137104,
+      "name": "Harsh Light",
+      "type": "4"
+    },
+    {
+      "gameID": 105708,
+      "name": "Healing Potion",
+      "type": "1"
+    },
+    {
+      "gameID": 141014,
+      "name": "Exit Chamber [DNT]",
+      "type": "1"
+    },
+    {
+      "gameID": 133765,
+      "name": "Hard Stare",
+      "type": "1"
+    },
+    {
+      "gameID": 133767,
+      "name": "Serious Wound",
+      "type": "1"
+    },
+    {
+      "gameID": 133768,
+      "name": "Arterial Cut",
+      "type": "1"
+    },
+    {
+      "gameID": 138467,
+      "name": "Lingering Gaze",
+      "type": "1"
+    },
+    {
+      "gameID": 134626,
+      "name": "Lingering Gaze",
+      "type": "1"
+    },
+    {
+      "gameID": 133793,
+      "name": "Lingering Gaze",
+      "type": "32"
+    },
+    {
+      "gameID": 134044,
+      "name": "Lingering Gaze",
+      "type": "32"
+    },
+    {
+      "gameID": 136932,
+      "name": "Force of Will",
+      "type": "1"
+    },
+    {
+      "gameID": 134122,
+      "name": "Blue Rays",
+      "type": "1"
+    },
+    {
+      "gameID": 134123,
+      "name": "Infrared Light",
+      "type": "1"
+    },
+    {
+      "gameID": 134124,
+      "name": "Bright Light",
+      "type": "1"
+    },
+    {
+      "gameID": 133675,
+      "name": "Blue Rays",
+      "type": "1"
+    },
+    {
+      "gameID": 133737,
+      "name": "Bright Light",
+      "type": "1"
+    },
+    {
+      "gameID": 139202,
+      "name": "Blue Ray Tracking",
+      "type": "1"
+    },
+    {
+      "gameID": 139204,
+      "name": "Infrared Tracking",
+      "type": "1"
+    },
+    {
+      "gameID": 1283162,
+      "name": "Periodic Revealer",
+      "type": "1"
+    },
+    {
+      "gameID": 133677,
+      "name": "Blue Rays",
+      "type": "16"
+    },
+    {
+      "gameID": 133732,
+      "name": "Infrared Light",
+      "type": "4"
+    },
+    {
+      "gameID": 133738,
+      "name": "Bright Light",
+      "type": "8"
+    },
+    {
+      "gameID": 136154,
+      "name": "Caustic Spike",
+      "type": "1"
+    },
+    {
+      "gameID": 140495,
+      "name": "Lingering Gaze",
+      "type": "32"
+    },
+    {
+      "gameID": 137219,
+      "name": "Acidic Splash",
+      "type": "1"
+    },
+    {
+      "gameID": 139107,
+      "name": "Mind Daggers",
+      "type": "64"
+    },
+    {
+      "gameID": 134755,
+      "name": "Eye Sore",
+      "type": "64"
+    },
+    {
+      "gameID": 1283288,
+      "name": "Disintegration",
+      "type": "4"
+    },
+    {
+      "gameID": 133795,
+      "name": "Life Drain",
+      "type": "1"
+    },
+    {
+      "gameID": 137663,
+      "name": "Acidic Splash",
+      "type": "1"
+    },
+    {
+      "gameID": 136177,
+      "name": "Icy Grasp",
+      "type": "16"
+    },
+    {
+      "gameID": 111922,
+      "name": "Fortitude",
+      "type": "8"
+    },
+    {
+      "gameID": 136841,
+      "name": "Ooze Explosion",
+      "type": "8"
+    },
+    {
+      "gameID": 16914,
+      "name": "Hurricane",
+      "type": "8"
+    },
+    {
+      "gameID": 42231,
+      "name": "Hurricane",
+      "type": "8"
+    },
+    {
+      "gameID": 102793,
+      "name": "Ursol's Vortex",
+      "type": "8"
+    },
+    {
+      "gameID": 126318,
+      "name": "Horn Blast",
+      "type": "1"
+    },
+    {
+      "gameID": 67826,
+      "name": "Jeeves",
+      "type": "1"
+    },
+    {
+      "gameID": 68054,
+      "name": "Pressing Engagement",
+      "type": "1"
+    },
+    {
+      "gameID": 55016,
+      "name": "Nitro Boosts",
+      "type": "1"
+    },
+    {
+      "gameID": 136050,
+      "name": "Malformed Blood",
+      "type": "8"
+    },
+    {
+      "gameID": 136037,
+      "name": "Primordial Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 110309,
+      "name": "Symbiosis",
+      "type": "8"
+    },
+    {
+      "gameID": 110478,
+      "name": "Symbiosis",
+      "type": "8"
+    },
+    {
+      "gameID": 136186,
+      "name": "Clear Mind",
+      "type": "1"
+    },
+    {
+      "gameID": 136178,
+      "name": "Mutation",
+      "type": "8"
+    },
+    {
+      "gameID": 136184,
+      "name": "Thick Bones",
+      "type": "1"
+    },
+    {
+      "gameID": 136180,
+      "name": "Keen Eyesight",
+      "type": "1"
+    },
+    {
+      "gameID": 136182,
+      "name": "Improved Synapses",
+      "type": "1"
+    },
+    {
+      "gameID": 115080,
+      "name": "Touch of Death",
+      "type": "1"
+    },
+    {
+      "gameID": 136209,
+      "name": "Evolution",
+      "type": "1"
+    },
+    {
+      "gameID": 136215,
+      "name": "Gas Bladder",
+      "type": "1"
+    },
+    {
+      "gameID": 136216,
+      "name": "Caustic Gas",
+      "type": "8"
+    },
+    {
+      "gameID": 140546,
+      "name": "Fully Mutated",
+      "type": "1"
+    },
+    {
+      "gameID": 136051,
+      "name": "Congeal Blood",
+      "type": "8"
+    },
+    {
+      "gameID": 83243,
+      "name": "Call Pet 3",
+      "type": "1"
+    },
+    {
+      "gameID": 136225,
+      "name": "Pathogen Glands",
+      "type": "1"
+    },
+    {
+      "gameID": 136228,
+      "name": "Volatile Pathogen",
+      "type": "1"
+    },
+    {
+      "gameID": 136231,
+      "name": "Volatile Pathogen",
+      "type": "8"
+    },
+    {
+      "gameID": 136185,
+      "name": "Fragile Bones",
+      "type": "1"
+    },
+    {
+      "gameID": 8190,
+      "name": "Magma Totem",
+      "type": "4"
+    },
+    {
+      "gameID": 8187,
+      "name": "Magma Totem",
+      "type": "4"
+    },
+    {
+      "gameID": 136187,
+      "name": "Clouded Mind",
+      "type": "1"
+    },
+    {
+      "gameID": 140508,
+      "name": "Volatile Mutation",
+      "type": "8"
+    },
+    {
+      "gameID": 136181,
+      "name": "Impaired Eyesight",
+      "type": "1"
+    },
+    {
+      "gameID": 136183,
+      "name": "Dulled Synapses",
+      "type": "1"
+    },
+    {
+      "gameID": 136210,
+      "name": "Ventral Sacs",
+      "type": "1"
+    },
+    {
+      "gameID": 136211,
+      "name": "Ventral Sacs",
+      "type": "8"
+    },
+    {
+      "gameID": 136245,
+      "name": "Metabolic Boost",
+      "type": "1"
+    },
+    {
+      "gameID": 139215,
+      "name": "Shockwave",
+      "type": "1"
+    },
+    {
+      "gameID": 137998,
+      "name": "Shadow Nova",
+      "type": "32"
+    },
+    {
+      "gameID": 137994,
+      "name": "Long-Range Ritual Lightning",
+      "type": "4"
+    },
+    {
+      "gameID": 138099,
+      "name": "Fire Blast",
+      "type": "4"
+    },
+    {
+      "gameID": 109248,
+      "name": "Binding Shot",
+      "type": "8"
+    },
+    {
+      "gameID": 117405,
+      "name": "Binding Shot",
+      "type": "1"
+    },
+    {
+      "gameID": 117526,
+      "name": "Binding Shot",
+      "type": "64"
+    },
+    {
+      "gameID": 137995,
+      "name": "Short-Range Ritual Lightning",
+      "type": "4"
+    },
+    {
+      "gameID": 25809,
+      "name": "Crippling Poison",
+      "type": "8"
+    },
+    {
+      "gameID": 121733,
+      "name": "Throw",
+      "type": "1"
+    },
+    {
+      "gameID": 138453,
+      "name": "Acceleration Link",
+      "type": "1"
+    },
+    {
+      "gameID": 48265,
+      "name": "Death's Advance",
+      "type": "32"
+    },
+    {
+      "gameID": 19503,
+      "name": "Scatter Shot",
+      "type": "1"
+    },
+    {
+      "gameID": 138378,
+      "name": "Transfusion",
+      "type": "1"
+    },
+    {
+      "gameID": 138609,
+      "name": "Matter Swap",
+      "type": "64"
+    },
+    {
+      "gameID": 138569,
+      "name": "Explosive Slam",
+      "type": "4"
+    },
+    {
+      "gameID": 138618,
+      "name": "Matter Swap",
+      "type": "64"
+    },
+    {
+      "gameID": 138480,
+      "name": "Crimson Wake",
+      "type": "1"
+    },
+    {
+      "gameID": 105701,
+      "name": "Potion of Focus",
+      "type": "0"
+    },
+    {
+      "gameID": 138485,
+      "name": "Crimson Wake",
+      "type": "4"
+    },
+    {
+      "gameID": 2641,
+      "name": "Dismiss Pet",
+      "type": "1"
+    },
+    {
+      "gameID": 19577,
+      "name": "Intimidation",
+      "type": "8"
+    },
+    {
+      "gameID": 24394,
+      "name": "Intimidation",
+      "type": "1"
+    },
+    {
+      "gameID": 138644,
+      "name": "Siphon Anima",
+      "type": "1"
+    },
+    {
+      "gameID": 136954,
+      "name": "Anima Ring",
+      "type": "1"
+    },
+    {
+      "gameID": 136962,
+      "name": "Anima Ring",
+      "type": "4"
+    },
+    {
+      "gameID": 138659,
+      "name": "Touch of the Animus",
+      "type": "4"
+    },
+    {
+      "gameID": 138691,
+      "name": "Anima Font",
+      "type": "4"
+    },
+    {
+      "gameID": 138707,
+      "name": "Anima Font",
+      "type": "4"
+    },
+    {
+      "gameID": 138763,
+      "name": "Interrupting Jolt",
+      "type": "8"
+    },
+    {
+      "gameID": 94794,
+      "name": "Rocket Fuel Leak",
+      "type": "4"
+    },
+    {
+      "gameID": 139310,
+      "name": "Foul Venom",
+      "type": "8"
+    },
+    {
+      "gameID": 139309,
+      "name": "Muck Spit",
+      "type": "8"
+    },
+    {
+      "gameID": 139317,
+      "name": "Putrify",
+      "type": "8"
+    },
+    {
+      "gameID": 139311,
+      "name": "Frenzied Consumption",
+      "type": "1"
+    },
+    {
+      "gameID": 139313,
+      "name": "Frenzied Consumption",
+      "type": "1"
+    },
+    {
+      "gameID": 139314,
+      "name": "Infected Bite",
+      "type": "8"
+    },
+    {
+      "gameID": 139315,
+      "name": "Rot",
+      "type": "8"
+    },
+    {
+      "gameID": 121190,
+      "name": "Leaping Rush",
+      "type": "1"
+    },
+    {
+      "gameID": 122962,
+      "name": "Carnivorous Bite",
+      "type": "1"
+    },
+    {
+      "gameID": 139797,
+      "name": "Wild Smash",
+      "type": "1"
+    },
+    {
+      "gameID": 139815,
+      "name": "Triumphant Roar",
+      "type": "1"
+    },
+    {
+      "gameID": 139803,
+      "name": "Triumphant Rush",
+      "type": "1"
+    },
+    {
+      "gameID": 134691,
+      "name": "Impale",
+      "type": "1"
+    },
+    {
+      "gameID": 134664,
+      "name": "Molten Inferno",
+      "type": "4"
+    },
+    {
+      "gameID": 134628,
+      "name": "Unleashed Flame",
+      "type": "4"
+    },
+    {
+      "gameID": 134647,
+      "name": "Scorched",
+      "type": "4"
+    },
+    {
+      "gameID": 134926,
+      "name": "Throw Spear",
+      "type": "1"
+    },
+    {
+      "gameID": 134759,
+      "name": "Ground Rupture",
+      "type": "1"
+    },
+    {
+      "gameID": 137668,
+      "name": "Burning Cinders",
+      "type": "4"
+    },
+    {
+      "gameID": 76577,
+      "name": "Smoke Bomb",
+      "type": "1"
+    },
+    {
+      "gameID": 136192,
+      "name": "Lightning Storm",
+      "type": "8"
+    },
+    {
+      "gameID": 136193,
+      "name": "Arcing Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 136577,
+      "name": "Wind Storm",
+      "type": "8"
+    },
+    {
+      "gameID": 137654,
+      "name": "Rushing Winds",
+      "type": "8"
+    },
+    {
+      "gameID": 137669,
+      "name": "Storm Cloud",
+      "type": "8"
+    },
+    {
+      "gameID": 136615,
+      "name": "Electrified",
+      "type": "8"
+    },
+    {
+      "gameID": 122783,
+      "name": "Diffuse Magic",
+      "type": "8"
+    },
+    {
+      "gameID": 136498,
+      "name": "Storm Surge",
+      "type": "8"
+    },
+    {
+      "gameID": 110570,
+      "name": "Anti-Magic Shell",
+      "type": "32"
+    },
+    {
+      "gameID": 135144,
+      "name": "Frozen Resilience",
+      "type": "16"
+    },
+    {
+      "gameID": 135142,
+      "name": "Frozen Resilience",
+      "type": "16"
+    },
+    {
+      "gameID": 137229,
+      "name": "Dead Zone",
+      "type": "80"
+    },
+    {
+      "gameID": 135361,
+      "name": "Dead Zone: Front",
+      "type": "80"
+    },
+    {
+      "gameID": 135225,
+      "name": "Dead Zone: Back",
+      "type": "80"
+    },
+    {
+      "gameID": 135145,
+      "name": "Freeze",
+      "type": "16"
+    },
+    {
+      "gameID": 135147,
+      "name": "Dead Zone",
+      "type": "80"
+    },
+    {
+      "gameID": 137709,
+      "name": "Shatter",
+      "type": "16"
+    },
+    {
+      "gameID": 135146,
+      "name": "Shatter",
+      "type": "16"
+    },
+    {
+      "gameID": 137231,
+      "name": "Dead Zone",
+      "type": "80"
+    },
+    {
+      "gameID": 135223,
+      "name": "Dead Zone: Right",
+      "type": "80"
+    },
+    {
+      "gameID": 137228,
+      "name": "Dead Zone",
+      "type": "80"
+    },
+    {
+      "gameID": 135199,
+      "name": "Dead Zone: Left",
+      "type": "80"
+    },
+    {
+      "gameID": 136520,
+      "name": "Frozen Blood",
+      "type": "1"
+    },
+    {
+      "gameID": 137664,
+      "name": "Frozen Blood",
+      "type": "16"
+    },
+    {
+      "gameID": 137227,
+      "name": "Dead Zone",
+      "type": "80"
+    },
+    {
+      "gameID": 137226,
+      "name": "Dead Zone",
+      "type": "80"
+    },
+    {
+      "gameID": 121147,
+      "name": "Death Coil",
+      "type": "32"
+    },
+    {
+      "gameID": 137230,
+      "name": "Dead Zone",
+      "type": "1"
+    },
+    {
+      "gameID": 136323,
+      "name": "Rising Anger",
+      "type": "1"
+    },
+    {
+      "gameID": 136925,
+      "name": "Burning Blast",
+      "type": "4"
+    },
+    {
+      "gameID": 136147,
+      "name": "Fist Smash",
+      "type": "1"
+    },
+    {
+      "gameID": 73975,
+      "name": "Necrotic Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 51755,
+      "name": "Camouflage",
+      "type": "1"
+    },
+    {
+      "gameID": 139771,
+      "name": "Lightning Lash",
+      "type": "8"
+    },
+    {
+      "gameID": 139772,
+      "name": "Cosmic Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 139791,
+      "name": "Cosmic Strike",
+      "type": "64"
+    },
+    {
+      "gameID": 137118,
+      "name": "Bloom Moon Lotus",
+      "type": "1"
+    },
+    {
+      "gameID": 137403,
+      "name": "Light of Day",
+      "type": "4"
+    },
+    {
+      "gameID": 136752,
+      "name": "Cosmic Barrage",
+      "type": "64"
+    },
+    {
+      "gameID": 137129,
+      "name": "Crashing Star",
+      "type": "64"
+    },
+    {
+      "gameID": 137404,
+      "name": "Tears of the Sun",
+      "type": "4"
+    },
+    {
+      "gameID": 137405,
+      "name": "Tears of the Sun",
+      "type": "4"
+    },
+    {
+      "gameID": 136722,
+      "name": "Slumber Spores",
+      "type": "8"
+    },
+    {
+      "gameID": 137375,
+      "name": "Beast of Nightmares",
+      "type": "1"
+    },
+    {
+      "gameID": 137341,
+      "name": "Beast of Nightmares",
+      "type": "32"
+    },
+    {
+      "gameID": 3599,
+      "name": "Searing Totem",
+      "type": "4"
+    },
+    {
+      "gameID": 3606,
+      "name": "Searing Bolt",
+      "type": "4"
+    },
+    {
+      "gameID": 137360,
+      "name": "Corrupted Healing",
+      "type": "32"
+    },
+    {
+      "gameID": 138112,
+      "name": "Invoke Statue",
+      "type": "1"
+    },
+    {
+      "gameID": 138189,
+      "name": "Invoke Crane Spirit",
+      "type": "1"
+    },
+    {
+      "gameID": 139412,
+      "name": "Blazing Radiance",
+      "type": "4"
+    },
+    {
+      "gameID": 137410,
+      "name": "Blazing Radiance",
+      "type": "4"
+    },
+    {
+      "gameID": 137494,
+      "name": "Light of Day",
+      "type": "4"
+    },
+    {
+      "gameID": 137408,
+      "name": "Fan of Flames",
+      "type": "4"
+    },
+    {
+      "gameID": 137419,
+      "name": "Ice Comet",
+      "type": "16"
+    },
+    {
+      "gameID": 137440,
+      "name": "Icy Shadows",
+      "type": "32"
+    },
+    {
+      "gameID": 137414,
+      "name": "Flames of Passion",
+      "type": "4"
+    },
+    {
+      "gameID": 138267,
+      "name": "Invoke Serpent Spirit",
+      "type": "1"
+    },
+    {
+      "gameID": 138306,
+      "name": "Serpent's Vitality",
+      "type": "8"
+    },
+    {
+      "gameID": 16689,
+      "name": "Nature's Grasp",
+      "type": "8"
+    },
+    {
+      "gameID": 339,
+      "name": "Entangling Roots",
+      "type": "8"
+    },
+    {
+      "gameID": 20736,
+      "name": "Distracting Shot",
+      "type": "64"
+    },
+    {
+      "gameID": 137417,
+      "name": "Flames of Passion",
+      "type": "4"
+    },
+    {
+      "gameID": 19975,
+      "name": "Entangling Roots",
+      "type": "8"
+    },
+    {
+      "gameID": 112947,
+      "name": "Nerve Strike",
+      "type": "1"
+    },
+    {
+      "gameID": 140180,
+      "name": "Gripping Storm",
+      "type": "8"
+    },
+    {
+      "gameID": 138235,
+      "name": "Electro Pulse",
+      "type": "8"
+    },
+    {
+      "gameID": 138270,
+      "name": "Electro Wave",
+      "type": "8"
+    },
+    {
+      "gameID": 138239,
+      "name": "Electro Pulse",
+      "type": "8"
+    },
+    {
+      "gameID": 138178,
+      "name": "Thunder Trap",
+      "type": "8"
+    },
+    {
+      "gameID": 138196,
+      "name": "Lightning Burst",
+      "type": "8"
+    },
+    {
+      "gameID": 140296,
+      "name": "Conductive Shield",
+      "type": "8"
+    },
+    {
+      "gameID": 140301,
+      "name": "Zapped",
+      "type": "8"
+    },
+    {
+      "gameID": 138201,
+      "name": "Lei Shen's Gift",
+      "type": "8"
+    },
+    {
+      "gameID": 138187,
+      "name": "Lightning Storm",
+      "type": "8"
+    },
+    {
+      "gameID": 138210,
+      "name": "Chain Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 138234,
+      "name": "Lightning Storm",
+      "type": "8"
+    },
+    {
+      "gameID": 134821,
+      "name": "Discharged Energy",
+      "type": "8"
+    },
+    {
+      "gameID": 134820,
+      "name": "Discharged Energy",
+      "type": "1"
+    },
+    {
+      "gameID": 135681,
+      "name": "Diffusion Chain",
+      "type": "1"
+    },
+    {
+      "gameID": 135150,
+      "name": "Crashing Thunder",
+      "type": "8"
+    },
+    {
+      "gameID": 135153,
+      "name": "Crashing Thunder",
+      "type": "8"
+    },
+    {
+      "gameID": 135151,
+      "name": "Crashing Thunder",
+      "type": "1"
+    },
+    {
+      "gameID": 1282218,
+      "name": "Crashing Thunder",
+      "type": "8"
+    },
+    {
+      "gameID": 135992,
+      "name": "Diffusion Chain",
+      "type": "1"
+    },
+    {
+      "gameID": 135991,
+      "name": "Diffusion Chain",
+      "type": "8"
+    },
+    {
+      "gameID": 136018,
+      "name": "Chain Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 135095,
+      "name": "Thunderstruck",
+      "type": "8"
+    },
+    {
+      "gameID": 135096,
+      "name": "Thunderstruck",
+      "type": "8"
+    },
+    {
+      "gameID": 134912,
+      "name": "Decapitate",
+      "type": "1"
+    },
+    {
+      "gameID": 134916,
+      "name": "Decapitate",
+      "type": "1"
+    },
+    {
+      "gameID": 135682,
+      "name": "Overcharge",
+      "type": "1"
+    },
+    {
+      "gameID": 136295,
+      "name": "Overcharged",
+      "type": "8"
+    },
+    {
+      "gameID": 136326,
+      "name": "Overcharge",
+      "type": "8"
+    },
+    {
+      "gameID": 135683,
+      "name": "Bouncing Bolt",
+      "type": "1"
+    },
+    {
+      "gameID": 137045,
+      "name": "Supercharge Conduits",
+      "type": "8"
+    },
+    {
+      "gameID": 136366,
+      "name": "Bouncing Bolt",
+      "type": "8"
+    },
+    {
+      "gameID": 136019,
+      "name": "Chain Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 135695,
+      "name": "Static Shock",
+      "type": "1"
+    },
+    {
+      "gameID": 135703,
+      "name": "Static Shock",
+      "type": "8"
+    },
+    {
+      "gameID": 137176,
+      "name": "Overloaded Circuits",
+      "type": "8"
+    },
+    {
+      "gameID": 135680,
+      "name": "Static Shock",
+      "type": "1"
+    },
+    {
+      "gameID": 136543,
+      "name": "Summon Ball Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 136548,
+      "name": "Ball Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 136620,
+      "name": "Ball Lightning",
+      "type": "8"
+    },
+    {
+      "gameID": 136850,
+      "name": "Lightning Whip",
+      "type": "8"
+    },
+    {
+      "gameID": 136478,
+      "name": "Fusion Slash",
+      "type": "8"
+    },
+    {
+      "gameID": 136913,
+      "name": "Overwhelming Power",
+      "type": "8"
+    },
+    {
+      "gameID": 136914,
+      "name": "Electrical Shock",
+      "type": "8"
+    },
+    {
+      "gameID": 136889,
+      "name": "Violent Gale Winds",
+      "type": "8"
+    },
+    {
+      "gameID": 140208,
+      "name": "Windburn",
+      "type": "8"
+    },
+    {
+      "gameID": 136853,
+      "name": "Lightning Bolt",
+      "type": "8"
+    }
+  ]
+}

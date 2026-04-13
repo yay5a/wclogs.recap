@@ -1,0 +1,25 @@
+{
+  "probeFamily": "fight-resurrect-events",
+  "reportCode": "v4apgdkyWQmrZ3q8",
+  "fightId": 46,
+  "encounterId": 51579,
+  "generatedAt": "2026-04-13T20:56:58.898Z",
+  "payload": {
+    "pages": [
+      {
+        "data": [
+          {
+            "timestamp": 8392843,
+            "type": "resurrect",
+            "sourceID": 12,
+            "targetID": 15,
+            "abilityGameID": 20484,
+            "fight": 46
+          }
+        ],
+        "nextPageTimestamp": null
+      }
+    ],
+    "pageCount": 1
+  }
+}

@@ -1,0 +1,258 @@
+{
+  "probeFamily": "boss-rankings",
+  "reportCode": "v4apgdkyWQmrZ3q8",
+  "fightId": 46,
+  "encounterId": 51579,
+  "generatedAt": "2026-04-13T20:56:57.038Z",
+  "payload": {
+    "data": [
+      {
+        "fightID": 46,
+        "partition": 3,
+        "zone": 1046,
+        "encounter": {
+          "id": 51579,
+          "name": "Lei'shen"
+        },
+        "difficulty": 3,
+        "size": 10,
+        "kill": 1,
+        "duration": 440287,
+        "bracketData": 516.3,
+        "deaths": 4,
+        "damageTakenExcludingTanks": 67422062,
+        "roles": {
+          "tanks": {
+            "name": "Tanks",
+            "characters": [
+              {
+                "id": 104303300,
+                "name": "Darshaneth",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "DeathKnight",
+                "spec": "Blood",
+                "amount": 48567.348116115,
+                "bracketData": 511,
+                "bracket": 10,
+                "rank": "~2784",
+                "best": "~2784",
+                "totalParses": 2901,
+                "bracketPercent": 6,
+                "rankPercent": 4
+              },
+              {
+                "id": 101718243,
+                "name": "Arakinak",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "Druid",
+                "spec": "Guardian",
+                "amount": 94428.843004676,
+                "bracketData": 521,
+                "bracket": 13,
+                "rank": 284,
+                "best": 284,
+                "totalParses": 1387,
+                "bracketPercent": 86,
+                "rankPercent": 79
+              }
+            ]
+          },
+          "healers": {
+            "name": "Healers",
+            "characters": [
+              {
+                "id": 100920244,
+                "name": "Floorroller",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "Monk",
+                "spec": "Mistweaver",
+                "amount": 48422.637961148,
+                "bracketData": 516,
+                "bracket": 11,
+                "rank": "~731",
+                "best": "~731",
+                "totalParses": 1284,
+                "bracketPercent": 62,
+                "rankPercent": 43
+              },
+              {
+                "id": 101642536,
+                "name": "Pearl",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "Shaman",
+                "spec": "Restoration",
+                "amount": 4775.1943618594,
+                "bracketData": 515,
+                "bracket": 11,
+                "rank": "~1713",
+                "best": "~1713",
+                "totalParses": 2380,
+                "bracketPercent": 47,
+                "rankPercent": 28
+              }
+            ]
+          },
+          "dps": {
+            "name": "Damage Dealers",
+            "characters": [
+              {
+                "id": 100770863,
+                "name": "Wildin",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "DeathKnight",
+                "spec": "Unholy",
+                "amount": 110840.94238531,
+                "bracketData": 516,
+                "bracket": 11,
+                "rank": "~605",
+                "best": 460,
+                "totalParses": 993,
+                "bracketPercent": 69,
+                "rankPercent": 39
+              },
+              {
+                "id": 101718249,
+                "name": "Deeboom",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "Druid",
+                "spec": "Balance",
+                "amount": 103892.36566149,
+                "bracketData": 524,
+                "bracket": 14,
+                "rank": "~1152",
+                "best": "~1152",
+                "totalParses": 1920,
+                "bracketPercent": 32,
+                "rankPercent": 40
+              },
+              {
+                "id": 100880588,
+                "name": "Raikami",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "Hunter",
+                "spec": "Survival",
+                "amount": 169857.63149945,
+                "bracketData": 528,
+                "bracket": 15,
+                "rank": 21,
+                "best": 2,
+                "totalParses": 3915,
+                "bracketPercent": 100,
+                "rankPercent": 99
+              },
+              {
+                "id": 105586079,
+                "name": "Jokeroftame",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "Hunter",
+                "spec": "Survival",
+                "amount": 82957.436853689,
+                "bracketData": 500,
+                "bracket": 6,
+                "rank": "~3640",
+                "best": "~3640",
+                "totalParses": 3915,
+                "bracketPercent": 40,
+                "rankPercent": 7
+              },
+              {
+                "id": 103764531,
+                "name": "Yaysa",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "Rogue",
+                "spec": "Subtlety",
+                "amount": 114733.99169178,
+                "bracketData": 518,
+                "bracket": 12,
+                "rank": "~651",
+                "best": "~651",
+                "totalParses": 918,
+                "bracketPercent": 56,
+                "rankPercent": 29
+              },
+              {
+                "id": 101860107,
+                "name": "Vesper",
+                "server": {
+                  "id": 5229,
+                  "name": "Galakras",
+                  "region": "US"
+                },
+                "class": "Shaman",
+                "spec": "Elemental",
+                "amount": 27109.469505118,
+                "bracketData": 514,
+                "bracket": 11,
+                "rank": "~3714",
+                "best": "~3714",
+                "totalParses": 3714,
+                "bracketPercent": 0,
+                "rankPercent": 0
+              }
+            ]
+          }
+        },
+        "bracket": 11,
+        "guild": {
+          "id": 802772,
+          "name": "Shenanigans",
+          "faction": 0,
+          "server": {
+            "id": 5229,
+            "name": "Galakras",
+            "region": "US"
+          }
+        },
+        "reportsBlacklistForCharacters": [],
+        "speed": {
+          "rank": 1624,
+          "best": 794,
+          "totalParses": 1899,
+          "rankPercent": 14
+        },
+        "execution": {
+          "rank": 1861,
+          "best": 947,
+          "totalParses": 1899,
+          "rankPercent": 2
+        }
+      }
+    ]
+  }
+}

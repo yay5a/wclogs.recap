@@ -1,0 +1,772 @@
+{
+  "probeFamily": "table-deaths",
+  "reportCode": "v4apgdkyWQmrZ3q8",
+  "fightId": 46,
+  "encounterId": 51579,
+  "generatedAt": "2026-04-13T20:56:57.874Z",
+  "payload": {
+    "data": {
+      "entries": [
+        {
+          "name": "Jokeroftame",
+          "id": 15,
+          "guid": 98947364,
+          "type": "Hunter",
+          "icon": "Hunter-Survival",
+          "timestamp": 8341969,
+          "fight": 46,
+          "damage": {
+            "total": 944138,
+            "activeTime": 0,
+            "activeTimeReduced": 0,
+            "overheal": 83136,
+            "abilities": [
+              {
+                "guid": 136326,
+                "name": "Overcharge",
+                "total": 491137,
+                "type": 8,
+                "icon": "ability_thunderking_overcharge.jpg"
+              },
+              {
+                "guid": 134821,
+                "name": "Discharged Energy",
+                "total": 266186,
+                "type": 8,
+                "icon": "spell_nature_purge.jpg"
+              },
+              {
+                "guid": 135096,
+                "name": "Thunderstruck",
+                "total": 152001,
+                "type": 8,
+                "icon": "ability_thunderking_thunderstruck.jpg"
+              },
+              {
+                "guid": 136366,
+                "name": "Bouncing Bolt",
+                "total": 34814,
+                "type": 8,
+                "icon": "spell_shaman_measuredinsight.jpg"
+              }
+            ],
+            "damageAbilities": [],
+            "sources": [
+              {
+                "name": "Lei Shen",
+                "total": 677952,
+                "type": "Boss"
+              },
+              {
+                "name": "Environment",
+                "total": 266186,
+                "type": "Boss"
+              }
+            ]
+          },
+          "healing": {
+            "total": 314928,
+            "activeTime": 0,
+            "activeTimeReduced": 0,
+            "abilities": [
+              {
+                "guid": 1064,
+                "name": "Chain Heal",
+                "total": 115370,
+                "type": 8,
+                "icon": "inv_1115_shaman_chainheal.jpg"
+              },
+              {
+                "guid": 119611,
+                "name": "Renewing Mist",
+                "total": 107769,
+                "type": 8,
+                "icon": "ability_monk_renewingmists.jpg"
+              },
+              {
+                "guid": 124041,
+                "name": "Gift of the Serpent",
+                "total": 45597,
+                "type": 8,
+                "icon": "ability_monk_healthsphere.jpg"
+              },
+              {
+                "guid": 52042,
+                "name": "Healing Stream Totem",
+                "total": 41340,
+                "type": 8,
+                "icon": "inv_spear_04.jpg"
+              },
+              {
+                "guid": 126890,
+                "name": "Ancient Teachings of the Monastery",
+                "total": 4852,
+                "type": 8,
+                "icon": "inv_jewelcrafting_jadeserpent.jpg"
+              }
+            ],
+            "damageAbilities": [
+              {
+                "guid": 134821,
+                "name": "Discharged Energy",
+                "total": 249142,
+                "type": 8,
+                "icon": "spell_nature_purge.jpg"
+              },
+              {
+                "guid": 135096,
+                "name": "Thunderstruck",
+                "total": 60934,
+                "type": 8,
+                "icon": "ability_thunderking_thunderstruck.jpg"
+              },
+              {
+                "guid": 136326,
+                "name": "Overcharge",
+                "total": 4852,
+                "type": 8,
+                "icon": "ability_thunderking_overcharge.jpg"
+              }
+            ],
+            "sources": [
+              {
+                "name": "Floorroller",
+                "total": 158218,
+                "type": "Monk"
+              },
+              {
+                "name": "Pearl",
+                "total": 156710,
+                "type": "Shaman"
+              }
+            ]
+          },
+          "deathWindow": 39171,
+          "overkill": 184676,
+          "events": [
+            {
+              "timestamp": 8341950,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 15,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Overcharge",
+                "guid": 136326,
+                "type": 8,
+                "abilityIcon": "ability_thunderking_overcharge.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 57542,
+              "mitigated": 29632,
+              "unmitigatedAmount": 271850,
+              "overkill": 184676,
+              "isAoE": true
+            },
+            {
+              "timestamp": 8340906,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 15,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Overcharge",
+                "guid": 136326,
+                "type": 8,
+                "abilityIcon": "ability_thunderking_overcharge.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 248919,
+              "mitigated": 30451,
+              "unmitigatedAmount": 279370,
+              "isAoE": true
+            },
+            {
+              "timestamp": 8329862,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 15,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Bouncing Bolt",
+                "guid": 136366,
+                "type": 8,
+                "abilityIcon": "spell_shaman_measuredinsight.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 34814,
+              "mitigated": 4258,
+              "unmitigatedAmount": 39072,
+              "isAoE": true
+            }
+          ],
+          "killingBlow": {
+            "name": "Overcharge",
+            "guid": 136326,
+            "type": 8,
+            "abilityIcon": "ability_thunderking_overcharge.jpg"
+          }
+        },
+        {
+          "name": "Vesper",
+          "id": 9,
+          "guid": 99565855,
+          "type": "Shaman",
+          "icon": "Shaman-Elemental",
+          "timestamp": 8349314,
+          "fight": 46,
+          "damage": {
+            "total": 828948,
+            "activeTime": 0,
+            "activeTimeReduced": 0,
+            "overheal": 27657,
+            "abilities": [
+              {
+                "guid": 134821,
+                "name": "Discharged Energy",
+                "total": 292892,
+                "type": 8,
+                "icon": "spell_nature_purge.jpg"
+              },
+              {
+                "guid": 136326,
+                "name": "Overcharge",
+                "total": 248914,
+                "type": 8,
+                "icon": "ability_thunderking_overcharge.jpg"
+              },
+              {
+                "guid": 136366,
+                "name": "Bouncing Bolt",
+                "total": 157142,
+                "type": 8,
+                "icon": "spell_shaman_measuredinsight.jpg"
+              },
+              {
+                "guid": 135096,
+                "name": "Thunderstruck",
+                "total": 130000,
+                "type": 8,
+                "icon": "ability_thunderking_thunderstruck.jpg"
+              }
+            ],
+            "damageAbilities": [],
+            "sources": [
+              {
+                "name": "Lei Shen",
+                "total": 536056,
+                "type": "Boss"
+              },
+              {
+                "name": "Environment",
+                "total": 292892,
+                "type": "Boss"
+              }
+            ]
+          },
+          "healing": {
+            "total": 274597,
+            "activeTime": 0,
+            "activeTimeReduced": 0,
+            "abilities": [
+              {
+                "guid": 119611,
+                "name": "Renewing Mist",
+                "total": 128827,
+                "type": 8,
+                "icon": "ability_monk_renewingmists.jpg"
+              },
+              {
+                "guid": 1064,
+                "name": "Chain Heal",
+                "total": 106590,
+                "type": 8,
+                "icon": "inv_1115_shaman_chainheal.jpg"
+              },
+              {
+                "guid": 138304,
+                "name": "Healing Stream Totem",
+                "total": 39180,
+                "type": 8,
+                "icon": "inv_spear_04.jpg"
+              }
+            ],
+            "damageAbilities": [
+              {
+                "guid": 134821,
+                "name": "Discharged Energy",
+                "total": 191779,
+                "type": 8,
+                "icon": "spell_nature_purge.jpg"
+              },
+              {
+                "guid": 135096,
+                "name": "Thunderstruck",
+                "total": 82818,
+                "type": 8,
+                "icon": "ability_thunderking_thunderstruck.jpg"
+              }
+            ],
+            "sources": [
+              {
+                "name": "Pearl",
+                "total": 145770,
+                "type": "Shaman"
+              },
+              {
+                "name": "Floorroller",
+                "total": 128827,
+                "type": "Monk"
+              }
+            ]
+          },
+          "deathWindow": 46506,
+          "overkill": 69409,
+          "events": [
+            {
+              "timestamp": 8349285,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 9,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Bouncing Bolt",
+                "guid": 136366,
+                "type": 8,
+                "abilityIcon": "spell_shaman_measuredinsight.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 87733,
+              "unmitigatedAmount": 157142,
+              "overkill": 69409,
+              "isAoE": true
+            },
+            {
+              "timestamp": 8341773,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 9,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Overcharge",
+                "guid": 136326,
+                "type": 8,
+                "abilityIcon": "ability_thunderking_overcharge.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 248914,
+              "mitigated": 27657,
+              "unmitigatedAmount": 276571,
+              "isAoE": true
+            },
+            {
+              "timestamp": 8322468,
+              "type": "damage",
+              "source": {
+                "name": "Environment",
+                "id": -1,
+                "guid": 0,
+                "type": "Boss",
+                "icon": "Boss"
+              },
+              "sourceIsFriendly": false,
+              "targetID": 9,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Discharged Energy",
+                "guid": 134821,
+                "type": 8,
+                "abilityIcon": "spell_nature_purge.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 25727,
+              "unmitigatedAmount": 9895,
+              "isAoE": true,
+              "tick": true
+            }
+          ],
+          "killingBlow": {
+            "name": "Bouncing Bolt",
+            "guid": 136366,
+            "type": 8,
+            "abilityIcon": "spell_shaman_measuredinsight.jpg"
+          }
+        },
+        {
+          "name": "Darshaneth",
+          "id": 1,
+          "guid": 99066522,
+          "type": "DeathKnight",
+          "icon": "DeathKnight-Blood",
+          "timestamp": 8522062,
+          "fight": 46,
+          "damage": {
+            "total": 466430,
+            "activeTime": 0,
+            "activeTimeReduced": 0,
+            "overheal": 632801,
+            "abilities": [
+              {
+                "guid": 1,
+                "name": "Melee",
+                "total": 339334,
+                "type": 1,
+                "icon": "inv_axe_02.jpg"
+              },
+              {
+                "guid": 136326,
+                "name": "Overcharge",
+                "total": 127096,
+                "type": 8,
+                "icon": "ability_thunderking_overcharge.jpg"
+              }
+            ],
+            "damageAbilities": [],
+            "sources": [
+              {
+                "name": "Lei Shen",
+                "total": 466430,
+                "type": "Boss"
+              }
+            ]
+          },
+          "healing": {
+            "total": 92867,
+            "activeTime": 0,
+            "activeTimeReduced": 0,
+            "abilities": [
+              {
+                "guid": 1064,
+                "name": "Chain Heal",
+                "total": 65061,
+                "type": 8,
+                "icon": "inv_1115_shaman_chainheal.jpg"
+              },
+              {
+                "guid": 145110,
+                "name": "Ysera's Gift",
+                "total": 27806,
+                "type": 8,
+                "icon": "spell_nature_healingtouch.jpg"
+              }
+            ],
+            "damageAbilities": [
+              {
+                "guid": 1,
+                "name": "Melee",
+                "total": 92867,
+                "type": 1,
+                "icon": "inv_axe_02.jpg"
+              }
+            ],
+            "sources": [
+              {
+                "name": "Pearl",
+                "total": 65061,
+                "type": "Shaman"
+              },
+              {
+                "name": "Deeboom",
+                "total": 27806,
+                "type": "Druid"
+              }
+            ]
+          },
+          "deathWindow": 1517,
+          "overkill": 0,
+          "events": [
+            {
+              "timestamp": 8517726,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 1,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Melee",
+                "guid": 1,
+                "type": 1,
+                "abilityIcon": "inv_axe_02.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 185289,
+              "mitigated": 307835,
+              "unmitigatedAmount": 493124,
+              "isAoE": false
+            },
+            {
+              "timestamp": 8517575,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 1,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Overcharge",
+                "guid": 136326,
+                "type": 8,
+                "abilityIcon": "ability_thunderking_overcharge.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 127096,
+              "mitigated": 69040,
+              "unmitigatedAmount": 196136,
+              "isAoE": true
+            },
+            {
+              "timestamp": 8516209,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 1,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Melee",
+                "guid": 1,
+                "type": 1,
+                "abilityIcon": "inv_axe_02.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 154045,
+              "mitigated": 255926,
+              "unmitigatedAmount": 409971,
+              "isAoE": false
+            }
+          ]
+        },
+        {
+          "name": "Arakinak",
+          "id": 12,
+          "guid": 99814304,
+          "type": "Druid",
+          "icon": "Druid-Guardian",
+          "timestamp": 8663802,
+          "fight": 46,
+          "damage": {
+            "total": 1104819,
+            "totalReduced": 1044025,
+            "activeTime": 0,
+            "activeTimeReduced": 0,
+            "overheal": 932531,
+            "abilities": [
+              {
+                "guid": 136914,
+                "name": "Electrical Shock",
+                "total": 776862,
+                "type": 8,
+                "icon": "ability_shaman_stormstrike.jpg"
+              },
+              {
+                "guid": 1,
+                "name": "Melee",
+                "total": 261133,
+                "totalReduced": 200339,
+                "type": 1,
+                "icon": "inv_axe_02.jpg"
+              },
+              {
+                "guid": 136889,
+                "name": "Violent Gale Winds",
+                "total": 66824,
+                "type": 8,
+                "icon": "ability_druid_galewinds.jpg"
+              }
+            ],
+            "damageAbilities": [],
+            "sources": [
+              {
+                "name": "Lei Shen",
+                "total": 1037995,
+                "totalReduced": 977201,
+                "type": "Boss"
+              },
+              {
+                "name": "Environment",
+                "total": 66824,
+                "type": "Boss"
+              }
+            ]
+          },
+          "healing": {
+            "total": 347226,
+            "totalReduced": 286432,
+            "activeTime": 0,
+            "activeTimeReduced": 0,
+            "abilities": [
+              {
+                "guid": 116670,
+                "name": "Vivify",
+                "total": 87931,
+                "type": 8,
+                "icon": "ability_monk_vivify.jpg"
+              },
+              {
+                "guid": 135597,
+                "name": "Tooth and Claw",
+                "total": 60794,
+                "totalReduced": 0,
+                "type": 1,
+                "icon": "inv_misc_monsterfang_01.jpg"
+              },
+              {
+                "guid": 61295,
+                "name": "Riptide",
+                "total": 56270,
+                "type": 8,
+                "icon": "spell_nature_riptide.jpg"
+              },
+              {
+                "guid": 132463,
+                "name": "Chi Wave",
+                "total": 49144,
+                "type": 8,
+                "icon": "ability_monk_chiwave.jpg"
+              },
+              {
+                "guid": 124041,
+                "name": "Gift of the Serpent",
+                "total": 46480,
+                "type": 8,
+                "icon": "ability_monk_healthsphere.jpg"
+              }
+            ],
+            "damageAbilities": [
+              {
+                "guid": 1,
+                "name": "Melee",
+                "total": 187578,
+                "totalReduced": 126784,
+                "type": 1,
+                "icon": "inv_axe_02.jpg"
+              },
+              {
+                "guid": 136914,
+                "name": "Electrical Shock",
+                "total": 137373,
+                "type": 8,
+                "icon": "ability_shaman_stormstrike.jpg"
+              },
+              {
+                "guid": 136889,
+                "name": "Violent Gale Winds",
+                "total": 22275,
+                "type": 8,
+                "icon": "ability_druid_galewinds.jpg"
+              }
+            ],
+            "sources": [
+              {
+                "name": "Floorroller",
+                "total": 230162,
+                "type": "Monk"
+              },
+              {
+                "name": "Arakinak",
+                "total": 60794,
+                "totalReduced": 0,
+                "type": "Druid"
+              },
+              {
+                "name": "Pearl",
+                "total": 56270,
+                "type": "Shaman"
+              }
+            ]
+          },
+          "deathWindow": 2373,
+          "overkill": 9733,
+          "events": [
+            {
+              "timestamp": 8663759,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 12,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Electrical Shock",
+                "guid": 136914,
+                "type": 8,
+                "abilityIcon": "ability_shaman_stormstrike.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 253130,
+              "mitigated": 91161,
+              "unmitigatedAmount": 354024,
+              "overkill": 9733,
+              "isAoE": false,
+              "tick": true
+            },
+            {
+              "timestamp": 8663487,
+              "type": "damage",
+              "sourceID": 222,
+              "sourceIsFriendly": false,
+              "targetID": 12,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Melee",
+                "guid": 1,
+                "type": 1,
+                "abilityIcon": "inv_axe_02.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 103657,
+              "mitigated": 263225,
+              "unmitigatedAmount": 366882,
+              "isAoE": false
+            },
+            {
+              "timestamp": 8663387,
+              "type": "damage",
+              "source": {
+                "name": "Environment",
+                "id": -1,
+                "guid": 0,
+                "type": "Boss",
+                "icon": "Boss"
+              },
+              "sourceIsFriendly": false,
+              "targetID": 12,
+              "targetIsFriendly": true,
+              "ability": {
+                "name": "Violent Gale Winds",
+                "guid": 136889,
+                "type": 8,
+                "abilityIcon": "ability_druid_galewinds.jpg"
+              },
+              "fight": 46,
+              "hitType": 1,
+              "amount": 22646,
+              "unmitigatedAmount": 10000,
+              "isAoE": false,
+              "tick": true
+            }
+          ],
+          "killingBlow": {
+            "name": "Electrical Shock",
+            "guid": 136914,
+            "type": 8,
+            "abilityIcon": "ability_shaman_stormstrike.jpg"
+          }
+        }
+      ]
+    }
+  }
+}

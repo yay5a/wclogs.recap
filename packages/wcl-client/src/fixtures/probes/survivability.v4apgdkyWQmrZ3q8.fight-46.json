@@ -1,0 +1,228 @@
+{
+  "data": {
+    "players": [
+      {
+        "name": "Darshaneth",
+        "id": 1,
+        "guid": 99066522,
+        "type": "DeathKnight",
+        "icon": "DeathKnight-Blood",
+        "fights": {
+          "46": 0.6700311387799321
+        }
+      },
+      {
+        "name": "Floorroller",
+        "id": 5,
+        "guid": 98980346,
+        "type": "Monk",
+        "icon": "Monk-Mistweaver",
+        "fights": {
+          "46": 1
+        }
+      },
+      {
+        "name": "Yaysa",
+        "id": 34,
+        "guid": 99136670,
+        "type": "Rogue",
+        "icon": "Rogue-Subtlety",
+        "fights": {
+          "46": 1
+        }
+      },
+      {
+        "name": "Arakinak",
+        "id": 12,
+        "guid": 99814304,
+        "type": "Druid",
+        "icon": "Druid-Guardian",
+        "fights": {
+          "46": 0.9919575186185374
+        }
+      },
+      {
+        "name": "Vesper",
+        "id": 9,
+        "guid": 99565855,
+        "type": "Shaman",
+        "icon": "Shaman-Elemental",
+        "fights": {
+          "46": 0.27767796914285453
+        }
+      },
+      {
+        "name": "Jokeroftame",
+        "id": 15,
+        "guid": 98947364,
+        "type": "Hunter",
+        "icon": "Hunter-Survival",
+        "fights": {
+          "46": 0.26099566873425745
+        }
+      },
+      {
+        "name": "Deeboom",
+        "id": 10,
+        "guid": 99711326,
+        "type": "Druid",
+        "icon": "Druid-Balance",
+        "fights": {
+          "46": 1
+        }
+      },
+      {
+        "name": "Pearl",
+        "id": 33,
+        "guid": 98900416,
+        "type": "Shaman",
+        "icon": "Shaman-Restoration",
+        "fights": {
+          "46": 1
+        }
+      },
+      {
+        "name": "Wildin",
+        "id": 6,
+        "guid": 98978821,
+        "type": "DeathKnight",
+        "icon": "DeathKnight-Unholy",
+        "fights": {
+          "46": 1
+        }
+      },
+      {
+        "name": "Raikami",
+        "id": 40,
+        "guid": 99056927,
+        "type": "Hunter",
+        "icon": "Hunter-Survival",
+        "fights": {
+          "46": 1
+        }
+      }
+    ],
+    "fights": [
+      {
+        "id": 46,
+        "start": 8227056,
+        "end": 8667343
+      }
+    ],
+    "actortotals": [
+      {
+        "name": "Darshaneth",
+        "id": 1,
+        "guid": 99066522,
+        "type": "DeathKnight",
+        "pullCount": 1,
+        "total": 1,
+        "icon": "DeathKnight-Blood"
+      },
+      {
+        "name": "Floorroller",
+        "id": 5,
+        "guid": 98980346,
+        "type": "Monk",
+        "pullCount": 1,
+        "total": 0,
+        "icon": "Monk-Mistweaver"
+      },
+      {
+        "name": "Yaysa",
+        "id": 34,
+        "guid": 99136670,
+        "type": "Rogue",
+        "pullCount": 1,
+        "total": 0,
+        "icon": "Rogue-Subtlety"
+      },
+      {
+        "name": "Arakinak",
+        "id": 12,
+        "guid": 99814304,
+        "type": "Druid",
+        "pullCount": 1,
+        "total": 1,
+        "icon": "Druid-Guardian"
+      },
+      {
+        "name": "Vesper",
+        "id": 9,
+        "guid": 99565855,
+        "type": "Shaman",
+        "pullCount": 1,
+        "total": 1,
+        "icon": "Shaman-Elemental"
+      },
+      {
+        "name": "Jokeroftame",
+        "id": 15,
+        "guid": 98947364,
+        "type": "Hunter",
+        "pullCount": 1,
+        "total": 1,
+        "icon": "Hunter-Survival"
+      },
+      {
+        "name": "Deeboom",
+        "id": 10,
+        "guid": 99711326,
+        "type": "Druid",
+        "pullCount": 1,
+        "total": 0,
+        "icon": "Druid-Balance"
+      },
+      {
+        "name": "Pearl",
+        "id": 33,
+        "guid": 98900416,
+        "type": "Shaman",
+        "pullCount": 1,
+        "total": 0,
+        "icon": "Shaman-Restoration"
+      },
+      {
+        "name": "Wildin",
+        "id": 6,
+        "guid": 98978821,
+        "type": "DeathKnight",
+        "pullCount": 1,
+        "total": 0,
+        "icon": "DeathKnight-Unholy"
+      },
+      {
+        "name": "Raikami",
+        "id": 40,
+        "guid": 99056927,
+        "type": "Hunter",
+        "pullCount": 1,
+        "total": 0,
+        "icon": "Hunter-Survival"
+      }
+    ],
+    "abilitytotals": [
+      {
+        "name": "Overcharge",
+        "guid": 136326,
+        "type": 8,
+        "abilityIcon": "ability_thunderking_overcharge.jpg",
+        "total": 1
+      },
+      {
+        "name": "Bouncing Bolt",
+        "guid": 136366,
+        "type": 8,
+        "abilityIcon": "spell_shaman_measuredinsight.jpg",
+        "total": 1
+      },
+      {
+        "name": "Electrical Shock",
+        "guid": 136914,
+        "type": 8,
+        "abilityIcon": "ability_shaman_stormstrike.jpg",
+        "total": 1
+      }
+    ]
+  }
+}

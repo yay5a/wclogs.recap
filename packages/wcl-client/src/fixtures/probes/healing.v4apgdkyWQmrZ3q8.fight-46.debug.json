@@ -1,0 +1,2553 @@
+{
+  "probeFamily": "table-healing",
+  "reportCode": "v4apgdkyWQmrZ3q8",
+  "fightId": 46,
+  "encounterId": 51579,
+  "generatedAt": "2026-04-13T20:56:57.653Z",
+  "payload": {
+    "data": {
+      "entries": [
+        {
+          "name": "Darshaneth",
+          "id": 1,
+          "guid": 99066522,
+          "type": "DeathKnight",
+          "icon": "DeathKnight-Blood",
+          "itemLevel": 511,
+          "total": 7747128,
+          "totalReduced": 4488788,
+          "activeTime": 197024,
+          "activeTimeReduced": 98639,
+          "overheal": 24308758,
+          "abilities": [
+            {
+              "guid": 77535,
+              "name": "Blood Shield",
+              "total": 3258340,
+              "totalReduced": 0,
+              "type": 32,
+              "icon": "spell_deathknight_butcher2.jpg"
+            },
+            {
+              "guid": 81280,
+              "name": "Blood Burst",
+              "total": 2130506,
+              "type": 32,
+              "icon": "ability_warrior_bloodnova.jpg",
+              "petName": "Bloodworm"
+            },
+            {
+              "guid": 45470,
+              "name": "Death Strike",
+              "total": 2113216,
+              "type": 1,
+              "icon": "spell_deathknight_butcher2.jpg"
+            },
+            {
+              "guid": 53365,
+              "name": "Unholy Strength",
+              "total": 164703,
+              "type": 1,
+              "icon": "spell_holy_blessingofstrength.jpg"
+            },
+            {
+              "guid": 48982,
+              "name": "Rune Tap",
+              "total": 80363,
+              "type": 32,
+              "icon": "spell_deathknight_runetap.jpg"
+            }
+          ],
+          "damageAbilities": [
+            {
+              "guid": 1,
+              "name": "Melee",
+              "total": 4992101,
+              "totalReduced": 1733761,
+              "type": 1,
+              "icon": "inv_axe_02.jpg"
+            },
+            {
+              "guid": 136620,
+              "name": "Ball Lightning",
+              "total": 653195,
+              "type": 8,
+              "icon": "ability_thunderking_balllightning.jpg"
+            },
+            {
+              "guid": 135096,
+              "name": "Thunderstruck",
+              "total": 513739,
+              "type": 8,
+              "icon": "ability_thunderking_thunderstruck.jpg"
+            },
+            {
+              "guid": 136543,
+              "name": "Summon Ball Lightning",
+              "total": 429253,
+              "type": 8,
+              "icon": "ability_thunderking_balllightning.jpg"
+            },
+            {
+              "guid": 1282218,
+              "name": "Crashing Thunder",
+              "total": 334932,
+              "type": 8,
+              "icon": "spell_shaman_measuredinsight.jpg"
+            }
+          ],
+          "targets": [
+            {
+              "name": "Darshaneth",
+              "total": 6064756,
+              "totalReduced": 2806416,
+              "type": "DeathKnight"
+            },
+            {
+              "name": "Yaysa",
+              "total": 337167,
+              "type": "Rogue"
+            },
+            {
+              "name": "Arakinak",
+              "total": 326689,
+              "type": "Druid"
+            },
+            {
+              "name": "Floorroller",
+              "total": 309200,
+              "type": "Monk"
+            },
+            {
+              "name": "Raikami",
+              "total": 235091,
+              "type": "Hunter"
+            }
+          ],
+          "talents": [
+            {
+              "name": "Roiling Blood",
+              "guid": 108170,
+              "type": 1,
+              "abilityIcon": "ability_deathknight_roilingblood.jpg"
+            },
+            {
+              "name": "Purgatory",
+              "guid": 114556,
+              "type": 1,
+              "abilityIcon": "inv_misc_shadowegg.jpg"
+            },
+            {
+              "name": "Death's Advance",
+              "guid": 96268,
+              "type": 32,
+              "abilityIcon": "spell_shadow_demonicempathy.jpg"
+            },
+            {
+              "name": "Death Siphon",
+              "guid": 108196,
+              "type": 48,
+              "abilityIcon": "ability_deathknight_deathsiphon.jpg"
+            },
+            {
+              "name": "Runic Corruption",
+              "guid": 51462,
+              "type": 1,
+              "abilityIcon": "spell_shadow_rune.jpg"
+            },
+            {
+              "name": "Gorefiend's Grasp",
+              "guid": 108199,
+              "type": 32,
+              "abilityIcon": "ability_deathknight_aoedeathgrip.jpg"
+            }
+          ],
+          "gear": [
+            {
+              "id": 95827,
+              "slot": 0,
+              "quality": 4,
+              "icon": "inv_helmet_plate_deathknight_m_01.jpg",
+              "name": "Helmet of the All-Consuming Maw",
+              "itemLevel": 502,
+              "gems": [
+                {
+                  "id": 76886,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_metagem_cut.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95144,
+              "slot": 1,
+              "quality": 4,
+              "icon": "inv_jewelry_necklace_134.jpg",
+              "name": "Vanguard's Battletags",
+              "itemLevel": 522
+            },
+            {
+              "id": 95829,
+              "slot": 2,
+              "quality": 4,
+              "icon": "inv_shoulder_plate_deathknight_m_01.jpg",
+              "name": "Pauldrons of the All-Consuming Maw",
+              "itemLevel": 502,
+              "permanentEnchant": 4912,
+              "permanentEnchantName": "+4 Stamina and +1 Dodge",
+              "gems": [
+                {
+                  "id": 76695,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 3,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 95225,
+              "slot": 4,
+              "quality": 4,
+              "icon": "inv_chest_plate_deathknight_m_01.jpg",
+              "name": "Breastplate of the All-Consuming Maw",
+              "itemLevel": 522,
+              "permanentEnchant": 4420,
+              "permanentEnchantName": "+4 Stamina",
+              "gems": [
+                {
+                  "id": 76695,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                },
+                {
+                  "id": 76617,
+                  "itemLevel": 88,
+                  "icon": "inv_misc_gem_x4_uncommon_perfectcut_purple.jpg"
+                }
+              ],
+              "setID": 1152
+            },
+            {
+              "id": 94726,
+              "slot": 5,
+              "quality": 4,
+              "icon": "inv_belt_plate_raidwarrior_m_01.jpg",
+              "name": "Cloudbreaker Greatbelt",
+              "itemLevel": 528,
+              "onUseEnchant": 4223,
+              "onUseEnchantName": "Nitro Boosts",
+              "gems": [
+                {
+                  "id": 76629,
+                  "itemLevel": 88,
+                  "icon": "inv_misc_gem_x4_uncommon_perfectcut_red.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                },
+                {
+                  "id": 76629,
+                  "itemLevel": 88,
+                  "icon": "inv_misc_gem_x4_uncommon_perfectcut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95753,
+              "slot": 6,
+              "quality": 4,
+              "icon": "inv_pants_plate_deathknight_m_01.jpg",
+              "name": "Black Blood Legplates",
+              "itemLevel": 502,
+              "permanentEnchant": 4824,
+              "permanentEnchantName": "+6 Stamina and +2 Dodge",
+              "gems": [
+                {
+                  "id": 76695,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76617,
+                  "itemLevel": 88,
+                  "icon": "inv_misc_gem_x4_uncommon_perfectcut_purple.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95979,
+              "slot": 7,
+              "quality": 4,
+              "icon": "inv_boots_plate_deathknight_m_01.jpg",
+              "name": "Columnbreaker Stompers",
+              "itemLevel": 502,
+              "permanentEnchant": 4429,
+              "permanentEnchantName": "+2 Mastery & Minor Speed Increase"
+            },
+            {
+              "id": 95129,
+              "slot": 8,
+              "quality": 4,
+              "icon": "inv_bracer_plate_deathknight_m_01.jpg",
+              "name": "Axebinder Wristguards",
+              "itemLevel": 522,
+              "permanentEnchant": 4412,
+              "permanentEnchantName": "+3 Dodge"
+            },
+            {
+              "id": 95226,
+              "slot": 9,
+              "quality": 4,
+              "icon": "inv_gloves_plate_deathknight_m_01.jpg",
+              "name": "Gauntlets of the All-Consuming Maw",
+              "itemLevel": 522,
+              "permanentEnchant": 4431,
+              "permanentEnchantName": "+6 Haste",
+              "onUseEnchant": 4898,
+              "onUseEnchantName": "Synapse Springs",
+              "gems": [
+                {
+                  "id": 76629,
+                  "itemLevel": 88,
+                  "icon": "inv_misc_gem_x4_uncommon_perfectcut_red.jpg"
+                }
+              ],
+              "setID": 1152
+            },
+            {
+              "id": 95141,
+              "slot": 10,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_165.jpg",
+              "name": "Loop of the Shado-Pan Assault",
+              "itemLevel": 522
+            },
+            {
+              "id": 95633,
+              "slot": 11,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_172.jpg",
+              "name": "Jin'rokh's Soulcrystal",
+              "itemLevel": 502
+            },
+            {
+              "id": 94528,
+              "slot": 12,
+              "quality": 4,
+              "icon": "spell_warlock_demonsoul.jpg",
+              "name": "Soul Barrier",
+              "itemLevel": 528
+            },
+            {
+              "id": 95654,
+              "slot": 13,
+              "quality": 4,
+              "icon": "spell_nature_lightningshield.jpg",
+              "name": "Spark of Zandalar",
+              "itemLevel": 502
+            },
+            {
+              "id": 95736,
+              "slot": 14,
+              "quality": 4,
+              "icon": "inv_cape_pandaria_d_04.jpg",
+              "name": "Reinforced Mirror-Sheen Cloak",
+              "itemLevel": 502,
+              "permanentEnchant": 4422,
+              "permanentEnchantName": "+1 Stamina",
+              "onUseEnchant": 4897,
+              "onUseEnchantName": "Goblin Glider",
+              "gems": [
+                {
+                  "id": 76695,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95875,
+              "slot": 15,
+              "quality": 4,
+              "icon": "inv_sword_2h_mogu_c_01.jpg",
+              "name": "Greatsword of Frozen Hells",
+              "itemLevel": 502,
+              "permanentEnchant": 3368,
+              "permanentEnchantName": "Rune of the Fallen Crusader",
+              "gems": [
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 16,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 0,
+              "slot": 17,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            }
+          ]
+        },
+        {
+          "name": "Floorroller",
+          "id": 5,
+          "guid": 98980346,
+          "type": "Monk",
+          "icon": "Monk-Mistweaver",
+          "itemLevel": 516,
+          "total": 27198986,
+          "totalReduced": 26537160,
+          "activeTime": 428395,
+          "activeTimeReduced": 386559,
+          "overheal": 16947710,
+          "abilities": [
+            {
+              "guid": 126890,
+              "name": "Ancient Teachings of the Monastery",
+              "total": 6703850,
+              "type": 8,
+              "icon": "inv_jewelcrafting_jadeserpent.jpg"
+            },
+            {
+              "guid": 117895,
+              "name": "Eminence (Statue)",
+              "total": 5146363,
+              "type": 8,
+              "icon": "inv_jewelcrafting_jadeserpent.jpg"
+            },
+            {
+              "guid": 119611,
+              "name": "Renewing Mist",
+              "total": 3796606,
+              "type": 8,
+              "icon": "ability_monk_renewingmists.jpg"
+            },
+            {
+              "guid": 115310,
+              "name": "Revival",
+              "total": 2625631,
+              "type": 8,
+              "icon": "spell_monk_revival.jpg"
+            },
+            {
+              "guid": 124041,
+              "name": "Gift of the Serpent",
+              "total": 2376749,
+              "type": 8,
+              "icon": "ability_monk_healthsphere.jpg"
+            }
+          ],
+          "damageAbilities": [
+            {
+              "guid": 134821,
+              "name": "Discharged Energy",
+              "total": 5428695,
+              "totalReduced": 5373744,
+              "type": 8,
+              "icon": "spell_nature_purge.jpg"
+            },
+            {
+              "guid": 1,
+              "name": "Melee",
+              "total": 4780137,
+              "totalReduced": 4678035,
+              "type": 1,
+              "icon": "inv_axe_02.jpg"
+            },
+            {
+              "guid": 136914,
+              "name": "Electrical Shock",
+              "total": 3640665,
+              "totalReduced": 3195919,
+              "type": 8,
+              "icon": "ability_shaman_stormstrike.jpg"
+            },
+            {
+              "guid": 136889,
+              "name": "Violent Gale Winds",
+              "total": 3079049,
+              "totalReduced": 3037840,
+              "type": 8,
+              "icon": "ability_druid_galewinds.jpg"
+            },
+            {
+              "guid": 135096,
+              "name": "Thunderstruck",
+              "total": 2235012,
+              "type": 8,
+              "icon": "ability_thunderking_thunderstruck.jpg"
+            }
+          ],
+          "targets": [
+            {
+              "name": "Arakinak",
+              "total": 7789912,
+              "totalReduced": 7303957,
+              "type": "Druid"
+            },
+            {
+              "name": "Darshaneth",
+              "total": 3384747,
+              "totalReduced": 3208876,
+              "type": "DeathKnight"
+            },
+            {
+              "name": "Raikami",
+              "total": 2749304,
+              "type": "Hunter"
+            },
+            {
+              "name": "Floorroller",
+              "total": 2458028,
+              "type": "Monk"
+            },
+            {
+              "name": "Wildin",
+              "total": 2364512,
+              "type": "DeathKnight"
+            }
+          ],
+          "talents": [
+            {
+              "name": "Tiger's Lust",
+              "guid": 116841,
+              "type": 1,
+              "abilityIcon": "ability_monk_tigerslust.jpg"
+            },
+            {
+              "name": "Chi Wave",
+              "guid": 115098,
+              "type": 8,
+              "abilityIcon": "ability_monk_chiwave.jpg"
+            },
+            {
+              "name": "Black Ox Brew",
+              "guid": 115399,
+              "type": 1,
+              "abilityIcon": "ability_monk_chibrew.jpg"
+            },
+            {
+              "name": "Leg Sweep",
+              "guid": 119381,
+              "type": 1,
+              "abilityIcon": "ability_monk_legsweep.jpg"
+            },
+            {
+              "name": "Diffuse Magic",
+              "guid": 122783,
+              "type": 8,
+              "abilityIcon": "spell_monk_diffusemagic.jpg"
+            },
+            {
+              "name": "Invoke Xuen, the White Tiger",
+              "guid": 123904,
+              "type": 8,
+              "abilityIcon": "ability_monk_summontigerstatue.jpg"
+            }
+          ],
+          "gear": [
+            {
+              "id": 94800,
+              "slot": 0,
+              "quality": 4,
+              "icon": "inv_helm_leather_raidmonk_m_01.jpg",
+              "name": "Hood of Smoldering Flesh",
+              "itemLevel": 528,
+              "gems": [
+                {
+                  "id": 95345,
+                  "itemLevel": 90,
+                  "icon": "inv_legendary_chimeraoffear.jpg"
+                },
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94980,
+              "slot": 1,
+              "quality": 4,
+              "icon": "inv_jewelry_necklace_123.jpg",
+              "name": "Passionfire Choker",
+              "itemLevel": 528,
+              "gems": [
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95274,
+              "slot": 2,
+              "quality": 4,
+              "icon": "inv_shoulder_leather_raidmonk_m_01.jpg",
+              "name": "Fire-Charm Mantle",
+              "itemLevel": 522,
+              "permanentEnchant": 4806,
+              "permanentEnchantName": "+3 Intellect and +1 Critical Strike",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ],
+              "setID": 1160
+            },
+            {
+              "id": 0,
+              "slot": 3,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 95273,
+              "slot": 4,
+              "quality": 4,
+              "icon": "inv_chest_leather_raidmonk_m_01.jpg",
+              "name": "Fire-Charm Vest",
+              "itemLevel": 522,
+              "permanentEnchant": 4419,
+              "permanentEnchantName": "+4 All Stats",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76686,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                }
+              ],
+              "setID": 1160
+            },
+            {
+              "id": 95797,
+              "slot": 5,
+              "quality": 4,
+              "icon": "inv_leather_raiddruid_m_01belt.jpg",
+              "name": "Girdle of Night and Day",
+              "itemLevel": 502,
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94756,
+              "slot": 6,
+              "quality": 4,
+              "icon": "inv_pant_leather_raidmonk_m_01.jpg",
+              "name": "Roots of Rampaging Earth",
+              "itemLevel": 528,
+              "permanentEnchant": 4825,
+              "permanentEnchantName": "+1 Intellect and +1 Critical Strike",
+              "gems": [
+                {
+                  "id": 76686,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                },
+                {
+                  "id": 76686,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94927,
+              "slot": 7,
+              "quality": 4,
+              "icon": "inv_boot_leather_raidmonk_m_01.jpg",
+              "name": "Sandals of the Starving Eye",
+              "itemLevel": 528,
+              "permanentEnchant": 4429,
+              "permanentEnchantName": "+2 Mastery & Minor Speed Increase",
+              "gems": [
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94732,
+              "slot": 8,
+              "quality": 4,
+              "icon": "inv_bracer_leather_raidmonk_m_01.jpg",
+              "name": "Infinitely Conducting Bracers",
+              "itemLevel": 528,
+              "permanentEnchant": 4414,
+              "permanentEnchantName": "+4 Intellect"
+            },
+            {
+              "id": 95107,
+              "slot": 9,
+              "quality": 4,
+              "icon": "inv_glove_leather_raidmonk_m_01.jpg",
+              "name": "Gloves of Enduring Renewal",
+              "itemLevel": 522,
+              "permanentEnchant": 4433,
+              "permanentEnchantName": "+6 Mastery"
+            },
+            {
+              "id": 95138,
+              "slot": 10,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_167.jpg",
+              "name": "Signet of the Shado-Pan Assault",
+              "itemLevel": 522
+            },
+            {
+              "id": 95742,
+              "slot": 11,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_ahnqiraj_02.jpg",
+              "name": "Durumu's Captive Eyeball",
+              "itemLevel": 502,
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 86147,
+              "slot": 12,
+              "quality": 4,
+              "icon": "inv_misc_trinketpanda_10.jpg",
+              "name": "Qin-xi's Polarizing Seal",
+              "itemLevel": 497
+            },
+            {
+              "id": 79331,
+              "slot": 13,
+              "quality": 4,
+              "icon": "inv_inscription_trinket_dragon.jpg",
+              "name": "Relic of Yu'lon",
+              "itemLevel": 484
+            },
+            {
+              "id": 95118,
+              "slot": 14,
+              "quality": 4,
+              "icon": "inv_cape_pandaria_d_02.jpg",
+              "name": "Dreamweaver Drape",
+              "itemLevel": 522,
+              "permanentEnchant": 4423,
+              "permanentEnchantName": "+1 Intellect"
+            },
+            {
+              "id": 94730,
+              "slot": 15,
+              "quality": 4,
+              "icon": "inv_sword_1h_zandalari_c_02blue.jpg",
+              "name": "Soulblade of the Breaking Storm",
+              "itemLevel": 528,
+              "permanentEnchant": 4442,
+              "permanentEnchantName": "Jade Spirit",
+              "gems": [
+                {
+                  "id": 76686,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                },
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95786,
+              "slot": 16,
+              "quality": 4,
+              "icon": "inv_offhand_1h_thunderisleraid_d_02.jpg",
+              "name": "Orb of Arcing Lightning",
+              "itemLevel": 502,
+              "permanentEnchant": 4434,
+              "permanentEnchantName": "+6 Intellect",
+              "gems": [
+                {
+                  "id": 76628,
+                  "itemLevel": 88,
+                  "icon": "inv_misc_gem_x4_uncommon_perfectcut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 69210,
+              "slot": 17,
+              "quality": 4,
+              "icon": "inv_epicguildtabard.jpg",
+              "name": "Renowned Guild Tabard",
+              "itemLevel": 1
+            }
+          ]
+        },
+        {
+          "name": "Arakinak",
+          "id": 12,
+          "guid": 99814304,
+          "type": "Druid",
+          "icon": "Druid-Guardian",
+          "itemLevel": 521,
+          "total": 9850211,
+          "totalReduced": 7395774,
+          "activeTime": 338778,
+          "activeTimeReduced": 199796,
+          "overheal": 1734777,
+          "abilities": [
+            {
+              "guid": 22842,
+              "name": "Frenzied Regeneration",
+              "total": 2972245,
+              "type": 1,
+              "icon": "ability_bullrush.jpg"
+            },
+            {
+              "guid": 135597,
+              "name": "Tooth and Claw",
+              "total": 2454437,
+              "totalReduced": 0,
+              "type": 1,
+              "icon": "inv_misc_monsterfang_01.jpg"
+            },
+            {
+              "guid": 124988,
+              "name": "Nature's Vigil",
+              "total": 2292908,
+              "type": 8,
+              "icon": "achievement_zone_feralas.jpg"
+            },
+            {
+              "guid": 34299,
+              "name": "Leader of the Pack",
+              "total": 778449,
+              "type": 1,
+              "icon": "spell_nature_unyeildingstamina.jpg"
+            },
+            {
+              "guid": 108238,
+              "name": "Renewal",
+              "total": 437556,
+              "type": 8,
+              "icon": "spell_nature_natureblessing.jpg"
+            }
+          ],
+          "damageAbilities": [
+            {
+              "guid": 1,
+              "name": "Melee",
+              "total": 3920583,
+              "totalReduced": 1466146,
+              "type": 1,
+              "icon": "inv_axe_02.jpg"
+            },
+            {
+              "guid": 136914,
+              "name": "Electrical Shock",
+              "total": 3104476,
+              "type": 8,
+              "icon": "ability_shaman_stormstrike.jpg"
+            },
+            {
+              "guid": 135703,
+              "name": "Static Shock",
+              "total": 466293,
+              "type": 8,
+              "icon": "spell_shaman_staticshock.jpg"
+            },
+            {
+              "guid": 134916,
+              "name": "Decapitate",
+              "total": 435323,
+              "type": 1,
+              "icon": "ability_thunderking_decapitate.jpg"
+            },
+            {
+              "guid": 134821,
+              "name": "Discharged Energy",
+              "total": 395863,
+              "type": 8,
+              "icon": "spell_nature_purge.jpg"
+            }
+          ],
+          "targets": [
+            {
+              "name": "Arakinak",
+              "total": 7577106,
+              "totalReduced": 6133353,
+              "type": "Druid"
+            },
+            {
+              "name": "Darshaneth",
+              "total": 1020474,
+              "totalReduced": 9790,
+              "type": "DeathKnight"
+            },
+            {
+              "name": "Jokeroftame",
+              "total": 378615,
+              "type": "Hunter"
+            },
+            {
+              "name": "Deeboom",
+              "total": 183097,
+              "type": "Druid"
+            },
+            {
+              "name": "Raikami",
+              "total": 181336,
+              "type": "Hunter"
+            }
+          ],
+          "talents": [
+            {
+              "name": "Wild Charge",
+              "guid": 102401,
+              "type": 1,
+              "abilityIcon": "spell_druid_wildcharge.jpg"
+            },
+            {
+              "name": "Renewal",
+              "guid": 108238,
+              "type": 8,
+              "abilityIcon": "spell_nature_natureblessing.jpg"
+            },
+            {
+              "name": "Mass Entanglement",
+              "guid": 102359,
+              "type": 1,
+              "abilityIcon": "spell_druid_massentanglement.jpg"
+            },
+            {
+              "name": "Soul of the Forest",
+              "guid": 114107,
+              "type": 1,
+              "abilityIcon": "ability_druid_manatree.jpg"
+            },
+            {
+              "name": "Incapacitating Roar",
+              "guid": 99,
+              "type": 1,
+              "abilityIcon": "ability_druid_demoralizingroar.jpg"
+            },
+            {
+              "name": "Nature's Vigil",
+              "guid": 124974,
+              "type": 8,
+              "abilityIcon": "achievement_zone_feralas.jpg"
+            }
+          ],
+          "gear": [
+            {
+              "id": 96370,
+              "slot": 0,
+              "quality": 4,
+              "icon": "inv_helm_leather_raidrogue_m_01.jpg",
+              "name": "Lightning-Eye Hood",
+              "itemLevel": 541,
+              "gems": [
+                {
+                  "id": 95346,
+                  "itemLevel": 90,
+                  "icon": "inv_legendary_chimeraoffear.jpg"
+                },
+                {
+                  "id": 76670,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 96071,
+              "slot": 1,
+              "quality": 4,
+              "icon": "inv_jewelry_necklace_140.jpg",
+              "name": "Quadra-Head Brooch",
+              "itemLevel": 528,
+              "gems": [
+                {
+                  "id": 76670,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95854,
+              "slot": 2,
+              "quality": 4,
+              "icon": "inv_shoulder_leather_raiddruid_m_01.jpg",
+              "name": "Shoulderguards of the Haunted Forest",
+              "itemLevel": 502,
+              "permanentEnchant": 4912,
+              "permanentEnchantName": "+4 Stamina and +1 Dodge",
+              "gems": [
+                {
+                  "id": 76659,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76697,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 3,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 86923,
+              "slot": 4,
+              "quality": 4,
+              "icon": "inv_robe_leather_raiddruid_l_01.jpg",
+              "name": "Eternal Blossom Raiment",
+              "itemLevel": 517,
+              "permanentEnchant": 4419,
+              "permanentEnchantName": "+4 All Stats",
+              "gems": [
+                {
+                  "id": 76670,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76670,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 96093,
+              "slot": 5,
+              "quality": 4,
+              "icon": "inv_belt_leather_raidrogue_m_01.jpg",
+              "name": "Featherflight Belt",
+              "itemLevel": 528,
+              "gems": [
+                {
+                  "id": 76692,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76670,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76692,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 90504,
+              "slot": 6,
+              "quality": 4,
+              "icon": "inv_pants_leather_raidrogue_l_01.jpg",
+              "name": "Legguards of Failing Purification",
+              "itemLevel": 524,
+              "permanentEnchant": 4824,
+              "permanentEnchantName": "+6 Stamina and +2 Dodge",
+              "gems": [
+                {
+                  "id": 76659,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76680,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95787,
+              "slot": 7,
+              "quality": 4,
+              "icon": "inv_boot_leather_raidmonk_m_01.jpg",
+              "name": "Spurs of the Storm Cavalry",
+              "itemLevel": 502,
+              "permanentEnchant": 4429,
+              "permanentEnchantName": "+2 Mastery & Minor Speed Increase",
+              "gems": [
+                {
+                  "id": 76670,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 96020,
+              "slot": 8,
+              "quality": 4,
+              "icon": "inv_leather_raiddruid_m_01bracer.jpg",
+              "name": "Bindings of Multiplicative Strikes",
+              "itemLevel": 528,
+              "permanentEnchant": 4416,
+              "permanentEnchantName": "+4 Agility"
+            },
+            {
+              "id": 85380,
+              "slot": 9,
+              "quality": 4,
+              "icon": "inv_glove_leather_raiddruid_l_01.jpg",
+              "name": "Eternal Blossom Handguards",
+              "itemLevel": 504,
+              "permanentEnchant": 4431,
+              "permanentEnchantName": "+6 Haste",
+              "setID": 1128
+            },
+            {
+              "id": 93243,
+              "slot": 10,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_149.jpg",
+              "name": "Signet of the Shieldwall",
+              "itemLevel": 504
+            },
+            {
+              "id": 94961,
+              "slot": 11,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_180.jpg",
+              "name": "Gore-Soaked Gear",
+              "itemLevel": 528,
+              "gems": [
+                {
+                  "id": 76670,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 96369,
+              "slot": 12,
+              "quality": 4,
+              "icon": "ability_warrior_bladestorm.jpg",
+              "name": "Renataki's Soul Charm",
+              "itemLevel": 541
+            },
+            {
+              "id": 94511,
+              "slot": 13,
+              "quality": 4,
+              "icon": "ability_paladin_speedoflight.jpg",
+              "name": "Vicious Talisman of the Shado-Pan Assault",
+              "itemLevel": 522
+            },
+            {
+              "id": 95116,
+              "slot": 14,
+              "quality": 4,
+              "icon": "inv_cape_pandaria_d_01.jpg",
+              "name": "Longshot Forestcloak",
+              "itemLevel": 522,
+              "permanentEnchant": 4424,
+              "permanentEnchantName": "+1 Critical Strike"
+            },
+            {
+              "id": 94740,
+              "slot": 15,
+              "quality": 4,
+              "icon": "inv_stave_2h_thunderisleraid_d_01.jpg",
+              "name": "Jalak's Maelstrom Staff",
+              "itemLevel": 528,
+              "permanentEnchant": 4444,
+              "permanentEnchantName": "Dancing Steel",
+              "gems": [
+                {
+                  "id": 76681,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                },
+                {
+                  "id": 76692,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 16,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 0,
+              "slot": 17,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            }
+          ]
+        },
+        {
+          "name": "Deeboom",
+          "id": 10,
+          "guid": 99711326,
+          "type": "Druid",
+          "icon": "Druid-Balance",
+          "itemLevel": 524,
+          "total": 5414115,
+          "activeTime": 365980,
+          "activeTimeReduced": 365980,
+          "overheal": 1478149,
+          "abilities": [
+            {
+              "guid": 124988,
+              "name": "Nature's Vigil",
+              "total": 2540922,
+              "type": 8,
+              "icon": "achievement_zone_feralas.jpg"
+            },
+            {
+              "guid": 145109,
+              "name": "Ysera's Gift",
+              "total": 1302887,
+              "type": 8,
+              "icon": "spell_nature_healingtouch.jpg"
+            },
+            {
+              "guid": 5185,
+              "name": "Healing Touch",
+              "total": 582326,
+              "type": 8,
+              "icon": "spell_nature_healingtouch.jpg"
+            },
+            {
+              "guid": 774,
+              "name": "Rejuvenation",
+              "total": 528744,
+              "type": 8,
+              "icon": "spell_nature_rejuvenation.jpg"
+            },
+            {
+              "guid": 145110,
+              "name": "Ysera's Gift",
+              "total": 459236,
+              "type": 8,
+              "icon": "spell_nature_healingtouch.jpg"
+            }
+          ],
+          "damageAbilities": [
+            {
+              "guid": 134821,
+              "name": "Discharged Energy",
+              "total": 887142,
+              "type": 8,
+              "icon": "spell_nature_purge.jpg"
+            },
+            {
+              "guid": 135703,
+              "name": "Static Shock",
+              "total": 881331,
+              "type": 8,
+              "icon": "spell_shaman_staticshock.jpg"
+            },
+            {
+              "guid": 1,
+              "name": "Melee",
+              "total": 809248,
+              "type": 1,
+              "icon": "inv_axe_02.jpg"
+            },
+            {
+              "guid": 136914,
+              "name": "Electrical Shock",
+              "total": 494945,
+              "type": 8,
+              "icon": "ability_shaman_stormstrike.jpg"
+            },
+            {
+              "guid": 136889,
+              "name": "Violent Gale Winds",
+              "total": 385051,
+              "type": 8,
+              "icon": "ability_druid_galewinds.jpg"
+            }
+          ],
+          "targets": [
+            {
+              "name": "Deeboom",
+              "total": 2165391,
+              "type": "Druid"
+            },
+            {
+              "name": "Arakinak",
+              "total": 1549514,
+              "type": "Druid"
+            },
+            {
+              "name": "Darshaneth",
+              "total": 401023,
+              "type": "DeathKnight"
+            },
+            {
+              "name": "Jokeroftame",
+              "total": 354813,
+              "type": "Hunter"
+            },
+            {
+              "name": "Raikami",
+              "total": 218928,
+              "type": "Hunter"
+            }
+          ],
+          "talents": [
+            {
+              "name": "Feline Swiftness",
+              "guid": 131768,
+              "type": 1,
+              "abilityIcon": "ability_druid_dash.jpg"
+            },
+            {
+              "name": "Ysera's Gift",
+              "guid": 145108,
+              "type": 1,
+              "abilityIcon": "inv_misc_head_dragon_green.jpg"
+            },
+            {
+              "name": "Typhoon",
+              "guid": 132469,
+              "type": 1,
+              "abilityIcon": "ability_druid_typhoon.jpg"
+            },
+            {
+              "name": "Incarnation",
+              "guid": 106731,
+              "type": 1,
+              "abilityIcon": "spell_druid_incarnation.jpg"
+            },
+            {
+              "name": "Ursol's Vortex",
+              "guid": 102793,
+              "type": 8,
+              "abilityIcon": "spell_druid_ursolsvortex.jpg"
+            },
+            {
+              "name": "Nature's Vigil",
+              "guid": 124974,
+              "type": 8,
+              "abilityIcon": "achievement_zone_feralas.jpg"
+            }
+          ],
+          "gear": [
+            {
+              "id": 96085,
+              "slot": 0,
+              "quality": 4,
+              "icon": "inv_helm_leather_raidmonk_m_01.jpg",
+              "name": "Hood of Smoldering Flesh",
+              "itemLevel": 528,
+              "gems": [
+                {
+                  "id": 95347,
+                  "itemLevel": 90,
+                  "icon": "inv_legendary_chimeraoffear.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94803,
+              "slot": 1,
+              "quality": 4,
+              "icon": "inv_jewelry_necklace_126.jpg",
+              "name": "Megaera's Shining Eye",
+              "itemLevel": 528
+            },
+            {
+              "id": 95849,
+              "slot": 2,
+              "quality": 4,
+              "icon": "inv_shoulder_leather_raiddruid_m_01.jpg",
+              "name": "Shoulderwraps of the Haunted Forest",
+              "itemLevel": 502,
+              "permanentEnchant": 4806,
+              "permanentEnchantName": "+3 Intellect and +1 Critical Strike",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 3,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 95248,
+              "slot": 4,
+              "quality": 4,
+              "icon": "inv_leather_raiddruid_m_01robe.jpg",
+              "name": "Vestment of the Haunted Forest",
+              "itemLevel": 522,
+              "permanentEnchant": 4419,
+              "permanentEnchantName": "+4 All Stats",
+              "gems": [
+                {
+                  "id": 76668,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                },
+                {
+                  "id": 76651,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_green.jpg"
+                }
+              ],
+              "setID": 1155
+            },
+            {
+              "id": 94978,
+              "slot": 5,
+              "quality": 4,
+              "icon": "inv_leather_raiddruid_m_01belt.jpg",
+              "name": "Girdle of Night and Day",
+              "itemLevel": 528,
+              "onUseEnchant": 4223,
+              "onUseEnchantName": "Nitro Boosts",
+              "gems": [
+                {
+                  "id": 76668,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95247,
+              "slot": 6,
+              "quality": 4,
+              "icon": "inv_leather_raiddruid_m_01pant.jpg",
+              "name": "Leggings of the Haunted Forest",
+              "itemLevel": 522,
+              "permanentEnchant": 4825,
+              "permanentEnchantName": "+1 Intellect and +1 Critical Strike",
+              "gems": [
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                },
+                {
+                  "id": 76651,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_green.jpg"
+                }
+              ],
+              "setID": 1155
+            },
+            {
+              "id": 94927,
+              "slot": 7,
+              "quality": 4,
+              "icon": "inv_boot_leather_raidmonk_m_01.jpg",
+              "name": "Sandals of the Starving Eye",
+              "itemLevel": 528,
+              "permanentEnchant": 4429,
+              "permanentEnchantName": "+2 Mastery & Minor Speed Increase",
+              "gems": [
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 96386,
+              "slot": 8,
+              "quality": 4,
+              "icon": "inv_bracer_leather_raidmonk_m_01.jpg",
+              "name": "Infinitely Conducting Bracers",
+              "itemLevel": 541,
+              "permanentEnchant": 4877,
+              "permanentEnchantName": "+500 Intellect"
+            },
+            {
+              "id": 95245,
+              "slot": 9,
+              "quality": 4,
+              "icon": "inv_leather_raiddruid_m_01glove.jpg",
+              "name": "Gloves of the Haunted Forest",
+              "itemLevel": 522,
+              "permanentEnchant": 4430,
+              "permanentEnchantName": "+5 Haste",
+              "onUseEnchant": 4898,
+              "onUseEnchantName": "Synapse Springs",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ],
+              "setID": 1155
+            },
+            {
+              "id": 95139,
+              "slot": 10,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_167.jpg",
+              "name": "Ring of the Shado-Pan Assault",
+              "itemLevel": 522
+            },
+            {
+              "id": 96157,
+              "slot": 11,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_168.jpg",
+              "name": "Ro'shak's Remembrance",
+              "itemLevel": 528,
+              "gems": [
+                {
+                  "id": 76651,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_green.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94524,
+              "slot": 12,
+              "quality": 4,
+              "icon": "ability_hunter_focusedaim.jpg",
+              "name": "Unerring Vision of Lei Shen",
+              "itemLevel": 528
+            },
+            {
+              "id": 95669,
+              "slot": 13,
+              "quality": 4,
+              "icon": "spell_nature_chainlightning.jpg",
+              "name": "Wushoolay's Final Choice",
+              "itemLevel": 502
+            },
+            {
+              "id": 94929,
+              "slot": 14,
+              "quality": 4,
+              "icon": "inv_cape_pandaria_d_03.jpg",
+              "name": "Deadly Glare Cape",
+              "itemLevel": 528,
+              "permanentEnchant": 4423,
+              "permanentEnchantName": "+1 Intellect",
+              "onUseEnchant": 4897,
+              "onUseEnchantName": "Goblin Glider",
+              "gems": [
+                {
+                  "id": 76668,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 96414,
+              "slot": 15,
+              "quality": 4,
+              "icon": "inv_hand_1h_thunderisleraid_d_01.jpg",
+              "name": "Amun-Thoth, Sul's Spiritrending Talons",
+              "itemLevel": 541,
+              "permanentEnchant": 4442,
+              "permanentEnchantName": "Jade Spirit",
+              "gems": [
+                {
+                  "id": 76651,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_green.jpg"
+                },
+                {
+                  "id": 76699,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94965,
+              "slot": 16,
+              "quality": 4,
+              "icon": "inv_offhand_1h_thunderisleraid_d_02.jpg",
+              "name": "Orb of Arcing Lightning",
+              "itemLevel": 528,
+              "permanentEnchant": 4434,
+              "permanentEnchantName": "+6 Intellect",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 17,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            }
+          ]
+        },
+        {
+          "name": "Pearl",
+          "id": 33,
+          "guid": 98900416,
+          "type": "Shaman",
+          "icon": "Shaman-Restoration",
+          "itemLevel": 515,
+          "total": 19518916,
+          "activeTime": 411180,
+          "activeTimeReduced": 388538,
+          "overheal": 14139941,
+          "abilities": [
+            {
+              "guid": 73921,
+              "name": "Healing Rain",
+              "total": 4493569,
+              "type": 8,
+              "icon": "spell_nature_giftofthewaterspirit.jpg"
+            },
+            {
+              "guid": 52042,
+              "name": "Healing Stream Totem",
+              "total": 4296323,
+              "type": 8,
+              "icon": "inv_spear_04.jpg"
+            },
+            {
+              "guid": 61295,
+              "name": "Riptide",
+              "total": 2229880,
+              "type": 8,
+              "icon": "spell_nature_riptide.jpg"
+            },
+            {
+              "guid": 1064,
+              "name": "Chain Heal",
+              "total": 2154212,
+              "type": 8,
+              "icon": "inv_1115_shaman_chainheal.jpg"
+            },
+            {
+              "guid": 8004,
+              "name": "Healing Surge",
+              "total": 1923329,
+              "type": 8,
+              "icon": "spell_nature_healingway.jpg"
+            }
+          ],
+          "damageAbilities": [
+            {
+              "guid": 1,
+              "name": "Melee",
+              "total": 3687522,
+              "type": 1,
+              "icon": "inv_axe_02.jpg"
+            },
+            {
+              "guid": 134821,
+              "name": "Discharged Energy",
+              "total": 2669456,
+              "type": 8,
+              "icon": "spell_nature_purge.jpg"
+            },
+            {
+              "guid": 136620,
+              "name": "Ball Lightning",
+              "total": 2514199,
+              "type": 8,
+              "icon": "ability_thunderking_balllightning.jpg"
+            },
+            {
+              "guid": 136889,
+              "name": "Violent Gale Winds",
+              "total": 1643536,
+              "type": 8,
+              "icon": "ability_druid_galewinds.jpg"
+            },
+            {
+              "guid": 136914,
+              "name": "Electrical Shock",
+              "total": 1505006,
+              "type": 8,
+              "icon": "ability_shaman_stormstrike.jpg"
+            }
+          ],
+          "targets": [
+            {
+              "name": "Arakinak",
+              "total": 4917789,
+              "type": "Druid"
+            },
+            {
+              "name": "Darshaneth",
+              "total": 3055596,
+              "type": "DeathKnight"
+            },
+            {
+              "name": "Pearl",
+              "total": 2419636,
+              "type": "Shaman"
+            },
+            {
+              "name": "Yaysa",
+              "total": 2317248,
+              "type": "Rogue"
+            },
+            {
+              "name": "Floorroller",
+              "total": 1613746,
+              "type": "Monk"
+            }
+          ],
+          "talents": [
+            {
+              "name": "Astral Shift",
+              "guid": 108271,
+              "type": 1,
+              "abilityIcon": "ability_shaman_astralshift.jpg"
+            },
+            {
+              "name": "Windwalk Totem",
+              "guid": 108273,
+              "type": 1,
+              "abilityIcon": "ability_shaman_windwalktotem.jpg"
+            },
+            {
+              "name": "Totemic Persistence",
+              "guid": 108284,
+              "type": 1,
+              "abilityIcon": "ability_shaman_totemcooldownrefund.jpg"
+            },
+            {
+              "name": "Master of the Elements",
+              "guid": 16166,
+              "type": 8,
+              "abilityIcon": "spell_nature_elementalabsorption.jpg"
+            },
+            {
+              "name": "Conductivity",
+              "guid": 108282,
+              "type": 1,
+              "abilityIcon": "ability_shaman_fortifyingwaters.jpg"
+            },
+            {
+              "name": "Primal Elementalist",
+              "guid": 117013,
+              "type": 1,
+              "abilityIcon": "shaman_talent_primalelementalist.jpg"
+            }
+          ],
+          "gear": [
+            {
+              "id": 95942,
+              "slot": 0,
+              "quality": 4,
+              "icon": "inv_helm_mail_raidshaman_m_01.jpg",
+              "name": "Faceguard of the Witch Doctor",
+              "itemLevel": 502,
+              "gems": [
+                {
+                  "id": 76885,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_metagem_cut.jpg"
+                },
+                {
+                  "id": 76668,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95145,
+              "slot": 1,
+              "quality": 4,
+              "icon": "inv_jewelry_necklace_132.jpg",
+              "name": "Mender's Battletags",
+              "itemLevel": 522
+            },
+            {
+              "id": 95954,
+              "slot": 2,
+              "quality": 4,
+              "icon": "inv_shoulder_mail_raidshaman_m_01.jpg",
+              "name": "Shoulderwraps of the Witch Doctor",
+              "itemLevel": 502,
+              "permanentEnchant": 4806,
+              "permanentEnchantName": "+3 Intellect and +1 Critical Strike",
+              "gems": [
+                {
+                  "id": 76668,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76697,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 3,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 95940,
+              "slot": 4,
+              "quality": 4,
+              "icon": "inv_chest_mail_raidshaman_m_01.jpg",
+              "name": "Tunic of the Witch Doctor",
+              "itemLevel": 502,
+              "permanentEnchant": 4419,
+              "permanentEnchantName": "+4 All Stats",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76668,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76686,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94802,
+              "slot": 5,
+              "quality": 4,
+              "icon": "inv_belt_mail_raidshaman_m_01.jpg",
+              "name": "Links of the Bifurcated Tongue",
+              "itemLevel": 522,
+              "onUseEnchant": 4223,
+              "onUseEnchantName": "Nitro Boosts",
+              "gems": [
+                {
+                  "id": 76660,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76697,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                },
+                {
+                  "id": 76697,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_yellow.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94975,
+              "slot": 6,
+              "quality": 4,
+              "icon": "inv_pant_mail_raidshaman_m_01.jpg",
+              "name": "Legguards of Scintillating Scales",
+              "itemLevel": 528,
+              "permanentEnchant": 4826,
+              "permanentEnchantName": "+1 Intellect and +1 Versatility",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76686,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94736,
+              "slot": 7,
+              "quality": 4,
+              "icon": "inv_boot_mail_raidshaman_m_01.jpg",
+              "name": "Ghostbinder Greatboots",
+              "itemLevel": 528,
+              "permanentEnchant": 4429,
+              "permanentEnchantName": "+2 Mastery & Minor Speed Increase",
+              "gems": [
+                {
+                  "id": 76668,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95132,
+              "slot": 8,
+              "quality": 4,
+              "icon": "inv_bracer_mail_raidshaman_m_01.jpg",
+              "name": "Spiritcaller Cuffs",
+              "itemLevel": 522,
+              "permanentEnchant": 4414,
+              "permanentEnchantName": "+4 Intellect"
+            },
+            {
+              "id": 95951,
+              "slot": 9,
+              "quality": 4,
+              "icon": "inv_glove_mail_raidshaman_m_01.jpg",
+              "name": "Gloves of the Witch Doctor",
+              "itemLevel": 502,
+              "permanentEnchant": 4430,
+              "permanentEnchantName": "+5 Haste",
+              "onUseEnchant": 4898,
+              "onUseEnchantName": "Synapse Springs",
+              "gems": [
+                {
+                  "id": 76668,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95138,
+              "slot": 10,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_167.jpg",
+              "name": "Signet of the Shado-Pan Assault",
+              "itemLevel": 522
+            },
+            {
+              "id": 95742,
+              "slot": 11,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_ahnqiraj_02.jpg",
+              "name": "Durumu's Captive Eyeball",
+              "itemLevel": 502,
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94510,
+              "slot": 12,
+              "quality": 4,
+              "icon": "ability_hunter_posthaste.jpg",
+              "name": "Volatile Talisman of the Shado-Pan Assault",
+              "itemLevel": 522
+            },
+            {
+              "id": 95641,
+              "slot": 13,
+              "quality": 4,
+              "icon": "spell_nature_eyeofthestorm.jpg",
+              "name": "Horridon's Last Gasp",
+              "itemLevel": 502
+            },
+            {
+              "id": 95118,
+              "slot": 14,
+              "quality": 4,
+              "icon": "inv_cape_pandaria_d_02.jpg",
+              "name": "Dreamweaver Drape",
+              "itemLevel": 522,
+              "permanentEnchant": 4423,
+              "permanentEnchantName": "+1 Intellect",
+              "onUseEnchant": 4897,
+              "onUseEnchantName": "Goblin Glider"
+            },
+            {
+              "id": 96115,
+              "slot": 15,
+              "quality": 4,
+              "icon": "inv_knife_1h_thunderisleraid_d_03.jpg",
+              "name": "Ritual Dagger of the Mind's Eye",
+              "itemLevel": 528,
+              "permanentEnchant": 4441,
+              "permanentEnchantName": "Windsong",
+              "temporaryEnchant": 3345,
+              "temporaryEnchantName": "Earthliving",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94965,
+              "slot": 16,
+              "quality": 4,
+              "icon": "inv_offhand_1h_thunderisleraid_d_02.jpg",
+              "name": "Orb of Arcing Lightning",
+              "itemLevel": 522,
+              "permanentEnchant": 4434,
+              "permanentEnchantName": "+6 Intellect",
+              "gems": [
+                {
+                  "id": 76694,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 17,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            }
+          ]
+        },
+        {
+          "name": "Wildin",
+          "id": 6,
+          "guid": 98978821,
+          "type": "DeathKnight",
+          "icon": "DeathKnight-Unholy",
+          "itemLevel": 516,
+          "total": 1668305,
+          "totalReduced": 846224,
+          "activeTime": 78043,
+          "activeTimeReduced": 32327,
+          "overheal": 897595,
+          "abilities": [
+            {
+              "guid": 48707,
+              "name": "Anti-Magic Shell",
+              "total": 822081,
+              "totalReduced": 0,
+              "type": 32,
+              "icon": "spell_shadow_antimagicshell.jpg"
+            },
+            {
+              "guid": 48743,
+              "name": "Death Pact",
+              "total": 491114,
+              "type": 32,
+              "icon": "spell_shadow_deathpact.jpg"
+            },
+            {
+              "guid": 53365,
+              "name": "Unholy Strength",
+              "total": 355110,
+              "type": 1,
+              "icon": "spell_holy_blessingofstrength.jpg"
+            }
+          ],
+          "damageAbilities": [
+            {
+              "guid": 1282218,
+              "name": "Crashing Thunder",
+              "total": 357477,
+              "totalReduced": 220595,
+              "type": 8,
+              "icon": "spell_shaman_measuredinsight.jpg"
+            },
+            {
+              "guid": 135703,
+              "name": "Static Shock",
+              "total": 265590,
+              "type": 8,
+              "icon": "spell_shaman_staticshock.jpg"
+            },
+            {
+              "guid": 136366,
+              "name": "Bouncing Bolt",
+              "total": 209852,
+              "totalReduced": 0,
+              "type": 8,
+              "icon": "spell_shaman_measuredinsight.jpg"
+            },
+            {
+              "guid": 136889,
+              "name": "Violent Gale Winds",
+              "total": 175929,
+              "totalReduced": 67929,
+              "type": 8,
+              "icon": "ability_druid_galewinds.jpg"
+            },
+            {
+              "guid": 136620,
+              "name": "Ball Lightning",
+              "total": 146488,
+              "totalReduced": 0,
+              "type": 8,
+              "icon": "ability_thunderking_balllightning.jpg"
+            }
+          ],
+          "targets": [
+            {
+              "name": "Wildin",
+              "total": 1668305,
+              "totalReduced": 846224,
+              "type": "DeathKnight"
+            }
+          ],
+          "talents": [
+            {
+              "name": "Roiling Blood",
+              "guid": 108170,
+              "type": 1,
+              "abilityIcon": "ability_deathknight_roilingblood.jpg"
+            },
+            {
+              "name": "Anti-Magic Zone",
+              "guid": 51052,
+              "type": 32,
+              "abilityIcon": "spell_deathknight_antimagiczone.jpg"
+            },
+            {
+              "name": "Death's Advance",
+              "guid": 96268,
+              "type": 32,
+              "abilityIcon": "spell_shadow_demonicempathy.jpg"
+            },
+            {
+              "name": "Death Pact",
+              "guid": 48743,
+              "type": 32,
+              "abilityIcon": "spell_shadow_deathpact.jpg"
+            },
+            {
+              "name": "Runic Corruption",
+              "guid": 51462,
+              "type": 1,
+              "abilityIcon": "spell_shadow_rune.jpg"
+            },
+            {
+              "name": "Gorefiend's Grasp",
+              "guid": 108199,
+              "type": 32,
+              "abilityIcon": "ability_deathknight_aoedeathgrip.jpg"
+            }
+          ],
+          "gear": [
+            {
+              "id": 95827,
+              "slot": 0,
+              "quality": 4,
+              "icon": "inv_helmet_plate_deathknight_m_01.jpg",
+              "name": "Helmet of the All-Consuming Maw",
+              "itemLevel": 502,
+              "gems": [
+                {
+                  "id": 76886,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_metagem_cut.jpg"
+                },
+                {
+                  "id": 76661,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 86967,
+              "slot": 1,
+              "quality": 4,
+              "icon": "inv_jewelry_necklace_104.jpg",
+              "name": "Necklace of Congealed Weaknesses",
+              "itemLevel": 517
+            },
+            {
+              "id": 95829,
+              "slot": 2,
+              "quality": 4,
+              "icon": "inv_shoulder_plate_deathknight_m_01.jpg",
+              "name": "Pauldrons of the All-Consuming Maw",
+              "itemLevel": 502,
+              "permanentEnchant": 4803,
+              "permanentEnchantName": "+3 Strength and +1 Critical Strike",
+              "gems": [
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76661,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 3,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 95825,
+              "slot": 4,
+              "quality": 4,
+              "icon": "inv_chest_plate_deathknight_m_01.jpg",
+              "name": "Breastplate of the All-Consuming Maw",
+              "itemLevel": 502,
+              "permanentEnchant": 4419,
+              "permanentEnchantName": "+4 All Stats",
+              "gems": [
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76661,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76684,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_purple.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94726,
+              "slot": 5,
+              "quality": 4,
+              "icon": "inv_belt_plate_raidwarrior_m_01.jpg",
+              "name": "Cloudbreaker Greatbelt",
+              "itemLevel": 528,
+              "onUseEnchant": 4223,
+              "onUseEnchantName": "Nitro Boosts",
+              "gems": [
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76661,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95535,
+              "slot": 6,
+              "quality": 4,
+              "icon": "inv_pants_plate_raidwarrior_m_01.jpg",
+              "name": "Legplates of the Lightning Throne",
+              "itemLevel": 528,
+              "permanentEnchant": 4823,
+              "permanentEnchantName": "+4 Strength and +2 Critical Strike",
+              "gems": [
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76661,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                },
+                {
+                  "id": 76661,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 86201,
+              "slot": 7,
+              "quality": 4,
+              "icon": "inv_boots_plate_raidwarrior_l_01.jpg",
+              "name": "Impaling Treads",
+              "itemLevel": 504,
+              "permanentEnchant": 4429,
+              "permanentEnchantName": "+2 Mastery & Minor Speed Increase",
+              "gems": [
+                {
+                  "id": 76661,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_orange.jpg"
+                }
+              ]
+            },
+            {
+              "id": 94742,
+              "slot": 8,
+              "quality": 4,
+              "icon": "inv_bracer_plate_raidwarrior_m_01.jpg",
+              "name": "Frozen Warlord's Bracers",
+              "itemLevel": 528,
+              "permanentEnchant": 4415,
+              "permanentEnchantName": "+4 Strength",
+              "gems": [
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95226,
+              "slot": 9,
+              "quality": 4,
+              "icon": "inv_gloves_plate_deathknight_m_01.jpg",
+              "name": "Gauntlets of the All-Consuming Maw",
+              "itemLevel": 522,
+              "permanentEnchant": 4432,
+              "permanentEnchantName": "+6 Strength",
+              "onUseEnchant": 4898,
+              "onUseEnchantName": "Synapse Springs",
+              "gems": [
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                },
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ],
+              "setID": 1152
+            },
+            {
+              "id": 95513,
+              "slot": 10,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_177.jpg",
+              "name": "Band of the Scaled Tyrant",
+              "itemLevel": 528,
+              "gems": [
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 95167,
+              "slot": 11,
+              "quality": 4,
+              "icon": "inv_jewelry_ring_173.jpg",
+              "name": "Ring of King Kangrom",
+              "itemLevel": 522
+            },
+            {
+              "id": 94508,
+              "slot": 12,
+              "quality": 4,
+              "icon": "ability_warrior_strengthofarms.jpg",
+              "name": "Brutal Talisman of the Shado-Pan Assault",
+              "itemLevel": 522
+            },
+            {
+              "id": 94515,
+              "slot": 13,
+              "quality": 4,
+              "icon": "ability_priest_angelicfeather.jpg",
+              "name": "Fabled Feather of Ji-Kun",
+              "itemLevel": 528
+            },
+            {
+              "id": 95114,
+              "slot": 14,
+              "quality": 4,
+              "icon": "inv_cape_pandaria_d_04.jpg",
+              "name": "Spikeshard Greatcloak",
+              "itemLevel": 522,
+              "permanentEnchant": 4424,
+              "permanentEnchantName": "+1 Critical Strike",
+              "onUseEnchant": 4897,
+              "onUseEnchantName": "Goblin Glider"
+            },
+            {
+              "id": 86386,
+              "slot": 15,
+              "quality": 4,
+              "icon": "inv_axe_2h_pandaraid_d_01.jpg",
+              "name": "Shin'ka, Execution of Dominion",
+              "itemLevel": 504,
+              "permanentEnchant": 3368,
+              "permanentEnchantName": "Rune of the Fallen Crusader",
+              "gems": [
+                {
+                  "id": 89881,
+                  "itemLevel": 513,
+                  "icon": "inv_legendary_breathofblackprince_agi.jpg"
+                },
+                {
+                  "id": 76696,
+                  "itemLevel": 90,
+                  "icon": "inv_misc_gem_x4_rare_cut_red.jpg"
+                }
+              ]
+            },
+            {
+              "id": 0,
+              "slot": 16,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            },
+            {
+              "id": 0,
+              "slot": 17,
+              "quality": 1,
+              "icon": "inv_axe_02.jpg",
+              "itemLevel": 0
+            }
+          ]
+        }
+      ],
+      "totalTime": 440287,
+      "logVersion": 17,
+      "gameVersion": 6,
+      "exploitDetails": []
+    }
+  }
+}
