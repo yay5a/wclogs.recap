@@ -155,6 +155,64 @@ describe("table parser", () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
+    it("parses wrapped dispels rows from data.entries[].entries[].details[] shape", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            {
+                data: {
+                    entries: [
+                        {
+                            entries: [
+                                {
+                                    details: [
+                                        { id: 7, name: "Priest", total: 1 },
+                                        { id: 9, name: "Monk", total: 2 },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+            "Dispels",
+            warn,
+        );
+
+        expect(parsed.entries).toEqual([
+            { dataType: "Dispels", playerId: 7, playerName: "Priest", value: 1 },
+            { dataType: "Dispels", playerId: 9, playerName: "Monk", value: 2 },
+        ]);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("parses wrapped interrupts rows from data.entries[].entries[].details[] shape", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            {
+                data: {
+                    entries: [
+                        {
+                            entries: [
+                                {
+                                    details: [
+                                        { id: 4, name: "Shaman", total: 3 },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+            "Interrupts",
+            warn,
+        );
+
+        expect(parsed.entries).toEqual([
+            { dataType: "Interrupts", playerId: 4, playerName: "Shaman", value: 3 },
+        ]);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
     it("accepts survivability metadata-only rows without malformed warnings", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(

@@ -6,6 +6,7 @@ export interface ReportCacheRecord {
     gameFamily: GameFamily;
     rawPayload: unknown;
     normalizedPayload: NormalizedReport;
+    normalizedPayloadVersion?: number;
     fetchedAt: Date;
 }
 
@@ -15,6 +16,7 @@ export interface ReportCacheWriteEntry {
     gameFamily: GameFamily;
     rawPayload: unknown;
     normalizedPayload: NormalizedReport;
+    normalizedPayloadVersion?: number;
     fetchedAt: Date;
 }
 

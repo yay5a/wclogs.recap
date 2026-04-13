@@ -60,9 +60,10 @@ describe("index contract", () => {
     let parseReportUrl: typeof import("./index.js").parseReportUrl;
     let normalizeReport: typeof import("./index.js").normalizeReport;
     let normalizeEnrichedReport: typeof import("./index.js").normalizeEnrichedReport;
+    let WclClient: typeof import("./index.js").WclClient;
 
     beforeAll(async () => {
-        ({ parseReportUrl, normalizeReport, normalizeEnrichedReport } = await import(
+        ({ parseReportUrl, normalizeReport, normalizeEnrichedReport, WclClient } = await import(
             "./index.js"
         ));
     });
@@ -318,6 +319,160 @@ describe("index contract", () => {
                 "Floorroller",
                 "Pearl",
             ]);
+            expect(recap?.topHealers?.some((entry) => entry.playerName === "Arakinak")).toBe(
+                false,
+            );
+        });
+
+        it("sources top healers from boss rankings healer-role rows, not healing totals", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Top Healer Source",
+                                startTime: 100,
+                                endTime: 1000,
+                                fights: [
+                                    {
+                                        id: 46,
+                                        name: "Lei Shen",
+                                        startTime: 200,
+                                        endTime: 500,
+                                        kill: true,
+                                        encounterID: 51579,
+                                    },
+                                ],
+                                masterData: {
+                                    actors: [
+                                        { id: 1, name: "TankOffheal", subType: "Druid" },
+                                        { id: 2, name: "Floorroller", subType: "Monk" },
+                                        { id: 3, name: "Pearl", subType: "Priest" },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    encounterSummaries: [
+                        {
+                            encounterID: 51579,
+                            bossName: "Lei Shen",
+                            fightId: 46,
+                            kill: true,
+                            rankings: {
+                                rankings: [
+                                    {
+                                        playerID: 1,
+                                        name: "TankOffheal",
+                                        amount: 999999,
+                                        rankPercent: 98,
+                                        role: "Tank",
+                                        className: "Druid",
+                                        spec: "Guardian",
+                                    },
+                                    {
+                                        playerID: 2,
+                                        name: "Floorroller",
+                                        amount: 50000,
+                                        rankPercent: 80,
+                                        role: "Healer",
+                                        className: "Monk",
+                                        spec: "Mistweaver",
+                                    },
+                                    {
+                                        playerID: 3,
+                                        name: "Pearl",
+                                        amount: 40000,
+                                        rankPercent: 75,
+                                        role: "Healer",
+                                        className: "Priest",
+                                        spec: "Holy",
+                                    },
+                                ],
+                            },
+                            tables: {
+                                Healing: {
+                                    data: {
+                                        entries: [
+                                            { id: 1, name: "TankOffheal", total: 999999 },
+                                            { id: 2, name: "Floorroller", total: 50000 },
+                                            { id: 3, name: "Pearl", total: 40000 },
+                                        ],
+                                    },
+                                },
+                            },
+                        },
+                    ],
+                },
+                {
+                    reportCode: "abc123xyz4567890",
+                    gameFamily: "mop_classic",
+                    rawUrl: "https://classic.warcraftlogs.com/reports/abc123xyz4567890",
+                },
+            );
+
+            expect(
+                normalized.bossPerformances?.[0]?.topHealers?.map((entry) => entry.playerName),
+            ).toEqual(["Floorroller", "Pearl"]);
+            expect(
+                normalized.bossPerformances?.[0]?.topHealers?.map((entry) => entry.specName),
+            ).toEqual(["Mistweaver", "Holy"]);
+        });
+    });
+
+    describe("fetch cache behavior", () => {
+        it("re-normalizes cached raw payload when normalized payload version is stale", async () => {
+            const cachedBase = {
+                reportData: {
+                    report: {
+                        title: "Cache Fresh Title",
+                        startTime: 1,
+                        endTime: 2,
+                        zone: { frozen: true },
+                        fights: [],
+                        masterData: { actors: [] },
+                    },
+                },
+            };
+            const store = {
+                getByReportCode: vi.fn().mockResolvedValue({
+                    reportCode: "abc123xyz4567890",
+                    sourceUrl: "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+                    gameFamily: "retail",
+                    rawPayload: { base: cachedBase, encounterSummaries: [] },
+                    normalizedPayload: {
+                        reportCode: "abc123xyz4567890",
+                        title: "Stale Title",
+                        startTime: 1,
+                        endTime: 2,
+                        gameFamily: "retail",
+                        fights: [],
+                        players: [],
+                        leaderboards: [],
+                        bossPerformances: [],
+                    },
+                    normalizedPayloadVersion: 1,
+                    fetchedAt: new Date(),
+                }),
+                upsert: vi.fn().mockResolvedValue(undefined),
+            };
+            const client = new WclClient({
+                clientId: "id",
+                clientSecret: "secret",
+                apiBaseUrl: "https://example.com",
+                reportCacheStore: store,
+            });
+
+            const normalized = await client.fetchAndNormalizeReport(
+                "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+            );
+
+            expect(normalized.title).toBe("Cache Fresh Title");
+            expect(store.upsert).toHaveBeenCalledTimes(1);
+            const upsertArgs = store.upsert.mock.calls[0]?.[0] as
+                | { normalizedPayloadVersion?: number }
+                | undefined;
+            expect(upsertArgs?.normalizedPayloadVersion).toBe(2);
         });
     });
 });

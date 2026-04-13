@@ -44,6 +44,7 @@ const INACCESSIBLE_REPORT_TTL_MS = 6 * 60 * 60 * 1000;
 const RECENT_REPORT_WINDOW_MS = 6 * 60 * 60 * 1000;
 // Reports are fetched from user-submitted URLs/codes, so we intentionally allow unlisted reports.
 const DEFAULT_ALLOW_UNLISTED_REPORTS = true;
+const NORMALIZED_PAYLOAD_VERSION = 2;
 const logger = createLogger("wcl-client");
 
 const BASE_REPORT_QUERY = `
@@ -750,6 +751,12 @@ const shouldUseCachedReport = (cached: {
 
     return isWithinTtl(cached.fetchedAt, INACCESSIBLE_REPORT_TTL_MS);
 };
+
+const shouldUseCachedNormalizedPayload = (cached: {
+    normalizedPayloadVersion?: number;
+}): boolean =>
+    cached.normalizedPayloadVersion === NORMALIZED_PAYLOAD_VERSION &&
+    process.env.WCL_BYPASS_CACHE !== "true";
 
 const parseEncounterPhases = (
     report: Record<string, unknown>,
@@ -1526,7 +1533,21 @@ export class WclClient {
                 fetchedAt: cached.fetchedAt,
             })
         ) {
-            return cached.normalizedPayload;
+            if (shouldUseCachedNormalizedPayload(cached)) {
+                return cached.normalizedPayload;
+            }
+
+            const reNormalized = normalizeEnrichedReport(cached.rawPayload, parsed);
+            await this.options.reportCacheStore?.upsert({
+                reportCode: parsed.reportCode,
+                sourceUrl: url,
+                gameFamily: parsed.gameFamily,
+                rawPayload: cached.rawPayload,
+                normalizedPayload: reNormalized,
+                normalizedPayloadVersion: NORMALIZED_PAYLOAD_VERSION,
+                fetchedAt: new Date(),
+            });
+            return reNormalized;
         }
 
         let rawPayload: unknown;
@@ -1553,6 +1574,7 @@ export class WclClient {
                 gameFamily: parsed.gameFamily,
                 rawPayload,
                 normalizedPayload: normalized,
+                normalizedPayloadVersion: NORMALIZED_PAYLOAD_VERSION,
                 fetchedAt: new Date(),
             });
         }
