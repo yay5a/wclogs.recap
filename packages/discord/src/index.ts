@@ -1265,7 +1265,7 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
 
     if (summary.fastestPhaseTimes.length > 0) {
         fields.push({
-            name: "Fastest Phase Times",
+            name: "Phase Times",
             value: summary.fastestPhaseTimes
                 .map(
                     (phase) =>

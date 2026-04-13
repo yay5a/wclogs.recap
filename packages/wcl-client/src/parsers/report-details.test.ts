@@ -31,4 +31,11 @@ describe("playerDetails parser", () => {
         expect(entries).toEqual([]);
         expect(warn).toHaveBeenCalled();
     });
+
+    it("returns empty details silently for explicit empty playerDetails payload", () => {
+        const warn = vi.fn();
+        const entries = parsePlayerDetailsPayload({ data: { playerDetails: [] } }, warn);
+        expect(entries).toEqual([]);
+        expect(warn).not.toHaveBeenCalled();
+    });
 });

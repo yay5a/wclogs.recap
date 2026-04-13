@@ -831,7 +831,7 @@ describe("embed rendering", () => {
         expect(embed.title).toBe("Boss - Mythic - Zone");
         expect(embed.fields.map((field) => field.name)).toEqual([
             "Raid",
-            "Fastest Phase Times",
+            "Phase Times",
             "Best Player Parses",
             "Top Damage Taken",
             "Top Healers",

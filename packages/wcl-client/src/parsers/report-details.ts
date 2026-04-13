@@ -33,6 +33,41 @@ const collectPlayerNodes = (parsed: unknown): unknown[] => {
     ];
 };
 
+const isExplicitlyEmptyPlayerDetailsPayload = (parsed: unknown): boolean => {
+    const root = asObject(parsed);
+    if (!root) return false;
+
+    const rootData = asArray(root.data);
+    if (rootData?.length === 0) return true;
+
+    const rootEntries = asArray(root.entries);
+    if (rootEntries?.length === 0) return true;
+
+    const rootComposition = asArray(root.composition);
+    if (rootComposition?.length === 0) return true;
+
+    const rootPlayers = asArray(root.players);
+    if (rootPlayers?.length === 0) return true;
+
+    const data = asObject(root.data);
+    const dataPlayerDetails = asArray(data?.playerDetails);
+    if (dataPlayerDetails?.length === 0) return true;
+
+    const players = asObject(root.players);
+    const playersData = asArray(players?.data);
+    if (playersData?.length === 0) return true;
+
+    const playerDetails = asObject(root.playerDetails);
+    const playerDetailsData = asArray(playerDetails?.data);
+    if (playerDetailsData?.length === 0) return true;
+
+    const details = asObject(root.details);
+    const detailsPlayers = asArray(details?.players);
+    if (detailsPlayers?.length === 0) return true;
+
+    return false;
+};
+
 export const parsePlayerDetailsPayload = (
     payload: unknown,
     warn: DebugWarn = defaultDebugWarn,
@@ -69,6 +104,9 @@ export const parsePlayerDetailsPayload = (
     }
 
     if (results.length === 0) {
+        if (isExplicitlyEmptyPlayerDetailsPayload(parsed)) {
+            return [];
+        }
         warn("playerDetails parser (report payload): no player details extracted", {
             payload: parsed,
         });
