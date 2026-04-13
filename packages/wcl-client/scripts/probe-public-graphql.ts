@@ -432,24 +432,22 @@ const logProbe = (args: {
 const run = async (): Promise<void> => {
     const args = getArgs();
 
-    const apiBaseUrl =
-        process.env.WCL_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
-    const explicitToken = process.env.WCL_OAUTH_TOKEN?.trim();
-    const clientId = process.env.WCL_CLIENT_ID?.trim();
-    const clientSecret = process.env.WCL_CLIENT_SECRET?.trim();
+const apiBaseUrl = process.env.WCL_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
+const explicitToken = process.env.WCL_OAUTH_TOKEN?.trim();
+const clientId = process.env.WCL_CLIENT_ID?.trim();
+const clientSecret = process.env.WCL_CLIENT_SECRET?.trim();
 
-    const tokenOptions = {
-        ...(explicitToken ? { explicitToken } : {}),
-        ...(explicitToken
-            ? {}
-            : {
-                  clientId: clientId || getRequiredEnv("WCL_CLIENT_ID"),
-                  clientSecret:
-                      clientSecret || getRequiredEnv("WCL_CLIENT_SECRET"),
-              }),
-    };
+const tokenOptions = {
+    ...(explicitToken ? { explicitToken } : {}),
+    ...(explicitToken
+        ? {}
+        : {
+              clientId: clientId || getRequiredEnv("WCL_CLIENT_ID"),
+              clientSecret: clientSecret || getRequiredEnv("WCL_CLIENT_SECRET"),
+          }),
+};
 
-    const token = await resolveWclAccessToken(tokenOptions);
+const token = await resolveWclAccessToken(tokenOptions);
 
     const client = new GraphQLClient(apiBaseUrl, {
         headers: {
