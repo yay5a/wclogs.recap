@@ -362,7 +362,7 @@ export const buildRecapPreviewBody = (
             title: `Preview: ${summary.titleLine}`,
             description: [
                 summary.secondaryLine,
-                `Kill Time: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
+                `Raid Duration: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
                 `Date: ${summary.reportDateLabel}`,
                 summary.bestPlayerParses[0]
                     ? `Best Parse: ${summary.bestPlayerParses[0].playerName} (${summary.bestPlayerParses[0].parse.toFixed(1)})`
@@ -1212,8 +1212,6 @@ export const handleInteraction = async (
 };
 
 export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
-    const formatClassSpec = (value?: string): string =>
-        value ? ` • ${value}` : "";
     const formatCompactNumber = (value: number): string =>
         new Intl.NumberFormat("en-US", {
             notation: "compact",
@@ -1244,36 +1242,18 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         const classSpecSection = classSpec ? ` - ${classSpec}` : "";
         return `• ${entry.playerName} ${parseValue}${amountSection}${classSpecSection}`;
     };
-    const formatPhase = (durationMs: number): string => {
-        const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
-        const minutes = Math.floor(totalSeconds / 60);
-        const seconds = totalSeconds % 60;
-        return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
-    };
     const fields: Array<{ name: string; value: string; inline?: boolean }> = [
         {
             name: "Raid",
             value: [
                 summary.secondaryLine,
-                `Kill Time: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
+                `Raid Duration: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
                 `Date: ${summary.reportDateLabel}`,
             ]
                 .filter((line): line is string => Boolean(line))
                 .join("\n"),
         },
     ];
-
-    if (summary.fastestPhaseTimes.length > 0) {
-        fields.push({
-            name: "Phase Times",
-            value: summary.fastestPhaseTimes
-                .map(
-                    (phase) =>
-                        `${phase.label}: ${formatPhase(phase.durationMs)}`,
-                )
-                .join("\n"),
-        });
-    }
 
     if (summary.bestPlayerParses.length > 0) {
         fields.push({
@@ -1282,26 +1262,14 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         });
     }
 
-    if (summary.topDamageTaken.length > 0) {
-        fields.push({
-            name: "Top Damage Taken",
-            value: summary.topDamageTaken
-                .map(
-                    (entry) =>
-                        `• ${entry.playerName} (${formatCompactNumber(entry.value)})${formatClassSpec(entry.classSpecLabel)}`,
-                )
-                .join("\n"),
-        });
-    }
-
     if (summary.topHealers.length > 0) {
         fields.push({
-            name: "Top Healers",
+            name: "Top Overall Healing",
             value: [...summary.topHealers]
                 .sort((left, right) => right.value - left.value)
                 .map(
                     (entry) =>
-                        `• ${entry.playerName} | ${formatCompactNumber(entry.value)} HPS${entry.classSpecLabel ? ` - ${entry.classSpecLabel}` : ""}`,
+                        `• ${entry.playerName} | ${formatCompactNumber(entry.value)} healing${entry.classSpecLabel ? ` - ${entry.classSpecLabel}` : ""}`,
                 )
                 .join("\n"),
         });
@@ -1329,6 +1297,43 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         fields.push({
             name: "Totals",
             value: totalLines.join("\n"),
+        });
+    }
+
+    if (summary.bestSingleBossParse || summary.bestAverageParse) {
+        const parseLines = [
+            summary.bestSingleBossParse
+                ? `Best single-boss parse: ${summary.bestSingleBossParse.playerName} ${summary.bestSingleBossParse.value.toFixed(1)} (${summary.bestSingleBossParse.bossName})`
+                : undefined,
+            summary.bestAverageParse
+                ? `Best average parse: ${summary.bestAverageParse.playerName} ${summary.bestAverageParse.value.toFixed(1)}`
+                : undefined,
+        ].filter((line): line is string => Boolean(line));
+        fields.push({
+            name: "Overall Rankings",
+            value: parseLines.join("\n"),
+        });
+    }
+
+    if (summary.topOverallParsers.length > 0) {
+        fields.push({
+            name: "Top Overall Parsers",
+            value: summary.topOverallParsers
+                .map(
+                    (entry) =>
+                        `• ${entry.playerName} ${entry.value.toFixed(1)} (${entry.metric})`,
+                )
+                .join("\n"),
+        });
+    }
+
+    if (summary.bossHighlights.length > 0) {
+        fields.push({
+            name: "Boss Highlights",
+            value: summary.bossHighlights
+                .slice(0, 4)
+                .map((entry) => `• ${entry.bossName}: ${entry.text}`)
+                .join("\n"),
         });
     }
     fields.push({ name: "Report", value: summary.reportLink });

@@ -801,13 +801,9 @@ describe("handleInteraction", () => {
 });
 
 describe("embed rendering", () => {
-    it("renders MVP recap field set", () => {
+    it("renders report-wide recap field set", () => {
         const embed = buildPublicRecapEmbed({
             ...makePreviewSummary(),
-            fastestPhaseTimes: [
-                { label: "P1", durationMs: 120000 },
-                { label: "P2", durationMs: 180000 },
-            ],
             bestPlayerParses: [
                 {
                     playerName: "Alyra",
@@ -817,7 +813,6 @@ describe("embed rendering", () => {
                     classSpecLabel: "Shadow Priest",
                 },
             ],
-            topDamageTaken: [{ playerName: "Tanky", value: 12345 }],
             topHealers: [{ playerName: "Healz", value: 67890, classSpecLabel: "Mistweaver Monk" }],
             totals: {
                 totalDeaths: 5,
@@ -826,32 +821,49 @@ describe("embed rendering", () => {
                 battleRezzes: 2,
                 kicks: 11,
             },
+            bestSingleBossParse: {
+                playerName: "Alyra",
+                value: 99,
+                bossName: "One-Armed Bandit",
+                fightId: 11,
+                metric: "DPS",
+            },
+            bestAverageParse: {
+                playerName: "Pearl",
+                value: 97.4,
+                metric: "HPS",
+            },
+            topOverallParsers: [
+                { playerName: "Alyra", value: 99, metric: "DPS" },
+                { playerName: "Pearl", value: 97.4, metric: "HPS" },
+            ],
+            bossHighlights: [
+                { bossName: "One-Armed Bandit", fightId: 11, text: "Kill secured." },
+            ],
         });
 
         expect(embed.title).toBe("Boss - Mythic - Zone");
         expect(embed.fields.map((field) => field.name)).toEqual([
             "Raid",
-            "Phase Times",
             "Best Player Parses",
-            "Top Damage Taken",
-            "Top Healers",
+            "Top Overall Healing",
             "Totals",
+            "Overall Rankings",
+            "Top Overall Parsers",
+            "Boss Highlights",
             "Report",
         ]);
         expect(
             embed.fields.find((field) => field.name === "Totals")?.value,
         ).not.toContain("Most wipes:");
         expect(
-            embed.fields.find((field) => field.name === "Top Damage Taken")?.value,
-        ).toContain("12.3K");
-        expect(
-            embed.fields.find((field) => field.name === "Top Healers")?.value,
+            embed.fields.find((field) => field.name === "Top Overall Healing")?.value,
         ).toContain("67.9K");
         expect(
-            embed.fields.find((field) => field.name === "Top Healers")?.value,
-        ).toContain("67.9K HPS");
+            embed.fields.find((field) => field.name === "Top Overall Healing")?.value,
+        ).toContain("67.9K healing");
         expect(
-            embed.fields.find((field) => field.name === "Top Healers")?.value,
+            embed.fields.find((field) => field.name === "Top Overall Healing")?.value,
         ).toContain("Mistweaver Monk");
         expect(
             embed.fields.find((field) => field.name === "Best Player Parses")?.value,
@@ -862,9 +874,15 @@ describe("embed rendering", () => {
         expect(
             embed.fields.find((field) => field.name === "Totals")?.value,
         ).toContain("Raid damage taken: 1.2M");
+        expect(
+            embed.fields.find((field) => field.name === "Overall Rankings")?.value,
+        ).toContain("Best single-boss parse: Alyra 99.0");
+        expect(
+            embed.fields.find((field) => field.name === "Top Overall Parsers")?.value,
+        ).toContain("• Alyra 99.0 (DPS)");
     });
 
-    it("renders top healers with HPS label and descending value order", () => {
+    it("renders top overall healing in descending value order", () => {
         const embed = buildPublicRecapEmbed({
             ...makePreviewSummary(),
             topHealers: [
@@ -873,8 +891,8 @@ describe("embed rendering", () => {
             ],
         });
 
-        expect(embed.fields.find((field) => field.name === "Top Healers")?.value).toBe(
-            "• Floorroller | 48.4K HPS - Mistweaver Monk\n• Pearl | 4.8K HPS - Restoration Shaman",
+        expect(embed.fields.find((field) => field.name === "Top Overall Healing")?.value).toBe(
+            "• Floorroller | 48.4K healing - Mistweaver Monk\n• Pearl | 4.8K healing - Restoration Shaman",
         );
     });
 
@@ -913,7 +931,7 @@ describe("preview rendering", () => {
             (body.embeds?.[0] as { description?: string } | undefined)
                 ?.description ?? "";
         expect(description).toContain("Guild on Realm-US");
-        expect(description).toContain("Kill Time: 05:32 (9 Pulls)");
+        expect(description).toContain("Raid Duration: 05:32 (9 Pulls)");
         expect(description).toContain("Date: 01/01/1970");
         expect(description).toContain("Best Parse: Alyra (99.0)");
     });

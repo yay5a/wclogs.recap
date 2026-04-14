@@ -135,6 +135,26 @@ export interface NormalizedReport {
     players: NormalizedPlayer[];
     leaderboards?: NormalizedLeaderboardEntry[];
     bossPerformances?: NormalizedBossPerformance[];
+    reportWideRecap?: {
+        topDamageDone: Array<{
+            playerName: string;
+            value: number;
+            className?: string;
+            specName?: string;
+        }>;
+        topHealingDone: Array<{
+            playerName: string;
+            value: number;
+            className?: string;
+            specName?: string;
+        }>;
+        totals: {
+            deaths?: number;
+            raidDamageTaken?: number;
+            dispels?: number;
+            interrupts?: number;
+        };
+    };
 }
 
 export interface RecapSummary {
@@ -267,51 +287,54 @@ export const buildRecapSummary = (
             (left, right) => (right.fightDate ?? 0) - (left.fightDate ?? 0),
         )[0];
 
-    const bossName = selectedBoss?.bossName ?? report.fights.at(-1)?.name ?? report.title;
-    const difficultyLabel = selectedBoss?.difficultyName ?? "Unknown Difficulty";
     const zoneName = selectedBoss?.zoneName ?? report.zoneName;
-    const titleLine = `${bossName} - ${difficultyLabel}${zoneName ? ` - ${zoneName}` : ""}`;
+    const titleLine = zoneName
+        ? `${report.title} - ${zoneName}`
+        : report.title;
     const secondaryLine = selectedBoss?.guildName
         ? `${selectedBoss.guildName} on ${selectedBoss.realmName ?? "Unknown Realm"}`
         : "Unknown Guild on Unknown Realm";
-    const pullCount = selectedBoss?.pullCount ?? 0;
-    const killTimeLabel = formatDurationMmSs(selectedBoss?.fightDurationMs ?? 0);
-    const reportDateMs = selectedBoss?.fightDate ?? report.startTime;
+    const pullCount = report.fights.length;
+    const killTimeLabel = formatDurationMmSs(
+        Math.max(0, report.endTime - report.startTime),
+    );
+    const reportDateMs = report.startTime;
 
-    const bestPlayerParses = (selectedBoss?.bestParses ?? [])
+    const reportDamageByName = new Map(
+        (report.reportWideRecap?.topDamageDone ?? []).map((entry) => [
+            entry.playerName.toLowerCase(),
+            entry,
+        ]),
+    );
+    const reportLeaderboards = (report.leaderboards ?? []).filter(
+        (entry) => entry.scope === "report",
+    );
+    const bestPlayerParses = [...reportLeaderboards]
+        .sort((left, right) => right.value - left.value)
         .slice(0, 3)
-        .map((entry) => {
+        .flatMap((entry) => {
+            if (!entry.playerName) return [];
+            const damageRow = reportDamageByName.get(entry.playerName.toLowerCase());
+            const className = entry.className ?? damageRow?.className;
+            const specName = entry.specName ?? damageRow?.specName;
             const classSpecLabel = toClassSpecLabel(
-                entry.className,
-                entry.specName,
+                className,
+                specName,
             );
-            return {
+            return [{
                 playerName: entry.playerName,
-                parse: entry.parse,
-                metricLabel: toMetricLabel(entry.metric),
-                ...(entry.metric ? { metric: entry.metric } : {}),
-                ...(typeof entry.amount === "number"
-                    ? { amount: entry.amount }
+                parse: entry.value,
+                metricLabel: toMetricLabel(entry.selectedMetric ?? entry.metric),
+                metric: toMetricLabel(entry.selectedMetric ?? entry.metric),
+                ...(typeof damageRow?.value === "number"
+                    ? { amount: damageRow.value }
                     : {}),
-                ...(entry.className ? { className: entry.className } : {}),
-                ...(entry.specName ? { specName: entry.specName } : {}),
+                ...(className ? { className } : {}),
+                ...(specName ? { specName } : {}),
                 ...(classSpecLabel ? { classSpecLabel } : {}),
-            };
+            }];
         });
-    const topDamageTaken = (selectedBoss?.topDamageTaken ?? [])
-        .slice(0, 3)
-        .map((entry) => {
-            const classSpecLabel = toClassSpecLabel(
-                entry.className,
-                entry.specName,
-            );
-            return {
-                playerName: entry.playerName,
-                value: entry.value,
-                ...(classSpecLabel ? { classSpecLabel } : {}),
-            };
-        });
-    const topHealers = (selectedBoss?.topHealers ?? []).slice(0, 3).map((entry) => {
+    const topHealers = (report.reportWideRecap?.topHealingDone ?? []).slice(0, 3).map((entry) => {
         const classSpecLabel = toClassSpecLabel(entry.className, entry.specName);
         return {
             playerName: entry.playerName,
@@ -326,6 +349,29 @@ export const buildRecapSummary = (
             wipes: Math.max(0, (boss.pullCount ?? 0) - (boss.kill ? 1 : 0)),
         }))
         .sort((left, right) => right.wipes - left.wipes)[0];
+
+    const bestAverageParseEntry = [...reportLeaderboards]
+        .sort((left, right) => right.value - left.value)[0];
+    const bestSingleBossParseEntry = (report.leaderboards ?? [])
+        .filter((entry) => entry.scope === "boss")
+        .sort((left, right) => right.value - left.value)[0];
+    const topOverallParsers = [...reportLeaderboards]
+        .sort((left, right) => right.value - left.value)
+        .slice(0, 3)
+        .flatMap((entry) => {
+            if (!entry.playerName) return [];
+            const metric = toMetricLabel(entry.selectedMetric ?? entry.metric);
+            return [{ playerName: entry.playerName, value: entry.value, metric }];
+        });
+
+    const bossHighlights = bossPerformances
+        .filter((boss) => typeof boss.fightId === "number")
+        .slice(0, 4)
+        .map((boss) => ({
+            bossName: boss.bossName,
+            fightId: boss.fightId,
+            text: boss.kill === true ? "Kill secured." : "Progress pull.",
+        }));
 
     const summary: RecapSummary = {
         reportTitle: titleLine,
@@ -346,17 +392,13 @@ export const buildRecapSummary = (
         coachingShareability:
             guildConfig?.coachingShareabilityDefault ?? "private",
         recapPostMode: guildConfig?.recapPostModeDefault ?? "preview-and-post",
-        fastestPhaseTimes: (selectedBoss?.fastestPhaseTimes ?? []).map((phase) => ({
-            label: phase.label,
-            durationMs: phase.durationMs,
-            ...(phase.name ? { name: phase.name } : {}),
-        })),
+        fastestPhaseTimes: [],
         bestPlayerParses,
-        topDamageTaken,
+        topDamageTaken: [],
         topHealers,
         totals: {
-            ...(typeof selectedBoss?.deaths === "number"
-                ? { totalDeaths: selectedBoss.deaths }
+            ...(typeof report.reportWideRecap?.totals.deaths === "number"
+                ? { totalDeaths: report.reportWideRecap.totals.deaths }
                 : {}),
             ...(mostWipesEntry && mostWipesEntry.wipes > 0
                 ? {
@@ -364,21 +406,46 @@ export const buildRecapSummary = (
                       mostWipesCount: mostWipesEntry.wipes,
                   }
                 : {}),
-            ...(typeof selectedBoss?.raidDamageTaken === "number"
-                ? { raidDamageTaken: selectedBoss.raidDamageTaken }
+            ...(typeof report.reportWideRecap?.totals.raidDamageTaken === "number"
+                ? { raidDamageTaken: report.reportWideRecap.totals.raidDamageTaken }
                 : {}),
-            ...(typeof selectedBoss?.dispels === "number"
-                ? { dispels: selectedBoss.dispels }
+            ...(typeof report.reportWideRecap?.totals.dispels === "number"
+                ? { dispels: report.reportWideRecap.totals.dispels }
                 : {}),
-            ...(typeof selectedBoss?.battleRezzes === "number"
-                ? { battleRezzes: selectedBoss.battleRezzes }
-                : {}),
-            ...(typeof selectedBoss?.kicks === "number"
-                ? { kicks: selectedBoss.kicks }
+            ...(typeof report.reportWideRecap?.totals.interrupts === "number"
+                ? { kicks: report.reportWideRecap.totals.interrupts }
                 : {}),
         },
-        topOverallParsers: [],
-        bossHighlights: [],
+        ...(bestSingleBossParseEntry?.playerName &&
+        bestSingleBossParseEntry.bossName &&
+        typeof bestSingleBossParseEntry.fightId === "number"
+            ? {
+                  bestSingleBossParse: {
+                      playerName: bestSingleBossParseEntry.playerName,
+                      value: bestSingleBossParseEntry.value,
+                      bossName: bestSingleBossParseEntry.bossName,
+                      fightId: bestSingleBossParseEntry.fightId,
+                      metric: toMetricLabel(
+                          bestSingleBossParseEntry.selectedMetric ??
+                              bestSingleBossParseEntry.metric,
+                      ),
+                  },
+              }
+            : {}),
+        ...(bestAverageParseEntry?.playerName
+            ? {
+                  bestAverageParse: {
+                      playerName: bestAverageParseEntry.playerName,
+                      value: bestAverageParseEntry.value,
+                      metric: toMetricLabel(
+                          bestAverageParseEntry.selectedMetric ??
+                              bestAverageParseEntry.metric,
+                      ),
+                  },
+              }
+            : {}),
+        topOverallParsers,
+        bossHighlights,
         raidSuperlatives: [],
         teamNote: deriveDeterministicTeamNote(killed),
     };

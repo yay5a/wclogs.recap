@@ -186,6 +186,26 @@ const TABLE_QUERY = `
   }
 `;
 
+const REPORT_WIDE_TABLE_QUERY = `
+  query ReportWideTable(
+    $code: String!
+    $allowUnlisted: Boolean!
+    $startTime: Float!
+    $endTime: Float!
+  ) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        damageDone: table(dataType: ${REPORT_TABLE_DATA_TYPES[0]}, startTime: $startTime, endTime: $endTime)
+        damageTaken: table(dataType: ${REPORT_TABLE_DATA_TYPES[1]}, startTime: $startTime, endTime: $endTime)
+        healing: table(dataType: ${REPORT_TABLE_DATA_TYPES[2]}, startTime: $startTime, endTime: $endTime)
+        deaths: table(dataType: ${REPORT_TABLE_DATA_TYPES[3]}, startTime: $startTime, endTime: $endTime)
+        dispels: table(dataType: ${REPORT_TABLE_DATA_TYPES[4]}, startTime: $startTime, endTime: $endTime)
+        interrupts: table(dataType: ${REPORT_TABLE_DATA_TYPES[5]}, startTime: $startTime, endTime: $endTime)
+      }
+    }
+  }
+`;
+
 const RESURRECT_EVENTS_QUERY = `
   query FightResurrectionEvents(
     $code: String!
@@ -689,6 +709,24 @@ const parseFightSummaries = (
             },
         ];
     });
+
+const resolveReportWideTableRangeFromFights = (
+    report: Record<string, unknown> | undefined,
+): { startTime: number; endTime: number } | undefined => {
+    if (!report) return undefined;
+
+    const validFightRanges = parseFightSummaries(report).map((fight) => ({
+        startTime: fight.startTime,
+        endTime: fight.endTime,
+    }));
+
+    if (validFightRanges.length === 0) return undefined;
+
+    return {
+        startTime: Math.min(...validFightRanges.map((row) => row.startTime)),
+        endTime: Math.max(...validFightRanges.map((row) => row.endTime)),
+    };
+};
 
 const isWithinTtl = (fetchedAt: unknown, ttlMs: number): boolean => {
     if (!(fetchedAt instanceof Date)) return false;
@@ -1458,6 +1496,7 @@ export class WclClient {
             );
         }
         let playerDetailsRaw: unknown;
+        let reportTablesRaw: unknown;
         const reportStartTime = asNumber(baseReport?.startTime);
         const reportEndTime = asNumber(baseReport?.endTime);
         if (
@@ -1482,6 +1521,35 @@ export class WclClient {
         } else {
             noteSkippedEnrichment(
                 "Skipped playerDetails enrichment due to missing report start/end time bounds.",
+            );
+        }
+        if (ratePressure.level !== "critical") {
+            const reportWideTableRange =
+                resolveReportWideTableRangeFromFights(baseReport);
+            if (reportWideTableRange) {
+                try {
+                    reportTablesRaw = await this.requestGraphQl(
+                        REPORT_WIDE_TABLE_QUERY,
+                        {
+                            code,
+                            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                            startTime: reportWideTableRange.startTime,
+                            endTime: reportWideTableRange.endTime,
+                        },
+                    );
+                } catch (error) {
+                    noteSkippedEnrichment(
+                        `Failed report-wide table enrichment; continuing without report-wide tables (${error instanceof Error ? error.message : "unknown error"}).`,
+                    );
+                }
+            } else {
+                noteSkippedEnrichment(
+                    "Skipped report-wide tables enrichment due to missing valid fights startTime/endTime bounds.",
+                );
+            }
+        } else {
+            noteSkippedEnrichment(
+                `Skipped report-wide tables enrichment due to critical rate pressure (${Math.round(ratePressure.usage * 100)}% used).`,
             );
         }
         const rawFights = baseReport ? parseFightSummaries(baseReport) : [];
@@ -1510,6 +1578,9 @@ export class WclClient {
                             getReportNode(reportRankingsRaw)?.rankings,
                         playerDetails:
                             getReportNode(playerDetailsRaw)?.playerDetails,
+                        reportTables: mapReportTablesByType(
+                            getReportNode(reportTablesRaw),
+                        ),
                         encounterSummaries,
                     };
                 }
@@ -1580,6 +1651,7 @@ export class WclClient {
             ...(skippedEnrichments.length > 0 ? { skippedEnrichments } : {}),
             reportRankings: getReportNode(reportRankingsRaw)?.rankings,
             playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
+            reportTables: mapReportTablesByType(getReportNode(reportTablesRaw)),
             encounterSummaries,
         };
     }
@@ -1671,8 +1743,6 @@ export const normalizeEnrichedReport = (
     const reportContainsDungeonPulls =
         allEncounterFights.some(hasDungeonPullData);
     const targetBossFight = selectTargetBossFight(allEncounterFights);
-    const targetEncounterId =
-        targetBossFight && getBossEncounterId(targetBossFight);
     const killFights = allEncounterFights.filter((fight) => fight.kill);
     const fightsToExpose =
         killFights.length > 0 ? killFights : allEncounterFights;
@@ -1794,6 +1864,101 @@ export const normalizeEnrichedReport = (
             playerByActorId.set(player.actorId, player);
         }
     }
+    const reportTableNode = asObject(enriched?.reportTables);
+    const parsedReportTableResults: Partial<
+        Record<TableDataType, { entries: ParsedTableEntry[]; isValidEmpty: boolean }>
+    > = Object.fromEntries(
+        REPORT_TABLE_DATA_TYPES.map((dataType) => [
+            dataType,
+            parseTablePayloadDetailed(
+                reportTableNode?.[dataType],
+                dataType,
+                (message, context) => {
+                    logger.warn(
+                        {
+                            reportCode: parsed.reportCode,
+                            section: `report_table:${dataType}`,
+                            context,
+                        },
+                        message,
+                    );
+                },
+            ),
+        ]),
+    );
+    const mapReportWideRows = (
+        entries: ParsedTableEntry[] | undefined,
+        limit: number,
+    ): Array<{
+        playerName: string;
+        value: number;
+        className?: string;
+        specName?: string;
+    }> =>
+        takeTopEntries(
+            (entries ?? []).filter((entry) => {
+                if (!entry.playerName) return false;
+                return playerByName.has(normalizeName(entry.playerName));
+            }),
+            limit,
+        ).map((entry) => {
+            const player = entry.playerName
+                ? playerByName.get(normalizeName(entry.playerName))
+                : undefined;
+            return {
+                playerName: entry.playerName ?? "Unknown",
+                value: entry.value ?? 0,
+                ...(player?.className ? { className: player.className } : {}),
+                ...(player?.specName ? { specName: player.specName } : {}),
+            };
+        });
+    const reportWideRecap = {
+        topDamageDone: mapReportWideRows(
+            parsedReportTableResults.DamageDone?.entries,
+            3,
+        ),
+        topHealingDone: mapReportWideRows(
+            parsedReportTableResults.Healing?.entries,
+            3,
+        ),
+        totals: {
+            ...(typeof sumTableValues(parsedReportTableResults.Deaths?.entries) ===
+            "number"
+                ? {
+                      deaths: sumTableValues(
+                          parsedReportTableResults.Deaths?.entries,
+                      ),
+                  }
+                : {}),
+            ...(typeof
+                sumTableValues(parsedReportTableResults.DamageTaken?.entries) ===
+            "number"
+                ? {
+                      raidDamageTaken: sumTableValues(
+                          parsedReportTableResults.DamageTaken?.entries,
+                      ),
+                  }
+                : {}),
+            ...(typeof
+                sumTableValues(parsedReportTableResults.Dispels?.entries) ===
+            "number"
+                ? {
+                      dispels: sumTableValues(
+                          parsedReportTableResults.Dispels?.entries,
+                      ),
+                  }
+                : {}),
+            ...(typeof
+                sumTableValues(parsedReportTableResults.Interrupts?.entries) ===
+            "number"
+                ? {
+                      interrupts: sumTableValues(
+                          parsedReportTableResults.Interrupts?.entries,
+                      ),
+                  }
+                : {}),
+        },
+    };
 
     const phaseMetadataByEncounterId = parseEncounterPhases(report);
     const phaseTimesByEncounterId = parseEncounterPhaseTimesFromRaw(enriched);
@@ -1833,13 +1998,6 @@ export const normalizeEnrichedReport = (
         encounterID,
         encounterFights,
     ] of fightsByEncounterId.entries()) {
-        if (
-            typeof targetEncounterId === "number" &&
-            encounterID !== targetEncounterId
-        ) {
-            continue;
-        }
-
         const summaryFight: EncounterSummaryRow | undefined =
             summaryByEncounterId.get(encounterID) ??
             (() => {
@@ -2138,6 +2296,7 @@ export const normalizeEnrichedReport = (
         players,
         leaderboards: [...reportLeaderboards, ...bossLeaderboards],
         bossPerformances,
+        reportWideRecap,
     } as NormalizedReport;
 
     if (zoneName) {

@@ -492,6 +492,84 @@ describe("index contract", () => {
                 { phaseId: 3, label: "P3", name: "Phase 2", durationMs: 300 },
             ]);
         });
+
+        it("normalizes report-wide tables from both direct and wrapped entries", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Report-wide tables",
+                                startTime: 100,
+                                endTime: 1000,
+                                fights: [
+                                    {
+                                        id: 46,
+                                        name: "Lei Shen",
+                                        startTime: 200,
+                                        endTime: 500,
+                                        kill: true,
+                                        encounterID: 51579,
+                                    },
+                                ],
+                                masterData: {
+                                    actors: [
+                                        { id: 1, name: "Dpsy", subType: "Hunter" },
+                                        { id: 2, name: "Healz", subType: "Priest" },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    reportTables: {
+                        DamageDone: {
+                            data: { entries: [{ id: 1, name: "Dpsy", total: 500000 }] },
+                        },
+                        Healing: {
+                            data: { entries: [{ id: 2, name: "Healz", total: 400000 }] },
+                        },
+                        Deaths: {
+                            data: {
+                                entries: [
+                                    { id: 1, name: "Dpsy", deaths: 2 },
+                                    { id: 2, name: "Healz", deaths: 1 },
+                                ],
+                            },
+                        },
+                        Dispels: {
+                            data: {
+                                entries: [
+                                    {
+                                        entries: [{ id: 2, name: "Healz", dispels: 5 }],
+                                    },
+                                ],
+                            },
+                        },
+                        Interrupts: {
+                            data: {
+                                entries: [
+                                    {
+                                        entries: [{ id: 1, name: "Dpsy", interrupts: 4 }],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                    encounterSummaries: [],
+                },
+                {
+                    reportCode: "abc123xyz4567890",
+                    gameFamily: "retail",
+                    rawUrl: "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+                },
+            );
+
+            expect(normalized.reportWideRecap?.topDamageDone[0]?.playerName).toBe("Dpsy");
+            expect(normalized.reportWideRecap?.topHealingDone[0]?.playerName).toBe("Healz");
+            expect(normalized.reportWideRecap?.totals.deaths).toBe(3);
+            expect(normalized.reportWideRecap?.totals.dispels).toBe(5);
+            expect(normalized.reportWideRecap?.totals.interrupts).toBe(4);
+        });
     });
 
     describe("fetch cache behavior", () => {
