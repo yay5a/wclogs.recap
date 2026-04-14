@@ -869,49 +869,52 @@ describe("embed rendering", () => {
         ).not.toContain("Most wipes:");
         expect(
             embed.fields.find((field) => field.name === "💚 Top Overall Healing Parse")?.value,
-        ).toContain("💚 Pearl 97.4 (HPS)");
+        ).toContain("🟧 💚 **Pearl** **97.4** (HPS)");
         expect(
             embed.fields.find((field) => field.name === "💚 Top Overall Healing Parse")?.value,
         ).not.toContain("healing");
         expect(
             embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value,
-        ).toContain("250K DPS");
+        ).toContain("**250K DPS**");
         expect(
             embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value,
         ).toContain("Shadow Priest");
         expect(
             embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).toContain("🩸 Raid damage taken: 1.2M");
+        ).toContain("🩸 **Raid damage taken:** 1.2M");
         expect(
             embed.fields.find((field) => field.name === "📈 Overall Rankings")?.value,
-        ).toContain("Best single-boss parse: Alyra 99.0 DPS");
+        ).toContain("🥇 Best single-boss parse: 🩷 **Alyra 99.0 DPS** (One-Armed Bandit)");
         expect(
             embed.fields.find((field) => field.name === "📈 Overall Rankings")?.value,
-        ).toContain("Best average parse: Pearl 97.4 HPS");
+        ).toContain("📊 Best average parse: 🟧 **Pearl 97.4 HPS**");
         expect(
             embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("⚔️ Alyra 99.0 (DPS)");
+        ).toContain("🩷 ⚔️ **Alyra** **99.0** (DPS)");
         expect(
             embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("💚 Pearl 97.4 (HPS)");
+        ).toContain("🟧 💚 **Pearl** **97.4** (HPS)");
         expect(
             embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("🛡️ Bulwark 95.2 (DTPS)");
+        ).toContain("🟧 🛡️ **Bulwark** **95.2** (DTPS)");
         expect(
             embed.fields.find((field) => field.name === "⚔️ Top Overall Damage Parse")?.value,
-        ).toContain("⚔️ Alyra 99.0 (DPS)");
+        ).toContain("🩷 ⚔️ **Alyra** **99.0** (DPS)");
         expect(
             embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value,
-        ).toContain("⚔️ Alyra 99");
+        ).toContain("🩷 ⚔️ **Alyra** **99**");
         expect(
             embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).toContain("☠️ Total deaths: 5");
+        ).toContain("☠️ **Total deaths:** 5");
         expect(
             embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).toContain("✨ Dispels: 8");
+        ).toContain("✨ **Dispels:** 8");
         expect(
             embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).toContain("🛑 Kicks: 11");
+        ).toContain("🛑 **Kicks:** 11");
+        expect(
+            embed.fields.find((field) => field.name === "🏆 Boss Highlights")?.value,
+        ).toContain("✅ One-Armed Bandit — Kill secured.");
     });
 
     it("omits top overall healing parse when parse rows do not exist", () => {
@@ -936,6 +939,19 @@ describe("embed rendering", () => {
             "🧾 Totals",
             "🔗 Report",
         ]);
+    });
+
+    it("formats non-kill boss highlight rows as progress pulls", () => {
+        const embed = buildPublicRecapEmbed({
+            ...makePreviewSummary(),
+            bossHighlights: [
+                { bossName: "Horridon", fightId: 2, text: "Wipe at 52%." },
+            ],
+        });
+
+        expect(embed.fields.find((field) => field.name === "🏆 Boss Highlights")?.value).toContain(
+            "⚠️ Horridon — Progress pull.",
+        );
     });
 
     it("does not render duplicate player rows in report-wide parse sections", () => {
@@ -1014,7 +1030,7 @@ describe("preview rendering", () => {
         expect(description).toContain("Guild on Realm-US");
         expect(description).toContain("Raid Duration: 45 Min (9 Pulls)");
         expect(description).toContain("Date: 01/01/1970");
-        expect(description).toContain("Best Parse: ⚔️ Alyra (99.0)");
+        expect(description).toContain("Best Parse: ⚔️ Alyra 🩷 (99.0)");
     });
 
     it("renders human-readable raid duration in preview", () => {
