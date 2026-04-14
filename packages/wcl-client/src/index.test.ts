@@ -401,17 +401,6 @@ describe("index contract", () => {
             const bossRankings = loadPublicProbeFixture("boss-rankings");
             const encounterPhaseTimes = loadEncounterProbeFixture("encounter-phase-times");
 
-            const resurrectEvents = loadPublicProbeFixture("resurrect-events") as {
-                pages?: Array<{ data?: unknown }>;
-            };
-            const resurrectCount = (resurrectEvents.pages ?? []).reduce(
-                (total, page) => {
-                    const events = Array.isArray(page.data) ? page.data : [];
-                    return total + events.length;
-                },
-                0,
-            );
-
             const normalized = normalizeEnrichedReport(
                 {
                     base: { reportData: { report: base } },
@@ -423,7 +412,6 @@ describe("index contract", () => {
                             fightId: 46,
                             kill: true,
                             difficulty: 3,
-                            resurrects: resurrectCount,
                             rankings: bossRankings,
                             tables: {
                                 DamageTaken: damageTaken,
@@ -452,7 +440,6 @@ describe("index contract", () => {
             expect(recap?.deaths).toBe(4);
             expect(recap?.dispels).toBe(1);
             expect(recap?.kicks).toBe(3);
-            expect(recap?.battleRezzes).toBe(1);
             expect(recap?.fastestPhaseTimes?.map((phase) => phase.label)).toEqual([
                 "P1",
                 "P3",

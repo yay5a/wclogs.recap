@@ -207,30 +207,6 @@ const REPORT_WIDE_TABLE_QUERY = `
   }
 `;
 
-const RESURRECT_EVENTS_QUERY = `
-  query FightResurrectionEvents(
-    $code: String!
-    $allowUnlisted: Boolean!
-    $fightIDs: [Int]
-    $startTime: Float
-    $filterExpression: String
-  ) {
-    reportData {
-      report(code: $code, allowUnlisted: $allowUnlisted) {
-        events(
-          dataType: ${KILL_TYPES[0]}
-          fightIDs: $fightIDs
-          startTime: $startTime
-          filterExpression: $filterExpression
-        ) {
-          data
-          nextPageTimestamp
-        }
-      }
-    }
-  }
-`;
-
 interface WclClientOptions {
     clientId: string;
     clientSecret: string;
@@ -292,7 +268,6 @@ interface EncounterSummaryRow {
     difficulty?: number;
     kill: boolean;
     rankings?: unknown;
-    resurrects?: number;
     tables: Partial<Record<TableDataType, unknown>>;
 }
 
@@ -1154,7 +1129,6 @@ const parseEncounterSummariesFromRaw = (
             }
 
             const difficulty = asNumber(row?.difficulty);
-            const resurrects = asNumber(row?.resurrects);
             const summary: EncounterSummaryRow = {
                 encounterID,
                 fightId,
@@ -1163,7 +1137,6 @@ const parseEncounterSummariesFromRaw = (
                 rankings: row?.rankings,
                 tables: asObject(row?.tables) ?? {},
                 ...(typeof difficulty === "number" ? { difficulty } : {}),
-                ...(typeof resurrects === "number" ? { resurrects } : {}),
             };
             return [summary];
         });
@@ -1389,41 +1362,6 @@ export class WclClient {
         return token;
     }
 
-    private async fetchFightResurrectionCount(
-        code: string,
-        fightId: number,
-    ): Promise<number> {
-        let startTime: number | undefined;
-        let resurrects = 0;
-
-        for (;;) {
-            const payload = await this.requestGraphQl(RESURRECT_EVENTS_QUERY, {
-                code,
-                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                fightIDs: toFightIDs(fightId),
-                startTime,
-                filterExpression: 'type = "resurrect"',
-            });
-
-            const eventsNode = asObject(getReportNode(payload)?.events);
-            const rows = Array.isArray(eventsNode?.data) ? eventsNode.data : [];
-
-            resurrects += rows.filter((value) => {
-                const event = asObject(value);
-                return asString(event?.type) === "resurrect";
-            }).length;
-
-            const nextPageTimestamp = asNumber(eventsNode?.nextPageTimestamp);
-            if (typeof nextPageTimestamp !== "number") {
-                break;
-            }
-
-            startTime = nextPageTimestamp;
-        }
-
-        return resurrects;
-    }
-
     private async fetchEnrichedRawReport(
         code: string,
     ): Promise<EnrichedRawReport> {
@@ -1567,7 +1505,6 @@ export class WclClient {
             const fightIDs = toFightIDs(summaryFight.id);
             let rankingsPayload: unknown;
             let tableNode: Record<string, unknown> | undefined;
-            let resurrects: number | undefined;
 
             if (ratePressure.level !== "critical") {
                 try {
@@ -1594,19 +1531,6 @@ export class WclClient {
                         `Failed encounter table enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without encounter tables (${error instanceof Error ? error.message : "unknown error"}).`,
                     );
                 }
-
-                if (summaryFight.kill) {
-                    try {
-                        resurrects = await this.fetchFightResurrectionCount(
-                            code,
-                            summaryFight.id,
-                        );
-                    } catch (error) {
-                        noteSkippedEnrichment(
-                            `Failed resurrect enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without resurrect count (${error instanceof Error ? error.message : "unknown error"}).`,
-                        );
-                    }
-                }
             }
 
             const summary: EncounterSummaryRow = {
@@ -1619,7 +1543,6 @@ export class WclClient {
                 ...(typeof summaryFight.difficulty === "number"
                     ? { difficulty: summaryFight.difficulty }
                     : {}),
-                ...(typeof resurrects === "number" ? { resurrects } : {}),
             };
             encounterSummaries.push(summary);
         }
@@ -2265,9 +2188,6 @@ export const normalizeEnrichedReport = (
                                   },
                               ];
                           }),
-                      ...(typeof summaryFight.resurrects === "number"
-                          ? { battleRezzes: summaryFight.resurrects }
-                          : {}),
                   }),
             };
 
