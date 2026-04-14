@@ -388,17 +388,30 @@ const resolveEncounterId = (
 const getRankingsSummary = (payload: unknown): string =>
     summarizeRankingsPayload(payload).logLine;
 
-const resolveReportTimeRange = (
+const resolveReportWideTableRangeFromFights = (
     report: unknown,
 ): { startTime: number; endTime: number } => {
     const reportNode = asObject(report);
-    const startTime = asNumber(reportNode?.startTime);
-    const endTime = asNumber(reportNode?.endTime);
-    if (typeof startTime !== "number" || typeof endTime !== "number") {
+    const fights = asArray(reportNode?.fights) ?? [];
+    const fightRanges = fights.flatMap((fightValue) => {
+        const fight = asObject(fightValue);
+        const startTime = asNumber(fight?.startTime);
+        const endTime = asNumber(fight?.endTime);
+        if (typeof startTime !== "number" || typeof endTime !== "number") {
+            return [];
+        }
+
+        return [{ startTime, endTime }];
+    });
+
+    if (fightRanges.length === 0) {
         throw new Error(
-            "Base report payload is missing numeric startTime/endTime required for report-wide table probes.",
+            "Base report payload is missing valid fights startTime/endTime ranges required for report-wide table probes.",
         );
     }
+
+    const startTime = Math.min(...fightRanges.map((fight) => fight.startTime));
+    const endTime = Math.max(...fightRanges.map((fight) => fight.endTime));
 
     return { startTime, endTime };
 };
@@ -806,7 +819,8 @@ const run = async (): Promise<void> => {
         },
     ];
 
-    const reportTimeRange = resolveReportTimeRange(reportNode);
+    const reportWideTableRange =
+        resolveReportWideTableRangeFromFights(reportNode);
 
     for (const tableFamily of reportWideTableFamilies) {
         await queryFamilies(
@@ -818,8 +832,8 @@ const run = async (): Promise<void> => {
                     {
                         reportCode: args.reportCode,
                         dataType: tableFamily.dataType,
-                        startTime: reportTimeRange.startTime,
-                        endTime: reportTimeRange.endTime,
+                        startTime: reportWideTableRange.startTime,
+                        endTime: reportWideTableRange.endTime,
                     },
                 );
                 return (
