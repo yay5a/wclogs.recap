@@ -215,6 +215,11 @@ export interface RecapSummary {
         value: number;
         metric: "DPS";
     }>;
+    topOverallHealingParsers: Array<{
+        playerName: string;
+        value: number;
+        metric: "HPS";
+    }>;
     bossHighlights: Array<{ bossName: string; fightId: number; text: string }>;
     raidSuperlatives: Array<{ label: string; text: string }>;
     teamNote: string;
@@ -474,6 +479,21 @@ export const buildRecapSummary = (
             value: entry.value,
             metric: "DPS" as const,
         }));
+    const topOverallHealingParsers = dedupeRowsByPlayerStrongest(
+        [...reportLeaderboards]
+            .filter((entry) => resolveMetricLabelFromEntry(entry) === "HPS")
+            .sort((left, right) => right.value - left.value)
+            .flatMap((entry) => {
+                if (!entry.playerName) return [];
+                return [{ playerName: entry.playerName, value: entry.value }];
+            }),
+    )
+        .slice(0, 3)
+        .map((entry) => ({
+            playerName: entry.playerName,
+            value: entry.value,
+            metric: "HPS" as const,
+        }));
 
     const bossHighlights = bossPerformances
         .filter((boss) => typeof boss.fightId === "number")
@@ -551,6 +571,7 @@ export const buildRecapSummary = (
             : {}),
         topOverallParsers,
         topOverallDamageParsers,
+        topOverallHealingParsers,
         bossHighlights,
         raidSuperlatives: [],
         teamNote: deriveDeterministicTeamNote(killed),

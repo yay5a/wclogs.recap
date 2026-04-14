@@ -1311,14 +1311,13 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         });
     }
 
-    if (summary.topHealers.length > 0) {
+    if (summary.topOverallHealingParsers.length > 0) {
         fields.push({
-            name: "Top Overall Parse Healing",
-            value: [...summary.topHealers]
-                .sort((left, right) => right.value - left.value)
+            name: "Top Overall Healing Parse",
+            value: summary.topOverallHealingParsers
                 .map(
                     (entry) =>
-                        `• ${entry.playerName} | ${formatCompactNumber(entry.value)} healing${entry.classSpecLabel ? ` - ${entry.classSpecLabel}` : ""}`,
+                        `• ${entry.playerName} ${entry.value.toFixed(1)} (${entry.metric})`,
                 )
                 .join("\n"),
         });

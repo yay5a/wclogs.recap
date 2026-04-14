@@ -93,6 +93,7 @@ const makePreviewSummary = (): PreviewSummary => ({
     },
     topOverallParsers: [],
     topOverallDamageParsers: [],
+    topOverallHealingParsers: [],
     bossHighlights: [],
     raidSuperlatives: [],
     teamNote: "Team note",
@@ -843,6 +844,9 @@ describe("embed rendering", () => {
             topOverallDamageParsers: [
                 { playerName: "Alyra", value: 99, metric: "DPS" },
             ],
+            topOverallHealingParsers: [
+                { playerName: "Pearl", value: 97.4, metric: "HPS" },
+            ],
             bossHighlights: [
                 { bossName: "One-Armed Bandit", fightId: 11, text: "Kill secured." },
             ],
@@ -856,7 +860,7 @@ describe("embed rendering", () => {
             "Best Player Parses",
             "Top Overall Parsers",
             "Top Overall Damage Parse",
-            "Top Overall Parse Healing",
+            "Top Overall Healing Parse",
             "Totals",
             "Report",
         ]);
@@ -864,14 +868,11 @@ describe("embed rendering", () => {
             embed.fields.find((field) => field.name === "Totals")?.value,
         ).not.toContain("Most wipes:");
         expect(
-            embed.fields.find((field) => field.name === "Top Overall Parse Healing")?.value,
-        ).toContain("67.9K");
+            embed.fields.find((field) => field.name === "Top Overall Healing Parse")?.value,
+        ).toContain("• Pearl 97.4 (HPS)");
         expect(
-            embed.fields.find((field) => field.name === "Top Overall Parse Healing")?.value,
-        ).toContain("67.9K healing");
-        expect(
-            embed.fields.find((field) => field.name === "Top Overall Parse Healing")?.value,
-        ).toContain("Mistweaver Monk");
+            embed.fields.find((field) => field.name === "Top Overall Healing Parse")?.value,
+        ).not.toContain("healing");
         expect(
             embed.fields.find((field) => field.name === "Best Player Parses")?.value,
         ).toContain("250K DPS");
@@ -901,7 +902,7 @@ describe("embed rendering", () => {
         ).toContain("• Alyra 99.0 (DPS)");
     });
 
-    it("renders top overall healing in descending value order", () => {
+    it("omits top overall healing parse when parse rows do not exist", () => {
         const embed = buildPublicRecapEmbed({
             ...makePreviewSummary(),
             topHealers: [
@@ -910,9 +911,7 @@ describe("embed rendering", () => {
             ],
         });
 
-        expect(embed.fields.find((field) => field.name === "Top Overall Parse Healing")?.value).toBe(
-            "• Floorroller | 48.4K healing - Mistweaver Monk\n• Pearl | 4.8K healing - Restoration Shaman",
-        );
+        expect(embed.fields.find((field) => field.name === "Top Overall Healing Parse")).toBeUndefined();
     });
 
     it("degrades cleanly when optional fields are missing", () => {

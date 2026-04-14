@@ -38,6 +38,7 @@ const makeRecapSummary = (): RecapSummary => ({
     },
     topOverallParsers: [],
     topOverallDamageParsers: [],
+    topOverallHealingParsers: [],
     bossHighlights: [],
     raidSuperlatives: [],
     teamNote: "Team note",

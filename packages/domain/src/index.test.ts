@@ -129,6 +129,9 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.topOverallDamageParsers).toEqual([
             { playerName: "Alyra", value: 99.2, metric: "DPS" },
         ]);
+        expect(summary.topOverallHealingParsers).toEqual([
+            { playerName: "Healz", value: 95.1, metric: "HPS" },
+        ]);
         expect(summary.bossHighlights.length).toBe(2);
     });
 
@@ -146,6 +149,7 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.bestPlayerParses).toEqual([]);
         expect(summary.topDamageTaken).toEqual([]);
         expect(summary.topHealers).toEqual([]);
+        expect(summary.topOverallHealingParsers).toEqual([]);
         expect(summary.totals.totalDeaths).toBeUndefined();
         expect(summary.bestExecution).toBeUndefined();
         expect(summary.mostImprovedPlayer).toBeUndefined();
@@ -218,6 +222,62 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.topOverallDamageParsers).toEqual([
             { playerName: "Alyra", value: 95.7, metric: "DPS" },
         ]);
+        expect(summary.topOverallHealingParsers).toEqual([]);
+    });
+
+    it("builds top overall healing parsers from report leaderboard HPS rows and dedupes players", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+            leaderboards: [
+                {
+                    scope: "report",
+                    playerName: "Emerald",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "HPS",
+                    value: 96,
+                },
+                {
+                    scope: "report",
+                    playerName: "Emerald",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "HPS",
+                    value: 94.2,
+                },
+                {
+                    scope: "report",
+                    playerName: "Pearl",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "HPS",
+                    value: 95.3,
+                },
+                {
+                    scope: "report",
+                    playerName: "Alyra",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "DPS",
+                    value: 99.1,
+                },
+            ],
+            reportWideRecap: {
+                topDamageDone: [],
+                topHealingDone: [{ playerName: "TotalsOnly", value: 689_900_000 }],
+                totals: {},
+            },
+        });
+
+        expect(summary.topOverallHealingParsers).toEqual([
+            { playerName: "Emerald", value: 96, metric: "HPS" },
+            { playerName: "Pearl", value: 95.3, metric: "HPS" },
+        ]);
+        expect(summary.topOverallHealingParsers.map((entry) => entry.playerName)).not.toContain(
+            "TotalsOnly",
+        );
     });
 
     it("formats raid duration as hour/minute text with singular and plural grammar", () => {
