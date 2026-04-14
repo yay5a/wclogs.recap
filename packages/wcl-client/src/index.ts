@@ -878,9 +878,9 @@ const getMetricFromLeaderboard = (
 ): string | undefined => {
     const row = asObject(entry as unknown);
     const explicitMetricCandidates = [
-        asString(row?.metric),
         asString(row?.selectedMetric),
         asString(row?.playerMetric),
+        asString(row?.metric),
     ];
     for (const metric of explicitMetricCandidates) {
         const normalized = metric?.trim().toUpperCase();
@@ -1573,35 +1573,29 @@ export class WclClient {
                     );
                 }
 
-                if (ratePressure.level === "high") {
+                try {
+                    const tablesPayload = await this.requestGraphQl(TABLE_QUERY, {
+                        code,
+                        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                        fightIDs,
+                    });
+                    tableNode = getReportNode(tablesPayload);
+                } catch (error) {
                     noteSkippedEnrichment(
-                        `Skipped encounter table/resurrect enrichments for fight ${summaryFight.id} (${summaryFight.name}) due to high rate pressure (${Math.round(ratePressure.usage * 100)}% used).`,
+                        `Failed encounter table enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without encounter tables (${error instanceof Error ? error.message : "unknown error"}).`,
                     );
-                } else {
+                }
+
+                if (summaryFight.kill) {
                     try {
-                        const tablesPayload = await this.requestGraphQl(TABLE_QUERY, {
+                        resurrects = await this.fetchFightResurrectionCount(
                             code,
-                            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                            fightIDs,
-                        });
-                        tableNode = getReportNode(tablesPayload);
+                            summaryFight.id,
+                        );
                     } catch (error) {
                         noteSkippedEnrichment(
-                            `Failed encounter table enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without encounter tables (${error instanceof Error ? error.message : "unknown error"}).`,
+                            `Failed resurrect enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without resurrect count (${error instanceof Error ? error.message : "unknown error"}).`,
                         );
-                    }
-
-                    if (summaryFight.kill) {
-                        try {
-                            resurrects = await this.fetchFightResurrectionCount(
-                                code,
-                                summaryFight.id,
-                            );
-                        } catch (error) {
-                            noteSkippedEnrichment(
-                                `Failed resurrect enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without resurrect count (${error instanceof Error ? error.message : "unknown error"}).`,
-                            );
-                        }
                     }
                 }
             }
@@ -1947,9 +1941,12 @@ export const normalizeEnrichedReport = (
         fightsByEncounterId.set(encounterID, existing);
     }
 
-    const summaryByEncounterId = new Map<number, EncounterSummaryRow>(
-        encounterSummaries.map((summary) => [summary.encounterID, summary]),
-    );
+    const summariesByEncounterId = new Map<number, EncounterSummaryRow[]>();
+    for (const summary of encounterSummaries) {
+        const existing = summariesByEncounterId.get(summary.encounterID) ?? [];
+        existing.push(summary);
+        summariesByEncounterId.set(summary.encounterID, existing);
+    }
 
     const bossLeaderboardsByFightId = new Map<
         number,
@@ -1969,28 +1966,36 @@ export const normalizeEnrichedReport = (
 
     const bossPerformances: NormalizedBossPerformance[] = [];
 
-    for (const [
-        encounterID,
-        encounterFights,
-    ] of fightsByEncounterId.entries()) {
-        const summaryFight: EncounterSummaryRow | undefined =
-            summaryByEncounterId.get(encounterID) ??
-            (() => {
-                const fallbackFight = pickEncounterSummaryFight(encounterFights);
-                if (!fallbackFight) return undefined;
-                return {
-                    encounterID,
-                    bossName: fallbackFight.name,
-                    fightId: fallbackFight.id,
-                    kill: fallbackFight.kill,
-                    tables: {},
-                    ...(typeof fallbackFight.difficulty === "number"
-                        ? { difficulty: fallbackFight.difficulty }
-                        : {}),
-                };
-            })();
+    const encounterIds = new Set<number>([
+        ...fightsByEncounterId.keys(),
+        ...summariesByEncounterId.keys(),
+    ]);
 
-        if (!summaryFight) continue;
+    for (const encounterID of encounterIds) {
+        const encounterFights = fightsByEncounterId.get(encounterID) ?? [];
+        const encounterSummariesForEncounter =
+            summariesByEncounterId.get(encounterID) ?? [];
+        const summaryRows: EncounterSummaryRow[] =
+            encounterSummariesForEncounter.length > 0
+                ? encounterSummariesForEncounter
+                : (() => {
+                      const fallbackFight = pickEncounterSummaryFight(encounterFights);
+                      if (!fallbackFight) return [];
+                      return [
+                          {
+                              encounterID,
+                              bossName: fallbackFight.name,
+                              fightId: fallbackFight.id,
+                              kill: fallbackFight.kill,
+                              tables: {},
+                              ...(typeof fallbackFight.difficulty === "number"
+                                  ? { difficulty: fallbackFight.difficulty }
+                                  : {}),
+                          } satisfies EncounterSummaryRow,
+                      ];
+                  })();
+
+        for (const summaryFight of summaryRows) {
         const tableNode = asObject(summaryFight.tables);
         const parsedTableResults: Partial<
             Record<
@@ -2106,9 +2111,9 @@ export const normalizeEnrichedReport = (
                 };
             });
 
-        const summaryFightRow = encounterFights.find(
-            (fight) => fight.id === summaryFight.fightId,
-        );
+            const summaryFightRow = encounterFights.find(
+                (fight) => fight.id === summaryFight.fightId,
+            );
         const difficultyName = getDifficultyLabel(
             summaryFight.difficulty,
             report,
@@ -2121,9 +2126,9 @@ export const normalizeEnrichedReport = (
                 ? reportStartTime + summaryFightRow.endTime
                 : undefined;
 
-        const recap: BossPerformanceRecap = {
-            ...basePerformance,
-            encounterId: encounterID,
+            const recap: BossPerformanceRecap = {
+                ...basePerformance,
+                encounterId: encounterID,
             // Include difficulty only when defined to satisfy exactOptionalPropertyTypes
             ...(typeof summaryFight.difficulty === "number"
                 ? { difficulty: summaryFight.difficulty }
@@ -2242,9 +2247,10 @@ export const normalizeEnrichedReport = (
                           ? { battleRezzes: summaryFight.resurrects }
                           : {}),
                   }),
-        };
+            };
 
-        bossPerformances.push(recap);
+            bossPerformances.push(recap);
+        }
     }
 
     const normalized = {

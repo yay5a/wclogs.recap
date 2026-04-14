@@ -63,6 +63,13 @@ describe("buildRecapSummary report-wide output", () => {
                     value: 95.1,
                 },
                 {
+                    scope: "report",
+                    playerName: "Bulwark",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "DTPS",
+                    value: 93.3,
+                },
+                {
                     scope: "boss",
                     bossName: "One-Armed Bandit",
                     fightId: 11,
@@ -117,6 +124,7 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.topOverallParsers).toEqual([
             { playerName: "Alyra", value: 99.2, metric: "DPS" },
             { playerName: "Healz", value: 95.1, metric: "HPS" },
+            { playerName: "Bulwark", value: 93.3, metric: "DTPS" },
         ]);
         expect(summary.bossHighlights.length).toBe(2);
     });

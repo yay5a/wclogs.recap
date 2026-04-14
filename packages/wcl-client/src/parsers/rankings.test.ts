@@ -95,6 +95,36 @@ describe("rankings parsers", () => {
         expect(entries[1]?.selectedMetric).toBe("DTPS");
     });
 
+    it("uses explicit metric identity before role fallback", () => {
+        const entries = parseBossRankingsPayload(
+            {
+                rankings: [
+                    {
+                        name: "Emerald",
+                        rankPercent: 99.5,
+                        selectedMetric: "hps",
+                        role: "dps",
+                    },
+                ],
+            },
+            { bossName: "Lei Shen", fightId: 46 },
+        );
+
+        expect(entries[0]?.selectedMetric).toBe("HPS");
+    });
+
+    it("falls back to role-based metric only when explicit metric is absent", () => {
+        const entries = parseReportRankingsPayload({
+            data: [
+                { name: "Floorroller", rankPercent: 96.1, role: "Healer" },
+                { name: "Bulwark", rankPercent: 94.2, role: "Tank" },
+            ],
+        });
+
+        expect(entries[0]?.selectedMetric).toBe("HPS");
+        expect(entries[1]?.selectedMetric).toBe("DTPS");
+    });
+
     it("returns empty arrays and emits warnings for invalid shape", () => {
         const warn = vi.fn();
         expect(() => parseReportRankingsPayload("not-json", warn)).not.toThrow();

@@ -836,6 +836,7 @@ describe("embed rendering", () => {
             topOverallParsers: [
                 { playerName: "Alyra", value: 99, metric: "DPS" },
                 { playerName: "Pearl", value: 97.4, metric: "HPS" },
+                { playerName: "Bulwark", value: 95.2, metric: "DTPS" },
             ],
             bossHighlights: [
                 { bossName: "One-Armed Bandit", fightId: 11, text: "Kill secured." },
@@ -886,6 +887,9 @@ describe("embed rendering", () => {
         expect(
             embed.fields.find((field) => field.name === "Top Overall Parsers")?.value,
         ).toContain("• Pearl 97.4 (HPS)");
+        expect(
+            embed.fields.find((field) => field.name === "Top Overall Parsers")?.value,
+        ).toContain("• Bulwark 95.2 (DTPS)");
     });
 
     it("renders top overall healing in descending value order", () => {

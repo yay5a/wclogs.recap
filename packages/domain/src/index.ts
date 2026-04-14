@@ -249,6 +249,19 @@ const toMetricLabel = (
     return "DPS";
 };
 
+const resolveMetricLabelFromEntry = (
+    entry: Pick<NormalizedLeaderboardEntry, "selectedMetric" | "metric" | "role">,
+): string =>
+    toMetricLabel(
+        entry.selectedMetric ??
+            (entry.metric === "DPS" ||
+            entry.metric === "HPS" ||
+            entry.metric === "DTPS"
+                ? entry.metric
+                : undefined),
+        entry.role,
+    );
+
 const formatDateMmDdYyyy = (timestampMs: number): string => {
     const date = new Date(timestampMs);
     const month = String(date.getUTCMonth() + 1).padStart(2, "0");
@@ -330,11 +343,8 @@ export const buildRecapSummary = (
             return [{
                 playerName: entry.playerName,
                 parse: entry.value,
-                metricLabel: toMetricLabel(
-                    entry.selectedMetric ?? entry.metric,
-                    entry.role,
-                ),
-                metric: toMetricLabel(entry.selectedMetric ?? entry.metric, entry.role),
+                metricLabel: resolveMetricLabelFromEntry(entry),
+                metric: resolveMetricLabelFromEntry(entry),
                 ...(typeof damageRow?.value === "number"
                     ? { amount: damageRow.value }
                     : {}),
@@ -369,10 +379,7 @@ export const buildRecapSummary = (
         .slice(0, 3)
         .flatMap((entry) => {
             if (!entry.playerName) return [];
-            const metric = toMetricLabel(
-                entry.selectedMetric ?? entry.metric,
-                entry.role,
-            );
+            const metric = resolveMetricLabelFromEntry(entry);
             return [{ playerName: entry.playerName, value: entry.value, metric }];
         });
 
@@ -437,11 +444,7 @@ export const buildRecapSummary = (
                       value: bestSingleBossParseEntry.value,
                       bossName: bestSingleBossParseEntry.bossName,
                       fightId: bestSingleBossParseEntry.fightId,
-                      metric: toMetricLabel(
-                          bestSingleBossParseEntry.selectedMetric ??
-                              bestSingleBossParseEntry.metric,
-                          bestSingleBossParseEntry.role,
-                      ),
+                      metric: resolveMetricLabelFromEntry(bestSingleBossParseEntry),
                   },
               }
             : {}),
@@ -450,11 +453,7 @@ export const buildRecapSummary = (
                   bestAverageParse: {
                       playerName: bestAverageParseEntry.playerName,
                       value: bestAverageParseEntry.value,
-                      metric: toMetricLabel(
-                          bestAverageParseEntry.selectedMetric ??
-                              bestAverageParseEntry.metric,
-                          bestAverageParseEntry.role,
-                      ),
+                      metric: resolveMetricLabelFromEntry(bestAverageParseEntry),
                   },
               }
             : {}),

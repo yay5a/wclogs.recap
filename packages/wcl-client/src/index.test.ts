@@ -304,6 +304,71 @@ describe("index contract", () => {
             expect(bulwark?.selectedMetric).toBe("DTPS");
         });
 
+        it("preserves healer/tank metrics in boss performance best parses", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Boss metrics",
+                                startTime: 100,
+                                endTime: 1000,
+                                fights: [
+                                    {
+                                        id: 46,
+                                        name: "Lei Shen",
+                                        startTime: 200,
+                                        endTime: 500,
+                                        kill: true,
+                                        encounterID: 51579,
+                                    },
+                                ],
+                                masterData: {
+                                    actors: [
+                                        { id: 1, name: "Emerald", subType: "Priest" },
+                                        { id: 2, name: "Bulwark", subType: "Warrior" },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    encounterSummaries: [
+                        {
+                            encounterID: 51579,
+                            bossName: "Lei Shen",
+                            fightId: 46,
+                            kill: true,
+                            rankings: {
+                                rankings: [
+                                    {
+                                        playerID: 1,
+                                        name: "Emerald",
+                                        role: "Healer",
+                                        selectedMetric: "hps",
+                                        rankPercent: 99,
+                                        amount: 111111,
+                                    },
+                                    {
+                                        playerID: 2,
+                                        name: "Bulwark",
+                                        role: "Tank",
+                                        playerMetric: "dtps",
+                                        rankPercent: 96,
+                                        amount: 222222,
+                                    },
+                                ],
+                            },
+                            tables: {},
+                        },
+                    ],
+                },
+                parsed,
+            );
+
+            expect(normalized.bossPerformances?.[0]?.bestParses?.[0]?.metric).toBe("HPS");
+            expect(normalized.bossPerformances?.[0]?.bestParses?.[1]?.metric).toBe("DTPS");
+        });
+
         it("keeps backward compatibility for base payload only", () => {
             const normalized = normalizeReport(
                 {

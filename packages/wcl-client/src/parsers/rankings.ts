@@ -114,6 +114,17 @@ const inferMetricIdentityFromRole = (role: string | undefined): string => {
     return "DPS";
 };
 
+const readExplicitMetricIdentity = (
+    entry: Record<string, unknown>,
+    player?: Record<string, unknown>,
+): string | undefined =>
+    normalizeMetricIdentity(entry.selectedMetric) ??
+    normalizeMetricIdentity(entry.playerMetric) ??
+    normalizeMetricIdentity(entry.metric) ??
+    normalizeMetricIdentity(player?.selectedMetric) ??
+    normalizeMetricIdentity(player?.playerMetric) ??
+    normalizeMetricIdentity(player?.metric);
+
 const toLeaderboardEntry = (
     item: unknown,
     scope: "report" | "boss",
@@ -162,10 +173,7 @@ const toLeaderboardEntry = (
         asString(character?.spec);
     const role = asString(entry.role) ?? asString(player?.role);
     const selectedMetric =
-        normalizeMetricIdentity(entry.selectedMetric) ??
-        normalizeMetricIdentity(entry.playerMetric) ??
-        normalizeMetricIdentity(entry.metric) ??
-        normalizeMetricIdentity(player?.metric) ??
+        readExplicitMetricIdentity(entry, player) ??
         inferMetricIdentityFromRole(role);
     const bossName =
         asString(entry.bossName) ??
