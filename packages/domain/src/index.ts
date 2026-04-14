@@ -234,12 +234,18 @@ interface BuildRecapSummaryOptions {
     guildConfig?: GuildConfig;
 }
 
-const toMetricLabel = (value: string | undefined): string => {
+const toMetricLabel = (
+    value: string | undefined,
+    role?: string,
+): string => {
     const normalized = value?.trim().toUpperCase();
     if (!normalized) return "DPS";
     if (normalized === "DPS" || normalized === "HPS" || normalized === "DTPS") {
         return normalized;
     }
+    const normalizedRole = role?.trim().toLowerCase();
+    if (normalizedRole === "healer") return "HPS";
+    if (normalizedRole === "tank") return "DTPS";
     return "DPS";
 };
 
@@ -324,8 +330,11 @@ export const buildRecapSummary = (
             return [{
                 playerName: entry.playerName,
                 parse: entry.value,
-                metricLabel: toMetricLabel(entry.selectedMetric ?? entry.metric),
-                metric: toMetricLabel(entry.selectedMetric ?? entry.metric),
+                metricLabel: toMetricLabel(
+                    entry.selectedMetric ?? entry.metric,
+                    entry.role,
+                ),
+                metric: toMetricLabel(entry.selectedMetric ?? entry.metric, entry.role),
                 ...(typeof damageRow?.value === "number"
                     ? { amount: damageRow.value }
                     : {}),
@@ -360,7 +369,10 @@ export const buildRecapSummary = (
         .slice(0, 3)
         .flatMap((entry) => {
             if (!entry.playerName) return [];
-            const metric = toMetricLabel(entry.selectedMetric ?? entry.metric);
+            const metric = toMetricLabel(
+                entry.selectedMetric ?? entry.metric,
+                entry.role,
+            );
             return [{ playerName: entry.playerName, value: entry.value, metric }];
         });
 
@@ -428,6 +440,7 @@ export const buildRecapSummary = (
                       metric: toMetricLabel(
                           bestSingleBossParseEntry.selectedMetric ??
                               bestSingleBossParseEntry.metric,
+                          bestSingleBossParseEntry.role,
                       ),
                   },
               }
@@ -440,6 +453,7 @@ export const buildRecapSummary = (
                       metric: toMetricLabel(
                           bestAverageParseEntry.selectedMetric ??
                               bestAverageParseEntry.metric,
+                          bestAverageParseEntry.role,
                       ),
                   },
               }

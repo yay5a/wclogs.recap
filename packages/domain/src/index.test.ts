@@ -71,6 +71,15 @@ describe("buildRecapSummary report-wide output", () => {
                     selectedMetric: "DPS",
                     value: 99.2,
                 },
+                {
+                    scope: "boss",
+                    bossName: "Lei Shen",
+                    fightId: 12,
+                    playerName: "Emerald",
+                    metric: "bestPercent",
+                    selectedMetric: "HPS",
+                    value: 99.9,
+                },
             ],
             reportWideRecap: {
                 topDamageDone: [
@@ -102,9 +111,13 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.totals.totalDeaths).toBe(12);
         expect(summary.totals.dispels).toBe(8);
         expect(summary.totals.kicks).toBe(6);
-        expect(summary.bestSingleBossParse?.playerName).toBe("Alyra");
+        expect(summary.bestSingleBossParse?.playerName).toBe("Emerald");
+        expect(summary.bestSingleBossParse?.metric).toBe("HPS");
         expect(summary.bestAverageParse?.playerName).toBe("Alyra");
-        expect(summary.topOverallParsers.length).toBe(2);
+        expect(summary.topOverallParsers).toEqual([
+            { playerName: "Alyra", value: 99.2, metric: "DPS" },
+            { playerName: "Healz", value: 95.1, metric: "HPS" },
+        ]);
         expect(summary.bossHighlights.length).toBe(2);
     });
 

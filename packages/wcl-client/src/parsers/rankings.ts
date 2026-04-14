@@ -98,6 +98,22 @@ const collectFightRows = (parsed: unknown): Record<string, unknown>[] => {
     });
 };
 
+const normalizeMetricIdentity = (value: unknown): string | undefined => {
+    const normalized = asString(value)?.trim().toUpperCase();
+    if (!normalized) return undefined;
+    if (normalized === "DPS" || normalized === "HPS" || normalized === "DTPS") {
+        return normalized;
+    }
+    return undefined;
+};
+
+const inferMetricIdentityFromRole = (role: string | undefined): string => {
+    const normalizedRole = role?.trim().toLowerCase();
+    if (normalizedRole === "healer") return "HPS";
+    if (normalizedRole === "tank") return "DTPS";
+    return "DPS";
+};
+
 const toLeaderboardEntry = (
     item: unknown,
     scope: "report" | "boss",
@@ -145,6 +161,12 @@ const toLeaderboardEntry = (
         asString(player?.spec) ??
         asString(character?.spec);
     const role = asString(entry.role) ?? asString(player?.role);
+    const selectedMetric =
+        normalizeMetricIdentity(entry.selectedMetric) ??
+        normalizeMetricIdentity(entry.playerMetric) ??
+        normalizeMetricIdentity(entry.metric) ??
+        normalizeMetricIdentity(player?.metric) ??
+        inferMetricIdentityFromRole(role);
     const bossName =
         asString(entry.bossName) ??
         asString(entry.encounterName) ??
@@ -161,7 +183,7 @@ const toLeaderboardEntry = (
     const result: NormalizedLeaderboardEntry = {
         scope,
         metric: metric.metric,
-        selectedMetric: metric.metric,
+        selectedMetric,
         value: metric.value,
         ...(typeof rank === "number" ? { rank } : {}),
         ...(typeof amount === "number" ? { amount } : {}),

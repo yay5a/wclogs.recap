@@ -197,6 +197,113 @@ describe("index contract", () => {
             expect(normalized.bossPerformances?.[0]?.topDamage?.playerName).toBe("Alyra");
         });
 
+        it("normalizes multiple boss performances from multi-encounter summaries", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Multi boss report",
+                                startTime: 100,
+                                endTime: 1000,
+                                fights: [
+                                    {
+                                        id: 10,
+                                        name: "Jin'rokh",
+                                        startTime: 100,
+                                        endTime: 200,
+                                        kill: true,
+                                        encounterID: 1001,
+                                    },
+                                    {
+                                        id: 11,
+                                        name: "Horridon",
+                                        startTime: 210,
+                                        endTime: 340,
+                                        kill: true,
+                                        encounterID: 1002,
+                                    },
+                                ],
+                                masterData: {
+                                    actors: [{ id: 1, name: "Alyra", subType: "Paladin" }],
+                                },
+                            },
+                        },
+                    },
+                    encounterSummaries: [
+                        {
+                            encounterID: 1001,
+                            bossName: "Jin'rokh",
+                            fightId: 10,
+                            kill: true,
+                            rankings: { rankings: [{ playerID: 1, name: "Alyra", bestPercent: 95 }] },
+                            tables: {},
+                        },
+                        {
+                            encounterID: 1002,
+                            bossName: "Horridon",
+                            fightId: 11,
+                            kill: true,
+                            rankings: { rankings: [{ playerID: 1, name: "Alyra", bestPercent: 90 }] },
+                            tables: {},
+                        },
+                    ],
+                },
+                parsed,
+            );
+
+            expect(normalized.bossPerformances?.map((boss) => boss.bossName)).toEqual([
+                "Jin'rokh",
+                "Horridon",
+            ]);
+        });
+
+        it("preserves normalized metric identity for healer and tank rows", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Metrics",
+                                startTime: 100,
+                                endTime: 1000,
+                                fights: [],
+                                masterData: { actors: [] },
+                            },
+                        },
+                    },
+                    reportRankings: {
+                        data: [
+                            {
+                                name: "Emerald",
+                                rankPercent: 99,
+                                selectedMetric: "hps",
+                                role: "Healer",
+                            },
+                            {
+                                name: "Bulwark",
+                                rankPercent: 95,
+                                playerMetric: "dtps",
+                                role: "Tank",
+                            },
+                        ],
+                    },
+                    encounterSummaries: [],
+                },
+                parsed,
+            );
+
+            const emerald = normalized.leaderboards?.find(
+                (entry) => entry.playerName === "Emerald",
+            );
+            const bulwark = normalized.leaderboards?.find(
+                (entry) => entry.playerName === "Bulwark",
+            );
+
+            expect(emerald?.selectedMetric).toBe("HPS");
+            expect(bulwark?.selectedMetric).toBe("DTPS");
+        });
+
         it("keeps backward compatibility for base payload only", () => {
             const normalized = normalizeReport(
                 {
@@ -271,7 +378,9 @@ describe("index contract", () => {
                 },
             );
 
-            const recap = normalized.bossPerformances?.[0];
+            const recap = normalized.bossPerformances?.find(
+                (entry) => entry.bossName === "Lei Shen",
+            );
             expect(recap?.bossName).toBe("Lei Shen");
             expect(recap?.pullCount).toBe(1);
             expect(recap?.fightDurationMs).toBe(440287);

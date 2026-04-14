@@ -1303,10 +1303,10 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
     if (summary.bestSingleBossParse || summary.bestAverageParse) {
         const parseLines = [
             summary.bestSingleBossParse
-                ? `Best single-boss parse: ${summary.bestSingleBossParse.playerName} ${summary.bestSingleBossParse.value.toFixed(1)} (${summary.bestSingleBossParse.bossName})`
+                ? `Best single-boss parse: ${summary.bestSingleBossParse.playerName} ${summary.bestSingleBossParse.value.toFixed(1)} ${summary.bestSingleBossParse.metric} (${summary.bestSingleBossParse.bossName})`
                 : undefined,
             summary.bestAverageParse
-                ? `Best average parse: ${summary.bestAverageParse.playerName} ${summary.bestAverageParse.value.toFixed(1)}`
+                ? `Best average parse: ${summary.bestAverageParse.playerName} ${summary.bestAverageParse.value.toFixed(1)} ${summary.bestAverageParse.metric}`
                 : undefined,
         ].filter((line): line is string => Boolean(line));
         fields.push({

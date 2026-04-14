@@ -876,10 +876,16 @@ describe("embed rendering", () => {
         ).toContain("Raid damage taken: 1.2M");
         expect(
             embed.fields.find((field) => field.name === "Overall Rankings")?.value,
-        ).toContain("Best single-boss parse: Alyra 99.0");
+        ).toContain("Best single-boss parse: Alyra 99.0 DPS");
+        expect(
+            embed.fields.find((field) => field.name === "Overall Rankings")?.value,
+        ).toContain("Best average parse: Pearl 97.4 HPS");
         expect(
             embed.fields.find((field) => field.name === "Top Overall Parsers")?.value,
         ).toContain("• Alyra 99.0 (DPS)");
+        expect(
+            embed.fields.find((field) => field.name === "Top Overall Parsers")?.value,
+        ).toContain("• Pearl 97.4 (HPS)");
     });
 
     it("renders top overall healing in descending value order", () => {
