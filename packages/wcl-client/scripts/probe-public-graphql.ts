@@ -62,6 +62,7 @@ interface ProbeArgs {
     fightId: number;
     encounterId?: number;
     filterExpression?: string;
+    phase?: number;
     verbose: boolean;
 }
 
@@ -241,6 +242,83 @@ const normalizeOptionalString = (value: string | undefined): string | undefined 
     return normalized ? normalized : undefined;
 };
 
+const joinExpressionClauses = (
+    clauses: Array<string | undefined>,
+): string | undefined => {
+    const normalizedClauses = clauses.flatMap((clause) => {
+        const normalized = normalizeOptionalString(clause);
+        return normalized ? [normalized] : [];
+    });
+
+    if (normalizedClauses.length === 0) {
+        return undefined;
+    }
+
+    return normalizedClauses.map((clause) => `(${clause})`).join(" AND ");
+};
+
+const buildBaseFilterExpression = (args: Pick<ProbeArgs, "filterExpression" | "phase">): string | undefined => {
+    return joinExpressionClauses([
+        args.filterExpression,
+        typeof args.phase === "number" ? `encounterPhase = ${args.phase}` : undefined,
+    ]);
+};
+
+const buildTableFilterExpression = (args: {
+    dataType: string;
+    filterExpression?: string;
+    phase?: number;
+}): string | undefined => {
+    const baseFilterExpression = buildBaseFilterExpression(args);
+
+    switch (args.dataType) {
+        case "DamageDone":
+            return joinExpressionClauses([
+                baseFilterExpression,
+                'source.disposition = "friendly"',
+                'target.disposition = "enemy"',
+            ]);
+        case "DamageTaken":
+            return joinExpressionClauses([
+                baseFilterExpression,
+                'target.disposition = "friendly"',
+            ]);
+        case "Healing":
+            return joinExpressionClauses([
+                baseFilterExpression,
+                'inCategory("healing") = true',
+                'source.disposition = "friendly"',
+                'target.disposition = "friendly"',
+            ]);
+        case "Deaths":
+            return joinExpressionClauses([
+                baseFilterExpression,
+                'type = "death"',
+                'target.disposition = "friendly"',
+                'feign = false',
+            ]);
+        case "Dispels":
+            return joinExpressionClauses([
+                baseFilterExpression,
+                'source.disposition = "friendly"',
+            ]);
+        case "Interrupts":
+            return joinExpressionClauses([
+                baseFilterExpression,
+                'type = "interrupt"',
+                'source.disposition = "friendly"',
+                'target.disposition = "enemy"',
+            ]);
+        case "Survivability":
+            return joinExpressionClauses([
+                baseFilterExpression,
+                'target.disposition = "friendly"',
+            ]);
+        default:
+            return baseFilterExpression;
+    }
+};
+
 const getArgs = (): ProbeArgs => {
     const args = process.argv.slice(2);
     const reportCode = args[0]?.trim();
@@ -248,7 +326,7 @@ const getArgs = (): ProbeArgs => {
 
     if (!reportCode) {
         throw new Error(
-            'Usage: pnpm --filter @wcl/wcl-client probe:public-graphql <reportCode> <fightId> [--encounter <encounterId>] [--filter-expression "<expr>"] [--verbose]',
+            'Usage: pnpm --filter @wcl/wcl-client probe:public-graphql <reportCode> <fightId> [--encounter <encounterId>] [--phase <phaseNumber>] [--filter-expression "<expr>"] [--verbose]',
         );
     }
 
@@ -258,6 +336,7 @@ const getArgs = (): ProbeArgs => {
 
     let encounterId: number | undefined;
     let filterExpression: string | undefined;
+    let phase: number | undefined;
     let verbose = false;
 
     for (let index = 2; index < args.length; index += 1) {
@@ -300,6 +379,7 @@ const getArgs = (): ProbeArgs => {
         verbose,
         ...(typeof encounterId === "number" ? { encounterId } : {}),
         ...(typeof filterExpression === "string" ? { filterExpression } : {}),
+        ...(typeof phase === "number" ? { phase } : {}),
     };
 };
 
@@ -630,6 +710,11 @@ const run = async (): Promise<void> => {
     await mkdir(outputDir, { recursive: true });
 
     const manifestEntries: ManifestEntry[] = [];
+    const requestedFilterExpression = normalizeOptionalString(args.filterExpression);
+    const baseFilterExpression = buildBaseFilterExpression({
+        filterExpression: requestedFilterExpression,
+        phase: args.phase,
+    });
 
     let encounterId = args.encounterId;
     let reportNode: Record<string, unknown> | undefined;
@@ -651,7 +736,6 @@ const run = async (): Promise<void> => {
             fixtureName: `base-report.${args.reportCode}`,
             probeFamily: "base-report",
             reportCode: args.reportCode,
-            filterExpression: args.filterExpression,
             payload: reportNode ?? null,
         });
         baseEntry.summary = summarizeShape(reportNode);
@@ -659,7 +743,6 @@ const run = async (): Promise<void> => {
         logProbe({
             probeFamily: "base-report",
             reportCode: args.reportCode,
-            filterExpression: args.filterExpression,
             ...(baseEntry.fixturePath
                 ? { outputPath: baseEntry.fixturePath }
                 : {}),
@@ -680,7 +763,6 @@ const run = async (): Promise<void> => {
             fixtureName: `master-data.${args.reportCode}`,
             probeFamily: "master-data",
             reportCode: args.reportCode,
-            filterExpression: args.filterExpression,
             payload: masterDataNode,
         });
         masterDataEntry.summary = summarizeShape(masterDataNode);
@@ -688,7 +770,6 @@ const run = async (): Promise<void> => {
         logProbe({
             probeFamily: "master-data",
             reportCode: args.reportCode,
-            filterExpression: args.filterExpression,
             ...(masterDataEntry.fixturePath
                 ? { outputPath: masterDataEntry.fixturePath }
                 : {}),
@@ -724,7 +805,6 @@ const run = async (): Promise<void> => {
             probeFamily: "encounter-phases",
             reportCode: args.reportCode,
             encounterId,
-            filterExpression: args.filterExpression,
             payload: {
                 encounterID: encounterId,
                 phases: encounterPhases,
@@ -737,7 +817,6 @@ const run = async (): Promise<void> => {
             probeFamily: "encounter-phases",
             reportCode: args.reportCode,
             encounterId,
-            filterExpression: args.filterExpression,
             ...(encounterPhasesEntry.fixturePath
                 ? { outputPath: encounterPhasesEntry.fixturePath }
                 : {}),
@@ -755,7 +834,6 @@ const run = async (): Promise<void> => {
             probeFamily: "encounter-phase-times",
             reportCode: args.reportCode,
             encounterId,
-            filterExpression: args.filterExpression,
             payload: phaseTimes,
         });
         encounterPhaseTimesEntry.summary = `attempts=${phaseTimes.summary.totalAttempts} kills=${phaseTimes.summary.killCount} wipes=${phaseTimes.summary.wipeCount}`;
@@ -764,7 +842,6 @@ const run = async (): Promise<void> => {
             probeFamily: "encounter-phase-times",
             reportCode: args.reportCode,
             encounterId,
-            filterExpression: args.filterExpression,
             ...(encounterPhaseTimesEntry.fixturePath
                 ? { outputPath: encounterPhaseTimesEntry.fixturePath }
                 : {}),
@@ -777,7 +854,6 @@ const run = async (): Promise<void> => {
                 fixtureName: `base-report.${args.reportCode}`,
                 probeFamily: "base-report",
                 reportCode: args.reportCode,
-                filterExpression: args.filterExpression,
                 error,
             }),
         );
@@ -791,6 +867,12 @@ const run = async (): Promise<void> => {
         summarize: (payload: unknown) => string,
         logs?: Record<string, unknown>,
     ): Promise<void> => {
+        const effectiveFilterExpression = normalizeOptionalString(
+            typeof logs?.effectiveFilterExpression === "string"
+                ? logs.effectiveFilterExpression
+                : undefined,
+        );
+
         try {
             const payload = await request();
             const entry = await writeProbeArtifacts({
@@ -800,7 +882,9 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
-                filterExpression: args.filterExpression,
+                ...(effectiveFilterExpression
+                    ? { filterExpression: effectiveFilterExpression }
+                    : {}),
                 payload,
                 ...(logs ? { logs } : {}),
             });
@@ -811,7 +895,9 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
-                filterExpression: args.filterExpression,
+                ...(effectiveFilterExpression
+                    ? { filterExpression: effectiveFilterExpression }
+                    : {}),
                 ...(entry.fixturePath ? { outputPath: entry.fixturePath } : {}),
                 summary: entry.summary,
             });
@@ -823,7 +909,9 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
-                filterExpression: args.filterExpression,
+                ...(effectiveFilterExpression
+                    ? { filterExpression: effectiveFilterExpression }
+                    : {}),
                 error,
                 ...(logs ? { logs } : {}),
             });
@@ -833,7 +921,9 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
-                filterExpression: args.filterExpression,
+                ...(effectiveFilterExpression
+                    ? { filterExpression: effectiveFilterExpression }
+                    : {}),
                 ...(entry.errorPath ? { outputPath: entry.errorPath } : {}),
                 summary: entry.errorMessage ?? "request failed",
             });
@@ -1087,6 +1177,11 @@ const run = async (): Promise<void> => {
             tableFamily.probeFamily,
             tableFamily.fixtureName,
             async () => {
+                const effectiveFilterExpression = buildTableFilterExpression({
+                    dataType: tableFamily.dataType,
+                    filterExpression: requestedFilterExpression,
+                    phase: args.phase,
+                });
                 const variables = withOptionalFilterExpression(
                     {
                         reportCode: args.reportCode,
@@ -1097,7 +1192,7 @@ const run = async (): Promise<void> => {
                         killType: "Encounters" as KillTypeValue,
                         dataType: tableFamily.dataType,
                     },
-                    args.filterExpression,
+                    effectiveFilterExpression,
                 );
                 const result = await client.request<unknown>(
                     TABLE_QUERY,
@@ -1117,9 +1212,17 @@ const run = async (): Promise<void> => {
                     : {}),
                 killType: "Encounters",
                 dataType: tableFamily.dataType,
-                ...(typeof args.filterExpression === "string"
-                    ? { filterExpression: args.filterExpression }
+                ...(typeof requestedFilterExpression === "string"
+                    ? { requestedFilterExpression }
                     : {}),
+                ...(typeof baseFilterExpression === "string"
+                    ? { baseFilterExpression }
+                    : {}),
+                effectiveFilterExpression: buildTableFilterExpression({
+                    dataType: tableFamily.dataType,
+                    filterExpression: requestedFilterExpression,
+                    phase: args.phase,
+                }),
             },
         );
     }
@@ -1171,6 +1274,11 @@ const run = async (): Promise<void> => {
             tableFamily.probeFamily,
             `${tableFamily.filePrefix}.${args.reportCode}.fight-${args.fightId}`,
             async () => {
+                const effectiveFilterExpression = buildTableFilterExpression({
+                    dataType: tableFamily.dataType,
+                    filterExpression: requestedFilterExpression,
+                    phase: args.phase,
+                });
                 const variables = withOptionalFilterExpression(
                     {
                         reportCode: args.reportCode,
@@ -1187,7 +1295,7 @@ const run = async (): Promise<void> => {
                                 : ("Wipes" as KillTypeValue),
                         dataType: tableFamily.dataType,
                     },
-                    args.filterExpression,
+                    effectiveFilterExpression,
                 );
                 const result = await client.request<unknown>(
                     TABLE_QUERY,
@@ -1208,9 +1316,17 @@ const run = async (): Promise<void> => {
                 ...(typeof encounterId === "number" ? { encounterID: encounterId } : {}),
                 killType: selectedFight?.kill === true ? "Kills" : "Wipes",
                 dataType: tableFamily.dataType,
-                ...(typeof args.filterExpression === "string"
-                    ? { filterExpression: args.filterExpression }
+                ...(typeof requestedFilterExpression === "string"
+                    ? { requestedFilterExpression }
                     : {}),
+                ...(typeof baseFilterExpression === "string"
+                    ? { baseFilterExpression }
+                    : {}),
+                effectiveFilterExpression: buildTableFilterExpression({
+                    dataType: tableFamily.dataType,
+                    filterExpression: requestedFilterExpression,
+                    phase: args.phase,
+                }),
             },
         );
     }
@@ -1226,8 +1342,12 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
-                ...(typeof args.filterExpression === "string"
-                    ? { filterExpression: args.filterExpression }
+                ...(typeof requestedFilterExpression === "string"
+                    ? { requestedFilterExpression }
+                    : {}),
+                ...(typeof args.phase === "number" ? { phase: args.phase } : {}),
+                ...(typeof baseFilterExpression === "string"
+                    ? { baseFilterExpression }
                     : {}),
                 generatedAt: new Date().toISOString(),
                 probeFamiliesRun: manifestEntries.map(
