@@ -201,6 +201,7 @@ const REPORT_WIDE_TABLE_QUERY = `
         deaths: table(dataType: ${REPORT_TABLE_DATA_TYPES[3]}, startTime: $startTime, endTime: $endTime)
         dispels: table(dataType: ${REPORT_TABLE_DATA_TYPES[4]}, startTime: $startTime, endTime: $endTime)
         interrupts: table(dataType: ${REPORT_TABLE_DATA_TYPES[5]}, startTime: $startTime, endTime: $endTime)
+        survivability: table(dataType: ${REPORT_TABLE_DATA_TYPES[6]}, startTime: $startTime, endTime: $endTime)
       }
     }
   }
@@ -1249,6 +1250,13 @@ const summarizeBossTables = (
               value: topInterruptsEntry.value ?? 0,
           }
         : undefined;
+    const topSurvivabilityEntry = topByValue(parsedTables.Survivability);
+    const topSurvivability = topSurvivabilityEntry
+        ? {
+              playerName: topSurvivabilityEntry.playerName ?? "Unknown",
+              value: topSurvivabilityEntry.value ?? 0,
+          }
+        : undefined;
 
     const result: NormalizedBossPerformance = {
         bossName,
@@ -1258,6 +1266,7 @@ const summarizeBossTables = (
         ...(topHealing ? { topHealing } : {}),
         ...(mostDeaths ? { mostDeaths } : {}),
         ...(topInterrupts ? { topInterrupts } : {}),
+        ...(topSurvivability ? { topSurvivability } : {}),
     };
 
     return result;
@@ -1886,8 +1895,21 @@ export const normalizeEnrichedReport = (
             parsedReportTableResults.DamageDone?.entries,
             3,
         ),
+        topDamageTaken: mapReportWideRows(
+            parsedReportTableResults.DamageTaken?.entries,
+            3,
+        ),
         topHealingDone: mapReportWideRows(
             parsedReportTableResults.Healing?.entries,
+            3,
+        ),
+        topInterrupts: mapReportWideRows(
+            parsedReportTableResults.Interrupts?.entries,
+            3,
+        ),
+        topDispels: mapReportWideRows(parsedReportTableResults.Dispels?.entries, 3),
+        topSurvivability: mapReportWideRows(
+            parsedReportTableResults.Survivability?.entries,
             3,
         ),
         totals: {

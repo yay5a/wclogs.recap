@@ -83,7 +83,12 @@ const makePreviewSummary = (): PreviewSummary => ({
     recapPostMode: "preview-and-post" as const,
     fastestPhaseTimes: [],
     bestPlayerParses: [],
+    topDamageDone: [],
+    topHealingDone: [],
     topDamageTaken: [],
+    topInterrupts: [],
+    topDispels: [],
+    topSurvivability: [],
     topHealers: [],
     totals: {
         totalDeaths: 0,
@@ -790,6 +795,18 @@ describe("embed rendering", () => {
                     classSpecLabel: "Shadow Priest",
                 },
             ],
+            topDamageDone: [
+                { playerName: "Alyra", value: 250000, classSpecLabel: "Shadow Priest" },
+            ],
+            topHealingDone: [
+                { playerName: "Healz", value: 67890, classSpecLabel: "Mistweaver Monk" },
+            ],
+            topDamageTaken: [
+                { playerName: "Bulwark", value: 120000, classSpecLabel: "Protection Warrior" },
+            ],
+            topInterrupts: [{ playerName: "Bulwark", value: 11 }],
+            topDispels: [{ playerName: "Pearl", value: 8 }],
+            topSurvivability: [{ playerName: "Alyra", value: 98.2 }],
             topHealers: [{ playerName: "Healz", value: 67890, classSpecLabel: "Mistweaver Monk" }],
             totals: {
                 totalDeaths: 5,
@@ -844,6 +861,12 @@ describe("embed rendering", () => {
             "⚔️ Top Overall Damage Parse",
             "💚 Top Overall Healing Parse",
             "🏅 Raid Superlatives",
+            "⚔️ Top Damage Done",
+            "💚 Top Healing Done",
+            "🩸 Top Damage Taken",
+            "🛑 Top Interrupts",
+            "✨ Top Dispels",
+            "🛡️ Top Survivability",
             "🧾 Totals",
             "🔗 Report",
         ]);
@@ -876,6 +899,15 @@ describe("embed rendering", () => {
         expect(
             embed.fields.find((field) => field.name === "📈 Overall Rankings")?.value,
         ).toContain("📊 Best average parse: **Pearl 97.4 HPS**");
+        expect(embed.fields.find((field) => field.name === "🌟 Standouts")?.value).not.toContain(
+            "Best single-boss parse",
+        );
+        expect(embed.fields.find((field) => field.name === "🌟 Standouts")?.value).toContain(
+            "Best execution",
+        );
+        expect(embed.fields.find((field) => field.name === "🌟 Standouts")?.value).toContain(
+            "Most improved",
+        );
         expect(
             embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
         ).toContain("⚔️ **Alyra** **99.0** (DPS)");
@@ -908,6 +940,15 @@ describe("embed rendering", () => {
         expect(
             embed.fields.find((field) => field.name === "🏆 Boss Highlights")?.value,
         ).toContain("• **One-Armed Bandit:** Kill secured.");
+        expect(embed.fields.find((field) => field.name === "⚔️ Top Damage Done")?.value).toContain(
+            "1. **Alyra** 250K · Shadow Priest",
+        );
+        expect(embed.fields.find((field) => field.name === "🛑 Top Interrupts")?.value).toContain(
+            "1. **Bulwark** 11",
+        );
+        expect(embed.fields.find((field) => field.name === "🏅 Raid Superlatives")?.value).not.toContain(
+            "parse",
+        );
     });
 
     it("omits top overall healing parse when parse rows do not exist", () => {

@@ -186,6 +186,10 @@ describe("buildRecapSummary report-wide output", () => {
                     },
                 ],
                 topHealingDone: [{ playerName: "Healz", value: 67890 }],
+                topDamageTaken: [{ playerName: "Bulwark", value: 120000 }],
+                topInterrupts: [{ playerName: "Bulwark", value: 6 }],
+                topDispels: [{ playerName: "Healz", value: 8 }],
+                topSurvivability: [{ playerName: "Alyra", value: 98.2 }],
                 totals: { deaths: 12, dispels: 8, interrupts: 6 },
             },
             bossPerformances: [
@@ -208,7 +212,14 @@ describe("buildRecapSummary report-wide output", () => {
             metricLabel: "DPS",
             classSpecLabel: "Shadow Priest",
         });
-        expect(summary.topDamageTaken).toEqual([]);
+        expect(summary.topDamageDone).toEqual([
+            { playerName: "Alyra", value: 250000, classSpecLabel: "Shadow Priest" },
+        ]);
+        expect(summary.topHealingDone).toEqual([{ playerName: "Healz", value: 67890 }]);
+        expect(summary.topDamageTaken).toEqual([{ playerName: "Bulwark", value: 120000 }]);
+        expect(summary.topInterrupts).toEqual([{ playerName: "Bulwark", value: 6 }]);
+        expect(summary.topDispels).toEqual([{ playerName: "Healz", value: 8 }]);
+        expect(summary.topSurvivability).toEqual([{ playerName: "Alyra", value: 98.2 }]);
         expect(summary.topHealers[0]?.playerName).toBe("Healz");
         expect(summary.totals.totalDeaths).toBe(12);
         expect(summary.totals.dispels).toBe(8);
@@ -229,11 +240,12 @@ describe("buildRecapSummary report-wide output", () => {
         ]);
         expect(summary.bossHighlights.length).toBe(2);
         expect(summary.bossHighlights[0]?.text).not.toContain("Kill secured.");
+        const firstBossParts = (summary.bossHighlights[0]?.text ?? "").split(" · ");
+        expect(firstBossParts.length).toBeLessThanOrEqual(3);
         expect(summary.raidSuperlatives.length).toBeGreaterThan(0);
-        expect(summary.raidSuperlatives.find((entry) => entry.text.includes("total raid deaths"))).toEqual({
-            label: "Raid deaths",
-            text: "12 total raid deaths",
-        });
+        expect(summary.raidSuperlatives.some((entry) => entry.label.toLowerCase().includes("parse"))).toBe(
+            false,
+        );
     });
 
     it("omits unsupported report-wide fields instead of fabricating", () => {
@@ -250,6 +262,11 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.bestPlayerParses).toEqual([]);
         expect(summary.topDamageTaken).toEqual([]);
         expect(summary.topHealers).toEqual([]);
+        expect(summary.topDamageDone).toEqual([]);
+        expect(summary.topHealingDone).toEqual([]);
+        expect(summary.topInterrupts).toEqual([]);
+        expect(summary.topDispels).toEqual([]);
+        expect(summary.topSurvivability).toEqual([]);
         expect(summary.topOverallHealingParsers).toEqual([]);
         expect(summary.totals.totalDeaths).toBeUndefined();
         expect(summary.bestExecution).toBeUndefined();

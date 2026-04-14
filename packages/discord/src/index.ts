@@ -200,6 +200,18 @@ const formatTotalLine = (
           ? `**${label}:** ${value}`
           : `${label}: ${value}`;
 
+const formatTopStatRows = (
+    entries: Array<{ playerName: string; value: number; classSpecLabel?: string }>,
+    formatter: (value: number) => string,
+): string =>
+    entries
+        .slice(0, 3)
+        .map((entry, index) => {
+            const classSpecSection = entry.classSpecLabel ? ` · ${entry.classSpecLabel}` : "";
+            return `${index + 1}. **${entry.playerName}** ${formatter(entry.value)}${classSpecSection}`;
+        })
+        .join("\n");
+
 const makeRecapComponentCustomId = (
     action: string,
     reportCode: string,
@@ -1144,25 +1156,6 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         summary.mostImprovedPlayer
             ? `📈 Most improved: **${summary.mostImprovedPlayer.playerName} +${summary.mostImprovedPlayer.delta.toFixed(1)}**`
             : undefined,
-        summary.bestSingleBossParse
-            ? formatRankingLine(
-                  "🥇",
-                  "Best single-boss parse",
-                  summary.bestSingleBossParse.playerName,
-                  summary.bestSingleBossParse.value,
-                  summary.bestSingleBossParse.metric,
-                  summary.bestSingleBossParse.bossName,
-              )
-            : undefined,
-        summary.bestAverageParse
-            ? formatRankingLine(
-                  "📊",
-                  "Best average parse",
-                  summary.bestAverageParse.playerName,
-                  summary.bestAverageParse.value,
-                  summary.bestAverageParse.metric,
-              )
-            : undefined,
     ].filter((line): line is string => Boolean(line));
     if (standoutLines.length > 0) {
         pushSection("🌟 Standouts", standoutLines.join("\n"));
@@ -1242,6 +1235,48 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
                 .slice(0, 4)
                 .map((entry) => `• **${entry.label}:** ${entry.text}`)
                 .join("\n"),
+        );
+    }
+
+    if (summary.topDamageDone.length > 0) {
+        pushSection(
+            "⚔️ Top Damage Done",
+            formatTopStatRows(summary.topDamageDone, (value) => formatCompactNumber(value)),
+        );
+    }
+
+    if (summary.topHealingDone.length > 0) {
+        pushSection(
+            "💚 Top Healing Done",
+            formatTopStatRows(summary.topHealingDone, (value) => formatCompactNumber(value)),
+        );
+    }
+
+    if (summary.topDamageTaken.length > 0) {
+        pushSection(
+            "🩸 Top Damage Taken",
+            formatTopStatRows(summary.topDamageTaken, (value) => formatCompactNumber(value)),
+        );
+    }
+
+    if (summary.topInterrupts.length > 0) {
+        pushSection(
+            "🛑 Top Interrupts",
+            formatTopStatRows(summary.topInterrupts, (value) => value.toFixed(0)),
+        );
+    }
+
+    if (summary.topDispels.length > 0) {
+        pushSection(
+            "✨ Top Dispels",
+            formatTopStatRows(summary.topDispels, (value) => value.toFixed(0)),
+        );
+    }
+
+    if (summary.topSurvivability.length > 0) {
+        pushSection(
+            "🛡️ Top Survivability",
+            formatTopStatRows(summary.topSurvivability, (value) => value.toFixed(1)),
         );
     }
 

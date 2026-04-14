@@ -702,6 +702,9 @@ describe("index contract", () => {
                         Healing: {
                             data: { entries: [{ id: 2, name: "Healz", total: 400000 }] },
                         },
+                        DamageTaken: {
+                            data: { entries: [{ id: 1, name: "Dpsy", total: 123456 }] },
+                        },
                         Deaths: {
                             data: {
                                 entries: [
@@ -728,6 +731,13 @@ describe("index contract", () => {
                                 ],
                             },
                         },
+                        Survivability: {
+                            data: {
+                                players: [{ id: 1, name: "Dpsy" }],
+                                fights: [{ id: 46 }],
+                                actortotals: [{ id: 1, name: "Dpsy", survivability: 98.6 }],
+                            },
+                        },
                     },
                     encounterSummaries: [],
                 },
@@ -740,6 +750,10 @@ describe("index contract", () => {
 
             expect(normalized.reportWideRecap?.topDamageDone[0]?.playerName).toBe("Dpsy");
             expect(normalized.reportWideRecap?.topHealingDone[0]?.playerName).toBe("Healz");
+            expect(normalized.reportWideRecap?.topDamageTaken?.[0]?.playerName).toBe("Dpsy");
+            expect(normalized.reportWideRecap?.topInterrupts?.[0]?.playerName).toBe("Dpsy");
+            expect(normalized.reportWideRecap?.topDispels?.[0]?.playerName).toBe("Healz");
+            expect(normalized.reportWideRecap?.topSurvivability?.[0]?.playerName).toBe("Dpsy");
             expect(normalized.reportWideRecap?.totals.deaths).toBe(3);
             expect(normalized.reportWideRecap?.totals.dispels).toBe(5);
             expect(normalized.reportWideRecap?.totals.interrupts).toBe(4);

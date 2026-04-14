@@ -76,6 +76,17 @@ describe("table parser", () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
+    it("omits survivability rows when payload exposes metadata totals only", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            loadPublicFixture("survivability"),
+            "Survivability",
+            warn,
+        );
+        expect(parsed.entries).toEqual([]);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
     it("parses deaths event rows as one death each", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(

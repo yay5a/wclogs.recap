@@ -240,7 +240,8 @@ export const parseTablePayloadDetailed = (
         const playerId =
             asNumber(entry.id) ??
             asNumber(entry.playerID) ??
-            asNumber(entry.playerId);
+            asNumber(entry.playerId) ??
+            asNumber(entry.guid);
         const playerName = asString(entry.name) ?? asString(asObject(entry.actor)?.name);
 
         const parsedEntry: ParsedTableEntry = {

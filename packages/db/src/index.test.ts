@@ -27,7 +27,12 @@ const makeRecapSummary = (): RecapSummary => ({
     recapPostMode: "preview-and-post",
     fastestPhaseTimes: [],
     bestPlayerParses: [],
+    topDamageDone: [],
+    topHealingDone: [],
     topDamageTaken: [],
+    topInterrupts: [],
+    topDispels: [],
+    topSurvivability: [],
     topHealers: [],
     totals: {
         totalDeaths: 0,
