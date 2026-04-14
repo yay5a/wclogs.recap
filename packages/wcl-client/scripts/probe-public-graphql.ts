@@ -45,7 +45,7 @@ type KillTypeValue = "All" | "Encounters" | "Kills" | "Trash" | "Wipes";
 
 /**
  * NOTE:
- * The supplied docs confirm RankingCompareType and RankingTimeframeType,
+ * API docs confirm RankingCompareType and RankingTimeframeType,
  * but they do not show the enum members for ReportRankingMetricType.
  *
  * We preserve the existing probe's metric spellings rather than inventing new ones.
@@ -252,7 +252,9 @@ const getRequiredEnv = (key: string): string => {
     return value;
 };
 
-const normalizeOptionalString = (value: string | undefined): string | undefined => {
+const normalizeOptionalString = (
+    value: string | undefined,
+): string | undefined => {
     const normalized = value?.trim();
     return normalized ? normalized : undefined;
 };
@@ -272,10 +274,14 @@ const joinExpressionClauses = (
     return normalizedClauses.map((clause) => `(${clause})`).join(" AND ");
 };
 
-const buildBaseFilterExpression = (args: Pick<ProbeArgs, "filterExpression" | "phase">): string | undefined => {
+const buildBaseFilterExpression = (
+    args: Pick<ProbeArgs, "filterExpression" | "phase">,
+): string | undefined => {
     return joinExpressionClauses([
         args.filterExpression,
-        typeof args.phase === "number" ? `encounterPhase = ${args.phase}` : undefined,
+        typeof args.phase === "number"
+            ? `encounterPhase = ${args.phase}`
+            : undefined,
     ]);
 };
 
@@ -294,10 +300,7 @@ const getPartitionExpression = (scope: ProbeScope): string | undefined => {
               ? 'encounterEnd = "wipe"'
               : undefined;
 
-    return joinExpressionClauses([
-        encounterScopeExpression,
-        outcomeExpression,
-    ]);
+    return joinExpressionClauses([encounterScopeExpression, outcomeExpression]);
 };
 
 const buildTableFilterExpression = (args: {
@@ -342,7 +345,7 @@ const buildTableFilterExpression = (args: {
                 partitionExpression,
                 'type = "death"',
                 'target.disposition = "friendly"',
-                'feign = false',
+                "feign = false",
             ]);
         case "Dispels":
             return joinExpressionClauses([
@@ -403,7 +406,9 @@ const getArgs = (): ProbeArgs => {
         if (token === "--encounter") {
             const value = Number(args[index + 1]);
             if (!Number.isInteger(value) || value <= 0) {
-                throw new Error("--encounter expects a positive integer encounter id");
+                throw new Error(
+                    "--encounter expects a positive integer encounter id",
+                );
             }
             encounterId = value;
             index += 1;
@@ -413,7 +418,9 @@ const getArgs = (): ProbeArgs => {
         if (token === "--phase") {
             const value = Number(args[index + 1]);
             if (!Number.isInteger(value) || value <= 0) {
-                throw new Error("--phase expects a positive integer phase number");
+                throw new Error(
+                    "--phase expects a positive integer phase number",
+                );
             }
             phase = value;
             index += 1;
@@ -424,7 +431,7 @@ const getArgs = (): ProbeArgs => {
             const value = normalizeOptionalString(args[index + 1]);
             if (!value) {
                 throw new Error(
-                    '--filter-expression expects a non-empty string, e.g. --filter-expression \'source.spec = "frost"\'',
+                    "--filter-expression expects a non-empty string, e.g. --filter-expression 'source.spec = \"frost\"'",
                 );
             }
             filterExpression = value;
@@ -484,19 +491,20 @@ const normalizeEncounterFights = (report: unknown): ProbeFight[] => {
                 return [];
             }
 
-            const phaseTransitions =
-                (asArray(row?.phaseTransitions) ?? []).flatMap((entry) => {
-                    const transition = asObject(entry);
-                    const phaseId = asNumber(transition?.id);
-                    const transitionStart = asNumber(transition?.startTime);
-                    if (
-                        typeof phaseId !== "number" ||
-                        typeof transitionStart !== "number"
-                    ) {
-                        return [];
-                    }
-                    return [{ id: phaseId, startTime: transitionStart }];
-                });
+            const phaseTransitions = (
+                asArray(row?.phaseTransitions) ?? []
+            ).flatMap((entry) => {
+                const transition = asObject(entry);
+                const phaseId = asNumber(transition?.id);
+                const transitionStart = asNumber(transition?.startTime);
+                if (
+                    typeof phaseId !== "number" ||
+                    typeof transitionStart !== "number"
+                ) {
+                    return [];
+                }
+                return [{ id: phaseId, startTime: transitionStart }];
+            });
 
             const difficulty = asNumber(row?.difficulty);
             const name = asString(row?.name);
@@ -581,14 +589,19 @@ const collectEncounterCandidateFights = (
         (fight) =>
             fight.encounterID > 0 &&
             !fight.inProgress &&
-            (typeof encounterId !== "number" || fight.encounterID === encounterId),
+            (typeof encounterId !== "number" ||
+                fight.encounterID === encounterId),
     );
 };
 
-const buildScopeKey = (scopeType: ScopeType, partition: ScopePartition, args: {
-    encounterID?: number;
-    fightId?: number;
-} = {}): string => {
+const buildScopeKey = (
+    scopeType: ScopeType,
+    partition: ScopePartition,
+    args: {
+        encounterID?: number;
+        fightId?: number;
+    } = {},
+): string => {
     if (scopeType === "report-wide") {
         return `${scopeType}.${partition}`;
     }
@@ -759,8 +772,12 @@ const writeProbeArtifacts = async (args: {
         ...(typeof args.metadata?.scopeKey === "string"
             ? { scopeKey: args.metadata.scopeKey }
             : {}),
-        ...(args.metadata?.scopeType ? { scopeType: args.metadata.scopeType } : {}),
-        ...(args.metadata?.partition ? { partition: args.metadata.partition } : {}),
+        ...(args.metadata?.scopeType
+            ? { scopeType: args.metadata.scopeType }
+            : {}),
+        ...(args.metadata?.partition
+            ? { partition: args.metadata.partition }
+            : {}),
     };
 
     if (typeof args.payload !== "undefined") {
@@ -803,7 +820,9 @@ const logProbe = (args: {
     const segments = [
         `[${args.probeFamily}]`,
         `report=${args.reportCode}`,
-        ...(typeof args.scopeKey === "string" ? [`scope=${args.scopeKey}`] : []),
+        ...(typeof args.scopeKey === "string"
+            ? [`scope=${args.scopeKey}`]
+            : []),
         ...(typeof args.filterExpression === "string"
             ? [`filter=${JSON.stringify(args.filterExpression)}`]
             : []),
@@ -846,7 +865,9 @@ const run = async (): Promise<void> => {
     await mkdir(outputDir, { recursive: true });
 
     const manifestEntries: ManifestEntry[] = [];
-    const requestedFilterExpression = normalizeOptionalString(args.filterExpression);
+    const requestedFilterExpression = normalizeOptionalString(
+        args.filterExpression,
+    );
     const baseFilterExpression = buildBaseFilterExpression({
         filterExpression: requestedFilterExpression,
         phase: args.phase,
@@ -919,7 +940,8 @@ const run = async (): Promise<void> => {
         });
         discoveryEncounterIds = uniqueSortedNumbers(
             scopes.flatMap((scope) =>
-                scope.scopeType === "encounter" && typeof scope.encounterID === "number"
+                scope.scopeType === "encounter" &&
+                typeof scope.encounterID === "number"
                     ? [scope.encounterID]
                     : [],
             ),
@@ -1278,14 +1300,18 @@ const run = async (): Promise<void> => {
         JSON.stringify(
             {
                 reportCode: args.reportCode,
-                ...(typeof args.fightId === "number" ? { fightId: args.fightId } : {}),
+                ...(typeof args.fightId === "number"
+                    ? { fightId: args.fightId }
+                    : {}),
                 ...(typeof args.encounterId === "number"
                     ? { encounterId: args.encounterId }
                     : {}),
                 ...(typeof requestedFilterExpression === "string"
                     ? { requestedFilterExpression }
                     : {}),
-                ...(typeof args.phase === "number" ? { phase: args.phase } : {}),
+                ...(typeof args.phase === "number"
+                    ? { phase: args.phase }
+                    : {}),
                 ...(typeof baseFilterExpression === "string"
                     ? { baseFilterExpression }
                     : {}),
