@@ -161,10 +161,19 @@ query ProbeBossRankings($reportCode: String!, $fightIDs: [Int]) {
 `;
 
 const TABLE_REPORT_WIDE_QUERY = `
-query ProbeReportWideTableByType($reportCode: String!, $dataType: TableDataType!) {
+query ProbeReportWideTableByType(
+  $reportCode: String!
+  $dataType: TableDataType!
+  $startTime: Float!
+  $endTime: Float!
+) {
   reportData {
     report(code: $reportCode, allowUnlisted: true) {
-      table(dataType: $dataType)
+      table(
+        dataType: $dataType
+        startTime: $startTime
+        endTime: $endTime
+      )
     }
   }
 }
@@ -378,6 +387,21 @@ const resolveEncounterId = (
 
 const getRankingsSummary = (payload: unknown): string =>
     summarizeRankingsPayload(payload).logLine;
+
+const resolveReportTimeRange = (
+    report: unknown,
+): { startTime: number; endTime: number } => {
+    const reportNode = asObject(report);
+    const startTime = asNumber(reportNode?.startTime);
+    const endTime = asNumber(reportNode?.endTime);
+    if (typeof startTime !== "number" || typeof endTime !== "number") {
+        throw new Error(
+            "Base report payload is missing numeric startTime/endTime required for report-wide table probes.",
+        );
+    }
+
+    return { startTime, endTime };
+};
 
 const writeProbeArtifacts = async (args: {
     outputDir: string;
@@ -782,6 +806,8 @@ const run = async (): Promise<void> => {
         },
     ];
 
+    const reportTimeRange = resolveReportTimeRange(reportNode);
+
     for (const tableFamily of reportWideTableFamilies) {
         await queryFamilies(
             tableFamily.probeFamily,
@@ -792,6 +818,8 @@ const run = async (): Promise<void> => {
                     {
                         reportCode: args.reportCode,
                         dataType: tableFamily.dataType,
+                        startTime: reportTimeRange.startTime,
+                        endTime: reportTimeRange.endTime,
                     },
                 );
                 return (
