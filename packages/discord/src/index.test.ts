@@ -750,6 +750,34 @@ describe("handleInteraction", () => {
 });
 
 describe("embed rendering", () => {
+    it("uses cleaned domain recap title for public recap embed", () => {
+        const summary = buildRecapSummary({
+            reportCode: "ABC123",
+            title: "Throne of Thunder",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            zoneName: "Throne of Thunder",
+            fights: [{ id: 1, name: "Lei Shen", startTime: 0, endTime: 1, kill: true }],
+            players: [],
+            bossPerformances: [
+                {
+                    bossName: "Lei Shen",
+                    fightId: 1,
+                    kill: true,
+                    zoneName: "Throne of Thunder",
+                    difficultyName: "Heroic",
+                    fightDate: Date.UTC(2025, 0, 3),
+                },
+            ],
+        });
+        const embed = buildPublicRecapEmbed(summary);
+
+        expect(summary.titleLine).toBe("Throne of Thunder - Heroic");
+        expect(embed.title).toBe(summary.titleLine);
+        expect(embed.title).not.toContain("Throne of Thunder - Throne of Thunder");
+    });
+
     it("renders report-wide recap field set", () => {
         const embed = buildPublicRecapEmbed({
             ...makePreviewSummary(),
@@ -798,7 +826,7 @@ describe("embed rendering", () => {
             ],
             bestExecution: { playerName: "Alyra", value: 94.2 },
             mostImprovedPlayer: { playerName: "Pearl", delta: 5.2 },
-            raidSuperlatives: [{ label: "Execution leader", text: "Alyra (94.2)" }],
+            raidSuperlatives: [{ label: "Raid deaths", text: "5 total raid deaths" }],
         });
 
         expect(embed.title).toBe("Boss - Mythic - Zone");

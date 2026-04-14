@@ -290,6 +290,42 @@ const formatRaidDurationHoursMinutes = (durationMs: number): string => {
     const minuteLabel = minutes === 1 ? "Min" : "Min";
     return `${String(hours).padStart(2, "0")} ${hourLabel} ${String(minutes).padStart(2, "0")} ${minuteLabel}`;
 };
+
+const normalizeTitleToken = (value: string): string =>
+    value.trim().replace(/\s+/g, " ").toLowerCase();
+
+const DIFFICULTY_LABELS: ReadonlyMap<number, string> = new Map([
+    [1, "LFR"],
+    [2, "Normal"],
+    [3, "Normal"],
+    [4, "Heroic"],
+    [5, "Mythic"],
+]);
+
+const resolveDifficultyLabel = (
+    difficultyName?: string,
+    difficultyId?: number,
+): string | undefined => {
+    if (difficultyName && difficultyName.trim().length > 0) {
+        return difficultyName.trim();
+    }
+    if (typeof difficultyId === "number") {
+        return DIFFICULTY_LABELS.get(difficultyId);
+    }
+    return undefined;
+};
+
+const buildRecapTitleLine = (
+    reportTitle: string,
+    zoneName?: string,
+    difficultyLabel?: string,
+): string => {
+    if (zoneName) {
+        if (difficultyLabel) return `${zoneName} - ${difficultyLabel}`;
+        return zoneName;
+    }
+    return reportTitle;
+};
 const formatCompactNumber = (value: number): string =>
     new Intl.NumberFormat("en-US", {
         notation: "compact",
@@ -375,9 +411,14 @@ export const buildRecapSummary = (
         )[0];
 
     const zoneName = selectedBoss?.zoneName ?? report.zoneName;
-    const titleLine = zoneName
-        ? `${report.title} - ${zoneName}`
-        : report.title;
+    const difficultyLabel = resolveDifficultyLabel(
+        selectedBoss?.difficultyName,
+        selectedBoss?.difficulty,
+    );
+    const reportAndZoneMatch =
+        zoneName &&
+        normalizeTitleToken(report.title) === normalizeTitleToken(zoneName);
+    const titleLine = buildRecapTitleLine(report.title, zoneName, difficultyLabel);
     const secondaryLine = selectedBoss?.guildName
         ? `${selectedBoss.guildName} on ${selectedBoss.realmName ?? "Unknown Realm"}`
         : "Unknown Guild on Unknown Realm";
@@ -651,7 +692,7 @@ export const buildRecapSummary = (
             : []),
         ...(typeof report.reportWideRecap?.totals.deaths === "number"
             ? [{
-                  label: "Cleanest pull pressure",
+                  label: "Raid deaths",
                   text: `${report.reportWideRecap.totals.deaths} total raid deaths`,
               }]
             : []),
@@ -746,7 +787,9 @@ export const buildRecapSummary = (
         teamNote: deriveDeterministicTeamNote(killed),
     };
 
-    if (zoneName) summary.zoneName = zoneName;
+    if (zoneName && !reportAndZoneMatch) {
+        summary.zoneName = zoneName;
+    }
 
     return summary;
 };

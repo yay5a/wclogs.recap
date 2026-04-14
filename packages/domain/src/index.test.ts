@@ -28,11 +28,99 @@ describe("buildRecapSummary report-wide output", () => {
             ],
         });
 
-        expect(summary.titleLine).toBe("Raid Night - Liberation of Undermine");
+        expect(summary.titleLine).toBe("Liberation of Undermine");
         expect(summary.secondaryLine).toBe("Pull More on Stormrage-US");
         expect(summary.killTimeLabel).toBe("01 Hour 00 Min");
         expect(summary.pullCount).toBe(1);
         expect(summary.reportDateLabel).toBe("01/02/2025");
+    });
+
+    it("uses zone plus difficulty when normalized data includes both", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Throne of Thunder",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            zoneName: "Throne of Thunder",
+            fights: [{ id: 10, name: "Lei Shen", startTime: 0, endTime: 1, kill: true }],
+            players: [],
+            bossPerformances: [
+                {
+                    bossName: "Lei Shen",
+                    fightId: 10,
+                    kill: true,
+                    zoneName: "Throne of Thunder",
+                    difficultyName: "Heroic",
+                    fightDate: Date.UTC(2025, 0, 3),
+                },
+            ],
+        });
+
+        expect(summary.titleLine).toBe("Throne of Thunder - Heroic");
+    });
+
+    it("falls back to zone-only when difficulty is missing", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Throne of Thunder",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            zoneName: "Throne of Thunder",
+            fights: [{ id: 10, name: "Lei Shen", startTime: 0, endTime: 1, kill: true }],
+            players: [],
+            bossPerformances: [
+                {
+                    bossName: "Lei Shen",
+                    fightId: 10,
+                    kill: true,
+                    zoneName: "Throne of Thunder",
+                    fightDate: Date.UTC(2025, 0, 3),
+                },
+            ],
+        });
+
+        expect(summary.titleLine).toBe("Throne of Thunder");
+    });
+
+    it("falls back to report title when zone is missing", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night Crew",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+        });
+
+        expect(summary.titleLine).toBe("Raid Night Crew");
+    });
+
+    it("uses numeric difficulty mapping when difficulty name is unavailable", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Throne of Thunder",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            zoneName: "Throne of Thunder",
+            fights: [{ id: 10, name: "Lei Shen", startTime: 0, endTime: 1, kill: true }],
+            players: [],
+            bossPerformances: [
+                {
+                    bossName: "Lei Shen",
+                    fightId: 10,
+                    kill: true,
+                    zoneName: "Throne of Thunder",
+                    difficulty: 5,
+                    fightDate: Date.UTC(2025, 0, 3),
+                },
+            ],
+        });
+
+        expect(summary.titleLine).toBe("Throne of Thunder - Mythic");
     });
 
     it("uses report-wide totals/tables + multi-boss leaderboards", () => {
@@ -142,6 +230,10 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.bossHighlights.length).toBe(2);
         expect(summary.bossHighlights[0]?.text).not.toContain("Kill secured.");
         expect(summary.raidSuperlatives.length).toBeGreaterThan(0);
+        expect(summary.raidSuperlatives.find((entry) => entry.text.includes("total raid deaths"))).toEqual({
+            label: "Raid deaths",
+            text: "12 total raid deaths",
+        });
     });
 
     it("omits unsupported report-wide fields instead of fabricating", () => {
