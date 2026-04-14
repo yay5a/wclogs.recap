@@ -296,6 +296,34 @@ const extractGraphQlErrorMessage = (errors: unknown): string | undefined => {
     return messages.slice(0, 3).join("; ");
 };
 
+const resolveReportWideTableRangeFromFights = (
+    reportNode: unknown,
+): { startTime: number; endTime: number } => {
+    const validFightRanges = (asArray(asObject(reportNode)?.fights) ?? []).flatMap(
+        (value) => {
+            const row = asObject(value);
+            const startTime = asNumber(row?.startTime);
+            const endTime = asNumber(row?.endTime);
+            if (typeof startTime !== "number" || typeof endTime !== "number") {
+                return [];
+            }
+
+            return [{ startTime, endTime }];
+        },
+    );
+
+    if (validFightRanges.length === 0) {
+        throw new Error(
+            "Base report payload is missing valid fights startTime/endTime ranges required for report-wide table probes.",
+        );
+    }
+
+    return {
+        startTime: Math.min(...validFightRanges.map((row) => row.startTime)),
+        endTime: Math.max(...validFightRanges.map((row) => row.endTime)),
+    };
+};
+
 interface EncounterFightForTimings {
     id: number;
     encounterID: number;
@@ -964,10 +992,7 @@ app.get("/api/probe/wcl/public", async (request, reply) => {
         summarize: summarizeRankingsPayload,
     });
 
-    const reportStartTime = asNumber(reportNode.startTime);
-    const reportEndTime = asNumber(reportNode.endTime);
-
-    for (const tableFamily of [
+    const reportWideTableFamilies = [
         {
             probeFamily: "table-damage-done-report-wide",
             dataType: "DamageDone",
@@ -1003,28 +1028,35 @@ app.get("/api/probe/wcl/public", async (request, reply) => {
                 probes.reportWideTables.interrupts = value;
             },
         },
-    ]) {
-        if (
-            typeof reportStartTime !== "number" ||
-            typeof reportEndTime !== "number"
-        ) {
+    ];
+
+    let reportWideRange: { startTime: number; endTime: number } | null = null;
+    try {
+        reportWideRange = resolveReportWideTableRangeFromFights(reportNode);
+    } catch (error) {
+        const message = summarizeError(error);
+        for (const tableFamily of reportWideTableFamilies) {
             addManifestEntry({
                 probeFamily: tableFamily.probeFamily,
                 success: false,
                 summary: "request failed",
-                error: "Base report payload missing startTime/endTime",
+                error: message,
             });
+        }
+    }
+
+    for (const tableFamily of reportWideTableFamilies) {
+        if (!reportWideRange) {
             continue;
         }
-
         await runProbe({
             probeFamily: tableFamily.probeFamily,
             queryText: TABLE_REPORT_WIDE_QUERY,
             variables: {
                 reportCode,
                 dataType: tableFamily.dataType,
-                startTime: reportStartTime,
-                endTime: reportEndTime,
+                startTime: reportWideRange.startTime,
+                endTime: reportWideRange.endTime,
             },
             onSuccess: (data) => {
                 const table = asObject(asObject(data.reportData)?.report)?.table ?? null;
