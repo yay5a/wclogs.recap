@@ -1255,6 +1255,31 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         },
     ];
 
+    if (summary.bossHighlights.length > 0) {
+        fields.push({
+            name: "Boss Highlights",
+            value: summary.bossHighlights
+                .slice(0, 4)
+                .map((entry) => `• ${entry.bossName}: ${entry.text}`)
+                .join("\n"),
+        });
+    }
+
+    if (summary.bestSingleBossParse || summary.bestAverageParse) {
+        const parseLines = [
+            summary.bestSingleBossParse
+                ? `Best single-boss parse: ${summary.bestSingleBossParse.playerName} ${summary.bestSingleBossParse.value.toFixed(1)} ${summary.bestSingleBossParse.metric} (${summary.bestSingleBossParse.bossName})`
+                : undefined,
+            summary.bestAverageParse
+                ? `Best average parse: ${summary.bestAverageParse.playerName} ${summary.bestAverageParse.value.toFixed(1)} ${summary.bestAverageParse.metric}`
+                : undefined,
+        ].filter((line): line is string => Boolean(line));
+        fields.push({
+            name: "Overall Rankings",
+            value: parseLines.join("\n"),
+        });
+    }
+
     if (summary.bestPlayerParses.length > 0) {
         fields.push({
             name: "Best Player Parses",
@@ -1262,9 +1287,33 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         });
     }
 
+    if (summary.topOverallParsers.length > 0) {
+        fields.push({
+            name: "Top Overall Parsers",
+            value: summary.topOverallParsers
+                .map(
+                    (entry) =>
+                        `• ${entry.playerName} ${entry.value.toFixed(1)} (${entry.metric})`,
+                )
+                .join("\n"),
+        });
+    }
+
+    if (summary.topOverallDamageParsers.length > 0) {
+        fields.push({
+            name: "Top Overall Damage Parse",
+            value: summary.topOverallDamageParsers
+                .map(
+                    (entry) =>
+                        `• ${entry.playerName} ${entry.value.toFixed(1)} (${entry.metric})`,
+                )
+                .join("\n"),
+        });
+    }
+
     if (summary.topHealers.length > 0) {
         fields.push({
-            name: "Top Overall Healing",
+            name: "Top Overall Parse Healing",
             value: [...summary.topHealers]
                 .sort((left, right) => right.value - left.value)
                 .map(
@@ -1297,43 +1346,6 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
         fields.push({
             name: "Totals",
             value: totalLines.join("\n"),
-        });
-    }
-
-    if (summary.bestSingleBossParse || summary.bestAverageParse) {
-        const parseLines = [
-            summary.bestSingleBossParse
-                ? `Best single-boss parse: ${summary.bestSingleBossParse.playerName} ${summary.bestSingleBossParse.value.toFixed(1)} ${summary.bestSingleBossParse.metric} (${summary.bestSingleBossParse.bossName})`
-                : undefined,
-            summary.bestAverageParse
-                ? `Best average parse: ${summary.bestAverageParse.playerName} ${summary.bestAverageParse.value.toFixed(1)} ${summary.bestAverageParse.metric}`
-                : undefined,
-        ].filter((line): line is string => Boolean(line));
-        fields.push({
-            name: "Overall Rankings",
-            value: parseLines.join("\n"),
-        });
-    }
-
-    if (summary.topOverallParsers.length > 0) {
-        fields.push({
-            name: "Top Overall Parsers",
-            value: summary.topOverallParsers
-                .map(
-                    (entry) =>
-                        `• ${entry.playerName} ${entry.value.toFixed(1)} (${entry.metric})`,
-                )
-                .join("\n"),
-        });
-    }
-
-    if (summary.bossHighlights.length > 0) {
-        fields.push({
-            name: "Boss Highlights",
-            value: summary.bossHighlights
-                .slice(0, 4)
-                .map((entry) => `• ${entry.bossName}: ${entry.text}`)
-                .join("\n"),
         });
     }
     fields.push({ name: "Report", value: summary.reportLink });

@@ -30,7 +30,7 @@ describe("buildRecapSummary report-wide output", () => {
 
         expect(summary.titleLine).toBe("Raid Night - Liberation of Undermine");
         expect(summary.secondaryLine).toBe("Pull More on Stormrage-US");
-        expect(summary.killTimeLabel).toBe("60:00");
+        expect(summary.killTimeLabel).toBe("01 Hour 00 Min");
         expect(summary.pullCount).toBe(1);
         expect(summary.reportDateLabel).toBe("01/02/2025");
     });
@@ -126,6 +126,9 @@ describe("buildRecapSummary report-wide output", () => {
             { playerName: "Healz", value: 95.1, metric: "HPS" },
             { playerName: "Bulwark", value: 93.3, metric: "DTPS" },
         ]);
+        expect(summary.topOverallDamageParsers).toEqual([
+            { playerName: "Alyra", value: 99.2, metric: "DPS" },
+        ]);
         expect(summary.bossHighlights.length).toBe(2);
     });
 
@@ -212,5 +215,42 @@ describe("buildRecapSummary report-wide output", () => {
             { playerName: "Tankhem", value: 96.4, metric: "DTPS" },
             { playerName: "Alyra", value: 95.7, metric: "DPS" },
         ]);
+        expect(summary.topOverallDamageParsers).toEqual([
+            { playerName: "Alyra", value: 95.7, metric: "DPS" },
+        ]);
+    });
+
+    it("formats raid duration as hour/minute text with singular and plural grammar", () => {
+        const threeHoursFive = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 3, 5),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+        });
+        const oneHourOne = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+        });
+        const fortyFiveMinutes = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 0, 45),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+        });
+
+        expect(threeHoursFive.killTimeLabel).toBe("03 Hours 05 Min");
+        expect(oneHourOne.killTimeLabel).toBe("01 Hour 01 Min");
+        expect(fortyFiveMinutes.killTimeLabel).toBe("45 Min");
     });
 });

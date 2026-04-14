@@ -71,7 +71,7 @@ const makePreviewSummary = (): PreviewSummary => ({
     secondaryLine: "Guild on Realm-US",
     reportDateISO: new Date(0).toISOString(),
     reportDateLabel: "01/01/1970",
-    killTimeLabel: "05:32",
+    killTimeLabel: "45 Min",
     pullCount: 9,
     reportLink: "https://www.warcraftlogs.com/reports/ABC123",
     gameFamily: "retail" as const,
@@ -92,6 +92,7 @@ const makePreviewSummary = (): PreviewSummary => ({
         kicks: 0,
     },
     topOverallParsers: [],
+    topOverallDamageParsers: [],
     bossHighlights: [],
     raidSuperlatives: [],
     teamNote: "Team note",
@@ -839,6 +840,9 @@ describe("embed rendering", () => {
                 { playerName: "Pearl", value: 97.4, metric: "HPS" },
                 { playerName: "Bulwark", value: 95.2, metric: "DTPS" },
             ],
+            topOverallDamageParsers: [
+                { playerName: "Alyra", value: 99, metric: "DPS" },
+            ],
             bossHighlights: [
                 { bossName: "One-Armed Bandit", fightId: 11, text: "Kill secured." },
             ],
@@ -847,25 +851,26 @@ describe("embed rendering", () => {
         expect(embed.title).toBe("Boss - Mythic - Zone");
         expect(embed.fields.map((field) => field.name)).toEqual([
             "Raid",
-            "Best Player Parses",
-            "Top Overall Healing",
-            "Totals",
-            "Overall Rankings",
-            "Top Overall Parsers",
             "Boss Highlights",
+            "Overall Rankings",
+            "Best Player Parses",
+            "Top Overall Parsers",
+            "Top Overall Damage Parse",
+            "Top Overall Parse Healing",
+            "Totals",
             "Report",
         ]);
         expect(
             embed.fields.find((field) => field.name === "Totals")?.value,
         ).not.toContain("Most wipes:");
         expect(
-            embed.fields.find((field) => field.name === "Top Overall Healing")?.value,
+            embed.fields.find((field) => field.name === "Top Overall Parse Healing")?.value,
         ).toContain("67.9K");
         expect(
-            embed.fields.find((field) => field.name === "Top Overall Healing")?.value,
+            embed.fields.find((field) => field.name === "Top Overall Parse Healing")?.value,
         ).toContain("67.9K healing");
         expect(
-            embed.fields.find((field) => field.name === "Top Overall Healing")?.value,
+            embed.fields.find((field) => field.name === "Top Overall Parse Healing")?.value,
         ).toContain("Mistweaver Monk");
         expect(
             embed.fields.find((field) => field.name === "Best Player Parses")?.value,
@@ -891,6 +896,9 @@ describe("embed rendering", () => {
         expect(
             embed.fields.find((field) => field.name === "Top Overall Parsers")?.value,
         ).toContain("• Bulwark 95.2 (DTPS)");
+        expect(
+            embed.fields.find((field) => field.name === "Top Overall Damage Parse")?.value,
+        ).toContain("• Alyra 99.0 (DPS)");
     });
 
     it("renders top overall healing in descending value order", () => {
@@ -902,7 +910,7 @@ describe("embed rendering", () => {
             ],
         });
 
-        expect(embed.fields.find((field) => field.name === "Top Overall Healing")?.value).toBe(
+        expect(embed.fields.find((field) => field.name === "Top Overall Parse Healing")?.value).toBe(
             "• Floorroller | 48.4K healing - Mistweaver Monk\n• Pearl | 4.8K healing - Restoration Shaman",
         );
     });
@@ -993,9 +1001,25 @@ describe("preview rendering", () => {
             (body.embeds?.[0] as { description?: string } | undefined)
                 ?.description ?? "";
         expect(description).toContain("Guild on Realm-US");
-        expect(description).toContain("Raid Duration: 05:32 (9 Pulls)");
+        expect(description).toContain("Raid Duration: 45 Min (9 Pulls)");
         expect(description).toContain("Date: 01/01/1970");
         expect(description).toContain("Best Parse: Alyra (99.0)");
+    });
+
+    it("renders human-readable raid duration in preview", () => {
+        const body = buildRecapPreviewBody(
+            {
+                ...makePreviewSummary(),
+                killTimeLabel: "01 Hour 09 Min",
+            },
+            "ABC123",
+            "guild-1",
+        );
+
+        const description =
+            (body.embeds?.[0] as { description?: string } | undefined)
+                ?.description ?? "";
+        expect(description).toContain("Raid Duration: 01 Hour 09 Min (9 Pulls)");
     });
 
     it("uses durable recap component ids for preview buttons", () => {

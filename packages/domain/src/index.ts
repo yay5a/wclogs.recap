@@ -210,6 +210,11 @@ export interface RecapSummary {
         value: number;
         metric: string;
     }>;
+    topOverallDamageParsers: Array<{
+        playerName: string;
+        value: number;
+        metric: "DPS";
+    }>;
     bossHighlights: Array<{ bossName: string; fightId: number; text: string }>;
     raidSuperlatives: Array<{ label: string; text: string }>;
     teamNote: string;
@@ -270,11 +275,15 @@ const formatDateMmDdYyyy = (timestampMs: number): string => {
     return `${month}/${day}/${year}`;
 };
 
-const formatDurationMmSs = (durationMs: number): string => {
-    const totalSeconds = Math.max(0, Math.floor(durationMs / 1000));
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")}`;
+const formatRaidDurationHoursMinutes = (durationMs: number): string => {
+    const totalMinutes = Math.max(0, Math.floor(durationMs / 60_000));
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (hours < 1) return `${minutes} Min`;
+
+    const hourLabel = hours === 1 ? "Hour" : "Hours";
+    const minuteLabel = minutes === 1 ? "Min" : "Min";
+    return `${String(hours).padStart(2, "0")} ${hourLabel} ${String(minutes).padStart(2, "0")} ${minuteLabel}`;
 };
 
 const toDisplayClassName = (className?: string): string | undefined => {
@@ -363,7 +372,7 @@ export const buildRecapSummary = (
         ? `${selectedBoss.guildName} on ${selectedBoss.realmName ?? "Unknown Realm"}`
         : "Unknown Guild on Unknown Realm";
     const pullCount = report.fights.length;
-    const killTimeLabel = formatDurationMmSs(
+    const killTimeLabel = formatRaidDurationHoursMinutes(
         Math.max(0, report.endTime - report.startTime),
     );
     const reportDateMs = report.startTime;
@@ -450,6 +459,21 @@ export const buildRecapSummary = (
             value: entry.value,
             metric: entry.metric,
         }));
+    const topOverallDamageParsers = dedupeRowsByPlayerStrongest(
+        [...reportLeaderboards]
+            .filter((entry) => resolveMetricLabelFromEntry(entry) === "DPS")
+            .sort((left, right) => right.value - left.value)
+            .flatMap((entry) => {
+                if (!entry.playerName) return [];
+                return [{ playerName: entry.playerName, value: entry.value }];
+            }),
+    )
+        .slice(0, 3)
+        .map((entry) => ({
+            playerName: entry.playerName,
+            value: entry.value,
+            metric: "DPS" as const,
+        }));
 
     const bossHighlights = bossPerformances
         .filter((boss) => typeof boss.fightId === "number")
@@ -526,6 +550,7 @@ export const buildRecapSummary = (
               }
             : {}),
         topOverallParsers,
+        topOverallDamageParsers,
         bossHighlights,
         raidSuperlatives: [],
         teamNote: deriveDeterministicTeamNote(killed),
