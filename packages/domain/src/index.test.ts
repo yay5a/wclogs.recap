@@ -148,4 +148,69 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.mostImprovedPlayer).toBeUndefined();
         expect(summary.totals.battleRezzes).toBeUndefined();
     });
+
+    it("dedupes repeated players in report-wide parse sections and keeps strongest row", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+            leaderboards: [
+                {
+                    scope: "report",
+                    playerName: "Tankhem",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "DTPS",
+                    value: 96.4,
+                },
+                {
+                    scope: "report",
+                    playerName: "Tankhem",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "DTPS",
+                    value: 96.4,
+                    className: "Warrior",
+                    specName: "Protection",
+                },
+                {
+                    scope: "report",
+                    playerName: "Alyra",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "DPS",
+                    value: 95.7,
+                },
+            ],
+            reportWideRecap: {
+                topDamageDone: [{ playerName: "Tankhem", value: 220000 }],
+                topHealingDone: [],
+                totals: {},
+            },
+        });
+
+        expect(summary.bestPlayerParses).toEqual([
+            {
+                playerName: "Tankhem",
+                parse: 96.4,
+                metricLabel: "DTPS",
+                metric: "DTPS",
+                amount: 220000,
+                className: "Warrior",
+                specName: "Protection",
+                classSpecLabel: "Protection Warrior",
+            },
+            {
+                playerName: "Alyra",
+                parse: 95.7,
+                metricLabel: "DPS",
+                metric: "DPS",
+            },
+        ]);
+        expect(summary.topOverallParsers).toEqual([
+            { playerName: "Tankhem", value: 96.4, metric: "DTPS" },
+            { playerName: "Alyra", value: 95.7, metric: "DPS" },
+        ]);
+    });
 });

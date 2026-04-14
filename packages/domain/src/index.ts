@@ -288,6 +288,55 @@ const toClassSpecLabel = (className?: string, specName?: string): string | undef
     return specName ?? displayClassName;
 };
 
+const toNormalizedPlayerKey = (playerName: string): string => playerName.trim().toLowerCase();
+
+const identityRichnessScore = (
+    row: { className?: string; specName?: string; classSpecLabel?: string },
+): number => {
+    let score = 0;
+    if (row.className) score += 1;
+    if (row.specName) score += 1;
+    if (row.classSpecLabel) score += 1;
+    return score;
+};
+
+const dedupeRowsByPlayerStrongest = <
+    T extends { playerName: string; value: number; amount?: number; className?: string; specName?: string; classSpecLabel?: string },
+>(
+    rows: readonly T[],
+): T[] => {
+    const strongestByPlayer = new Map<string, T>();
+    for (const row of rows) {
+        const key = toNormalizedPlayerKey(row.playerName);
+        const current = strongestByPlayer.get(key);
+        if (!current) {
+            strongestByPlayer.set(key, row);
+            continue;
+        }
+
+        if (row.value > current.value) {
+            strongestByPlayer.set(key, row);
+            continue;
+        }
+        if (row.value < current.value) continue;
+
+        const rowHasAmount = typeof row.amount === "number";
+        const currentHasAmount = typeof current.amount === "number";
+        if (rowHasAmount && !currentHasAmount) {
+            strongestByPlayer.set(key, row);
+            continue;
+        }
+        if (!rowHasAmount && currentHasAmount) continue;
+
+        const rowIdentityScore = identityRichnessScore(row);
+        const currentIdentityScore = identityRichnessScore(current);
+        if (rowIdentityScore > currentIdentityScore) {
+            strongestByPlayer.set(key, row);
+        }
+    }
+    return [...strongestByPlayer.values()];
+};
+
 export const buildRecapSummary = (
     report: NormalizedReport,
     previousPlayers?: NormalizedPlayer[],
@@ -328,31 +377,43 @@ export const buildRecapSummary = (
     const reportLeaderboards = (report.leaderboards ?? []).filter(
         (entry) => entry.scope === "report",
     );
-    const bestPlayerParses = [...reportLeaderboards]
-        .sort((left, right) => right.value - left.value)
+    const bestPlayerParses = dedupeRowsByPlayerStrongest(
+        [...reportLeaderboards]
+            .sort((left, right) => right.value - left.value)
+            .flatMap((entry) => {
+                if (!entry.playerName) return [];
+                const damageRow = reportDamageByName.get(entry.playerName.toLowerCase());
+                const className = entry.className ?? damageRow?.className;
+                const specName = entry.specName ?? damageRow?.specName;
+                const classSpecLabel = toClassSpecLabel(
+                    className,
+                    specName,
+                );
+                return [{
+                    playerName: entry.playerName,
+                    value: entry.value,
+                    metricLabel: resolveMetricLabelFromEntry(entry),
+                    metric: resolveMetricLabelFromEntry(entry),
+                    ...(typeof damageRow?.value === "number"
+                        ? { amount: damageRow.value }
+                        : {}),
+                    ...(className ? { className } : {}),
+                    ...(specName ? { specName } : {}),
+                    ...(classSpecLabel ? { classSpecLabel } : {}),
+                }];
+            }),
+    )
         .slice(0, 3)
-        .flatMap((entry) => {
-            if (!entry.playerName) return [];
-            const damageRow = reportDamageByName.get(entry.playerName.toLowerCase());
-            const className = entry.className ?? damageRow?.className;
-            const specName = entry.specName ?? damageRow?.specName;
-            const classSpecLabel = toClassSpecLabel(
-                className,
-                specName,
-            );
-            return [{
-                playerName: entry.playerName,
-                parse: entry.value,
-                metricLabel: resolveMetricLabelFromEntry(entry),
-                metric: resolveMetricLabelFromEntry(entry),
-                ...(typeof damageRow?.value === "number"
-                    ? { amount: damageRow.value }
-                    : {}),
-                ...(className ? { className } : {}),
-                ...(specName ? { specName } : {}),
-                ...(classSpecLabel ? { classSpecLabel } : {}),
-            }];
-        });
+        .map((entry) => ({
+        playerName: entry.playerName,
+        parse: entry.value,
+        metricLabel: entry.metricLabel,
+        ...(entry.metric ? { metric: entry.metric } : {}),
+        ...(typeof entry.amount === "number" ? { amount: entry.amount } : {}),
+        ...(entry.className ? { className: entry.className } : {}),
+        ...(entry.specName ? { specName: entry.specName } : {}),
+        ...(entry.classSpecLabel ? { classSpecLabel: entry.classSpecLabel } : {}),
+    }));
     const topHealers = (report.reportWideRecap?.topHealingDone ?? []).slice(0, 3).map((entry) => {
         const classSpecLabel = toClassSpecLabel(entry.className, entry.specName);
         return {
@@ -374,14 +435,21 @@ export const buildRecapSummary = (
     const bestSingleBossParseEntry = (report.leaderboards ?? [])
         .filter((entry) => entry.scope === "boss")
         .sort((left, right) => right.value - left.value)[0];
-    const topOverallParsers = [...reportLeaderboards]
-        .sort((left, right) => right.value - left.value)
+    const topOverallParsers = dedupeRowsByPlayerStrongest(
+        [...reportLeaderboards]
+            .sort((left, right) => right.value - left.value)
+            .flatMap((entry) => {
+                if (!entry.playerName) return [];
+                const metric = resolveMetricLabelFromEntry(entry);
+                return [{ playerName: entry.playerName, value: entry.value, metric }];
+            }),
+    )
         .slice(0, 3)
-        .flatMap((entry) => {
-            if (!entry.playerName) return [];
-            const metric = resolveMetricLabelFromEntry(entry);
-            return [{ playerName: entry.playerName, value: entry.value, metric }];
-        });
+        .map((entry) => ({
+            playerName: entry.playerName,
+            value: entry.value,
+            metric: entry.metric,
+        }));
 
     const bossHighlights = bossPerformances
         .filter((boss) => typeof boss.fightId === "number")

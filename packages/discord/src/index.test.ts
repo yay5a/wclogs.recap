@@ -5,6 +5,7 @@ import type {
     NormalizedPlayer,
     NormalizedReport,
 } from "@wcl/domain";
+import { buildRecapSummary } from "@wcl/domain";
 import {
     buildRecapPreviewBody,
     buildPublicRecapEmbed,
@@ -916,6 +917,57 @@ describe("embed rendering", () => {
             "Totals",
             "Report",
         ]);
+    });
+
+    it("does not render duplicate player rows in report-wide parse sections", () => {
+        const summary = buildRecapSummary({
+            reportCode: "ABC123",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+            leaderboards: [
+                {
+                    scope: "report",
+                    playerName: "Tankhem",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "DTPS",
+                    value: 97.1,
+                },
+                {
+                    scope: "report",
+                    playerName: "Tankhem",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "DTPS",
+                    value: 97.1,
+                    className: "DeathKnight",
+                    specName: "Blood",
+                },
+                {
+                    scope: "report",
+                    playerName: "Pearl",
+                    metric: "bestPerformanceAverage",
+                    selectedMetric: "HPS",
+                    value: 96.3,
+                },
+            ],
+            reportWideRecap: {
+                topDamageDone: [{ playerName: "Tankhem", value: 210000 }],
+                topHealingDone: [],
+                totals: {},
+            },
+        });
+        const embed = buildPublicRecapEmbed(summary);
+
+        const bestPlayerParsesField =
+            embed.fields.find((field) => field.name === "Best Player Parses")?.value ?? "";
+        const topOverallParsersField =
+            embed.fields.find((field) => field.name === "Top Overall Parsers")?.value ?? "";
+
+        expect(bestPlayerParsesField.match(/Tankhem/g)).toHaveLength(1);
+        expect(topOverallParsersField.match(/Tankhem/g)).toHaveLength(1);
     });
 });
 
