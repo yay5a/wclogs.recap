@@ -21,7 +21,15 @@ type ProbeFamily =
     | "base-report"
     | "master-data"
     | "report-rankings"
+    | "report-rankings-dps-today"
+    | "report-rankings-hps-today"
     | "boss-rankings"
+    | "table-damage-done-report-wide"
+    | "table-healing-report-wide"
+    | "table-deaths-report-wide"
+    | "table-dispels-report-wide"
+    | "table-interrupts-report-wide"
+    | "table-survivability-report-wide"
     | "table-damage-taken"
     | "table-healing"
     | "table-deaths"
@@ -125,11 +133,38 @@ query ProbeReportRankings($reportCode: String!) {
 }
 `;
 
+const REPORT_RANKINGS_BY_METRIC_QUERY = `
+query ProbeReportRankingsByMetric(
+  $reportCode: String!
+  $playerMetric: ReportRankingMetricType!
+  $timeframe: RankingTimeframeType!
+) {
+  reportData {
+    report(code: $reportCode, allowUnlisted: true) {
+      rankings(
+        playerMetric: $playerMetric
+        timeframe: $timeframe
+      )
+    }
+  }
+}
+`;
+
 const BOSS_RANKINGS_QUERY = `
 query ProbeBossRankings($reportCode: String!, $fightIDs: [Int]) {
   reportData {
     report(code: $reportCode, allowUnlisted: true) {
       rankings(playerMetric: default, fightIDs: $fightIDs)
+    }
+  }
+}
+`;
+
+const TABLE_REPORT_WIDE_QUERY = `
+query ProbeReportWideTableByType($reportCode: String!, $dataType: TableDataType!) {
+  reportData {
+    report(code: $reportCode, allowUnlisted: true) {
+      table(dataType: $dataType)
     }
   }
 }
@@ -651,6 +686,49 @@ const run = async (): Promise<void> => {
         getRankingsSummary,
     );
 
+    const reportRankingFamilies: Array<{
+        probeFamily: ProbeFamily;
+        fixtureName: string;
+        playerMetric: "dps" | "hps";
+        timeframe: "Today";
+    }> = [
+        {
+            probeFamily: "report-rankings-dps-today",
+            fixtureName: `report-rankings.dps.today.${args.reportCode}`,
+            playerMetric: "dps",
+            timeframe: "Today",
+        },
+        {
+            probeFamily: "report-rankings-hps-today",
+            fixtureName: `report-rankings.hps.today.${args.reportCode}`,
+            playerMetric: "hps",
+            timeframe: "Today",
+        },
+    ];
+
+    for (const rankingFamily of reportRankingFamilies) {
+        await queryFamilies(
+            rankingFamily.probeFamily,
+            rankingFamily.fixtureName,
+            async () => {
+                const result = await client.request<unknown>(
+                    REPORT_RANKINGS_BY_METRIC_QUERY,
+                    {
+                        reportCode: args.reportCode,
+                        playerMetric: rankingFamily.playerMetric,
+                        timeframe: rankingFamily.timeframe,
+                    },
+                );
+                return (
+                    asObject(asObject(asObject(result)?.reportData)?.report)
+                        ?.rankings ?? null
+                );
+            },
+            (payload) =>
+                `metric=${rankingFamily.playerMetric} timeframe=${rankingFamily.timeframe} ${getRankingsSummary(payload)}`,
+        );
+    }
+
     await queryFamilies(
         "boss-rankings",
         `boss-rankings.${args.reportCode}.fight-${args.fightId}`,
@@ -666,6 +744,64 @@ const run = async (): Promise<void> => {
         },
         getRankingsSummary,
     );
+
+    const reportWideTableFamilies: Array<{
+        probeFamily: ProbeFamily;
+        dataType: string;
+        fixtureName: string;
+    }> = [
+        {
+            probeFamily: "table-damage-done-report-wide",
+            dataType: "DamageDone",
+            fixtureName: `damage-done.report-wide.${args.reportCode}`,
+        },
+        {
+            probeFamily: "table-healing-report-wide",
+            dataType: "Healing",
+            fixtureName: `healing.report-wide.${args.reportCode}`,
+        },
+        {
+            probeFamily: "table-deaths-report-wide",
+            dataType: "Deaths",
+            fixtureName: `deaths.report-wide.${args.reportCode}`,
+        },
+        {
+            probeFamily: "table-dispels-report-wide",
+            dataType: "Dispels",
+            fixtureName: `dispels.report-wide.${args.reportCode}`,
+        },
+        {
+            probeFamily: "table-interrupts-report-wide",
+            dataType: "Interrupts",
+            fixtureName: `interrupts.report-wide.${args.reportCode}`,
+        },
+        {
+            probeFamily: "table-survivability-report-wide",
+            dataType: "Survivability",
+            fixtureName: `survivability.report-wide.${args.reportCode}`,
+        },
+    ];
+
+    for (const tableFamily of reportWideTableFamilies) {
+        await queryFamilies(
+            tableFamily.probeFamily,
+            tableFamily.fixtureName,
+            async () => {
+                const result = await client.request<unknown>(
+                    TABLE_REPORT_WIDE_QUERY,
+                    {
+                        reportCode: args.reportCode,
+                        dataType: tableFamily.dataType,
+                    },
+                );
+                return (
+                    asObject(asObject(asObject(result)?.reportData)?.report)
+                        ?.table ?? null
+                );
+            },
+            summarizeShape,
+        );
+    }
 
     const tableFamilies: Array<{
         probeFamily: ProbeFamily;
