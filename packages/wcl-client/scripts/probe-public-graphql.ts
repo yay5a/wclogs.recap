@@ -44,6 +44,7 @@ interface ProbeArgs {
     reportCode: string;
     fightId: number;
     encounterId?: number;
+    filterExpression: string;
     verbose: boolean;
 }
 
@@ -59,38 +60,26 @@ interface ManifestEntry {
 }
 
 const BASE_REPORT_QUERY = `
-query ProbeBaseReport($reportCode: String!) {
+query ProbeReportIndex(
+  $reportCode: String!
+  $difficulty: Int
+  $killType: KillType
+) {
   reportData {
     report(code: $reportCode, allowUnlisted: true) {
       title
       startTime
       endTime
-      zone {
-        name
-        frozen
-        difficulties {
-          id
-          name
-        }
-      }
-      guild {
-        name
-        server {
-          name
-          region {
-            compactName
-          }
-        }
-      }
+      zone { name frozen difficulties { id name } }
       phases {
         encounterID
-        phases {
-          id
-          name
-          isIntermission
-        }
+        phases { id name isIntermission }
       }
-      fights(killType: All) {
+      fights(
+        difficulty: $difficulty
+        killType: $killType
+        translate: false
+      ) {
         id
         encounterID
         difficulty
@@ -100,23 +89,7 @@ query ProbeBaseReport($reportCode: String!) {
         kill
         inProgress
         originalEncounterID
-        phaseTransitions {
-          id
-          startTime
-        }
-      }
-      masterData {
-        actors(type: "Player") {
-          id
-          name
-          subType
-          server
-        }
-        abilities {
-          gameID
-          name
-          type
-        }
+        phaseTransitions { id startTime }
       }
     }
   }
@@ -124,26 +97,24 @@ query ProbeBaseReport($reportCode: String!) {
 `;
 
 const REPORT_RANKINGS_QUERY = `
-query ProbeReportRankings($reportCode: String!) {
-  reportData {
-    report(code: $reportCode, allowUnlisted: true) {
-      rankings(playerMetric: default)
-    }
-  }
-}
-`;
-
-const REPORT_RANKINGS_BY_METRIC_QUERY = `
-query ProbeReportRankingsByMetric(
+query ProbeScopedRankings(
   $reportCode: String!
-  $playerMetric: ReportRankingMetricType!
-  $timeframe: RankingTimeframeType!
+  $fightIDs: [Int!]
+  $difficulty: Int
+  $encounterID: Int
+  $playerMetric: ReportRankingMetricType
+  $timeframe: RankingTimeframeType
+  $compare: RankingCompareType
 ) {
   reportData {
     report(code: $reportCode, allowUnlisted: true) {
       rankings(
+        fightIDs: $fightIDs
+        difficulty: $difficulty
+        encounterID: $encounterID
         playerMetric: $playerMetric
         timeframe: $timeframe
+        compare: $compare
       )
     }
   }
@@ -160,53 +131,49 @@ query ProbeBossRankings($reportCode: String!, $fightIDs: [Int]) {
 }
 `;
 
-const TABLE_REPORT_WIDE_QUERY = `
-query ProbeReportWideTableByType(
+const TABLE_QUERY = `
+query ProbeScopedTable(
   $reportCode: String!
+  $fightIDs: [Int!]
+  $difficulty: Int
+  $encounterID: Int
+  $killType: KillType
   $dataType: TableDataType!
-  $startTime: Float!
-  $endTime: Float!
 ) {
   reportData {
     report(code: $reportCode, allowUnlisted: true) {
       table(
+        fightIDs: $fightIDs
+        difficulty: $difficulty
+        encounterID: $encounterID
+        killType: $killType
         dataType: $dataType
-        startTime: $startTime
-        endTime: $endTime
+        translate: false
       )
     }
   }
 }
 `;
 
-const TABLE_QUERY = `
-query ProbeTableByType($reportCode: String!, $fightIDs: [Int], $dataType: TableDataType!) {
-  reportData {
-    report(code: $reportCode, allowUnlisted: true) {
-      table(dataType: $dataType, fightIDs: $fightIDs)
-    }
-  }
-}
-`;
-
-const RESURRECT_EVENTS_QUERY = `
-query ProbeResurrectEvents(
+const PLAYER_DETAILS_QUERY = `
+query ProbePlayerDetails(
   $reportCode: String!
-  $fightIDs: [Int]
-  $startTime: Float
-  $filterExpression: String
+  $fightIDs: [Int!]
+  $difficulty: Int
+  $encounterID: Int
+  $killType: KillType
+  $includeCombatantInfo: Boolean!
 ) {
   reportData {
     report(code: $reportCode, allowUnlisted: true) {
-      events(
-        dataType: All
+      playerDetails(
         fightIDs: $fightIDs
-        startTime: $startTime
-        filterExpression: $filterExpression
-      ) {
-        data
-        nextPageTimestamp
-      }
+        difficulty: $difficulty
+        encounterID: $encounterID
+        killType: $killType
+        includeCombatantInfo: $includeCombatantInfo
+        translate: false
+      )
     }
   }
 }
