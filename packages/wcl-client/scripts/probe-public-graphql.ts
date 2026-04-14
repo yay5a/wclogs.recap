@@ -387,8 +387,12 @@ const getArgs = (): ProbeArgs => {
 
     let index = 1;
     let fightId: number | undefined;
-    if (index < args.length && !args[index].startsWith("--")) {
-        const value = Number(args[index]);
+    const positionalFightId = args[index];
+    if (
+        typeof positionalFightId === "string" &&
+        !positionalFightId.startsWith("--")
+    ) {
+        const value = Number(positionalFightId);
         if (!Number.isInteger(value) || value <= 0) {
             throw new Error("fightId must be a positive integer when provided");
         }
@@ -638,8 +642,12 @@ const buildDiscoveryScopes = (args: {
         if (combinedFightIDs.length > 0) {
             scopes.push({
                 scopeKey: buildScopeKey(scopeArgs.scopeType, "combined", {
-                    encounterID: scopeArgs.encounterID,
-                    fightId: scopeArgs.anchorFightId,
+                    ...(typeof scopeArgs.encounterID === "number"
+                        ? { encounterID: scopeArgs.encounterID }
+                        : {}),
+                    ...(typeof scopeArgs.anchorFightId === "number"
+                        ? { fightId: scopeArgs.anchorFightId }
+                        : {}),
                 }),
                 scopeType: scopeArgs.scopeType,
                 partition: "combined",
@@ -660,8 +668,12 @@ const buildDiscoveryScopes = (args: {
         if (killFightIDs.length > 0) {
             scopes.push({
                 scopeKey: buildScopeKey(scopeArgs.scopeType, "kills", {
-                    encounterID: scopeArgs.encounterID,
-                    fightId: scopeArgs.anchorFightId,
+                    ...(typeof scopeArgs.encounterID === "number"
+                        ? { encounterID: scopeArgs.encounterID }
+                        : {}),
+                    ...(typeof scopeArgs.anchorFightId === "number"
+                        ? { fightId: scopeArgs.anchorFightId }
+                        : {}),
                 }),
                 scopeType: scopeArgs.scopeType,
                 partition: "kills",
@@ -682,8 +694,12 @@ const buildDiscoveryScopes = (args: {
         if (wipeFightIDs.length > 0) {
             scopes.push({
                 scopeKey: buildScopeKey(scopeArgs.scopeType, "wipes", {
-                    encounterID: scopeArgs.encounterID,
-                    fightId: scopeArgs.anchorFightId,
+                    ...(typeof scopeArgs.encounterID === "number"
+                        ? { encounterID: scopeArgs.encounterID }
+                        : {}),
+                    ...(typeof scopeArgs.anchorFightId === "number"
+                        ? { fightId: scopeArgs.anchorFightId }
+                        : {}),
                 }),
                 scopeType: scopeArgs.scopeType,
                 partition: "wipes",
@@ -869,8 +885,10 @@ const run = async (): Promise<void> => {
         args.filterExpression,
     );
     const baseFilterExpression = buildBaseFilterExpression({
-        filterExpression: requestedFilterExpression,
-        phase: args.phase,
+        ...(typeof requestedFilterExpression === "string"
+            ? { filterExpression: requestedFilterExpression }
+            : {}),
+        ...(typeof args.phase === "number" ? { phase: args.phase } : {}),
     });
 
     let reportNode: Record<string, unknown> | undefined;
@@ -935,8 +953,10 @@ const run = async (): Promise<void> => {
         selectedFight = resolveSelectedFight(fights, args.fightId);
         scopes = buildDiscoveryScopes({
             fights,
-            selectedFight,
-            encounterId: args.encounterId,
+            ...(selectedFight ? { selectedFight } : {}),
+            ...(typeof args.encounterId === "number"
+                ? { encounterId: args.encounterId }
+                : {}),
         });
         discoveryEncounterIds = uniqueSortedNumbers(
             scopes.flatMap((scope) =>
@@ -1070,7 +1090,9 @@ const run = async (): Promise<void> => {
             logProbe({
                 probeFamily: config.probeFamily,
                 reportCode: args.reportCode,
-                scopeKey: config.metadata.scopeKey,
+                ...(typeof config.metadata.scopeKey === "string"
+                    ? { scopeKey: config.metadata.scopeKey }
+                    : {}),
                 ...(effectiveFilterExpression
                     ? { filterExpression: effectiveFilterExpression }
                     : {}),
@@ -1096,7 +1118,9 @@ const run = async (): Promise<void> => {
             logProbe({
                 probeFamily: config.probeFamily,
                 reportCode: args.reportCode,
-                scopeKey: config.metadata.scopeKey,
+                ...(typeof config.metadata.scopeKey === "string"
+                    ? { scopeKey: config.metadata.scopeKey }
+                    : {}),
                 ...(effectiveFilterExpression
                     ? { filterExpression: effectiveFilterExpression }
                     : {}),
@@ -1237,8 +1261,12 @@ const run = async (): Promise<void> => {
             const effectiveFilterExpression = buildTableFilterExpression({
                 scope,
                 dataType,
-                filterExpression: requestedFilterExpression,
-                phase: args.phase,
+                ...(typeof requestedFilterExpression === "string"
+                    ? { filterExpression: requestedFilterExpression }
+                    : {}),
+                ...(typeof args.phase === "number"
+                    ? { phase: args.phase }
+                    : {}),
             });
 
             await runScopedProbe({
