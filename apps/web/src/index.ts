@@ -6,11 +6,8 @@ import { Buffer } from "node:buffer";
 import { verifyKey } from "discord-interactions";
 import {
     connectMongo,
-    MongoAccountabilityViewService,
-    MongoCoachingViewService,
     MongoGuildConfigStore,
     MongoRecapPreviewStateStore,
-    MongoTrendTrackingService,
     MongoWclUserAuthStore,
     ReportCacheModel,
 } from "@wcl/db";
@@ -70,9 +67,6 @@ const wclClient = new WclClient({
 
 const guildConfigStore = new MongoGuildConfigStore();
 const recapPreviewStateService = new MongoRecapPreviewStateStore();
-const coachingViewService = new MongoCoachingViewService();
-const accountabilityViewService = new MongoAccountabilityViewService();
-const trendTrackingService = new MongoTrendTrackingService();
 const wclUserAuthStore = new MongoWclUserAuthStore();
 
 await app.register(fastifyCookie, {
@@ -1219,9 +1213,6 @@ app.post(
                 guildConfigStore,
                 recapPreviewStateService,
                 previewStateTtlSeconds: env.PREVIEW_STATE_TTL_SECONDS,
-                coachingViewService,
-                accountabilityViewService,
-                trendTrackingService,
             });
             return reply.send(response);
         } catch (error) {

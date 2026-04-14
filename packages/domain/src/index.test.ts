@@ -101,8 +101,15 @@ describe("buildRecapSummary report-wide output", () => {
                 totals: { deaths: 12, dispels: 8, interrupts: 6 },
             },
             bossPerformances: [
-                { bossName: "One-Armed Bandit", fightId: 11, kill: true, pullCount: 8 },
-                { bossName: "Gallywix", fightId: 12, kill: false, pullCount: 5 },
+                {
+                    bossName: "One-Armed Bandit",
+                    fightId: 11,
+                    kill: true,
+                    pullCount: 8,
+                    topDamage: { playerName: "Alyra", value: 250000 },
+                    topInterrupts: { playerName: "Bulwark", value: 5 },
+                },
+                { bossName: "Gallywix", fightId: 12, kill: false, pullCount: 5, mostDeaths: { playerName: "Alyra", value: 3 } },
             ],
         });
 
@@ -133,6 +140,8 @@ describe("buildRecapSummary report-wide output", () => {
             { playerName: "Healz", value: 95.1, metric: "HPS" },
         ]);
         expect(summary.bossHighlights.length).toBe(2);
+        expect(summary.bossHighlights[0]?.text).not.toContain("Kill secured.");
+        expect(summary.raidSuperlatives.length).toBeGreaterThan(0);
     });
 
     it("omits unsupported report-wide fields instead of fabricating", () => {
@@ -312,5 +321,88 @@ describe("buildRecapSummary report-wide output", () => {
         expect(threeHoursFive.killTimeLabel).toBe("03 Hours 05 Min");
         expect(oneHourOne.killTimeLabel).toBe("01 Hour 01 Min");
         expect(fortyFiveMinutes.killTimeLabel).toBe("45 Min");
+    });
+
+    it("sets bestExecution from report players and omits when missing", () => {
+        const withExecution = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [
+                { id: "1", name: "Alyra", executionScore: 81.2 },
+                { id: "2", name: "Pearl", executionScore: 90.1 },
+            ],
+        });
+        const withoutExecution = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [{ id: "1", name: "Alyra" }],
+        });
+
+        expect(withExecution.bestExecution).toEqual({ playerName: "Pearl", value: 90.1 });
+        expect(withoutExecution.bestExecution).toBeUndefined();
+    });
+
+    it("computes mostImprovedPlayer with weighted scoring and actor/name fallback", () => {
+        const summary = buildRecapSummary(
+            {
+                reportCode: "abc",
+                title: "Raid Night",
+                startTime: Date.UTC(2025, 0, 2),
+                endTime: Date.UTC(2025, 0, 2, 1),
+                gameFamily: "retail",
+                fights: [],
+                players: [
+                    { id: "1", actorId: 1001, name: "Alyra", avgParse: 80, executionScore: 90 },
+                    { id: "2", name: "Pearl", avgParse: 75 },
+                ],
+            },
+            [
+                { id: "p1", actorId: 1001, name: "Alyra", avgParse: 70, executionScore: 80 },
+                { id: "p2", name: " pearl ", avgParse: 70 },
+            ],
+        );
+
+        expect(summary.mostImprovedPlayer).toEqual({
+            playerName: "Alyra",
+            delta: 10,
+        });
+    });
+
+    it("omits mostImprovedPlayer when no comparable history or below threshold", () => {
+        const noComparable = buildRecapSummary(
+            {
+                reportCode: "abc",
+                title: "Raid Night",
+                startTime: Date.UTC(2025, 0, 2),
+                endTime: Date.UTC(2025, 0, 2, 1),
+                gameFamily: "retail",
+                fights: [],
+                players: [{ id: "1", name: "Alyra", avgParse: 80 }],
+            },
+            [{ id: "p1", name: "Unknown", avgParse: 70 }],
+        );
+        const belowNoise = buildRecapSummary(
+            {
+                reportCode: "abc",
+                title: "Raid Night",
+                startTime: Date.UTC(2025, 0, 2),
+                endTime: Date.UTC(2025, 0, 2, 1),
+                gameFamily: "retail",
+                fights: [],
+                players: [{ id: "1", name: "Alyra", avgParse: 70.5 }],
+            },
+            [{ id: "p1", name: "Alyra", avgParse: 69 }],
+        );
+
+        expect(noComparable.mostImprovedPlayer).toBeUndefined();
+        expect(belowNoise.mostImprovedPlayer).toBeUndefined();
     });
 });

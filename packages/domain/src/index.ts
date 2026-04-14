@@ -290,6 +290,11 @@ const formatRaidDurationHoursMinutes = (durationMs: number): string => {
     const minuteLabel = minutes === 1 ? "Min" : "Min";
     return `${String(hours).padStart(2, "0")} ${hourLabel} ${String(minutes).padStart(2, "0")} ${minuteLabel}`;
 };
+const formatCompactNumber = (value: number): string =>
+    new Intl.NumberFormat("en-US", {
+        notation: "compact",
+        maximumFractionDigits: 1,
+    }).format(value);
 
 const toDisplayClassName = (className?: string): string | undefined => {
     if (!className) return undefined;
@@ -303,6 +308,7 @@ const toClassSpecLabel = (className?: string, specName?: string): string | undef
 };
 
 const toNormalizedPlayerKey = (playerName: string): string => playerName.trim().toLowerCase();
+const IMPROVEMENT_NOISE_THRESHOLD = 2.0;
 
 const identityRichnessScore = (
     row: { className?: string; specName?: string; classSpecLabel?: string },
@@ -356,7 +362,6 @@ export const buildRecapSummary = (
     previousPlayers?: NormalizedPlayer[],
     options?: BuildRecapSummaryOptions,
 ): RecapSummary => {
-    void previousPlayers;
     const killed = report.fights.filter((f) => f.kill).length;
 
     const guildConfig = options?.guildConfig;
@@ -495,14 +500,162 @@ export const buildRecapSummary = (
             metric: "HPS" as const,
         }));
 
+    const bestExecutionPlayer = [...report.players]
+        .filter((player) => typeof player.executionScore === "number")
+        .sort(
+            (left, right) =>
+                (right.executionScore ?? Number.NEGATIVE_INFINITY) -
+                (left.executionScore ?? Number.NEGATIVE_INFINITY),
+        )[0];
+
+    const previousByActorId = new Map<number, NormalizedPlayer>();
+    const previousByName = new Map<string, NormalizedPlayer>();
+    for (const player of previousPlayers ?? []) {
+        if (typeof player.actorId === "number") {
+            previousByActorId.set(player.actorId, player);
+        }
+        previousByName.set(toNormalizedPlayerKey(player.name), player);
+    }
+    const improvedPlayer = [...report.players]
+        .flatMap((player) => {
+            const previous =
+                (typeof player.actorId === "number"
+                    ? previousByActorId.get(player.actorId)
+                    : undefined) ??
+                previousByName.get(toNormalizedPlayerKey(player.name));
+            if (!previous) return [];
+
+            const parseDelta =
+                typeof player.avgParse === "number" &&
+                typeof previous.avgParse === "number"
+                    ? player.avgParse - previous.avgParse
+                    : undefined;
+            const executionDelta =
+                typeof player.executionScore === "number" &&
+                typeof previous.executionScore === "number"
+                    ? player.executionScore - previous.executionScore
+                    : undefined;
+            const hasParse = typeof parseDelta === "number";
+            const hasExecution = typeof executionDelta === "number";
+            if (!hasParse && !hasExecution) return [];
+            const improvementScore =
+                hasParse && hasExecution
+                    ? parseDelta * 0.4 + executionDelta * 0.6
+                    : hasExecution
+                      ? executionDelta
+                      : (parseDelta ?? 0);
+            return [{
+                playerName: player.name,
+                score: improvementScore,
+            }];
+        })
+        .sort((left, right) => right.score - left.score)[0];
+
     const bossHighlights = bossPerformances
         .filter((boss) => typeof boss.fightId === "number")
         .slice(0, 4)
-        .map((boss) => ({
-            bossName: boss.bossName,
-            fightId: boss.fightId,
-            text: boss.kill === true ? "Kill secured." : "Progress pull.",
-        }));
+        .map((boss) => {
+            const lines: string[] = [];
+            lines.push(boss.kill ? "✅ Kill" : "⚠️ Progress");
+            if (boss.topParse?.playerName && typeof boss.topParse.value === "number") {
+                lines.push(
+                    `Top parse: ${boss.topParse.playerName} ${boss.topParse.value.toFixed(1)} ${resolveMetricLabelFromEntry(boss.topParse)}`,
+                );
+            }
+            if (boss.topDamage?.playerName && typeof boss.topDamage.value === "number") {
+                lines.push(
+                    `Top damage: ${boss.topDamage.playerName} ${formatCompactNumber(boss.topDamage.value)}`,
+                );
+            }
+            if (boss.topHealing?.playerName && typeof boss.topHealing.value === "number") {
+                lines.push(
+                    `Top healing: ${boss.topHealing.playerName} ${formatCompactNumber(boss.topHealing.value)}`,
+                );
+            }
+            if (
+                lines.length < 4 &&
+                boss.mostDeaths?.playerName &&
+                typeof boss.mostDeaths.value === "number"
+            ) {
+                lines.push(`Most deaths: ${boss.mostDeaths.playerName} (${boss.mostDeaths.value})`);
+            }
+            if (
+                lines.length < 4 &&
+                boss.topInterrupts?.playerName &&
+                typeof boss.topInterrupts.value === "number"
+            ) {
+                lines.push(
+                    `Top interrupts: ${boss.topInterrupts.playerName} (${boss.topInterrupts.value})`,
+                );
+            }
+            if (
+                lines.length < 4 &&
+                boss.topSurvivability?.playerName &&
+                typeof boss.topSurvivability.value === "number"
+            ) {
+                lines.push(
+                    `Best survivability: ${boss.topSurvivability.playerName} (${boss.topSurvivability.value.toFixed(1)})`,
+                );
+            }
+            if (lines.length < 4 && boss.fastestPhaseTimes && boss.fastestPhaseTimes.length > 0) {
+                const fastest = [...boss.fastestPhaseTimes].sort(
+                    (left, right) => left.durationMs - right.durationMs,
+                )[0];
+                if (fastest) {
+                    lines.push(
+                        `Fastest ${fastest.label}: ${(fastest.durationMs / 1000).toFixed(1)}s`,
+                    );
+                }
+            }
+            if (lines.length < 4 && boss.topDamageTaken && boss.topDamageTaken.length > 0) {
+                const topTaken = [...boss.topDamageTaken].sort((left, right) => right.value - left.value)[0];
+                if (topTaken) {
+                    lines.push(
+                        `Damage taken: ${topTaken.playerName} ${formatCompactNumber(topTaken.value)}`,
+                    );
+                }
+            }
+            if (lines.length < 4 && boss.topHealers && boss.topHealers.length > 0) {
+                const topBossHealer = [...boss.topHealers].sort((left, right) => right.value - left.value)[0];
+                if (topBossHealer) {
+                    lines.push(
+                        `Boss healing: ${topBossHealer.playerName} ${formatCompactNumber(topBossHealer.value)}`,
+                    );
+                }
+            }
+            return {
+                bossName: boss.bossName,
+                fightId: boss.fightId,
+                text: lines.slice(0, 4).join(" · "),
+            };
+        });
+
+    const raidSuperlatives: RecapSummary["raidSuperlatives"] = [
+        ...(bestExecutionPlayer
+            ? [{
+                  label: "Execution leader",
+                  text: `${bestExecutionPlayer.name} (${bestExecutionPlayer.executionScore?.toFixed(1)})`,
+              }]
+            : []),
+        ...(improvedPlayer && improvedPlayer.score >= IMPROVEMENT_NOISE_THRESHOLD
+            ? [{
+                  label: "Most improved",
+                  text: `${improvedPlayer.playerName} (+${improvedPlayer.score.toFixed(1)})`,
+              }]
+            : []),
+        ...(bestAverageParseEntry?.playerName
+            ? [{
+                  label: "Best overall parse average",
+                  text: `${bestAverageParseEntry.playerName} (${bestAverageParseEntry.value.toFixed(1)} ${resolveMetricLabelFromEntry(bestAverageParseEntry)})`,
+              }]
+            : []),
+        ...(typeof report.reportWideRecap?.totals.deaths === "number"
+            ? [{
+                  label: "Cleanest pull pressure",
+                  text: `${report.reportWideRecap.totals.deaths} total raid deaths`,
+              }]
+            : []),
+    ].slice(0, 4);
 
     const summary: RecapSummary = {
         reportTitle: titleLine,
@@ -569,11 +722,27 @@ export const buildRecapSummary = (
                   },
               }
             : {}),
+        ...(bestExecutionPlayer
+            ? {
+                  bestExecution: {
+                      playerName: bestExecutionPlayer.name,
+                      value: bestExecutionPlayer.executionScore ?? 0,
+                  },
+              }
+            : {}),
+        ...(improvedPlayer && improvedPlayer.score >= IMPROVEMENT_NOISE_THRESHOLD
+            ? {
+                  mostImprovedPlayer: {
+                      playerName: improvedPlayer.playerName,
+                      delta: improvedPlayer.score,
+                  },
+              }
+            : {}),
         topOverallParsers,
         topOverallDamageParsers,
         topOverallHealingParsers,
         bossHighlights,
-        raidSuperlatives: [],
+        raidSuperlatives,
         teamNote: deriveDeterministicTeamNote(killed),
     };
 

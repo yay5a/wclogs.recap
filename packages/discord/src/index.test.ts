@@ -11,6 +11,7 @@ import {
     buildPublicRecapEmbed,
     buildDiscordCommandPayload,
     buildDiscordCommandPayloads,
+    commandDefinitions,
     DiscordCommandRegistrationError,
     handleInteraction,
     registerGlobalCommands,
@@ -104,6 +105,23 @@ afterEach(() => {
 });
 
 describe("command payload builder", () => {
+    it("keeps command surface focused on health/config/report only", () => {
+        expect(commandDefinitions.map((command) => command.name)).toEqual([
+            "health",
+            "config",
+            "report",
+        ]);
+        const configCommand = commandDefinitions.find(
+            (command) => command.name === "config",
+        );
+        if (!configCommand || !("options" in configCommand)) {
+            throw new Error("Expected config command options");
+        }
+        const optionNames =
+            configCommand.options?.map((option) => option.name) ?? [];
+        expect(optionNames).toEqual(["game_family", "compare_mode"]);
+    });
+
     it("builds valid chat-input command payload", () => {
         const payload = buildDiscordCommandPayload({
             type: 1,
@@ -441,16 +459,6 @@ describe("handleInteraction", () => {
     it("creates report recap preview and post flow", async () => {
         const report = makeReport();
         const previous: NormalizedPlayer[] = [];
-        const coachingViewService = {
-            buildShareableCoachingView: vi.fn().mockResolvedValue({}),
-        };
-        const accountabilityViewService = {
-            buildAccountabilityView: vi.fn().mockResolvedValue({}),
-        };
-        const trendTrackingService = {
-            ingestRaidHistory: vi.fn(),
-            recomputeTrendsForGuild: vi.fn().mockResolvedValue(undefined),
-        };
         const wclClient = {
             fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
             findPreviousRaidSummaries: vi.fn().mockResolvedValue(previous),
@@ -535,9 +543,6 @@ describe("handleInteraction", () => {
                 wclClient,
                 guildConfigStore,
                 recapPreviewStateService,
-                coachingViewService,
-                accountabilityViewService,
-                trendTrackingService,
             },
         );
 
@@ -579,25 +584,12 @@ describe("handleInteraction", () => {
                 wclClient,
                 guildConfigStore,
                 recapPreviewStateService,
-                coachingViewService,
-                accountabilityViewService,
-                trendTrackingService,
             },
         );
 
         expect(
             (posted as { data?: { embeds?: unknown[] } }).data?.embeds?.length,
         ).toBe(1);
-        expect(
-            (posted as { data?: { components?: unknown[] } }).data?.components
-                ?.length,
-        ).toBe(1);
-        expect(
-            coachingViewService.buildShareableCoachingView,
-        ).toHaveBeenCalledWith("ABC123");
-        expect(
-            accountabilityViewService.buildAccountabilityView,
-        ).toHaveBeenCalledWith("ABC123", "officers-only");
         expect(
             recapPreviewStateService.consumeValidPreviewState,
         ).toHaveBeenCalledWith({ reportCode: "ABC123", guildId: "guild-1" });
@@ -670,16 +662,6 @@ describe("handleInteraction", () => {
             fetchAndNormalizeReport: vi.fn(),
             findPreviousRaidSummaries: vi.fn(),
         } as never;
-        const coachingViewService = {
-            buildShareableCoachingView: vi.fn().mockResolvedValue(undefined),
-        };
-        const accountabilityViewService = {
-            buildAccountabilityView: vi.fn().mockResolvedValue(undefined),
-        };
-        const trendTrackingService = {
-            recomputeTrendsForGuild: vi.fn().mockResolvedValue(undefined),
-            ingestRaidHistory: vi.fn().mockResolvedValue(undefined),
-        };
 
         const firstResponse = await handleInteraction(
             {
@@ -692,9 +674,6 @@ describe("handleInteraction", () => {
                 wclClient,
                 guildConfigStore,
                 recapPreviewStateService,
-                coachingViewService,
-                accountabilityViewService,
-                trendTrackingService,
             },
         );
 
@@ -709,9 +688,6 @@ describe("handleInteraction", () => {
                 wclClient,
                 guildConfigStore,
                 recapPreviewStateService,
-                coachingViewService,
-                accountabilityViewService,
-                trendTrackingService,
             },
         );
 
@@ -738,27 +714,9 @@ describe("handleInteraction", () => {
             reportCode: "ABC123",
             guildId: "guild-1",
         });
-        expect(
-            coachingViewService.buildShareableCoachingView,
-        ).toHaveBeenCalledTimes(1);
-        expect(
-            coachingViewService.buildShareableCoachingView,
-        ).toHaveBeenCalledWith("ABC123");
-        expect(
-            accountabilityViewService.buildAccountabilityView,
-        ).toHaveBeenCalledTimes(1);
-        expect(
-            accountabilityViewService.buildAccountabilityView,
-        ).toHaveBeenCalledWith("ABC123", "officers-only");
-        expect(
-            trendTrackingService.recomputeTrendsForGuild,
-        ).toHaveBeenCalledTimes(1);
-        expect(
-            trendTrackingService.recomputeTrendsForGuild,
-        ).toHaveBeenCalledWith("guild-1");
     });
 
-    it("rejects officers-only details component when recap is unrestricted", async () => {
+    it("does not support retired officer recap action", async () => {
         const wclClient = {
             fetchAndNormalizeReport: vi.fn(),
             findPreviousRaidSummaries: vi.fn(),
@@ -771,19 +729,7 @@ describe("handleInteraction", () => {
 
         const recapPreviewStateService = {
             savePreviewState: vi.fn(),
-            getValidPreviewState: vi.fn().mockResolvedValue({
-                guildId: "guild-1",
-                channelId: "channel-1",
-                reportCode: "ABC123",
-                sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
-                summaryPayload: {
-                    ...makePreviewSummary(),
-                    accountabilityVisibility: "off",
-                },
-                createdByUserId: "user-1",
-                createdAt: new Date(),
-                expiresAt: new Date(Date.now() + 60_000),
-            }),
+            getValidPreviewState: vi.fn().mockResolvedValue(null),
             consumeValidPreviewState: vi.fn(),
             deletePreviewState: vi.fn(),
         };
@@ -799,7 +745,7 @@ describe("handleInteraction", () => {
 
         expect(
             (restricted as { data?: { content?: string } }).data?.content,
-        ).toMatch(/not enabled/i);
+        ).toMatch(/unsupported recap action/i);
     });
 });
 
@@ -850,6 +796,9 @@ describe("embed rendering", () => {
             bossHighlights: [
                 { bossName: "One-Armed Bandit", fightId: 11, text: "Kill secured." },
             ],
+            bestExecution: { playerName: "Alyra", value: 94.2 },
+            mostImprovedPlayer: { playerName: "Pearl", delta: 5.2 },
+            raidSuperlatives: [{ label: "Execution leader", text: "Alyra (94.2)" }],
         });
 
         expect(embed.title).toBe("Boss - Mythic - Zone");
@@ -860,11 +809,13 @@ describe("embed rendering", () => {
         ).toEqual([
             "🛡️ Raid",
             "🏆 Boss Highlights",
+            "🌟 Standouts",
             "📈 Overall Rankings",
             "⭐ Best Player Parses",
             "📊 Top Overall Parsers",
             "⚔️ Top Overall Damage Parse",
             "💚 Top Overall Healing Parse",
+            "🏅 Raid Superlatives",
             "🧾 Totals",
             "🔗 Report",
         ]);
@@ -928,7 +879,7 @@ describe("embed rendering", () => {
         ).toContain("🛑 **Kicks:** 11");
         expect(
             embed.fields.find((field) => field.name === "🏆 Boss Highlights")?.value,
-        ).toContain("✅ One-Armed Bandit — Kill secured.");
+        ).toContain("• **One-Armed Bandit:** Kill secured.");
     });
 
     it("omits top overall healing parse when parse rows do not exist", () => {
@@ -968,7 +919,7 @@ describe("embed rendering", () => {
         });
 
         expect(embed.fields.find((field) => field.name === "🏆 Boss Highlights")?.value).toContain(
-            "⚠️ Horridon — Progress pull.",
+            "• **Horridon:** Wipe at 52%.",
         );
     });
 

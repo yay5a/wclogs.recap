@@ -5,11 +5,8 @@ import {
 } from "discord-interactions";
 import { createLogger } from "@wcl/shared";
 import type {
-    AccountabilityViewService,
-    CoachingViewService,
     GuildConfigStore,
     PreviousRaidLookup,
-    TrendTrackingService,
 } from "@wcl/domain";
 import { buildRecapSummary } from "@wcl/domain";
 import type { WclClient } from "@wcl/wcl-client";
@@ -19,9 +16,6 @@ interface HandleOptions {
     guildConfigStore: GuildConfigStore;
     recapPreviewStateService: RecapPreviewStateService;
     previewStateTtlSeconds?: number;
-    coachingViewService?: CoachingViewService;
-    accountabilityViewService?: AccountabilityViewService;
-    trendTrackingService?: TrendTrackingService;
 }
 
 type RecapSummary = ReturnType<typeof buildRecapSummary>;
@@ -121,20 +115,9 @@ const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 
 const RECAP_COMPONENT_PREFIX = "recap:v1";
 const POST_RECAP_ACTION = "post";
-const OFFICERS_RECAP_ACTION = "officers";
 const DEFAULT_PREVIEW_STATE_TTL_SECONDS = 900;
 
 type RecapMetric = "DPS" | "HPS" | "DTPS";
-
-const toTitleCase = (value: string): string =>
-    value
-        .split(/[_-]/g)
-        .map((part) =>
-            part.length > 0
-                ? part.charAt(0).toUpperCase() + part.slice(1)
-                : part,
-        )
-        .join(" ");
 
 const toMetricLabel = (
     metricLabel?: string,
@@ -231,47 +214,6 @@ const parseRecapComponentCustomId = (
     if (!action || !reportCode || !guildId) return undefined;
     return { action, reportCode, guildId };
 };
-
-type OfficerDetailCapableSummary = Pick<
-    RecapPreviewSummary,
-    "accountabilityVisibility" | "coachingShareability"
->;
-
-const requiresOfficerDetails = (
-    summary: OfficerDetailCapableSummary,
-): boolean =>
-    summary.accountabilityVisibility === "officers-only" ||
-    summary.coachingShareability === "private";
-
-const buildOfficerDetailsBody = (
-    summary: Pick<
-        RecapPreviewSummary,
-        "reportTitle" | "accountabilityVisibility" | "coachingShareability"
-    >,
-) => ({
-    flags: EPHEMERAL_MESSAGE_FLAG,
-    embeds: [
-        {
-            title: `Officers: ${summary.reportTitle}`,
-            fields: [
-                {
-                    name: "Accountability Visibility",
-                    value: toTitleCase(summary.accountabilityVisibility),
-                    inline: true,
-                },
-                {
-                    name: "Coaching Shareability",
-                    value: toTitleCase(summary.coachingShareability),
-                    inline: true,
-                },
-                {
-                    name: "Restricted Notes",
-                    value: "Use accountability/coaching exports for officer review only.",
-                },
-            ],
-        },
-    ],
-});
 
 interface DiscordInteractionData {
     name?: string;
@@ -850,37 +792,6 @@ export const commandDefinitions: CommandDefinition[] = [
                     { name: "mixed", value: "mixed" },
                 ],
             },
-            {
-                name: "visibility",
-                description: "Set accountability visibility",
-                type: 3,
-                required: false,
-                choices: [
-                    { name: "off", value: "off" },
-                    { name: "officers-only", value: "officers-only" },
-                    { name: "shareable", value: "shareable" },
-                ],
-            },
-            {
-                name: "coaching_shareability",
-                description: "Default coaching shareability",
-                type: 3,
-                required: false,
-                choices: [
-                    { name: "private", value: "private" },
-                    { name: "shareable", value: "shareable" },
-                ],
-            },
-            {
-                name: "recap_post_mode",
-                description: "Default recap post mode",
-                type: 3,
-                required: false,
-                choices: [
-                    { name: "preview-and-post", value: "preview-and-post" },
-                    { name: "preview-only", value: "preview-only" },
-                ],
-            },
         ],
     },
     {
@@ -903,9 +814,6 @@ export const commandDefinitions: CommandDefinition[] = [
             },
         ],
     },
-    // Intentionally kept as a MESSAGE command because interaction handling keys on
-    // the exact mixed-case name "Analyze Log" and this command is context-menu based.
-    { name: "Analyze Log", type: 3 },
 ];
 
 export class DiscordCommandRegistrationError extends Error {
@@ -1064,18 +972,6 @@ export const handleInteraction = async (
                     typedInteraction.data.options,
                     "compare_mode",
                 ),
-                accountabilityVisibility: getStringOption(
-                    typedInteraction.data.options,
-                    "visibility",
-                ),
-                coachingShareabilityDefault: getStringOption(
-                    typedInteraction.data.options,
-                    "coaching_shareability",
-                ),
-                recapPostModeDefault: getStringOption(
-                    typedInteraction.data.options,
-                    "recap_post_mode",
-                ),
             };
 
             const updateEntries = Object.entries(configUpdate).filter(
@@ -1093,20 +989,7 @@ export const handleInteraction = async (
                     content:
                         `Config saved for guild ${guildId}: ` +
                         `game_family=${saved.defaultGameFamily}, ` +
-                        `compare_mode=${saved.compareModeDefault}, ` +
-                        `visibility=${saved.accountabilityVisibility}, ` +
-                        `coaching_shareability=${saved.coachingShareabilityDefault}, ` +
-                        `recap_post_mode=${saved.recapPostModeDefault}`,
-                    flags: 64,
-                },
-            };
-        }
-
-        if (typedInteraction.data?.name === "Analyze Log") {
-            return {
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: "Use /report recap <url> to analyze this log.",
+                        `compare_mode=${saved.compareModeDefault}`,
                     flags: 64,
                 },
             };
@@ -1168,44 +1051,6 @@ export const handleInteraction = async (
 
             const { action, reportCode, guildId } = parsedCustomId;
 
-            if (action === OFFICERS_RECAP_ACTION) {
-                const previewState =
-                    await options.recapPreviewStateService.getValidPreviewState(
-                        {
-                            reportCode,
-                            guildId,
-                        },
-                    );
-
-                if (!previewState) {
-                    return {
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content:
-                                "This recap preview is no longer available. Please run /report recap again.",
-                            flags: 64,
-                        },
-                    };
-                }
-
-                const summary = previewState.summaryPayload;
-                if (!requiresOfficerDetails(summary)) {
-                    return {
-                        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                        data: {
-                            content:
-                                "Officer details are not enabled for this recap.",
-                            flags: EPHEMERAL_MESSAGE_FLAG,
-                        },
-                    };
-                }
-
-                return {
-                    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                    data: buildOfficerDetailsBody(summary),
-                };
-            }
-
             if (action !== POST_RECAP_ACTION) {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -1245,45 +1090,10 @@ export const handleInteraction = async (
 
             const summary = previewState.summaryPayload;
 
-            await options.coachingViewService?.buildShareableCoachingView(
-                previewState.reportCode,
-            );
-            await options.accountabilityViewService?.buildAccountabilityView(
-                previewState.reportCode,
-                summary.accountabilityVisibility,
-            );
-
-            if (options.trendTrackingService) {
-                await options.trendTrackingService.recomputeTrendsForGuild(
-                    previewState.guildId,
-                );
-            }
-
-            const components = requiresOfficerDetails(summary)
-                ? [
-                      {
-                          type: 1,
-                          components: [
-                              {
-                                  type: MessageComponentTypes.BUTTON,
-                                  style: 2,
-                                  custom_id: makeRecapComponentCustomId(
-                                      OFFICERS_RECAP_ACTION,
-                                      reportCode,
-                                      guildId,
-                                  ),
-                                  label: "Officers: Coaching & Accountability",
-                              },
-                          ],
-                      },
-                  ]
-                : undefined;
-
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
                     embeds: [buildPublicRecapEmbed(summary)],
-                    ...(components ? { components } : {}),
                 },
             };
         }
@@ -1322,17 +1132,44 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
             "🏆 Boss Highlights",
             summary.bossHighlights
                 .slice(0, 4)
-                .map((entry) =>
-                    /kill/i.test(entry.text)
-                        ? `✅ ${entry.bossName} — Kill secured.`
-                        : `⚠️ ${entry.bossName} — Progress pull.`,
-                )
+                .map((entry) => `• **${entry.bossName}:** ${entry.text}`)
                 .join("\n"),
         );
     }
 
+    const standoutLines = [
+        summary.bestExecution
+            ? `🎯 Best execution: **${summary.bestExecution.playerName} ${summary.bestExecution.value.toFixed(1)}**`
+            : undefined,
+        summary.mostImprovedPlayer
+            ? `📈 Most improved: **${summary.mostImprovedPlayer.playerName} +${summary.mostImprovedPlayer.delta.toFixed(1)}**`
+            : undefined,
+        summary.bestSingleBossParse
+            ? formatRankingLine(
+                  "🥇",
+                  "Best single-boss parse",
+                  summary.bestSingleBossParse.playerName,
+                  summary.bestSingleBossParse.value,
+                  summary.bestSingleBossParse.metric,
+                  summary.bestSingleBossParse.bossName,
+              )
+            : undefined,
+        summary.bestAverageParse
+            ? formatRankingLine(
+                  "📊",
+                  "Best average parse",
+                  summary.bestAverageParse.playerName,
+                  summary.bestAverageParse.value,
+                  summary.bestAverageParse.metric,
+              )
+            : undefined,
+    ].filter((line): line is string => Boolean(line));
+    if (standoutLines.length > 0) {
+        pushSection("🌟 Standouts", standoutLines.join("\n"));
+    }
+
     if (summary.bestSingleBossParse || summary.bestAverageParse) {
-        const parseLines = [
+        const rankingLines = [
             summary.bestSingleBossParse
                 ? formatRankingLine(
                       "🥇",
@@ -1353,7 +1190,7 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
                   )
                 : undefined,
         ].filter((line): line is string => Boolean(line));
-        pushSection("📈 Overall Rankings", parseLines.join("\n"));
+        pushSection("📈 Overall Rankings", rankingLines.join("\n"));
     }
 
     if (summary.bestPlayerParses.length > 0) {
@@ -1394,6 +1231,16 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
                 .map((entry) =>
                     formatCompactParseRow(entry.playerName, entry.value, entry.metric),
                 )
+                .join("\n"),
+        );
+    }
+
+    if (summary.raidSuperlatives.length > 0) {
+        pushSection(
+            "🏅 Raid Superlatives",
+            summary.raidSuperlatives
+                .slice(0, 4)
+                .map((entry) => `• **${entry.label}:** ${entry.text}`)
                 .join("\n"),
         );
     }
