@@ -1272,6 +1272,22 @@ export class WclClient {
     private async fetchEnrichedRawReport(
         code: string,
     ): Promise<EnrichedRawReport> {
+        const now = (): number => Date.now();
+        const logTiming = (
+            step: string,
+            startedAt: number,
+            counts?: Record<string, number>,
+        ): void => {
+            logger.info(
+                {
+                    reportCode: code,
+                    step,
+                    durationMs: now() - startedAt,
+                    ...(counts ? { counts } : {}),
+                },
+                "wcl-client timing",
+            );
+        };
         const skippedEnrichments: string[] = [];
         const noteSkippedEnrichment = (message: string): void => {
             skippedEnrichments.push(message);
@@ -1291,11 +1307,13 @@ export class WclClient {
             "sending graphql query",
         );
 
+        const baseFetchStartedAt = now();
         const base = await this.requestGraphQl(BASE_REPORT_QUERY, {
             code,
             allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
             includeRateLimitData: true,
         });
+        logTiming("fetch base", baseFetchStartedAt);
         const rateLimitData = getRateLimitData(base);
         const ratePressure = getRatePressure(rateLimitData);
         const baseReport = getReportNode(base);
@@ -1318,6 +1336,7 @@ export class WclClient {
         }
 
         let reportRankingsRaw: unknown;
+        const reportRankingsStartedAt = now();
         try {
             reportRankingsRaw = await this.requestGraphQl(
                 REPORT_RANKINGS_QUERY,
@@ -1329,12 +1348,17 @@ export class WclClient {
         } catch (error) {
             noteSkippedEnrichment(
                 `Failed report rankings enrichment; continuing without report rankings (${error instanceof Error ? error.message : "unknown error"}).`,
-            );
+                );
         }
+        logTiming("fetch report rankings", reportRankingsStartedAt, {
+            requested: 1,
+            succeeded: reportRankingsRaw ? 1 : 0,
+        });
         let playerDetailsRaw: unknown;
         let reportTablesRaw: unknown;
         const reportStartTime = asNumber(baseReport?.startTime);
         const reportEndTime = asNumber(baseReport?.endTime);
+        const playerDetailsStartedAt = now();
         if (
             typeof reportStartTime === "number" &&
             typeof reportEndTime === "number"
@@ -1359,6 +1383,15 @@ export class WclClient {
                 "Skipped playerDetails enrichment due to missing report start/end time bounds.",
             );
         }
+        logTiming("fetch player details", playerDetailsStartedAt, {
+            requested:
+                typeof reportStartTime === "number" &&
+                typeof reportEndTime === "number"
+                    ? 1
+                    : 0,
+            succeeded: playerDetailsRaw ? 1 : 0,
+        });
+        const reportWideTablesStartedAt = now();
         if (ratePressure.level !== "critical") {
             const reportWideTableRange =
                 resolveReportWideTableRangeFromFights(baseReport);
@@ -1388,6 +1421,10 @@ export class WclClient {
                 `Skipped report-wide tables enrichment due to critical rate pressure (${Math.round(ratePressure.usage * 100)}% used).`,
             );
         }
+        logTiming("fetch report-wide tables", reportWideTablesStartedAt, {
+            requested: ratePressure.level !== "critical" ? 1 : 0,
+            succeeded: reportTablesRaw ? 1 : 0,
+        });
         const rawFights = baseReport ? parseFightSummaries(baseReport) : [];
         const encounterSummaries: EncounterSummaryRow[] = [];
         const fightsByEncounterId = new Map<number, FightSummaryRow[]>();
@@ -1405,9 +1442,14 @@ export class WclClient {
             );
         }
 
+        const perEncounterFetchStartedAt = now();
+        let perEncounterRequested = 0;
+        let perEncounterRankingsSucceeded = 0;
+        let perEncounterTablesSucceeded = 0;
         for (const [encounterID, encounterFights] of fightsByEncounterId.entries()) {
             const summaryFight = pickEncounterSummaryFight(encounterFights);
             if (!summaryFight) continue;
+            perEncounterRequested += 1;
 
             const fightIDs = toFightIDs(summaryFight.id);
             let rankingsPayload: unknown;
@@ -1420,6 +1462,7 @@ export class WclClient {
                         allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
                         fightIDs,
                     });
+                    perEncounterRankingsSucceeded += 1;
                 } catch (error) {
                     noteSkippedEnrichment(
                         `Failed boss rankings enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without boss rankings (${error instanceof Error ? error.message : "unknown error"}).`,
@@ -1433,6 +1476,7 @@ export class WclClient {
                         fightIDs,
                     });
                     tableNode = getReportNode(tablesPayload);
+                    perEncounterTablesSucceeded += 1;
                 } catch (error) {
                     noteSkippedEnrichment(
                         `Failed encounter table enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without encounter tables (${error instanceof Error ? error.message : "unknown error"}).`,
@@ -1453,6 +1497,16 @@ export class WclClient {
             };
             encounterSummaries.push(summary);
         }
+        logTiming(
+            "per-encounter fetch rankings/tables",
+            perEncounterFetchStartedAt,
+            {
+                requested: perEncounterRequested,
+                summaries: encounterSummaries.length,
+                rankingsSucceeded: perEncounterRankingsSucceeded,
+                tablesSucceeded: perEncounterTablesSucceeded,
+            },
+        );
 
         return {
             base,
@@ -1540,6 +1594,22 @@ export const normalizeEnrichedReport = (
     raw: unknown,
     parsed: ParsedReportUrl,
 ): NormalizedReport => {
+    const now = (): number => Date.now();
+    const logTiming = (
+        step: string,
+        startedAt: number,
+        counts?: Record<string, number>,
+    ): void => {
+        logger.info(
+            {
+                reportCode: parsed.reportCode,
+                step,
+                durationMs: now() - startedAt,
+                ...(counts ? { counts } : {}),
+            },
+            "wcl-client timing",
+        );
+    };
     const enriched = asObject(raw);
     const base = enriched?.base ?? raw;
     const report = getReportNode(base);
@@ -1563,6 +1633,7 @@ export const normalizeEnrichedReport = (
         kill: fight.kill,
     }));
 
+    const rankingsParseStartedAt = now();
     const reportLeaderboards = parseReportRankingsPayload(
         enriched?.reportRankings ?? report.rankings,
         (message, context) => {
@@ -1600,7 +1671,13 @@ export const normalizeEnrichedReport = (
             },
         );
     });
+    logTiming("parse rankings", rankingsParseStartedAt, {
+        reportLeaderboards: reportLeaderboards.length,
+        bossLeaderboards: bossLeaderboards.length,
+        encounterSummaries: encounterSummaries.length,
+    });
 
+    const parsePlayersStartedAt = now();
     const playerDetails = parsePlayerDetailsPayload(enriched?.playerDetails);
     const detailByName = new Map(
         playerDetails.map((entry) => [normalizeName(entry.name), entry]),
@@ -1662,6 +1739,10 @@ export const normalizeEnrichedReport = (
 
         return [player];
     });
+    logTiming("parse players/playerDetails join", parsePlayersStartedAt, {
+        playerDetails: playerDetails.length,
+        players: players.length,
+    });
 
     const playerByName = new Map(
         players.map((player) => [player.nameKey, player]),
@@ -1672,6 +1753,7 @@ export const normalizeEnrichedReport = (
             playerByActorId.set(player.actorId, player);
         }
     }
+    const parseReportWideTablesStartedAt = now();
     const reportTableNode = asObject(enriched?.reportTables);
     const parsedReportTableResults: Partial<
         Record<TableDataType, { entries: ParsedTableEntry[]; isValidEmpty: boolean }>
@@ -1780,6 +1862,10 @@ export const normalizeEnrichedReport = (
                 : {}),
         },
     };
+    logTiming("parse report-wide tables", parseReportWideTablesStartedAt, {
+        tableTypes: REPORT_TABLE_DATA_TYPES.length,
+        playerRows: players.length,
+    });
 
     const phaseMetadataByEncounterId = parseEncounterPhases(report);
     const fightsByEncounterId = new Map<number, FightSummaryRow[]>();
@@ -1822,6 +1908,8 @@ export const normalizeEnrichedReport = (
         ...summariesByEncounterId.keys(),
     ]);
 
+    const perEncounterNormalizationStartedAt = now();
+    let parsedEncounterTableCount = 0;
     for (const encounterID of encounterIds) {
         const encounterFights = fightsByEncounterId.get(encounterID) ?? [];
         const encounterSummariesForEncounter =
@@ -1873,6 +1961,7 @@ export const normalizeEnrichedReport = (
                 ),
             ]),
         );
+        parsedEncounterTableCount += REPORT_TABLE_DATA_TYPES.length;
         const parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>> =
             Object.fromEntries(
                 REPORT_TABLE_DATA_TYPES.map((dataType) => [
@@ -2097,7 +2186,17 @@ export const normalizeEnrichedReport = (
             bossPerformances.push(recap);
         }
     }
+    logTiming(
+        "per-encounter boss recap normalization",
+        perEncounterNormalizationStartedAt,
+        {
+            encounters: encounterIds.size,
+            bossPerformances: bossPerformances.length,
+            parsedTables: parsedEncounterTableCount,
+        },
+    );
 
+    const summaryAssemblyStartedAt = now();
     const normalized = {
         reportCode: parsed.reportCode,
         title: asString(report.title) ?? "Untitled Report",
@@ -2115,6 +2214,11 @@ export const normalizeEnrichedReport = (
         (normalized as NormalizedReport & { zoneName?: string }).zoneName =
             zoneName;
     }
+    logTiming("summary object assembly", summaryAssemblyStartedAt, {
+        fights: fights.length,
+        players: players.length,
+        bossPerformances: bossPerformances.length,
+    });
 
     return normalized;
 };
