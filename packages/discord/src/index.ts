@@ -155,16 +155,6 @@ const getMetricIcon = (metricLabel?: string, metric?: string): string | undefine
     return undefined;
 };
 
-const getParseTierBadge = (value: number): string => {
-    if (value >= 100) return "⭐";
-    if (value >= 99) return "🩷";
-    if (value >= 95) return "🟧";
-    if (value >= 75) return "🟪";
-    if (value >= 50) return "🟦";
-    if (value >= 25) return "🟩";
-    return "⬛";
-};
-
 const formatCompactNumber = (value: number): string =>
     new Intl.NumberFormat("en-US", {
         notation: "compact",
@@ -179,19 +169,18 @@ const formatParseHighlightRow = (
         : entry.parse.toFixed(1);
     const metricLabel = toMetricLabel(entry.metricLabel, entry.metric);
     const metricIcon = getMetricIcon(entry.metricLabel, entry.metric);
-    const tierBadge = getParseTierBadge(entry.parse);
     const amountSection =
         typeof entry.amount === "number"
-            ? ` | **${formatCompactNumber(entry.amount)}${metricLabel ? ` ${metricLabel}` : ""}**`
+            ? ` · **${formatCompactNumber(entry.amount)}${metricLabel ? ` ${metricLabel}` : ""}**`
             : "";
     const classSpec =
         entry.classSpecLabel ??
         [entry.specName, entry.className]
             .filter((value): value is string => Boolean(value))
             .join(" ");
-    const classSpecSection = classSpec ? ` - ${classSpec}` : "";
+    const classSpecSection = classSpec ? ` · ${classSpec}` : "";
     const metricPrefix = metricIcon ? `${metricIcon} ` : "";
-    return `${tierBadge} ${metricPrefix}**${entry.playerName}** **${parseValue}**${amountSection}${classSpecSection}`;
+    return `${metricPrefix}**${entry.playerName}** **${parseValue}**${amountSection}${classSpecSection}`;
 };
 
 const formatCompactParseRow = (
@@ -201,8 +190,7 @@ const formatCompactParseRow = (
 ): string => {
     const icon = getMetricIcon(undefined, metric);
     const iconPrefix = icon ? `${icon} ` : "";
-    const tierBadge = getParseTierBadge(value);
-    return `${tierBadge} ${iconPrefix}**${playerName}** **${value.toFixed(1)}** (${metric})`;
+    return `${iconPrefix}**${playerName}** **${value.toFixed(1)}** (${metric})`;
 };
 
 const formatRankingLine = (
@@ -213,9 +201,8 @@ const formatRankingLine = (
     metric: string,
     bossName?: string,
 ): string => {
-    const tierBadge = getParseTierBadge(value);
     const bossSection = bossName ? ` (${bossName})` : "";
-    return `${labelIcon} ${label}: ${tierBadge} **${playerName} ${value.toFixed(1)} ${metric}**${bossSection}`;
+    return `${labelIcon} ${label}: **${playerName} ${value.toFixed(1)} ${metric}**${bossSection}`;
 };
 
 const formatTotalLine = (
@@ -461,7 +448,7 @@ export const buildRecapPreviewBody = (
                 `Raid Duration: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
                 `Date: ${summary.reportDateLabel}`,
                 summary.bestPlayerParses[0]
-                    ? `Best Parse: ${getMetricIcon(summary.bestPlayerParses[0].metricLabel, summary.bestPlayerParses[0].metric) ?? "⭐"} ${summary.bestPlayerParses[0].playerName} ${getParseTierBadge(summary.bestPlayerParses[0].parse)} (${summary.bestPlayerParses[0].parse.toFixed(1)})`
+                    ? `Best Parse: ${getMetricIcon(summary.bestPlayerParses[0].metricLabel, summary.bestPlayerParses[0].metric) ?? "⭐"} ${summary.bestPlayerParses[0].playerName} (${summary.bestPlayerParses[0].parse.toFixed(1)})`
                     : undefined,
             ]
                 .filter((line): line is string => Boolean(line))
@@ -1308,6 +1295,7 @@ export const handleInteraction = async (
 };
 
 export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
+    const spacerField = { name: "\u200B", value: "\u200B" };
     const fields: Array<{ name: string; value: string; inline?: boolean }> = [
         {
             name: "🛡️ Raid",
@@ -1320,11 +1308,19 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
                 .join("\n"),
         },
     ];
+    let hasSecondarySection = false;
+    const pushSection = (name: string, value: string): void => {
+        if (hasSecondarySection) {
+            fields.push(spacerField);
+        }
+        fields.push({ name, value });
+        hasSecondarySection = true;
+    };
 
     if (summary.bossHighlights.length > 0) {
-        fields.push({
-            name: "🏆 Boss Highlights",
-            value: summary.bossHighlights
+        pushSection(
+            "🏆 Boss Highlights",
+            summary.bossHighlights
                 .slice(0, 4)
                 .map((entry) =>
                     /kill/i.test(entry.text)
@@ -1332,7 +1328,7 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
                         : `⚠️ ${entry.bossName} — Progress pull.`,
                 )
                 .join("\n"),
-        });
+        );
     }
 
     if (summary.bestSingleBossParse || summary.bestAverageParse) {
@@ -1357,52 +1353,49 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
                   )
                 : undefined,
         ].filter((line): line is string => Boolean(line));
-        fields.push({
-            name: "📈 Overall Rankings",
-            value: parseLines.join("\n"),
-        });
+        pushSection("📈 Overall Rankings", parseLines.join("\n"));
     }
 
     if (summary.bestPlayerParses.length > 0) {
-        fields.push({
-            name: "⭐ Best Player Parses",
-            value: summary.bestPlayerParses
+        pushSection(
+            "⭐ Best Player Parses",
+            summary.bestPlayerParses
                 .map((entry) => formatParseHighlightRow(entry))
                 .join("\n"),
-        });
+        );
     }
 
     if (summary.topOverallParsers.length > 0) {
-        fields.push({
-            name: "📊 Top Overall Parsers",
-            value: summary.topOverallParsers
+        pushSection(
+            "📊 Top Overall Parsers",
+            summary.topOverallParsers
                 .map((entry) =>
                     formatCompactParseRow(entry.playerName, entry.value, entry.metric),
                 )
                 .join("\n"),
-        });
+        );
     }
 
     if (summary.topOverallDamageParsers.length > 0) {
-        fields.push({
-            name: "⚔️ Top Overall Damage Parse",
-            value: summary.topOverallDamageParsers
+        pushSection(
+            "⚔️ Top Overall Damage Parse",
+            summary.topOverallDamageParsers
                 .map((entry) =>
                     formatCompactParseRow(entry.playerName, entry.value, entry.metric),
                 )
                 .join("\n"),
-        });
+        );
     }
 
     if (summary.topOverallHealingParsers.length > 0) {
-        fields.push({
-            name: "💚 Top Overall Healing Parse",
-            value: summary.topOverallHealingParsers
+        pushSection(
+            "💚 Top Overall Healing Parse",
+            summary.topOverallHealingParsers
                 .map((entry) =>
                     formatCompactParseRow(entry.playerName, entry.value, entry.metric),
                 )
                 .join("\n"),
-        });
+        );
     }
 
     const totalLines = [
@@ -1429,12 +1422,9 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
     ].filter((line): line is string => Boolean(line));
 
     if (totalLines.length > 0) {
-        fields.push({
-            name: "🧾 Totals",
-            value: totalLines.join("\n"),
-        });
+        pushSection("🧾 Totals", totalLines.join("\n"));
     }
-    fields.push({ name: "🔗 Report", value: summary.reportLink });
+    pushSection("🔗 Report", summary.reportLink);
 
     return {
         title: summary.titleLine,

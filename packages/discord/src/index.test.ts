@@ -853,7 +853,11 @@ describe("embed rendering", () => {
         });
 
         expect(embed.title).toBe("Boss - Mythic - Zone");
-        expect(embed.fields.map((field) => field.name)).toEqual([
+        expect(
+            embed.fields
+                .filter((field) => field.name !== "\u200B")
+                .map((field) => field.name),
+        ).toEqual([
             "🛡️ Raid",
             "🏆 Boss Highlights",
             "📈 Overall Rankings",
@@ -865,11 +869,16 @@ describe("embed rendering", () => {
             "🔗 Report",
         ]);
         expect(
+            embed.fields.filter(
+                (field) => field.name === "\u200B" && field.value === "\u200B",
+            ).length,
+        ).toBeGreaterThan(0);
+        expect(
             embed.fields.find((field) => field.name === "🧾 Totals")?.value,
         ).not.toContain("Most wipes:");
         expect(
             embed.fields.find((field) => field.name === "💚 Top Overall Healing Parse")?.value,
-        ).toContain("🟧 💚 **Pearl** **97.4** (HPS)");
+        ).toContain("💚 **Pearl** **97.4** (HPS)");
         expect(
             embed.fields.find((field) => field.name === "💚 Top Overall Healing Parse")?.value,
         ).not.toContain("healing");
@@ -884,25 +893,30 @@ describe("embed rendering", () => {
         ).toContain("🩸 **Raid damage taken:** 1.2M");
         expect(
             embed.fields.find((field) => field.name === "📈 Overall Rankings")?.value,
-        ).toContain("🥇 Best single-boss parse: 🩷 **Alyra 99.0 DPS** (One-Armed Bandit)");
+        ).toContain("🥇 Best single-boss parse: **Alyra 99.0 DPS** (One-Armed Bandit)");
         expect(
             embed.fields.find((field) => field.name === "📈 Overall Rankings")?.value,
-        ).toContain("📊 Best average parse: 🟧 **Pearl 97.4 HPS**");
+        ).toContain("📊 Best average parse: **Pearl 97.4 HPS**");
         expect(
             embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("🩷 ⚔️ **Alyra** **99.0** (DPS)");
+        ).toContain("⚔️ **Alyra** **99.0** (DPS)");
         expect(
             embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("🟧 💚 **Pearl** **97.4** (HPS)");
+        ).toContain("💚 **Pearl** **97.4** (HPS)");
         expect(
             embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("🟧 🛡️ **Bulwark** **95.2** (DTPS)");
+        ).toContain("🛡️ **Bulwark** **95.2** (DTPS)");
         expect(
             embed.fields.find((field) => field.name === "⚔️ Top Overall Damage Parse")?.value,
-        ).toContain("🩷 ⚔️ **Alyra** **99.0** (DPS)");
+        ).toContain("⚔️ **Alyra** **99.0** (DPS)");
         expect(
             embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value,
-        ).toContain("🩷 ⚔️ **Alyra** **99**");
+        ).toContain("⚔️ **Alyra** **99** · **250K DPS** · Shadow Priest");
+        const bestParsesValue =
+            embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value ?? "";
+        for (const removedTierBadge of ["🩷", "🟧", "🟪", "🟦", "🟩", "⬛"]) {
+            expect(bestParsesValue).not.toContain(removedTierBadge);
+        }
         expect(
             embed.fields.find((field) => field.name === "🧾 Totals")?.value,
         ).toContain("☠️ **Total deaths:** 5");
@@ -934,7 +948,11 @@ describe("embed rendering", () => {
             ...makePreviewSummary(),
         });
 
-        expect(embed.fields.map((field) => field.name)).toEqual([
+        expect(
+            embed.fields
+                .filter((field) => field.name !== "\u200B")
+                .map((field) => field.name),
+        ).toEqual([
             "🛡️ Raid",
             "🧾 Totals",
             "🔗 Report",
@@ -1030,7 +1048,7 @@ describe("preview rendering", () => {
         expect(description).toContain("Guild on Realm-US");
         expect(description).toContain("Raid Duration: 45 Min (9 Pulls)");
         expect(description).toContain("Date: 01/01/1970");
-        expect(description).toContain("Best Parse: ⚔️ Alyra 🩷 (99.0)");
+        expect(description).toContain("Best Parse: ⚔️ Alyra (99.0)");
     });
 
     it("renders human-readable raid duration in preview", () => {
