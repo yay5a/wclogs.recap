@@ -95,20 +95,14 @@ const BASE_REPORT_QUERY = `
           id
           encounterID
           difficulty
-          averageItemLevel
           name
           startTime
           endTime
           kill
           bossPercentage
           fightPercentage
-          size
-          lastPhase
-          lastPhaseAsAbsoluteIndex
-          lastPhaseIsIntermission
           inProgress
           originalEncounterID
-          wipeCalledTime
           phaseTransitions {
             id
             startTime
@@ -233,22 +227,14 @@ interface FightSummaryRow {
     id: number;
     encounterID: number;
     difficulty?: number;
-    averageItemLevel?: number;
     name: string;
     startTime: number;
     endTime: number;
     kill: boolean;
     bossPercentage?: number;
     fightPercentage?: number;
-    size?: number;
-    // lastPhase follows schema phase-number semantics (phase type count, not absolute index).
-    lastPhase?: number;
-    // absolute index includes intermissions and aligns with phaseTransitions/PhaseMetadata ids.
-    lastPhaseAsAbsoluteIndex?: number;
-    lastPhaseIsIntermission?: boolean;
     inProgress?: boolean;
     originalEncounterID?: number;
-    wipeCalledTime?: number;
     phaseTransitions: FightPhaseTransition[];
     dungeonPulls?: DungeonPullSummaryRow[];
 }
@@ -584,36 +570,15 @@ const parseFightSummaries = (
         const difficulty = asNumber(fight.difficulty);
         const bossPercentage = asNumber(fight.bossPercentage);
         const fightPercentage = asNumber(fight.fightPercentage);
-        const averageItemLevelRaw = asNumber(fight.averageItemLevel);
-        const sizeRaw = asNumber(fight.size);
-        const lastPhase = asNumber(fight.lastPhase);
-        const lastPhaseAsAbsoluteIndex = asNumber(
-            fight.lastPhaseAsAbsoluteIndex,
-        );
-        const lastPhaseIsIntermission =
-            typeof fight.lastPhaseIsIntermission === "boolean"
-                ? fight.lastPhaseIsIntermission
-                : undefined;
         const inProgress =
             typeof fight.inProgress === "boolean"
                 ? fight.inProgress
                 : undefined;
         const originalEncounterIDRaw = asNumber(fight.originalEncounterID);
-        const wipeCalledTimeRaw = asNumber(fight.wipeCalledTime);
-        const averageItemLevel =
-            typeof averageItemLevelRaw === "number" && averageItemLevelRaw > 0
-                ? averageItemLevelRaw
-                : undefined;
-        const size =
-            typeof sizeRaw === "number" && sizeRaw > 0 ? sizeRaw : undefined;
         const originalEncounterID =
             typeof originalEncounterIDRaw === "number" &&
             originalEncounterIDRaw > 0
                 ? originalEncounterIDRaw
-                : undefined;
-        const wipeCalledTime =
-            typeof wipeCalledTimeRaw === "number" && wipeCalledTimeRaw >= 0
-                ? wipeCalledTimeRaw
                 : undefined;
         const dungeonPulls = (
             Array.isArray(fight.dungeonPulls) ? fight.dungeonPulls : []
@@ -657,29 +622,15 @@ const parseFightSummaries = (
                 kill: fight.kill === true,
                 phaseTransitions,
                 ...(typeof difficulty === "number" ? { difficulty } : {}),
-                ...(typeof averageItemLevel === "number"
-                    ? { averageItemLevel }
-                    : {}),
                 ...(typeof bossPercentage === "number"
                     ? { bossPercentage }
                     : {}),
                 ...(typeof fightPercentage === "number"
                     ? { fightPercentage }
                     : {}),
-                ...(typeof size === "number" ? { size } : {}),
-                ...(typeof lastPhase === "number" ? { lastPhase } : {}),
-                ...(typeof lastPhaseAsAbsoluteIndex === "number"
-                    ? { lastPhaseAsAbsoluteIndex }
-                    : {}),
-                ...(typeof lastPhaseIsIntermission === "boolean"
-                    ? { lastPhaseIsIntermission }
-                    : {}),
                 ...(typeof inProgress === "boolean" ? { inProgress } : {}),
                 ...(typeof originalEncounterID === "number"
                     ? { originalEncounterID }
-                    : {}),
-                ...(typeof wipeCalledTime === "number"
-                    ? { wipeCalledTime }
                     : {}),
                 ...(dungeonPulls.length > 0 ? { dungeonPulls } : {}),
             },
