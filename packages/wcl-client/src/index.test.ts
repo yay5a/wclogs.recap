@@ -16,20 +16,6 @@ const loadPublicProbeFixture = (name: string): unknown =>
         ),
     ) as unknown;
 
-const loadEncounterProbeFixture = (name: string): unknown =>
-    JSON.parse(
-        readFileSync(
-            join(
-                process.cwd(),
-                "src",
-                "fixtures",
-                "probes",
-                `${name}.v4apgdkyWQmrZ3q8.encounter-51579.json`,
-            ),
-            "utf8",
-        ),
-    ) as unknown;
-
 const loadBaseReportFixture = (): unknown =>
     JSON.parse(
         readFileSync(
@@ -399,12 +385,10 @@ describe("index contract", () => {
             const healing = loadPublicProbeFixture("healing");
             const survivability = loadPublicProbeFixture("survivability");
             const bossRankings = loadPublicProbeFixture("boss-rankings");
-            const encounterPhaseTimes = loadEncounterProbeFixture("encounter-phase-times");
 
             const normalized = normalizeEnrichedReport(
                 {
                     base: { reportData: { report: base } },
-                    encounterPhaseTimes: [encounterPhaseTimes],
                     encounterSummaries: [
                         {
                             encounterID: 51579,

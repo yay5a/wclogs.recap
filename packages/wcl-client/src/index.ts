@@ -12,7 +12,6 @@ import { resolveWclAccessToken } from "./oauth.js";
 import { createLogger } from "@wcl/shared";
 import type { ReportCacheStore } from "./report-cache-store.js";
 import {
-    asArray,
     asNumber,
     asObject,
     asString,
@@ -1017,49 +1016,6 @@ const computeSelectedFightPhaseTimes = (
     return rows;
 };
 
-const parseEncounterPhaseTimesFromRaw = (
-    enriched?: Record<string, unknown>,
-): Map<number, Array<{ phaseId: number; label: string; name?: string; durationMs: number }>> => {
-    const result = new Map<
-        number,
-        Array<{ phaseId: number; label: string; name?: string; durationMs: number }>
-    >();
-    if (!enriched) return result;
-
-    const rows = asArray(enriched.encounterPhaseTimes) ?? [];
-    for (const value of rows) {
-        const row = asObject(value);
-        const encounterId = asNumber(row?.encounterId);
-        if (typeof encounterId !== "number") continue;
-
-        const phaseStats =
-            asArray(asObject(row?.summary)?.nonIntermissionPhaseStats) ?? [];
-        const normalized = phaseStats.flatMap((phaseValue: unknown) => {
-            const phase = asObject(phaseValue);
-            const phaseId = asNumber(phase?.phaseId);
-            const durationMs = asNumber(phase?.fastestDurationMs);
-            if (typeof phaseId !== "number" || typeof durationMs !== "number") {
-                return [];
-            }
-            const phaseName = asString(phase?.phaseName);
-            return [
-                {
-                    phaseId,
-                    label: `P${phaseId}`,
-                    durationMs,
-                    ...(phaseName ? { name: phaseName } : {}),
-                },
-            ];
-        });
-
-        if (normalized.length > 0) {
-            result.set(encounterId, normalized);
-        }
-    }
-
-    return result;
-};
-
 const parseEncounterSummariesFromRaw = (
     enriched?: Record<string, unknown>,
 ): EncounterSummaryRow[] => {
@@ -1826,7 +1782,6 @@ export const normalizeEnrichedReport = (
     };
 
     const phaseMetadataByEncounterId = parseEncounterPhases(report);
-    const phaseTimesByEncounterId = parseEncounterPhaseTimesFromRaw(enriched);
     const fightsByEncounterId = new Map<number, FightSummaryRow[]>();
 
     for (const fight of allEncounterFights) {
@@ -2097,12 +2052,9 @@ export const normalizeEnrichedReport = (
                               phaseMetadataByEncounterId.get(encounterID) ?? [],
                           );
                           if (selectedFightPhases.length > 0) return selectedFightPhases;
-                          return (
-                              phaseTimesByEncounterId.get(encounterID) ??
-                              computeFastestPhaseTimes(
-                                  encounterFights,
-                                  phaseMetadataByEncounterId.get(encounterID) ?? [],
-                              )
+                          return computeFastestPhaseTimes(
+                              encounterFights,
+                              phaseMetadataByEncounterId.get(encounterID) ?? [],
                           );
                       })(),
                       topDamageTaken: mapTableRows(parsedTables.DamageTaken),
