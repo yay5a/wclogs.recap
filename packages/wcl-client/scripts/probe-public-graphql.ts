@@ -1,3 +1,4 @@
+
 import { mkdir, writeFile } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { GraphQLClient } from "graphql-request";
@@ -20,6 +21,8 @@ const DEFAULT_API_BASE_URL = "https://www.warcraftlogs.com/api/v2/client";
 type ProbeFamily =
     | "base-report"
     | "master-data"
+    | "player-details-report-wide"
+    | "player-details-fight"
     | "report-rankings"
     | "report-rankings-dps-today"
     | "report-rankings-hps-today"
@@ -30,21 +33,35 @@ type ProbeFamily =
     | "table-dispels-report-wide"
     | "table-interrupts-report-wide"
     | "table-survivability-report-wide"
+    | "table-damage-done"
     | "table-damage-taken"
     | "table-healing"
     | "table-deaths"
     | "table-dispels"
     | "table-interrupts"
     | "table-survivability"
-    | "fight-resurrect-events"
     | "encounter-phases"
     | "encounter-phase-times";
+
+type RankingCompareValue = "Rankings" | "Parses";
+type RankingTimeframeValue = "Today" | "Historical";
+type KillTypeValue = "All" | "Encounters" | "Kills" | "Trash" | "Wipes";
+
+/**
+ * NOTE:
+ * The Report docs provided in-chat verify RankingCompareType and RankingTimeframeType,
+ * but not the enum members for ReportRankingMetricType.
+ *
+ * We keep the metric spellings already used by the existing probe ("dps" / "hps")
+ * rather than inventing new ones.
+ */
+type RankingMetricValue = "dps" | "hps";
 
 interface ProbeArgs {
     reportCode: string;
     fightId: number;
     encounterId?: number;
-    filterExpression: string;
+    filterExpression?: string;
     verbose: boolean;
 }
 
@@ -59,27 +76,42 @@ interface ManifestEntry {
     errorMessage?: string;
 }
 
+interface ProbeFight {
+    id: number;
+    encounterID: number;
+    startTime: number;
+    endTime: number;
+    kill: boolean;
+    phaseTransitions: Array<{ id: number; startTime: number }>;
+    difficulty?: number;
+    name?: string;
+    inProgress?: boolean;
+}
+
 const BASE_REPORT_QUERY = `
-query ProbeReportIndex(
-  $reportCode: String!
-  $difficulty: Int
-  $killType: KillType
-) {
+query ProbeReportIndex($reportCode: String!) {
   reportData {
     report(code: $reportCode, allowUnlisted: true) {
       title
       startTime
       endTime
-      zone { name frozen difficulties { id name } }
+      zone {
+        name
+        frozen
+        difficulties {
+          id
+          name
+        }
+      }
       phases {
         encounterID
-        phases { id name isIntermission }
+        phases {
+          id
+          name
+          isIntermission
+        }
       }
-      fights(
-        difficulty: $difficulty
-        killType: $killType
-        translate: false
-      ) {
+      fights(killType: All, translate: false) {
         id
         encounterID
         difficulty
@@ -89,7 +121,32 @@ query ProbeReportIndex(
         kill
         inProgress
         originalEncounterID
-        phaseTransitions { id startTime }
+        phaseTransitions {
+          id
+          startTime
+        }
+      }
+    }
+  }
+}
+`;
+
+const MASTER_DATA_QUERY = `
+query ProbeMasterData($reportCode: String!) {
+  reportData {
+    report(code: $reportCode, allowUnlisted: true) {
+      masterData(translate: false) {
+        actors(type: "Player") {
+          id
+          name
+          subType
+          server
+        }
+        abilities {
+          gameID
+          name
+          type
+        }
       }
     }
   }
@@ -121,40 +178,6 @@ query ProbeScopedRankings(
 }
 `;
 
-const BOSS_RANKINGS_QUERY = `
-query ProbeBossRankings($reportCode: String!, $fightIDs: [Int]) {
-  reportData {
-    report(code: $reportCode, allowUnlisted: true) {
-      rankings(playerMetric: default, fightIDs: $fightIDs)
-    }
-  }
-}
-`;
-
-const TABLE_QUERY = `
-query ProbeScopedTable(
-  $reportCode: String!
-  $fightIDs: [Int!]
-  $difficulty: Int
-  $encounterID: Int
-  $killType: KillType
-  $dataType: TableDataType!
-) {
-  reportData {
-    report(code: $reportCode, allowUnlisted: true) {
-      table(
-        fightIDs: $fightIDs
-        difficulty: $difficulty
-        encounterID: $encounterID
-        killType: $killType
-        dataType: $dataType
-        translate: false
-      )
-    }
-  }
-}
-`;
-
 const PLAYER_DETAILS_QUERY = `
 query ProbePlayerDetails(
   $reportCode: String!
@@ -179,12 +202,43 @@ query ProbePlayerDetails(
 }
 `;
 
+const TABLE_QUERY = `
+query ProbeScopedTable(
+  $reportCode: String!
+  $fightIDs: [Int!]
+  $difficulty: Int
+  $encounterID: Int
+  $killType: KillType
+  $dataType: TableDataType!
+  $filterExpression: String
+) {
+  reportData {
+    report(code: $reportCode, allowUnlisted: true) {
+      table(
+        fightIDs: $fightIDs
+        difficulty: $difficulty
+        encounterID: $encounterID
+        killType: $killType
+        dataType: $dataType
+        filterExpression: $filterExpression
+        translate: false
+      )
+    }
+  }
+}
+`;
+
 const getRequiredEnv = (key: string): string => {
     const value = process.env[key]?.trim();
     if (!value) {
         throw new Error(`Missing required environment variable: ${key}`);
     }
     return value;
+};
+
+const normalizeOptionalString = (value: string | undefined): string | undefined => {
+    const normalized = value?.trim();
+    return normalized ? normalized : undefined;
 };
 
 const getArgs = (): ProbeArgs => {
@@ -194,7 +248,7 @@ const getArgs = (): ProbeArgs => {
 
     if (!reportCode) {
         throw new Error(
-            "Usage: pnpm --filter @wcl/wcl-client probe:public-graphql <reportCode> <fightId> [--encounter <encounterId>] [--verbose]",
+            'Usage: pnpm --filter @wcl/wcl-client probe:public-graphql <reportCode> <fightId> [--encounter <encounterId>] [--filter-expression "<expr>"] [--verbose]',
         );
     }
 
@@ -203,6 +257,7 @@ const getArgs = (): ProbeArgs => {
     }
 
     let encounterId: number | undefined;
+    let filterExpression: string | undefined;
     let verbose = false;
 
     for (let index = 2; index < args.length; index += 1) {
@@ -215,6 +270,18 @@ const getArgs = (): ProbeArgs => {
                 );
             }
             encounterId = value;
+            index += 1;
+            continue;
+        }
+
+        if (token === "--filter-expression") {
+            const value = normalizeOptionalString(args[index + 1]);
+            if (!value) {
+                throw new Error(
+                    '--filter-expression expects a non-empty string, e.g. --filter-expression \'source.disposition = "friendly"\'',
+                );
+            }
+            filterExpression = value;
             index += 1;
             continue;
         }
@@ -232,6 +299,7 @@ const getArgs = (): ProbeArgs => {
         fightId,
         verbose,
         ...(typeof encounterId === "number" ? { encounterId } : {}),
+        ...(typeof filterExpression === "string" ? { filterExpression } : {}),
     };
 };
 
@@ -250,11 +318,9 @@ const summarizeShape = (value: unknown): string => {
     return `type=${rootType} keys=[${keys.join(",")}]${dataSegment}`;
 };
 
-const normalizeEncounterFights = (
-    report: unknown,
-): EncounterFightForTimings[] => {
+const normalizeEncounterFights = (report: unknown): ProbeFight[] => {
     return (asArray(asObject(report)?.fights) ?? []).flatMap(
-        (value): EncounterFightForTimings[] => {
+        (value): ProbeFight[] => {
             const row = asObject(value);
             const id = asNumber(row?.id);
             const encounterID =
@@ -294,6 +360,15 @@ const normalizeEncounterFights = (
                     endTime,
                     kill: row?.kill === true,
                     phaseTransitions,
+                    ...(typeof asNumber(row?.difficulty) === "number"
+                        ? { difficulty: asNumber(row?.difficulty) }
+                        : {}),
+                    ...(typeof asString(row?.name) === "string"
+                        ? { name: asString(row?.name) }
+                        : {}),
+                    ...(row && "inProgress" in row
+                        ? { inProgress: row.inProgress === true }
+                        : {}),
                 },
             ];
         },
@@ -333,8 +408,21 @@ const normalizeEncounterMetadata = (
     });
 };
 
+const resolveSelectedFight = (
+    fights: ProbeFight[],
+    fightId: number,
+): ProbeFight => {
+    const selectedFight = fights.find((fight) => fight.id === fightId);
+    if (!selectedFight) {
+        throw new Error(
+            `Could not find selected fight ${fightId} in the base report payload.`,
+        );
+    }
+    return selectedFight;
+};
+
 const resolveEncounterId = (
-    fights: EncounterFightForTimings[],
+    fights: ProbeFight[],
     fightId: number,
     requestedEncounterId?: number,
 ): number => {
@@ -342,45 +430,79 @@ const resolveEncounterId = (
         return requestedEncounterId;
     }
 
-    const selectedFight = fights.find((fight) => fight.id === fightId);
-    if (!selectedFight) {
-        throw new Error(
-            `Could not infer encounter id from selected fight ${fightId}; pass --encounter explicitly.`,
-        );
-    }
-
-    return selectedFight.encounterID;
+    return resolveSelectedFight(fights, fightId).encounterID;
 };
 
 const getRankingsSummary = (payload: unknown): string =>
     summarizeRankingsPayload(payload).logLine;
 
-const resolveReportWideTableRangeFromFights = (
-    report: unknown,
-): { startTime: number; endTime: number } => {
-    const reportNode = asObject(report);
-    const fights = asArray(reportNode?.fights) ?? [];
-    const fightRanges = fights.flatMap((fightValue) => {
-        const fight = asObject(fightValue);
-        const startTime = asNumber(fight?.startTime);
-        const endTime = asNumber(fight?.endTime);
-        if (typeof startTime !== "number" || typeof endTime !== "number") {
-            return [];
-        }
-
-        return [{ startTime, endTime }];
-    });
-
-    if (fightRanges.length === 0) {
-        throw new Error(
-            "Base report payload is missing valid fights startTime/endTime ranges required for report-wide table probes.",
-        );
+const fightMatchesDifficulty = (
+    fight: ProbeFight,
+    difficulty?: number,
+): boolean => {
+    if (typeof difficulty !== "number") {
+        return true;
     }
 
-    const startTime = Math.min(...fightRanges.map((fight) => fight.startTime));
-    const endTime = Math.max(...fightRanges.map((fight) => fight.endTime));
+    return (
+        typeof fight.difficulty !== "number" || fight.difficulty === difficulty
+    );
+};
 
-    return { startTime, endTime };
+const collectEncounterFightIds = (
+    fights: ProbeFight[],
+    encounterId: number,
+    difficulty?: number,
+): number[] => {
+    const exact = fights
+        .filter(
+            (fight) =>
+                fight.encounterID === encounterId &&
+                fightMatchesDifficulty(fight, difficulty),
+        )
+        .map((fight) => fight.id);
+
+    if (exact.length > 0) {
+        return exact;
+    }
+
+    return fights
+        .filter((fight) => fight.encounterID === encounterId)
+        .map((fight) => fight.id);
+};
+
+const collectReportEncounterFightIds = (
+    fights: ProbeFight[],
+    difficulty?: number,
+): number[] => {
+    const exact = fights
+        .filter(
+            (fight) =>
+                fight.encounterID > 0 &&
+                !fight.inProgress &&
+                fightMatchesDifficulty(fight, difficulty),
+        )
+        .map((fight) => fight.id);
+
+    if (exact.length > 0) {
+        return exact;
+    }
+
+    return fights
+        .filter((fight) => fight.encounterID > 0 && !fight.inProgress)
+        .map((fight) => fight.id);
+};
+
+const ensureFightIds = (fightIds: number[], fallbackFightId: number): number[] =>
+    fightIds.length > 0 ? fightIds : [fallbackFightId];
+
+const withOptionalFilterExpression = <T extends Record<string, unknown>>(
+    variables: T,
+    filterExpression?: string,
+): T & { filterExpression?: string } => {
+    return typeof filterExpression === "string"
+        ? { ...variables, filterExpression }
+        : variables;
 };
 
 const writeProbeArtifacts = async (args: {
@@ -390,6 +512,7 @@ const writeProbeArtifacts = async (args: {
     reportCode: string;
     fightId?: number;
     encounterId?: number;
+    filterExpression?: string;
     payload?: unknown;
     error?: unknown;
     logs?: unknown;
@@ -401,6 +524,9 @@ const writeProbeArtifacts = async (args: {
         ...(typeof args.fightId === "number" ? { fightId: args.fightId } : {}),
         ...(typeof args.encounterId === "number"
             ? { encounterId: args.encounterId }
+            : {}),
+        ...(typeof args.filterExpression === "string"
+            ? { filterExpression: args.filterExpression }
             : {}),
         generatedAt: new Date().toISOString(),
         payload: args.payload ?? null,
@@ -452,6 +578,7 @@ const logProbe = (args: {
     outputPath?: string;
     fightId?: number;
     encounterId?: number;
+    filterExpression?: string;
     summary: string;
 }): void => {
     const segments = [
@@ -460,6 +587,9 @@ const logProbe = (args: {
         ...(typeof args.fightId === "number" ? [`fight=${args.fightId}`] : []),
         ...(typeof args.encounterId === "number"
             ? [`encounter=${args.encounterId}`]
+            : []),
+        ...(typeof args.filterExpression === "string"
+            ? [`filter=${JSON.stringify(args.filterExpression)}`]
             : []),
         ...(args.outputPath ? [`output=${args.outputPath}`] : []),
         args.summary,
@@ -503,7 +633,11 @@ const run = async (): Promise<void> => {
 
     let encounterId = args.encounterId;
     let reportNode: Record<string, unknown> | undefined;
-    let fights: EncounterFightForTimings[] = [];
+    let fights: ProbeFight[] = [];
+    let selectedFight: ProbeFight | undefined;
+    let selectedDifficulty: number | undefined;
+    let reportEncounterFightIds: number[] = [];
+    let encounterFightIds: number[] = [];
 
     try {
         const base = await client.request<unknown>(BASE_REPORT_QUERY, {
@@ -517,6 +651,7 @@ const run = async (): Promise<void> => {
             fixtureName: `base-report.${args.reportCode}`,
             probeFamily: "base-report",
             reportCode: args.reportCode,
+            filterExpression: args.filterExpression,
             payload: reportNode ?? null,
         });
         baseEntry.summary = summarizeShape(reportNode);
@@ -524,25 +659,36 @@ const run = async (): Promise<void> => {
         logProbe({
             probeFamily: "base-report",
             reportCode: args.reportCode,
+            filterExpression: args.filterExpression,
             ...(baseEntry.fixturePath
                 ? { outputPath: baseEntry.fixturePath }
                 : {}),
             summary: baseEntry.summary,
         });
+
+        const masterDataResult = await client.request<unknown>(
+            MASTER_DATA_QUERY,
+            {
+                reportCode: args.reportCode,
+            },
+        );
+        const masterDataNode =
+            asObject(asObject(asObject(masterDataResult)?.reportData)?.report)
+                ?.masterData ?? null;
         const masterDataEntry = await writeProbeArtifacts({
             outputDir,
             fixtureName: `master-data.${args.reportCode}`,
             probeFamily: "master-data",
             reportCode: args.reportCode,
-            payload: asObject(reportNode)?.masterData ?? null,
+            filterExpression: args.filterExpression,
+            payload: masterDataNode,
         });
-        masterDataEntry.summary = summarizeShape(
-            asObject(reportNode)?.masterData,
-        );
+        masterDataEntry.summary = summarizeShape(masterDataNode);
         manifestEntries.push(masterDataEntry);
         logProbe({
             probeFamily: "master-data",
             reportCode: args.reportCode,
+            filterExpression: args.filterExpression,
             ...(masterDataEntry.fixturePath
                 ? { outputPath: masterDataEntry.fixturePath }
                 : {}),
@@ -550,10 +696,20 @@ const run = async (): Promise<void> => {
         });
 
         fights = normalizeEncounterFights(reportNode);
+        selectedFight = resolveSelectedFight(fights, args.fightId);
+        selectedDifficulty = selectedFight.difficulty;
         encounterId = resolveEncounterId(
             fights,
             args.fightId,
             args.encounterId,
+        );
+        reportEncounterFightIds = ensureFightIds(
+            collectReportEncounterFightIds(fights, selectedDifficulty),
+            args.fightId,
+        );
+        encounterFightIds = ensureFightIds(
+            collectEncounterFightIds(fights, encounterId, selectedDifficulty),
+            args.fightId,
         );
 
         const metadataByEncounter = normalizeEncounterMetadata(reportNode);
@@ -568,6 +724,7 @@ const run = async (): Promise<void> => {
             probeFamily: "encounter-phases",
             reportCode: args.reportCode,
             encounterId,
+            filterExpression: args.filterExpression,
             payload: {
                 encounterID: encounterId,
                 phases: encounterPhases,
@@ -580,15 +737,16 @@ const run = async (): Promise<void> => {
             probeFamily: "encounter-phases",
             reportCode: args.reportCode,
             encounterId,
+            filterExpression: args.filterExpression,
             ...(encounterPhasesEntry.fixturePath
                 ? { outputPath: encounterPhasesEntry.fixturePath }
                 : {}),
-            summary: `phases=${encounterPhases.length}`,
+            summary: encounterPhasesEntry.summary,
         });
 
         const phaseTimes = deriveEncounterPhaseTimes({
             encounterId,
-            fights,
+            fights: fights as EncounterFightForTimings[],
             metadata: encounterPhases,
         });
         const encounterPhaseTimesEntry = await writeProbeArtifacts({
@@ -597,6 +755,7 @@ const run = async (): Promise<void> => {
             probeFamily: "encounter-phase-times",
             reportCode: args.reportCode,
             encounterId,
+            filterExpression: args.filterExpression,
             payload: phaseTimes,
         });
         encounterPhaseTimesEntry.summary = `attempts=${phaseTimes.summary.totalAttempts} kills=${phaseTimes.summary.killCount} wipes=${phaseTimes.summary.wipeCount}`;
@@ -605,6 +764,7 @@ const run = async (): Promise<void> => {
             probeFamily: "encounter-phase-times",
             reportCode: args.reportCode,
             encounterId,
+            filterExpression: args.filterExpression,
             ...(encounterPhaseTimesEntry.fixturePath
                 ? { outputPath: encounterPhaseTimesEntry.fixturePath }
                 : {}),
@@ -617,6 +777,7 @@ const run = async (): Promise<void> => {
                 fixtureName: `base-report.${args.reportCode}`,
                 probeFamily: "base-report",
                 reportCode: args.reportCode,
+                filterExpression: args.filterExpression,
                 error,
             }),
         );
@@ -628,6 +789,7 @@ const run = async (): Promise<void> => {
         fixtureName: string,
         request: () => Promise<unknown>,
         summarize: (payload: unknown) => string,
+        logs?: Record<string, unknown>,
     ): Promise<void> => {
         try {
             const payload = await request();
@@ -638,7 +800,9 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
+                filterExpression: args.filterExpression,
                 payload,
+                ...(logs ? { logs } : {}),
             });
             entry.summary = summarize(payload);
             manifestEntries.push(entry);
@@ -647,6 +811,7 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
+                filterExpression: args.filterExpression,
                 ...(entry.fixturePath ? { outputPath: entry.fixturePath } : {}),
                 summary: entry.summary,
             });
@@ -658,7 +823,9 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
+                filterExpression: args.filterExpression,
                 error,
+                ...(logs ? { logs } : {}),
             });
             manifestEntries.push(entry);
             logProbe({
@@ -666,6 +833,7 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
+                filterExpression: args.filterExpression,
                 ...(entry.errorPath ? { outputPath: entry.errorPath } : {}),
                 summary: entry.errorMessage ?? "request failed",
             });
@@ -673,14 +841,94 @@ const run = async (): Promise<void> => {
     };
 
     await queryFamilies(
+        "player-details-report-wide",
+        `player-details.report-wide.${args.reportCode}`,
+        async () => {
+            const variables = {
+                reportCode: args.reportCode,
+                fightIDs: reportEncounterFightIds,
+                ...(typeof selectedDifficulty === "number"
+                    ? { difficulty: selectedDifficulty }
+                    : {}),
+                killType: "Encounters" as KillTypeValue,
+                includeCombatantInfo: false,
+            };
+            const result = await client.request<unknown>(
+                PLAYER_DETAILS_QUERY,
+                variables,
+            );
+            return (
+                asObject(asObject(asObject(result)?.reportData)?.report)
+                    ?.playerDetails ?? null
+            );
+        },
+        summarizeShape,
+        {
+            scope: "report-wide",
+            fightIDs: reportEncounterFightIds,
+            ...(typeof selectedDifficulty === "number"
+                ? { difficulty: selectedDifficulty }
+                : {}),
+            killType: "Encounters",
+            includeCombatantInfo: false,
+        },
+    );
+
+    await queryFamilies(
+        "player-details-fight",
+        `player-details.${args.reportCode}.fight-${args.fightId}`,
+        async () => {
+            const variables = {
+                reportCode: args.reportCode,
+                fightIDs: [args.fightId],
+                ...(typeof selectedDifficulty === "number"
+                    ? { difficulty: selectedDifficulty }
+                    : {}),
+                ...(typeof encounterId === "number" ? { encounterID: encounterId } : {}),
+                killType:
+                    selectedFight?.kill === true
+                        ? ("Kills" as KillTypeValue)
+                        : ("Wipes" as KillTypeValue),
+                includeCombatantInfo: true,
+            };
+            const result = await client.request<unknown>(
+                PLAYER_DETAILS_QUERY,
+                variables,
+            );
+            return (
+                asObject(asObject(asObject(result)?.reportData)?.report)
+                    ?.playerDetails ?? null
+            );
+        },
+        summarizeShape,
+        {
+            scope: "fight",
+            fightIDs: [args.fightId],
+            ...(typeof selectedDifficulty === "number"
+                ? { difficulty: selectedDifficulty }
+                : {}),
+            ...(typeof encounterId === "number" ? { encounterID: encounterId } : {}),
+            killType: selectedFight?.kill === true ? "Kills" : "Wipes",
+            includeCombatantInfo: true,
+        },
+    );
+
+    await queryFamilies(
         "report-rankings",
         `report-rankings.${args.reportCode}`,
         async () => {
+            const variables = {
+                reportCode: args.reportCode,
+                fightIDs: reportEncounterFightIds,
+                ...(typeof selectedDifficulty === "number"
+                    ? { difficulty: selectedDifficulty }
+                    : {}),
+                compare: "Parses" as RankingCompareValue,
+                timeframe: "Historical" as RankingTimeframeValue,
+            };
             const result = await client.request<unknown>(
                 REPORT_RANKINGS_QUERY,
-                {
-                    reportCode: args.reportCode,
-                },
+                variables,
             );
             return (
                 asObject(asObject(asObject(result)?.reportData)?.report)
@@ -688,25 +936,37 @@ const run = async (): Promise<void> => {
             );
         },
         getRankingsSummary,
+        {
+            scope: "report-wide",
+            fightIDs: reportEncounterFightIds,
+            ...(typeof selectedDifficulty === "number"
+                ? { difficulty: selectedDifficulty }
+                : {}),
+            compare: "Parses",
+            timeframe: "Historical",
+        },
     );
 
     const reportRankingFamilies: Array<{
         probeFamily: ProbeFamily;
         fixtureName: string;
-        playerMetric: "dps" | "hps";
-        timeframe: "Today";
+        playerMetric: RankingMetricValue;
+        timeframe: RankingTimeframeValue;
+        compare: RankingCompareValue;
     }> = [
         {
             probeFamily: "report-rankings-dps-today",
             fixtureName: `report-rankings.dps.today.${args.reportCode}`,
             playerMetric: "dps",
             timeframe: "Today",
+            compare: "Rankings",
         },
         {
             probeFamily: "report-rankings-hps-today",
             fixtureName: `report-rankings.hps.today.${args.reportCode}`,
             playerMetric: "hps",
             timeframe: "Today",
+            compare: "Rankings",
         },
     ];
 
@@ -715,13 +975,19 @@ const run = async (): Promise<void> => {
             rankingFamily.probeFamily,
             rankingFamily.fixtureName,
             async () => {
+                const variables = {
+                    reportCode: args.reportCode,
+                    fightIDs: reportEncounterFightIds,
+                    ...(typeof selectedDifficulty === "number"
+                        ? { difficulty: selectedDifficulty }
+                        : {}),
+                    playerMetric: rankingFamily.playerMetric,
+                    timeframe: rankingFamily.timeframe,
+                    compare: rankingFamily.compare,
+                };
                 const result = await client.request<unknown>(
-                    REPORT_RANKINGS_BY_METRIC_QUERY,
-                    {
-                        reportCode: args.reportCode,
-                        playerMetric: rankingFamily.playerMetric,
-                        timeframe: rankingFamily.timeframe,
-                    },
+                    REPORT_RANKINGS_QUERY,
+                    variables,
                 );
                 return (
                     asObject(asObject(asObject(result)?.reportData)?.report)
@@ -729,24 +995,54 @@ const run = async (): Promise<void> => {
                 );
             },
             (payload) =>
-                `metric=${rankingFamily.playerMetric} timeframe=${rankingFamily.timeframe} ${getRankingsSummary(payload)}`,
+                `metric=${rankingFamily.playerMetric} timeframe=${rankingFamily.timeframe} compare=${rankingFamily.compare} ${getRankingsSummary(payload)}`,
+            {
+                scope: "report-wide",
+                fightIDs: reportEncounterFightIds,
+                ...(typeof selectedDifficulty === "number"
+                    ? { difficulty: selectedDifficulty }
+                    : {}),
+                playerMetric: rankingFamily.playerMetric,
+                timeframe: rankingFamily.timeframe,
+                compare: rankingFamily.compare,
+            },
         );
     }
 
     await queryFamilies(
         "boss-rankings",
-        `boss-rankings.${args.reportCode}.fight-${args.fightId}`,
+        `boss-rankings.${args.reportCode}.encounter-${encounterId}`,
         async () => {
-            const result = await client.request<unknown>(BOSS_RANKINGS_QUERY, {
+            const variables = {
                 reportCode: args.reportCode,
-                fightIDs: [args.fightId],
-            });
+                fightIDs: encounterFightIds,
+                ...(typeof selectedDifficulty === "number"
+                    ? { difficulty: selectedDifficulty }
+                    : {}),
+                ...(typeof encounterId === "number" ? { encounterID: encounterId } : {}),
+                compare: "Parses" as RankingCompareValue,
+                timeframe: "Historical" as RankingTimeframeValue,
+            };
+            const result = await client.request<unknown>(
+                REPORT_RANKINGS_QUERY,
+                variables,
+            );
             return (
                 asObject(asObject(asObject(result)?.reportData)?.report)
                     ?.rankings ?? null
             );
         },
         getRankingsSummary,
+        {
+            scope: "encounter",
+            fightIDs: encounterFightIds,
+            ...(typeof selectedDifficulty === "number"
+                ? { difficulty: selectedDifficulty }
+                : {}),
+            ...(typeof encounterId === "number" ? { encounterID: encounterId } : {}),
+            compare: "Parses",
+            timeframe: "Historical",
+        },
     );
 
     const reportWideTableFamilies: Array<{
@@ -786,22 +1082,26 @@ const run = async (): Promise<void> => {
         },
     ];
 
-    const reportWideTableRange =
-        resolveReportWideTableRangeFromFights(reportNode);
-
     for (const tableFamily of reportWideTableFamilies) {
         await queryFamilies(
             tableFamily.probeFamily,
             tableFamily.fixtureName,
             async () => {
-                const result = await client.request<unknown>(
-                    TABLE_REPORT_WIDE_QUERY,
+                const variables = withOptionalFilterExpression(
                     {
                         reportCode: args.reportCode,
+                        fightIDs: reportEncounterFightIds,
+                        ...(typeof selectedDifficulty === "number"
+                            ? { difficulty: selectedDifficulty }
+                            : {}),
+                        killType: "Encounters" as KillTypeValue,
                         dataType: tableFamily.dataType,
-                        startTime: reportWideTableRange.startTime,
-                        endTime: reportWideTableRange.endTime,
                     },
+                    args.filterExpression,
+                );
+                const result = await client.request<unknown>(
+                    TABLE_QUERY,
+                    variables,
                 );
                 return (
                     asObject(asObject(asObject(result)?.reportData)?.report)
@@ -809,6 +1109,18 @@ const run = async (): Promise<void> => {
                 );
             },
             summarizeShape,
+            {
+                scope: "report-wide",
+                fightIDs: reportEncounterFightIds,
+                ...(typeof selectedDifficulty === "number"
+                    ? { difficulty: selectedDifficulty }
+                    : {}),
+                killType: "Encounters",
+                dataType: tableFamily.dataType,
+                ...(typeof args.filterExpression === "string"
+                    ? { filterExpression: args.filterExpression }
+                    : {}),
+            },
         );
     }
 
@@ -817,6 +1129,11 @@ const run = async (): Promise<void> => {
         dataType: string;
         filePrefix: string;
     }> = [
+        {
+            probeFamily: "table-damage-done",
+            dataType: "DamageDone",
+            filePrefix: "damage-done",
+        },
         {
             probeFamily: "table-damage-taken",
             dataType: "DamageTaken",
@@ -854,64 +1171,49 @@ const run = async (): Promise<void> => {
             tableFamily.probeFamily,
             `${tableFamily.filePrefix}.${args.reportCode}.fight-${args.fightId}`,
             async () => {
-                const result = await client.request<unknown>(TABLE_QUERY, {
-                    reportCode: args.reportCode,
-                    fightIDs: [args.fightId],
-                    dataType: tableFamily.dataType,
-                });
+                const variables = withOptionalFilterExpression(
+                    {
+                        reportCode: args.reportCode,
+                        fightIDs: [args.fightId],
+                        ...(typeof selectedDifficulty === "number"
+                            ? { difficulty: selectedDifficulty }
+                            : {}),
+                        ...(typeof encounterId === "number"
+                            ? { encounterID: encounterId }
+                            : {}),
+                        killType:
+                            selectedFight?.kill === true
+                                ? ("Kills" as KillTypeValue)
+                                : ("Wipes" as KillTypeValue),
+                        dataType: tableFamily.dataType,
+                    },
+                    args.filterExpression,
+                );
+                const result = await client.request<unknown>(
+                    TABLE_QUERY,
+                    variables,
+                );
                 return (
                     asObject(asObject(asObject(result)?.reportData)?.report)
                         ?.table ?? null
                 );
             },
             summarizeShape,
+            {
+                scope: "fight",
+                fightIDs: [args.fightId],
+                ...(typeof selectedDifficulty === "number"
+                    ? { difficulty: selectedDifficulty }
+                    : {}),
+                ...(typeof encounterId === "number" ? { encounterID: encounterId } : {}),
+                killType: selectedFight?.kill === true ? "Kills" : "Wipes",
+                dataType: tableFamily.dataType,
+                ...(typeof args.filterExpression === "string"
+                    ? { filterExpression: args.filterExpression }
+                    : {}),
+            },
         );
     }
-
-    await queryFamilies(
-        "fight-resurrect-events",
-        `resurrect-events.${args.reportCode}.fight-${args.fightId}`,
-        async () => {
-            const pages: unknown[] = [];
-            let startTime: number | undefined;
-
-            for (;;) {
-                const result = await client.request<unknown>(
-                    RESURRECT_EVENTS_QUERY,
-                    {
-                        reportCode: args.reportCode,
-                        fightIDs: [args.fightId],
-                        startTime,
-                        filterExpression: 'type = "resurrect"',
-                    },
-                );
-
-                const events = asObject(
-                    asObject(asObject(result)?.reportData)?.report,
-                )?.events;
-                const eventNode = asObject(events);
-                pages.push(eventNode ?? null);
-
-                const nextPageTimestamp = asNumber(
-                    eventNode?.nextPageTimestamp,
-                );
-                if (typeof nextPageTimestamp !== "number") {
-                    break;
-                }
-
-                startTime = nextPageTimestamp;
-            }
-
-            return {
-                pages,
-                pageCount: pages.length,
-            };
-        },
-        (payload) => {
-            const node = asObject(payload);
-            return `pages=${asNumber(node?.pageCount) ?? 0}`;
-        },
-    );
 
     const manifestPath = join(
         outputDir,
@@ -924,6 +1226,9 @@ const run = async (): Promise<void> => {
                 reportCode: args.reportCode,
                 fightId: args.fightId,
                 ...(typeof encounterId === "number" ? { encounterId } : {}),
+                ...(typeof args.filterExpression === "string"
+                    ? { filterExpression: args.filterExpression }
+                    : {}),
                 generatedAt: new Date().toISOString(),
                 probeFamiliesRun: manifestEntries.map(
                     (entry) => entry.probeFamily,
