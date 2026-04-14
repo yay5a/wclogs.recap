@@ -124,6 +124,8 @@ const POST_RECAP_ACTION = "post";
 const OFFICERS_RECAP_ACTION = "officers";
 const DEFAULT_PREVIEW_STATE_TTL_SECONDS = 900;
 
+type RecapMetric = "DPS" | "HPS" | "DTPS";
+
 const toTitleCase = (value: string): string =>
     value
         .split(/[_-]/g)
@@ -133,6 +135,41 @@ const toTitleCase = (value: string): string =>
                 : part,
         )
         .join(" ");
+
+const toMetricLabel = (
+    metricLabel?: string,
+    metric?: string,
+): RecapMetric | undefined => {
+    const candidate = metricLabel?.trim().toUpperCase() ?? metric?.trim().toUpperCase();
+    if (candidate === "DPS" || candidate === "HPS" || candidate === "DTPS") {
+        return candidate;
+    }
+    return undefined;
+};
+
+const getMetricIcon = (metricLabel?: string, metric?: string): string | undefined => {
+    const metricValue = toMetricLabel(metricLabel, metric);
+    if (metricValue === "DPS") return "⚔️";
+    if (metricValue === "HPS") return "💚";
+    if (metricValue === "DTPS") return "🛡️";
+    return undefined;
+};
+
+const formatMetricRow = (
+    playerName: string,
+    value: number,
+    metric: string,
+): string => {
+    const icon = getMetricIcon(undefined, metric);
+    const iconPrefix = icon ? `${icon} ` : "";
+    return `${iconPrefix}${playerName} ${value.toFixed(1)} (${metric})`;
+};
+
+const formatTotalLine = (
+    label: string,
+    value: string | number,
+    icon?: string,
+): string => (icon ? `${icon} ${label}: ${value}` : `${label}: ${value}`);
 
 const makeRecapComponentCustomId = (
     action: string,
@@ -365,7 +402,7 @@ export const buildRecapPreviewBody = (
                 `Raid Duration: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
                 `Date: ${summary.reportDateLabel}`,
                 summary.bestPlayerParses[0]
-                    ? `Best Parse: ${summary.bestPlayerParses[0].playerName} (${summary.bestPlayerParses[0].parse.toFixed(1)})`
+                    ? `Best Parse: ${getMetricIcon(summary.bestPlayerParses[0].metricLabel, summary.bestPlayerParses[0].metric) ?? "⭐"} ${summary.bestPlayerParses[0].playerName} (${summary.bestPlayerParses[0].parse.toFixed(1)})`
                     : undefined,
             ]
                 .filter((line): line is string => Boolean(line))
@@ -1217,19 +1254,12 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
             notation: "compact",
             maximumFractionDigits: 1,
         }).format(value);
-    const toMetricLabel = (metricLabel?: string, metric?: string): string | undefined => {
-        const candidate = metricLabel?.trim().toUpperCase() ?? metric?.trim().toUpperCase();
-        if (!candidate) return undefined;
-        if (candidate === "DPS" || candidate === "HPS" || candidate === "DTPS") {
-            return candidate;
-        }
-        return undefined;
-    };
     const formatBestParseRow = (entry: RecapPreviewSummary["bestPlayerParses"][number]): string => {
         const parseValue = Number.isInteger(entry.parse)
             ? entry.parse.toFixed(0)
             : entry.parse.toFixed(1);
         const metricLabel = toMetricLabel(entry.metricLabel, entry.metric);
+        const metricIcon = getMetricIcon(entry.metricLabel, entry.metric);
         const amountSection =
             typeof entry.amount === "number"
                 ? ` | ${formatCompactNumber(entry.amount)}${metricLabel ? ` ${metricLabel}` : ""}`
@@ -1240,11 +1270,12 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
                 .filter((value): value is string => Boolean(value))
                 .join(" ");
         const classSpecSection = classSpec ? ` - ${classSpec}` : "";
-        return `• ${entry.playerName} ${parseValue}${amountSection}${classSpecSection}`;
+        const prefix = metricIcon ? `${metricIcon} ` : "• ";
+        return `${prefix}${entry.playerName} ${parseValue}${amountSection}${classSpecSection}`;
     };
     const fields: Array<{ name: string; value: string; inline?: boolean }> = [
         {
-            name: "Raid",
+            name: "🛡️ Raid",
             value: [
                 summary.secondaryLine,
                 `Raid Duration: ${summary.killTimeLabel} (${summary.pullCount} Pulls)`,
@@ -1257,7 +1288,7 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
 
     if (summary.bossHighlights.length > 0) {
         fields.push({
-            name: "Boss Highlights",
+            name: "🏆 Boss Highlights",
             value: summary.bossHighlights
                 .slice(0, 4)
                 .map((entry) => `• ${entry.bossName}: ${entry.text}`)
@@ -1275,79 +1306,74 @@ export function buildPublicRecapEmbed(summary: RecapPreviewSummary) {
                 : undefined,
         ].filter((line): line is string => Boolean(line));
         fields.push({
-            name: "Overall Rankings",
+            name: "📈 Overall Rankings",
             value: parseLines.join("\n"),
         });
     }
 
     if (summary.bestPlayerParses.length > 0) {
         fields.push({
-            name: "Best Player Parses",
+            name: "⭐ Best Player Parses",
             value: summary.bestPlayerParses.map((entry) => formatBestParseRow(entry)).join("\n"),
         });
     }
 
     if (summary.topOverallParsers.length > 0) {
         fields.push({
-            name: "Top Overall Parsers",
+            name: "📊 Top Overall Parsers",
             value: summary.topOverallParsers
-                .map(
-                    (entry) =>
-                        `• ${entry.playerName} ${entry.value.toFixed(1)} (${entry.metric})`,
-                )
+                .map((entry) => formatMetricRow(entry.playerName, entry.value, entry.metric))
                 .join("\n"),
         });
     }
 
     if (summary.topOverallDamageParsers.length > 0) {
         fields.push({
-            name: "Top Overall Damage Parse",
+            name: "⚔️ Top Overall Damage Parse",
             value: summary.topOverallDamageParsers
-                .map(
-                    (entry) =>
-                        `• ${entry.playerName} ${entry.value.toFixed(1)} (${entry.metric})`,
-                )
+                .map((entry) => formatMetricRow(entry.playerName, entry.value, entry.metric))
                 .join("\n"),
         });
     }
 
     if (summary.topOverallHealingParsers.length > 0) {
         fields.push({
-            name: "Top Overall Healing Parse",
+            name: "💚 Top Overall Healing Parse",
             value: summary.topOverallHealingParsers
-                .map(
-                    (entry) =>
-                        `• ${entry.playerName} ${entry.value.toFixed(1)} (${entry.metric})`,
-                )
+                .map((entry) => formatMetricRow(entry.playerName, entry.value, entry.metric))
                 .join("\n"),
         });
     }
 
     const totalLines = [
         typeof summary.totals.totalDeaths === "number"
-            ? `Total deaths: ${summary.totals.totalDeaths}`
+            ? formatTotalLine("Total deaths", summary.totals.totalDeaths, "☠️")
             : undefined,
         typeof summary.totals.raidDamageTaken === "number"
-            ? `Raid damage taken: ${formatCompactNumber(summary.totals.raidDamageTaken)}`
+            ? formatTotalLine(
+                  "Raid damage taken",
+                  formatCompactNumber(summary.totals.raidDamageTaken),
+                  "🩸",
+              )
             : undefined,
         typeof summary.totals.dispels === "number"
-            ? `Dispels: ${summary.totals.dispels}`
+            ? formatTotalLine("Dispels", summary.totals.dispels, "✨")
             : undefined,
         typeof summary.totals.battleRezzes === "number"
-            ? `Battle rezzes: ${summary.totals.battleRezzes}`
+            ? formatTotalLine("Battle rezzes", summary.totals.battleRezzes)
             : undefined,
         typeof summary.totals.kicks === "number"
-            ? `Kicks: ${summary.totals.kicks}`
+            ? formatTotalLine("Kicks", summary.totals.kicks, "🛑")
             : undefined,
     ].filter((line): line is string => Boolean(line));
 
     if (totalLines.length > 0) {
         fields.push({
-            name: "Totals",
+            name: "🧾 Totals",
             value: totalLines.join("\n"),
         });
     }
-    fields.push({ name: "Report", value: summary.reportLink });
+    fields.push({ name: "🔗 Report", value: summary.reportLink });
 
     return {
         title: summary.titleLine,
