@@ -256,22 +256,7 @@ export interface RecapSummary {
 
 export interface PreviousRaidLookup {
   findPreviousRaidSummaries(guildId: string, beforeDate: Date): Promise<NormalizedPlayer[]>;
-
-export {
-    getBossEncounterId,
-    hasDungeonPullData,
-    parseFightSummaries,
-    pickEncounterSummaryFight,
-    sumTableValues,
-    summarizeBossTables,
-} from "./report-mappers.js";
-
-export type {
-    DungeonPullSummaryRow,
-    FightPhaseTransition,
-    FightSummaryRow,
-    TableValueEntry,
-} from "./report-mappers.js";
+}
 
 export interface BuildRecapSummaryOptions {
   guildConfig?: GuildConfig;
