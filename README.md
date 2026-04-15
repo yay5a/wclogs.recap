@@ -1,181 +1,149 @@
-# Warcraft Logs-focused Discord companion app.
+# Warcraft Logs-focused Discord companion app
 
+This project provides a World of Warcraft raid recap generator, built to fetch data from Warcraft Logs
+, normalize it into a structured domain model, and publish recap summaries to Discord or other targets. The refactored structure aims to be modular, maintainable, and aligned with a clear domain model.
 
-![MVP Image](/packages/discord/mvp-image.png)
+## Overview
 
+The system pulls data from Warcraft Logs, organizes it into four core domains, and then renders it via presentation adapters:
 
-## Implemented in this run
+Outcome – progression status and extremes (boss kills, attempts, kill times, deaths).
+Performance – highlights of top performers for kill-only data (best parsers, average parses, best single‑boss parse, most improved vs historical).
+Volume – statistical summary of totals and extremes (overall damage, healing, damage taken, interrupts, dispels) and per‑fight standouts.
+Execution – wipe analysis detailing top damaging mechanics, common death causes, and wipe signatures.
 
-- Workspace scaffold with `/apps/web`, `/apps/worker`, and `/packages/*` modules.
-- Strict TypeScript config, ESLint, Prettier, Vitest, and environment validation.
-- MongoDB + Mongoose data model for:
-  - GuildSettings
-  - PlayerProfile
-  - CharacterIdentity
-  - ReportCache
-  - RaidSnapshot
-  - FightSnapshot
-  - PlayerRaidSummary
-  - TrendSnapshot
-  - AccountabilityEvent
-  - CoachingInsight
-  - Job
-  - AuditLog
-- WCL client package with:
-  - OAuth token plumbing
-  - report URL parsing
-  - retail vs MoP classic detection
-  - normalized schema and adapters
-  - report cache persistence
-  - fixture-backed mode for safe local testing (`WCL_USE_FIXTURES=true`)
-  - parse/execution extraction from Warcraft Logs `rankings` payload when provided by API
-- Discord package with:
-  - command registration
-  - interaction handler for `/health`, `/config`, `/report recap <url>`, and
-    context command `Analyze Log`
-  - recap preview with **Post Recap** button
-  - public recap embed builder
-    - persisted `/config` values (guild defaults for game family, compare mode,
-    accountability visibility, coaching shareability, and recap post mode)
-  - recap generation uses saved guild config values in summary fields
-- Domain/db service wiring for future features:
-  - `CoachingViewService` stub (`MongoCoachingViewService`)
-  - `AccountabilityViewService` stub (`MongoAccountabilityViewService`)
-  - `TrendTrackingService` stub (`MongoTrendTrackingService`) with raid/player history ingest hooks
-- Web app with:
-  - `/health`
-  - `/discord/interactions`
-  - `/discord/register-commands`
-  - structured logging and graceful error handling
-- Worker app with:
-  - queue abstraction
-  - MongoDB-backed job model polling scaffold
-  - handler routing for `recompute_trends` and `sync_subscription` job types
-  - explicit retry surface via persisted `attempts`, `status`, and `lastError`
+By cleanly separating these concepts, the recap generator stays focused and easy to extend.
 
-## Mocked / incomplete
+## Repository Structure
 
-- Coaching and accountability view services are persistence-backed stubs and
-  currently return placeholder payloads with TODO markers.
-- Identity auto-link and candidate-review workflow boundaries are typed and
-  modeled, but orchestration service is not fully implemented.
-- Identity merge decisioning is still intentionally incomplete: there is no
-  full human-review UI yet for adjudicating low-confidence merge candidates.
+wclogs.recap/
+├── packages/
+│   ├── transport/        # API clients and data-fetching logic
+│   ├── domain/           # Domain models and builders for Outcome/Performance/Volume/Execution
+│   ├── presentation/     # Presentation adapters (Discord embeds, web UI components, etc.)
+│   └── app/              # Orchestration layer combining modules to generate a recap
+├── apps/
+│   ├── web/              # Optional web service (API endpoints, OAuth handling)
+│   └── worker/           # Optional background workers (e.g. trend recompute, syncing)
+├── .env.example          # Sample environment variables
+├── docker-compose.yml    # Containerized development environment
+└── README.md             # You are here
 
-## Behavior notes
+### Core Packages
 
-- Parse/execution metrics are no longer fabricated. If rankings data for a
-  player is unavailable in the Warcraft Logs response, those fields are omitted.
-- `/config` now persists guild settings via Mongo and recap summaries consume
-  those defaults at generation time.
-- Recap post actions rely on preview state generated from `/report recap`; if a
-  preview key is no longer present when **Post Recap** is clicked, the bot
-  returns an explicit "Preview state expired. Re-run /report recap." response.
-- Posting a recap triggers downstream recompute hooks (coaching/accountability
-  lookup + trend recompute call) before publishing the public embed.
+| Package        | Purpose                                                                                                                                                                                              |
+| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `transport`    | Provides functions like `fetchReportSummary`, `fetchKillRankings`, `fetchSummaryTables`, and `fetchPlayerDetails`.  Handles OAuth token management and only minimal payload transformation.          |
+| `domain`       | Contains domain entities (`Outcome`, `Performance`, `Volume`, `Execution`) and builders that transform raw data into these objects.  No external API calls or UI knowledge lives here.               |
+| `presentation` | Converts domain objects into concrete outputs (Discord embeds, HTML fragments, etc.).  Each adapter is isolated; for example, the Discord adapter is unaware of web or Slack.                        |
+| `app`          | Coordinates the flow: obtains data via `transport`, builds domain models via `domain`, and passes them to a `presentation` adapter for rendering.  It also handles configuration and error handling. |
 
-## Environment and config requirements
+### Setup
 
-- `PREVIEW_STATE_TTL_SECONDS` (new): optional preview-state expiration in
-  seconds for durable preview persistence. Defaults to `900` (15 minutes). Set
-  a higher/lower value based on moderator review windows vs stale recap risk.
-- Worker job payload contract (new): queued jobs must include type-specific
-  payloads. At minimum:
-  - `recompute_trends`: `{ "guildId": "<discord guild id>" }`
-  - `sync_subscription`: `{ "guildId": "<discord guild id>", "source": "<provider>" }`
-  Jobs without required fields should be treated as invalid and marked failed.
-- Officer role configuration behavior:
-  - `officersRoleIds` should contain Discord role IDs authorized for
-    officer-scoped accountability visibility.
-  - If `accountabilityVisibility=officers-only` and `officersRoleIds` is empty,
-    treat content as restricted but effectively undistributable until officer
-    roles are configured.
-  - If visibility is `off` or `shareable`, `officersRoleIds` is ignored.
+#### Prerequisites
 
-## Operational caveats
+Node.js 18+ with pnpm
+; use corepack enable if pnpm is not globally installed.
+MongoDB if you intend to persist data (optional; the app can run statelessly for simple recaps).
+Discord bot token (optional, only if using the Discord adapter).
+Warcraft Logs API credentials: you will need a client ID and client secret from Warcraft Logs API
+. At runtime the app exchanges these for an OAuth bearer token.
+Installation
 
-- Preview TTL expiration is expected behavior, not an error condition. If a
-  moderator attempts to post after TTL expiry, they must regenerate a preview
-  with `/report recap`.
-- Job reruns are not automatically idempotent unless handlers enforce it.
-  Operational reruns should use the same canonical guild/report identifiers and
-  validate existing snapshots before writing replacements.
-- Failed jobs remain persisted with `status=failed` and `lastError`; rerun
-  tooling should either:
-  1. enqueue a new job with corrected payload, or
-  2. manually reset a failed job to `pending` only after root-cause validation.
-
-### Recap enrichment pipeline (phase 1)
-
-- Uses report-wide `rankings(playerMetric: default)` as the baseline metric for
-  overall parse snapshots.
-- Adds per-boss enrichment from boss-scoped rankings plus table payloads for
-  Damage Done, Healing, Deaths, Interrupts, and Survivability.
-- Uses actor-id-first joins when possible and falls back to normalized name
-  matching when actor IDs are unavailable (less reliable for duplicate names).
-- Role-aware metric selection (tank/healer/dps-specific ranking strategies) is
-  planned for phase 2.
-- Known current limitation: WCL JSON scalar payloads can vary by game family and
-  endpoint shape, so parser coverage is heuristic and intentionally defensive.
-
-## Assumptions
-
-- Report URLs include either `?report=` or `?code=` query params.
-- Game family inference is path/host heuristic (`classic`/`mop` => MoP Classic,
-otherwise Retail).
-- MVP recap is read-only against WCL and Discord data operations (except
-command registration endpoint).
-- MongoDB is the only persistence dependency for this phase.
-
-## Next recommended phase
-
-1. Expand rankings extraction with report-table per-encounter granularity per
-game family.
-2. Implement coaching/advice generation rules and accountability narrative generation.
-3. Implement trend rolling windows and improvement detection jobs from raid history.
-4. Implement identity confidence scoring and candidate review queue.
-5. Build a full moderator-facing identity merge review UI/workflow.
-
-## Local setup
+#### Installation
 
 ```bash
+# install dependencies
 corepack enable
 pnpm install
+
+# copy environment template and set secrets
 cp .env.example .env
-# set secrets
-pnpm dev:web
-pnpm dev:worker
+# Edit .env with your WCL client ID/secret and Discord credentials
 ```
 
-### with Docker
+### Running Testing/Development
+
+- **Transport layer tests**: fetch data from Warcraft Logs and print domain objects.
 
 ```bash
-docker compose up --build
+pnpm run dev:transport
 ```
 
-
-### WCL report-component probe workflow
-
-Use this when table payload shapes drift and parser fixtures need refresh:
+- **Domain layer tests**: build domain objects from sample payloads and verify outputs.
 
 ```bash
-# Requires a valid OAuth bearer token and API URL
-export WCL_API_BASE_URL="https://www.warcraftlogs.com/api/v2/client"
-export WCL_OAUTH_TOKEN="<oauth access token>"
-pnpm --filter @wcl/wcl-client probe:report-components <reportCode> <fightId>
+pnpm run dev:domain
 ```
 
-This writes fixture outputs to `packages/wcl-client/src/fixtures/probes/` for:
-- deaths
-- dispels
-- interrupts
-- survivability
-- master data (`actors` and `abilities`)
+- **Discord bot**: start the bot locally and register commands in your development guild/server.
 
-## Scripts
+```bash
+pnpm run dev:bot
+```
 
-- `pnpm lint`
-- `pnpm typecheck`
-- `pnpm test`
-- `pnpm dev:web`
-- `pnpm dev:worker`
+- **Web API**(optional): start the API server if you need HTTP endpoints or OAuth flows
+
+```bash
+pnpm run dev:web
+```
+
+### Running in Production
+
+- Use Docker to build and run the app in a container. The `docker-compose.yml` file includes services for the app, a worker, and MongoDB
+
+```bash
+# Pull images and start up services
+docker compose up --build -d 
+
+# For debugging
+docker compose logs -f
+```
+
+## Usage
+
+### Generating a Raid-log Recap through the CLI
+
+A typical workflow to generate a recap of raid logs from a real-world log report:
+
+```bash
+pnpm run recap <reportCode>
+```
+
+This will:
+
+1. Fetch/query the necessary data from the Warcraft Logs API using GraphQL queries and resolvers in `transport`.
+2. Build the `domain` objects.
+3. Render a Discord embed (default) via the `presentation` layer.
+4. Optionally post the embed to a Discord channel/server.
+
+Although the focus of this repo is on Discord, you can add new adapters under `packages/presentation` for other outputs. Each adapter should consume the domain objects and produce platform-specific payloads.
+
+## Configuration
+
+The project reads configurations from environment variables:
+| Variable                    | Description                                          | Required?        |
+| --------------------------- | ---------------------------------------------------- | ---------------- |
+| `WCL_CLIENT_ID`             | Warcraft Logs client ID                              | Yes              |
+| `WCL_CLIENT_SECRET`         | Warcraft Logs client secret                          | Yes              |
+| `DISCORD_BOT_TOKEN`         | Token for your Discord bot                           | If using Discord |
+| `DISCORD_PUBLIC_CHANNEL_ID` | ID of the channel where public recaps will be posted | If using Discord |
+| `MONGODB_URI`               | MongoDB connection string                            | Optional         |
+| `PREVIEW_STATE_TTL_SECONDS` | TTL for preview state caching in seconds             | Optional         |
+
+Additional configuration (e.g. caching, TTLs, API endpoints) can be added in `.env` as needed
+
+## Contributing
+
+1. Fork the repository and create a feature branch.
+2. Make your changes following the modular architecture:
+    - Add or modify functions in packages/transport only for data fetching.
+    - Adjust domain builders in packages/domain to compute new metrics or modify existing ones.
+    - Update presentation adapters in packages/presentation to render new domain fields.
+    - Keep cross‑cutting concerns (e.g. logging, error handling) confined to the app layer.
+3. Run pnpm lint and pnpm typecheck to ensure code quality.
+4. Submit a pull request.
+
+## License
+
+MIT -- see `License` for details.
