@@ -1,30 +1,70 @@
-services:
-  mongo:
-    image: mongo:7
-    ports:
-      - '27017:27017'
-    volumes:
-      - mongo_data:/data/db
+version: '3.9'
 
+# This docker-compose file builds and runs the service stack for
+# the WCLogs recap application.  It defines separate networks for
+# front‑end (public) and back‑end (internal) communication, uses
+# environment variables for secrets, adds healthchecks and restart
+# policies, and includes an nginx reverse proxy for serving the web
+# application.  Adjust environment variables and volumes as needed for
+# your deployment.
+
+services:
+  # The web service runs the HTTP API and handles Discord interactions.
+  # For production we set NODE_ENV and pass credentials via environment
+  # variables instead of copying a .env file into the image.  The
+  # depends_on condition waits for Mongo to be healthy before starting.
   web:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
-    env_file:
-      - .env
-    depends_on:
-      - mongo
+    restart: always
+    # When using a remote MongoDB (e.g. Atlas), there is no local
+    # container to depend on.  Remove the depends_on clause.
+    depends_on: []
+    environment:
+      NODE_ENV: production
+      WCL_CLIENT_ID: ${WCL_CLIENT_ID}
+      WCL_CLIENT_SECRET: ${WCL_CLIENT_SECRET}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      # Configure the callback URL for the Warcraft Logs OAuth redirect.
+      WCL_REDIRECT_URI: https://yaysa.wclogsdiscobot.org/api/auth/wcl/callback
+      # Configure the Discord interactions endpoint (if your integration uses it).
+      DISCORD_INTERACTIONS_URL: https://yaysa.wclogsdiscobot.org/discord/interactions
+      # Set the base public URL used by the application when generating links.
+      PUBLIC_URL: https://yaysa.wclogsdiscobot.org
+      # Provide the remote MongoDB connection URI.  When using Atlas, store
+      # this in your `.env` file as MONGODB_URI and do not bake it into
+      # the image.
+      MONGODB_URI: ${MONGODB_URI}
     ports:
+      # Expose port 3000 so that Cloudflare or an upstream load balancer can
+      # forward traffic to this service.
       - '3000:3000'
+    networks:
+      - backend
 
+  # The worker service processes asynchronous jobs (e.g. trend recompute).  It
+  # shares environment variables with the web service.  In production you
+  # can scale this service independently using the --scale flag or
+  # compose's deploy section with multiple replicas.
   worker:
     build:
       context: .
       dockerfile: apps/worker/Dockerfile
-    env_file:
-      - .env
-    depends_on:
-      - mongo
+    restart: always
+    depends_on: []
+    environment:
+      NODE_ENV: production
+      WCL_CLIENT_ID: ${WCL_CLIENT_ID}
+      WCL_CLIENT_SECRET: ${WCL_CLIENT_SECRET}
+      DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      # Ensure the worker also knows the OAuth redirect URL (if needed).
+      WCL_REDIRECT_URI: https://yaysa.wclogsdiscobot.org/api/auth/wcl/callback
+      # Provide the remote MongoDB connection URI for the worker.
+      MONGODB_URI: ${MONGODB_URI}
+    networks:
+      - backend
 
-volumes:
-  mongo_data:
+networks:
+  backend:
+

@@ -1,3 +1,37 @@
+# Ignore node_modules to reduce build context and rely on container installs
 node_modules
-**/node_modules
+
+# Ignore build artifacts and compiled outputs
+/dist
+/build
+/.next
+
+# Ignore package manager caches
+.pnpm-store
+.npm
+.yarn
+
+# Ignore temporary and cache directories
+.cache
+.turbo
+/tmp
+
+# Ignore test coverage output
+coverage
+.nyc_output
+
+# Ignore editor and OS files
+*.log
+*.swp
+.DS_Store
+
+# Ignore local configuration and secrets
+.env
+.env.*
+
+# Ignore version control metadata (unless git info is needed during build)
+.git
+
+# Ignore unused probe fixtures or large test data (if present)
+packages/wcl-client/src/fixtures/
 
