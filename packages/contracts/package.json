@@ -1,5 +1,5 @@
 {
-  "name": "@wcl/domain",
+  "name": "@wcl/contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,9 +10,5 @@
     "lint": "eslint src --ext .ts",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "test": "vitest run --passWithNoTests"
-  },
-  "dependencies": {
-    "@wcl/shared": "workspace:*",
-    "@wcl/contracts": "workspace:*"
   }
 }
