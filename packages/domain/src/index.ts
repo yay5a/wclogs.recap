@@ -273,18 +273,6 @@ export type {
     TableValueEntry,
 } from "./report-mappers.js";
 
-export const deriveDeterministicTeamNote = (bossesKilled: number): string => {
-    if (bossesKilled >= 8)
-        return "Team note: Full-clear momentum is strong; capture callout clips.";
-    if (bossesKilled >= 4)
-        return "Team note: Progress is stable; set one focus mechanic for next raid.";
-    return "Team note: Early progression week; prioritize clean mechanic reps.";
-};
-
-interface BuildRecapSummaryOptions {
-    guildConfig?: GuildConfig;
-}
-
 export interface BuildRecapSummaryOptions {
   guildConfig?: GuildConfig;
 }
