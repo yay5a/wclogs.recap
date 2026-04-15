@@ -7,6 +7,15 @@ import type {
     NormalizedLeaderboardEntry,
     NormalizedPlayer,
     NormalizedReport,
+    FightSummaryRow,
+} from "@wcl/domain";
+import {
+    getBossEncounterId,
+    hasDungeonPullData,
+    parseFightSummaries,
+    pickEncounterSummaryFight,
+    sumTableValues,
+    summarizeBossTables,
 } from "@wcl/domain";
 import { resolveWclAccessToken } from "./oauth.js";
 import { createLogger } from "@wcl/shared";
@@ -24,10 +33,10 @@ import {
     type ParsedTableEntry,
 } from "./parsers/index.js";
 import {
-    KILL_TYPES,
     REPORT_TABLE_DATA_TYPES,
     type TableDataType,
 } from "./schema-enums.js";
+import { createWclQueries, type WclQueries } from "./queries/index.js";
 
 export interface ParsedReportUrl {
     reportCode: string;
@@ -46,196 +55,12 @@ const DEFAULT_ALLOW_UNLISTED_REPORTS = true;
 const NORMALIZED_PAYLOAD_VERSION = 2;
 const logger = createLogger("wcl-client");
 
-const BASE_REPORT_QUERY = `
-  query BaseReportSummary(
-    $code: String!
-    $allowUnlisted: Boolean!
-    $includeRateLimitData: Boolean! = false
-  ) {
-    rateLimitData @include(if: $includeRateLimitData) {
-      limitPerHour
-      pointsSpentThisHour
-      pointsResetIn
-    }
-    reportData {
-      report(code: $code, allowUnlisted: $allowUnlisted) {
-        archiveStatus {
-          isArchived
-          isAccessible
-          archiveDate
-        }
-        title
-        startTime
-        endTime
-        zone {
-          name
-          frozen
-          difficulties {
-            id
-            name
-          }
-        }
-        guild {
-          name
-          server {
-            name
-            region { compactName }
-          }
-        }
-        phases {
-          encounterID
-          phases {
-            id
-            name
-            isIntermission
-          }
-        }
-        fights(killType: ${KILL_TYPES[1]}) {
-          id
-          encounterID
-          difficulty
-          name
-          startTime
-          endTime
-          kill
-          bossPercentage
-          fightPercentage
-          inProgress
-          originalEncounterID
-          phaseTransitions {
-            id
-            startTime
-          }
-        }
-        masterData {
-          actors(type: "Player") {
-            id
-            name
-            subType
-            server
-          }
-        }
-      }
-    }
-  }
-`;
-
-const REPORT_RANKINGS_QUERY = `
-  query ReportRankings($code: String!, $allowUnlisted: Boolean!) {
-    reportData {
-      report(code: $code, allowUnlisted: $allowUnlisted) {
-        rankings(playerMetric: default)
-      }
-    }
-  }
-`;
-
-const BOSS_RANKINGS_QUERY = `
-  query BossRankings(
-    $code: String!
-    $allowUnlisted: Boolean!
-    $fightIDs: [Int]
-  ) {
-    reportData {
-      report(code: $code, allowUnlisted: $allowUnlisted) {
-        rankings(playerMetric: default, fightIDs: $fightIDs)
-      }
-    }
-  }
-`;
-
-const PLAYER_DETAILS_QUERY = `
-  query PlayerDetails(
-    $code: String!
-    $allowUnlisted: Boolean!
-    $startTime: Float!
-    $endTime: Float!
-  ) {
-    reportData {
-      report(code: $code, allowUnlisted: $allowUnlisted) {
-        playerDetails(
-          includeCombatantInfo: true
-          startTime: $startTime
-          endTime: $endTime
-        )
-      }
-    }
-  }
-`;
-
-const TABLE_QUERY = `
-  query ReportTable($code: String!, $allowUnlisted: Boolean!, $fightIDs: [Int]) {
-    reportData {
-      report(code: $code, allowUnlisted: $allowUnlisted) {
-        damageDone: table(dataType: ${REPORT_TABLE_DATA_TYPES[0]}, fightIDs: $fightIDs)
-        damageTaken: table(dataType: ${REPORT_TABLE_DATA_TYPES[1]}, fightIDs: $fightIDs)
-        healing: table(dataType: ${REPORT_TABLE_DATA_TYPES[2]}, fightIDs: $fightIDs)
-        deaths: table(dataType: ${REPORT_TABLE_DATA_TYPES[3]}, fightIDs: $fightIDs)
-        dispels: table(dataType: ${REPORT_TABLE_DATA_TYPES[4]}, fightIDs: $fightIDs)
-        interrupts: table(dataType: ${REPORT_TABLE_DATA_TYPES[5]}, fightIDs: $fightIDs)
-        survivability: table(dataType: ${REPORT_TABLE_DATA_TYPES[6]}, fightIDs: $fightIDs)
-      }
-    }
-  }
-`;
-
-const REPORT_WIDE_TABLE_QUERY = `
-  query ReportWideTable(
-    $code: String!
-    $allowUnlisted: Boolean!
-    $startTime: Float!
-    $endTime: Float!
-  ) {
-    reportData {
-      report(code: $code, allowUnlisted: $allowUnlisted) {
-        damageDone: table(dataType: ${REPORT_TABLE_DATA_TYPES[0]}, startTime: $startTime, endTime: $endTime)
-        damageTaken: table(dataType: ${REPORT_TABLE_DATA_TYPES[1]}, startTime: $startTime, endTime: $endTime)
-        healing: table(dataType: ${REPORT_TABLE_DATA_TYPES[2]}, startTime: $startTime, endTime: $endTime)
-        deaths: table(dataType: ${REPORT_TABLE_DATA_TYPES[3]}, startTime: $startTime, endTime: $endTime)
-        dispels: table(dataType: ${REPORT_TABLE_DATA_TYPES[4]}, startTime: $startTime, endTime: $endTime)
-        interrupts: table(dataType: ${REPORT_TABLE_DATA_TYPES[5]}, startTime: $startTime, endTime: $endTime)
-        survivability: table(dataType: ${REPORT_TABLE_DATA_TYPES[6]}, startTime: $startTime, endTime: $endTime)
-      }
-    }
-  }
-`;
-
 interface WclClientOptions {
     clientId: string;
     clientSecret: string;
     apiBaseUrl: string;
     fetchImpl?: typeof fetch;
     reportCacheStore?: ReportCacheStore;
-}
-
-interface FightPhaseTransition {
-    id: number;
-    startTime: number;
-}
-
-interface DungeonPullSummaryRow {
-    id: number;
-    encounterID: number;
-    name: string;
-    startTime: number;
-    endTime: number;
-    kill: boolean;
-}
-
-interface FightSummaryRow {
-    id: number;
-    encounterID: number;
-    difficulty?: number;
-    name: string;
-    startTime: number;
-    endTime: number;
-    kill: boolean;
-    bossPercentage?: number;
-    fightPercentage?: number;
-    inProgress?: boolean;
-    originalEncounterID?: number;
-    phaseTransitions: FightPhaseTransition[];
-    dungeonPulls?: DungeonPullSummaryRow[];
 }
 
 type ReportCacheState = "in_progress" | "recent" | "completed" | "inaccessible";
@@ -278,22 +103,6 @@ const mapReportTablesByType = (
             tableNode?.[TABLE_FIELD_BY_TYPE[dataType]],
         ]),
     );
-
-const getBossEncounterId = (fight: FightSummaryRow): number | undefined => {
-    if (fight.encounterID > 0) return fight.encounterID;
-    if (
-        fight.encounterID === 0 &&
-        typeof fight.originalEncounterID === "number" &&
-        fight.originalEncounterID > 0
-    ) {
-        return fight.originalEncounterID;
-    }
-
-    return undefined;
-};
-
-const hasDungeonPullData = (fight: FightSummaryRow): boolean =>
-    Array.isArray(fight.dungeonPulls) && fight.dungeonPulls.length > 0;
 
 interface EnrichedRawReport {
     base: unknown;
@@ -468,11 +277,6 @@ const getDifficultyLabel = (
     return WCL_DIFFICULTY_LABELS.get(difficulty) ?? `Difficulty ${difficulty}`;
 };
 
-const sumTableValues = (entries?: ParsedTableEntry[]): number | undefined => {
-    if (!entries) return undefined;
-    return entries.reduce((sum, entry) => sum + (entry.value ?? 0), 0);
-};
-
 const getFightDeathsFromRankingsPayload = (
     payload: unknown,
     fightId: number,
@@ -527,114 +331,6 @@ const buildRealmLabel = (
     if (serverName && region) return `${serverName}-${region}`;
     return serverName;
 };
-
-const parseFightSummaries = (
-    report: Record<string, unknown>,
-): FightSummaryRow[] =>
-    (Array.isArray(report.fights) ? report.fights : []).flatMap((value) => {
-        const fight = asObject(value);
-        if (!fight) return [];
-
-        const id = asNumber(fight.id);
-        const encounterID = asNumber(fight.encounterID);
-        const name = asString(fight.name);
-        const startTime = asNumber(fight.startTime);
-        const endTime = asNumber(fight.endTime);
-
-        if (
-            typeof id !== "number" ||
-            typeof encounterID !== "number" ||
-            typeof name !== "string" ||
-            typeof startTime !== "number" ||
-            typeof endTime !== "number"
-        ) {
-            return [];
-        }
-
-        const phaseTransitions = (
-            Array.isArray(fight.phaseTransitions) ? fight.phaseTransitions : []
-        ).flatMap((transitionValue) => {
-            const transition = asObject(transitionValue);
-            const phaseId = asNumber(transition?.id);
-            const transitionStart = asNumber(transition?.startTime);
-            if (
-                typeof phaseId !== "number" ||
-                typeof transitionStart !== "number"
-            ) {
-                return [];
-            }
-
-            return [{ id: phaseId, startTime: transitionStart }];
-        });
-        const difficulty = asNumber(fight.difficulty);
-        const bossPercentage = asNumber(fight.bossPercentage);
-        const fightPercentage = asNumber(fight.fightPercentage);
-        const inProgress =
-            typeof fight.inProgress === "boolean"
-                ? fight.inProgress
-                : undefined;
-        const originalEncounterIDRaw = asNumber(fight.originalEncounterID);
-        const originalEncounterID =
-            typeof originalEncounterIDRaw === "number" &&
-            originalEncounterIDRaw > 0
-                ? originalEncounterIDRaw
-                : undefined;
-        const dungeonPulls = (
-            Array.isArray(fight.dungeonPulls) ? fight.dungeonPulls : []
-        ).flatMap((pullValue) => {
-            const pull = asObject(pullValue);
-            const pullId = asNumber(pull?.id);
-            const pullEncounterID = asNumber(pull?.encounterID);
-            const pullName = asString(pull?.name);
-            const pullStartTime = asNumber(pull?.startTime);
-            const pullEndTime = asNumber(pull?.endTime);
-
-            if (
-                typeof pullId !== "number" ||
-                typeof pullEncounterID !== "number" ||
-                typeof pullName !== "string" ||
-                typeof pullStartTime !== "number" ||
-                typeof pullEndTime !== "number"
-            ) {
-                return [];
-            }
-
-            return [
-                {
-                    id: pullId,
-                    encounterID: pullEncounterID,
-                    name: pullName,
-                    startTime: pullStartTime,
-                    endTime: pullEndTime,
-                    kill: pull?.kill === true,
-                } satisfies DungeonPullSummaryRow,
-            ];
-        });
-
-        return [
-            {
-                id,
-                encounterID,
-                name,
-                startTime,
-                endTime,
-                kill: fight.kill === true,
-                phaseTransitions,
-                ...(typeof difficulty === "number" ? { difficulty } : {}),
-                ...(typeof bossPercentage === "number"
-                    ? { bossPercentage }
-                    : {}),
-                ...(typeof fightPercentage === "number"
-                    ? { fightPercentage }
-                    : {}),
-                ...(typeof inProgress === "boolean" ? { inProgress } : {}),
-                ...(typeof originalEncounterID === "number"
-                    ? { originalEncounterID }
-                    : {}),
-                ...(dungeonPulls.length > 0 ? { dungeonPulls } : {}),
-            },
-        ];
-    });
 
 const resolveReportWideTableRangeFromFights = (
     report: Record<string, unknown> | undefined,
@@ -762,41 +458,6 @@ const parseEncounterPhases = (
     }
 
     return result;
-};
-
-const pickEncounterSummaryFight = (
-    fights: FightSummaryRow[],
-): FightSummaryRow | undefined => {
-    if (fights.length === 0) return undefined;
-
-    const kills = fights
-        .filter((fight) => fight.kill)
-        .sort((left, right) => right.endTime - left.endTime);
-
-    if (kills.length > 0) {
-        return kills[0];
-    }
-
-    return [...fights].sort((left, right) => {
-        // fightPercentage tracks encounter completion for wipes and is the schema-backed
-        // progress metric; bossPercentage is only remaining active boss health at pull end.
-        // Prefer fightPercentage for wipe depth ordering and keep bossPercentage as fallback.
-        const leftProgress = left.fightPercentage ?? -Infinity;
-        const rightProgress = right.fightPercentage ?? -Infinity;
-        if (leftProgress !== rightProgress) return rightProgress - leftProgress;
-
-        const leftBossPercentage = left.bossPercentage ?? Infinity;
-        const rightBossPercentage = right.bossPercentage ?? Infinity;
-        if (leftBossPercentage !== rightBossPercentage) {
-            return leftBossPercentage - rightBossPercentage;
-        }
-
-        const leftDuration = left.endTime - left.startTime;
-        const rightDuration = right.endTime - right.startTime;
-        if (leftDuration !== rightDuration) return rightDuration - leftDuration;
-
-        return right.endTime - left.endTime;
-    })[0];
 };
 
 const getMetricFromLeaderboard = (
@@ -1084,73 +745,6 @@ const parseEncounterSummariesFromRaw = (
     });
 };
 
-const summarizeBossTables = (
-    bossName: string,
-    fightId: number,
-    parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>>,
-    parseEntry?: NormalizedLeaderboardEntry,
-): NormalizedBossPerformance => {
-    const topByValue = (entries?: ParsedTableEntry[]) =>
-        (entries ?? [])
-            .slice()
-            .sort((left, right) => right.value - left.value)[0] as
-            | ParsedTableEntry
-            | undefined;
-
-    const topParse = parseEntry;
-
-    const topDamageEntry = topByValue(parsedTables.DamageDone);
-    const topDamage = topDamageEntry
-        ? {
-              playerName: topDamageEntry.playerName ?? "Unknown",
-              value: topDamageEntry.value ?? 0,
-          }
-        : undefined;
-
-    const topHealingEntry = topByValue(parsedTables.Healing);
-    const topHealing = topHealingEntry
-        ? {
-              playerName: topHealingEntry.playerName ?? "Unknown",
-              value: topHealingEntry.value ?? 0,
-          }
-        : undefined;
-
-    const mostDeathsEntry = topByValue(parsedTables.Deaths);
-    const mostDeaths = mostDeathsEntry
-        ? {
-              playerName: mostDeathsEntry.playerName ?? "Unknown",
-              value: mostDeathsEntry.value ?? 0,
-          }
-        : undefined;
-
-    const topInterruptsEntry = topByValue(parsedTables.Interrupts);
-    const topInterrupts = topInterruptsEntry
-        ? {
-              playerName: topInterruptsEntry.playerName ?? "Unknown",
-              value: topInterruptsEntry.value ?? 0,
-          }
-        : undefined;
-    const topSurvivabilityEntry = topByValue(parsedTables.Survivability);
-    const topSurvivability = topSurvivabilityEntry
-        ? {
-              playerName: topSurvivabilityEntry.playerName ?? "Unknown",
-              value: topSurvivabilityEntry.value ?? 0,
-          }
-        : undefined;
-
-    const result: NormalizedBossPerformance = {
-        bossName,
-        fightId,
-        ...(topParse ? { topParse } : {}),
-        ...(topDamage ? { topDamage } : {}),
-        ...(topHealing ? { topHealing } : {}),
-        ...(mostDeaths ? { mostDeaths } : {}),
-        ...(topInterrupts ? { topInterrupts } : {}),
-        ...(topSurvivability ? { topSurvivability } : {}),
-    };
-
-    return result;
-};
 
 export const normalizeReportUrlInput = (raw: string): string => {
     const trimmed = raw.trim();
@@ -1225,6 +819,7 @@ export const parseReportUrl = (url: string): ParsedReportUrl => {
 export class WclClient {
     private token: string | null = null;
     private readonly gqlClient: GraphQLClient;
+    private readonly queries: WclQueries;
 
     public constructor(private readonly options: WclClientOptions) {
         this.gqlClient = options.fetchImpl
@@ -1232,13 +827,14 @@ export class WclClient {
                   fetch: options.fetchImpl,
               })
             : new GraphQLClient(options.apiBaseUrl);
+        this.queries = createWclQueries(this.requestGraphQl.bind(this));
     }
 
-    private async requestGraphQl(
+    private async requestGraphQl<TPayload>(
         query: string,
         variables: Record<string, unknown>,
-    ): Promise<unknown> {
-        return await this.gqlClient.request<unknown>(query, variables);
+    ): Promise<TPayload> {
+        return await this.gqlClient.request<TPayload>(query, variables);
     }
 
     private setAuthorizationHeader(token: string): void {
@@ -1297,7 +893,6 @@ export class WclClient {
         logger.info(
             {
                 operation: "BaseReportSummary",
-                query: BASE_REPORT_QUERY,
                 variables: {
                     code,
                     allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
@@ -1308,7 +903,7 @@ export class WclClient {
         );
 
         const baseFetchStartedAt = now();
-        const base = await this.requestGraphQl(BASE_REPORT_QUERY, {
+        const base = await this.queries.baseReportSummary({
             code,
             allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
             includeRateLimitData: true,
@@ -1338,13 +933,10 @@ export class WclClient {
         let reportRankingsRaw: unknown;
         const reportRankingsStartedAt = now();
         try {
-            reportRankingsRaw = await this.requestGraphQl(
-                REPORT_RANKINGS_QUERY,
-                {
-                    code,
-                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                },
-            );
+            reportRankingsRaw = await this.queries.reportRankings({
+                code,
+                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+            });
         } catch (error) {
             noteSkippedEnrichment(
                 `Failed report rankings enrichment; continuing without report rankings (${error instanceof Error ? error.message : "unknown error"}).`,
@@ -1364,15 +956,12 @@ export class WclClient {
             typeof reportEndTime === "number"
         ) {
             try {
-                playerDetailsRaw = await this.requestGraphQl(
-                    PLAYER_DETAILS_QUERY,
-                    {
-                        code,
-                        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                        startTime: reportStartTime,
-                        endTime: reportEndTime,
-                    },
-                );
+                playerDetailsRaw = await this.queries.playerDetails({
+                    code,
+                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                    startTime: reportStartTime,
+                    endTime: reportEndTime,
+                });
             } catch (error) {
                 noteSkippedEnrichment(
                     `Failed playerDetails enrichment; continuing without player details (${error instanceof Error ? error.message : "unknown error"}).`,
@@ -1397,15 +986,12 @@ export class WclClient {
                 resolveReportWideTableRangeFromFights(baseReport);
             if (reportWideTableRange) {
                 try {
-                    reportTablesRaw = await this.requestGraphQl(
-                        REPORT_WIDE_TABLE_QUERY,
-                        {
-                            code,
-                            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                            startTime: reportWideTableRange.startTime,
-                            endTime: reportWideTableRange.endTime,
-                        },
-                    );
+                    reportTablesRaw = await this.queries.reportWideTable({
+                        code,
+                        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                        startTime: reportWideTableRange.startTime,
+                        endTime: reportWideTableRange.endTime,
+                    });
                 } catch (error) {
                     noteSkippedEnrichment(
                         `Failed report-wide table enrichment; continuing without report-wide tables (${error instanceof Error ? error.message : "unknown error"}).`,
@@ -1457,10 +1043,10 @@ export class WclClient {
 
             if (ratePressure.level !== "critical") {
                 try {
-                    rankingsPayload = await this.requestGraphQl(BOSS_RANKINGS_QUERY, {
+                    rankingsPayload = await this.queries.bossRankings({
                         code,
                         allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                        fightIDs,
+                        ...(fightIDs ? { fightIDs } : {}),
                     });
                     perEncounterRankingsSucceeded += 1;
                 } catch (error) {
@@ -1470,10 +1056,10 @@ export class WclClient {
                 }
 
                 try {
-                    const tablesPayload = await this.requestGraphQl(TABLE_QUERY, {
+                    const tablesPayload = await this.queries.table({
                         code,
                         allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                        fightIDs,
+                        ...(fightIDs ? { fightIDs } : {}),
                     });
                     tableNode = getReportNode(tablesPayload);
                     perEncounterTablesSucceeded += 1;
