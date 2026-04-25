@@ -267,6 +267,15 @@ export { Performance } from './recap/performance.js';
 export { Volume } from './recap/volume.js';
 export { Execution } from './recap/execution.js';
 export { buildRecapSummary } from './recap/build-recap-summary.js';
+export {
+  getBossEncounterId,
+  hasDungeonPullData,
+  parseFightSummaries,
+  pickEncounterSummaryFight,
+  sumTableValues,
+  summarizeBossTables,
+  type FightSummaryRow,
+} from './report-mappers.js';
 
 // Temporary adapter layer for incremental migration to @wcl/contracts.
 export type {
