@@ -1,4 +1,10 @@
-export const KILL_TYPES = ["All", "Encounters", "Kills", "Trash", "Wipes"] as const;
+export const KILL_TYPES = [
+    "All",
+    "Encounters",
+    "Kills",
+    "Trash",
+    "Wipes",
+] as const;
 
 export type KillType = (typeof KILL_TYPES)[number];
 
@@ -24,4 +30,13 @@ export const REPORT_TABLE_DATA_TYPES = [
     "Dispels",
     "Interrupts",
     "Survivability",
+] as const satisfies readonly TableDataType[];
+
+export const REPORT_RECAP_TABLE_DATA_TYPES = [
+    "DamageDone",
+    "DamageTaken",
+    "Healing",
+    "Deaths",
+    "Dispels",
+    "Interrupts",
 ] as const satisfies readonly TableDataType[];

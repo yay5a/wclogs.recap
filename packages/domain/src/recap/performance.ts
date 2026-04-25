@@ -2,6 +2,7 @@ import type { NormalizedReport, RecapSummary } from '../index.js';
 import {
   dedupeRowsByPlayerStrongest,
   resolveMetricLabelFromEntry,
+  type MetricLabel,
   toClassSpecLabel,
 } from './helpers.js';
 
@@ -23,12 +24,25 @@ export interface PerformanceResult {
 
 export const Performance = {
   build({ report }: PerformanceInput): PerformanceResult {
-    const reportDamageByName = new Map(
-      (report.reportWideRecap?.topDamageDone ?? []).map((entry) => [
-        entry.playerName.toLowerCase(),
-        entry,
-      ]),
-    );
+    const mapRowsByName = (
+      rows?: Array<{
+        playerName: string;
+        value: number;
+        className?: string;
+        specName?: string;
+      }>,
+    ) => new Map((rows ?? []).map((entry) => [entry.playerName.toLowerCase(), entry]));
+    const reportDamageByName = mapRowsByName(report.reportWideRecap?.topDamageDone);
+    const reportHealingByName = mapRowsByName(report.reportWideRecap?.topHealingDone);
+    const reportDamageTakenByName = mapRowsByName(report.reportWideRecap?.topDamageTaken);
+    const amountRowsByMetric: Record<
+      MetricLabel,
+      ReturnType<typeof mapRowsByName>
+    > = {
+      DPS: reportDamageByName,
+      HPS: reportHealingByName,
+      DTPS: reportDamageTakenByName,
+    };
     const reportLeaderboards = (report.leaderboards ?? []).filter(
       (entry) => entry.scope === 'report',
     );
@@ -38,17 +52,18 @@ export const Performance = {
         .sort((left, right) => right.value - left.value)
         .flatMap((entry) => {
           if (!entry.playerName) return [];
-          const damageRow = reportDamageByName.get(entry.playerName.toLowerCase());
-          const className = entry.className ?? damageRow?.className;
-          const specName = entry.specName ?? damageRow?.specName;
+          const metricLabel = resolveMetricLabelFromEntry(entry);
+          const amountRow = amountRowsByMetric[metricLabel]?.get(entry.playerName.toLowerCase());
+          const className = entry.className ?? amountRow?.className;
+          const specName = entry.specName ?? amountRow?.specName;
           const classSpecLabel = toClassSpecLabel(className, specName);
           return [
             {
               playerName: entry.playerName,
               value: entry.value,
-              metricLabel: resolveMetricLabelFromEntry(entry),
-              metric: resolveMetricLabelFromEntry(entry),
-              ...(typeof damageRow?.value === 'number' ? { amount: damageRow.value } : {}),
+              metricLabel,
+              metric: metricLabel,
+              ...(typeof amountRow?.value === 'number' ? { amount: amountRow.value } : {}),
               ...(className ? { className } : {}),
               ...(specName ? { specName } : {}),
               ...(classSpecLabel ? { classSpecLabel } : {}),

@@ -38,6 +38,15 @@ const formatTotalLine = (label: string, value: string | number, icon?: string, e
     icon ? `${icon} ${emphasizeLabel ? `**${label}:**` : `${label}:`} ${value}` : `${emphasizeLabel ? `**${label}:**` : `${label}:`} ${value}`;
 const formatTopStatRows = (entries: Array<{ playerName: string; value: number; classSpecLabel?: string }>, formatter: (value: number) => string): string =>
     entries.slice(0, 3).map((entry, index) => `${index + 1}. **${entry.playerName}** ${formatter(entry.value)}${entry.classSpecLabel ? ` · ${entry.classSpecLabel}` : ""}`).join("\n");
+const DISCORD_FIELD_VALUE_LIMIT = 1024;
+const truncateFieldValue = (value: string): string =>
+    value.length <= DISCORD_FIELD_VALUE_LIMIT
+        ? value
+        : `${value.slice(0, DISCORD_FIELD_VALUE_LIMIT - 2)}…`;
+const joinSectionLines = (lines: Array<string | undefined>): string =>
+    lines.filter((line): line is string => Boolean(line)).join("\n");
+const sectionBlock = (label: string, body: string | undefined): string | undefined =>
+    body && body.length > 0 ? `**${label}**\n${body}` : undefined;
 
 export const makeRecapComponentCustomId = (action: string, reportCode: string, guildId: string): string =>
     `${RECAP_COMPONENT_PREFIX}:${action}:${reportCode}:${guildId}`;
@@ -73,34 +82,14 @@ export const buildRecapPreviewBody = (summary: RecapSummary, reportCode: string,
     buildRecapPreviewBodyFromModel(toRecapRenderModel(summary), reportCode, guildId);
 
 export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
-    const spacerField = { name: "\u200B", value: "\u200B" };
-    const fields: Array<{ name: string; value: string; inline?: boolean }> = [{ name: "🛡️ Raid", value: [model.outcome.secondaryLine, `Raid Duration: ${model.outcome.killTimeLabel} (${model.outcome.pullCount} Pulls)`, `Date: ${model.outcome.reportDateLabel}`].filter((line): line is string => Boolean(line)).join("\n") }];
-    let hasSecondarySection = false;
-    const pushSection = (name: string, value: string): void => { if (hasSecondarySection) fields.push(spacerField); fields.push({ name, value }); hasSecondarySection = true; };
-    if (model.outcome.bossHighlights.length > 0) pushSection("🏆 Boss Highlights", model.outcome.bossHighlights.slice(0, 4).map((entry) => `• **${entry.bossName}:** ${entry.text}`).join("\n"));
     const standoutLines = [
         model.performance.bestExecution ? `🎯 Best execution: **${model.performance.bestExecution.playerName} ${model.performance.bestExecution.value.toFixed(1)}**` : undefined,
         model.performance.mostImprovedPlayer ? `📈 Most improved: **${model.performance.mostImprovedPlayer.playerName} +${model.performance.mostImprovedPlayer.delta.toFixed(1)}**` : undefined,
     ].filter((line): line is string => Boolean(line));
-    if (standoutLines.length > 0) pushSection("🌟 Standouts", standoutLines.join("\n"));
-    if (model.performance.bestSingleBossParse || model.performance.bestAverageParse) {
-        const rankingLines = [
-            model.performance.bestSingleBossParse ? formatRankingLine("🥇", "Best single-boss parse", model.performance.bestSingleBossParse.playerName, model.performance.bestSingleBossParse.value, model.performance.bestSingleBossParse.metric, model.performance.bestSingleBossParse.bossName) : undefined,
-            model.performance.bestAverageParse ? formatRankingLine("📊", "Best average parse", model.performance.bestAverageParse.playerName, model.performance.bestAverageParse.value, model.performance.bestAverageParse.metric) : undefined,
-        ].filter((line): line is string => Boolean(line));
-        pushSection("📈 Overall Rankings", rankingLines.join("\n"));
-    }
-    if (model.performance.bestPlayerParses.length > 0) pushSection("⭐ Best Player Parses", model.performance.bestPlayerParses.map((entry) => formatParseHighlightRow(entry)).join("\n"));
-    if (model.performance.topOverallParsers.length > 0) pushSection("📊 Top Overall Parsers", model.performance.topOverallParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n"));
-    if (model.performance.topOverallDamageParsers.length > 0) pushSection("⚔️ Top Overall Damage Parse", model.performance.topOverallDamageParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n"));
-    if (model.performance.topOverallHealingParsers.length > 0) pushSection("💚 Top Overall Healing Parse", model.performance.topOverallHealingParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n"));
-    if (model.outcome.raidSuperlatives.length > 0) pushSection("🏅 Raid Superlatives", model.outcome.raidSuperlatives.slice(0, 4).map((entry) => `• **${entry.label}:** ${entry.text}`).join("\n"));
-    if (model.volume.topDamageDone.length > 0) pushSection("⚔️ Top Damage Done", formatTopStatRows(model.volume.topDamageDone, (value) => formatCompactNumber(value)));
-    if (model.volume.topHealingDone.length > 0) pushSection("💚 Top Healing Done", formatTopStatRows(model.volume.topHealingDone, (value) => formatCompactNumber(value)));
-    if (model.volume.topDamageTaken.length > 0) pushSection("🩸 Top Damage Taken", formatTopStatRows(model.volume.topDamageTaken, (value) => formatCompactNumber(value)));
-    if (model.execution.topInterrupts.length > 0) pushSection("🛑 Top Interrupts", formatTopStatRows(model.execution.topInterrupts, (value) => value.toFixed(0)));
-    if (model.execution.topDispels.length > 0) pushSection("✨ Top Dispels", formatTopStatRows(model.execution.topDispels, (value) => value.toFixed(0)));
-    if (model.execution.topSurvivability.length > 0) pushSection("🛡️ Top Survivability", formatTopStatRows(model.execution.topSurvivability, (value) => value.toFixed(1)));
+    const rankingLines = [
+        model.performance.bestSingleBossParse ? formatRankingLine("🥇", "Best single-boss parse", model.performance.bestSingleBossParse.playerName, model.performance.bestSingleBossParse.value, model.performance.bestSingleBossParse.metric, model.performance.bestSingleBossParse.bossName) : undefined,
+        model.performance.bestAverageParse ? formatRankingLine("📊", "Best average parse", model.performance.bestAverageParse.playerName, model.performance.bestAverageParse.value, model.performance.bestAverageParse.metric) : undefined,
+    ].filter((line): line is string => Boolean(line));
     const totalLines = [
         typeof model.outcome.totals.totalDeaths === "number" ? formatTotalLine("Total deaths", model.outcome.totals.totalDeaths, "☠️", true) : undefined,
         typeof model.outcome.totals.raidDamageTaken === "number" ? formatTotalLine("Raid damage taken", formatCompactNumber(model.outcome.totals.raidDamageTaken), "🩸", true) : undefined,
@@ -108,7 +97,49 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
         typeof model.outcome.totals.battleRezzes === "number" ? formatTotalLine("Battle rezzes", model.outcome.totals.battleRezzes) : undefined,
         typeof model.outcome.totals.kicks === "number" ? formatTotalLine("Kicks", model.outcome.totals.kicks, "🛑", true) : undefined,
     ].filter((line): line is string => Boolean(line));
-    if (totalLines.length > 0) pushSection("🧾 Totals", totalLines.join("\n"));
+    const fields: Array<{ name: string; value: string; inline?: boolean }> = [
+        {
+            name: "🏁 Outcome",
+            value: truncateFieldValue(joinSectionLines([
+                model.outcome.secondaryLine,
+                `Raid Duration: ${model.outcome.killTimeLabel} (${model.outcome.pullCount} Pulls)`,
+                `Date: ${model.outcome.reportDateLabel}`,
+                sectionBlock("Boss Highlights", model.outcome.bossHighlights.slice(0, 4).map((entry) => `• **${entry.bossName}:** ${entry.text}`).join("\n")),
+            ])),
+        },
+    ];
+    const pushSection = (name: string, value: string): void => {
+        if (value.length > 0) fields.push({ name, value: truncateFieldValue(value) });
+    };
+    if (model.performance.bestSingleBossParse || model.performance.bestAverageParse) {
+        pushSection("📈 Performance", joinSectionLines([
+            sectionBlock("Overall Rankings", rankingLines.join("\n")),
+            sectionBlock("Best Player Parses", model.performance.bestPlayerParses.map((entry) => formatParseHighlightRow(entry)).join("\n")),
+            sectionBlock("Top Overall Parsers", model.performance.topOverallParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+            sectionBlock("Top Overall Damage Parse", model.performance.topOverallDamageParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+            sectionBlock("Top Overall Healing Parse", model.performance.topOverallHealingParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+        ]));
+    } else {
+        pushSection("📈 Performance", joinSectionLines([
+            sectionBlock("Best Player Parses", model.performance.bestPlayerParses.map((entry) => formatParseHighlightRow(entry)).join("\n")),
+            sectionBlock("Top Overall Parsers", model.performance.topOverallParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+            sectionBlock("Top Overall Damage Parse", model.performance.topOverallDamageParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+            sectionBlock("Top Overall Healing Parse", model.performance.topOverallHealingParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+        ]));
+    }
+    pushSection("📊 Volume", joinSectionLines([
+        sectionBlock("Top Damage Done", formatTopStatRows(model.volume.topDamageDone, (value) => formatCompactNumber(value))),
+        sectionBlock("Top Healing Done", formatTopStatRows(model.volume.topHealingDone, (value) => formatCompactNumber(value))),
+        sectionBlock("Top Damage Taken", formatTopStatRows(model.volume.topDamageTaken, (value) => formatCompactNumber(value))),
+        sectionBlock("Totals", totalLines.join("\n")),
+    ]));
+    pushSection("🎯 Execution", joinSectionLines([
+        sectionBlock("Standouts", standoutLines.join("\n")),
+        sectionBlock("Top Interrupts", formatTopStatRows(model.execution.topInterrupts, (value) => value.toFixed(0))),
+        sectionBlock("Top Dispels", formatTopStatRows(model.execution.topDispels, (value) => value.toFixed(0))),
+        sectionBlock("Top Survivability", formatTopStatRows(model.execution.topSurvivability, (value) => value.toFixed(1))),
+        sectionBlock("Raid Superlatives", model.outcome.raidSuperlatives.slice(0, 4).map((entry) => `• **${entry.label}:** ${entry.text}`).join("\n")),
+    ]));
     pushSection("🔗 Report", model.outcome.reportLink);
     return { title: model.outcome.titleLine, fields };
 }

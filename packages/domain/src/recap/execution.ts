@@ -4,7 +4,12 @@ import type {
   NormalizedReport,
   RecapSummary,
 } from '../index.js';
-import { buildRaidSuperlatives, formatCompactNumber, toNormalizedPlayerKey } from './helpers.js';
+import {
+  buildRaidSuperlatives,
+  formatCompactNumber,
+  formatShortDuration,
+  toNormalizedPlayerKey,
+} from './helpers.js';
 
 export interface ExecutionInput {
   report: NormalizedReport;
@@ -105,7 +110,7 @@ export const Execution = {
             (left, right) => left.durationMs - right.durationMs,
           )[0];
           if (fastest) {
-            signals.push(`Fast ${fastest.label} ${(fastest.durationMs / 1000).toFixed(1)}s`);
+            signals.push(`Fast ${fastest.label} ${formatShortDuration(fastest.durationMs)}`);
           }
         }
         lines.push(...signals.slice(0, 2));

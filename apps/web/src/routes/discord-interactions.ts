@@ -58,11 +58,21 @@ export const registerDiscordInteractionRoutes: FastifyPluginAsync<
                     return reply.code(200).send({ type: 1 });
                 }
 
+                const backgroundTasks: Array<() => void> = [];
+                reply.raw.once("finish", () => {
+                    for (const task of backgroundTasks) {
+                        setImmediate(task);
+                    }
+                });
+
                 const response = await handleInteraction(body, {
                     wclClient: options.wclClient,
                     guildConfigStore: options.guildConfigStore,
                     recapPreviewStateService: options.recapPreviewStateService,
                     previewStateTtlSeconds: options.env.PREVIEW_STATE_TTL_SECONDS,
+                    scheduleBackgroundTask: (task) => {
+                        backgroundTasks.push(task);
+                    },
                 });
                 return reply.send(response);
             } catch (error) {

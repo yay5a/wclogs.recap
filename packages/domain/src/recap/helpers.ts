@@ -23,6 +23,20 @@ export const formatRaidDurationHoursMinutes = (durationMs: number): string => {
   return `${String(hours).padStart(2, '0')} ${hourLabel} ${String(minutes).padStart(2, '0')} ${minuteLabel}`;
 };
 
+export const formatShortDuration = (durationMs: number): string => {
+  const totalSeconds = Math.max(0, durationMs / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds - minutes * 60;
+  const secondsLabel =
+    seconds % 1 === 0
+      ? String(seconds).padStart(minutes > 0 ? 2 : 1, '0')
+      : seconds.toFixed(1).padStart(minutes > 0 ? 4 : 1, '0');
+
+  if (minutes < 1) return `${secondsLabel}s`;
+
+  return `${minutes}m ${secondsLabel}s`;
+};
+
 const normalizeTitleToken = (value: string): string =>
   value.trim().replace(/\s+/g, ' ').toLowerCase();
 
@@ -150,7 +164,9 @@ export const dedupeRowsByPlayerStrongest = <
   return [...strongestByPlayer.values()];
 };
 
-export const toMetricLabel = (value: string | undefined, role?: string): string => {
+export type MetricLabel = 'DPS' | 'HPS' | 'DTPS';
+
+export const toMetricLabel = (value: string | undefined, role?: string): MetricLabel => {
   const normalized = value?.trim().toUpperCase();
   if (!normalized) return 'DPS';
   if (normalized === 'DPS' || normalized === 'HPS' || normalized === 'DTPS') {
@@ -164,7 +180,7 @@ export const toMetricLabel = (value: string | undefined, role?: string): string 
 
 export const resolveMetricLabelFromEntry = (
   entry: Pick<NormalizedLeaderboardEntry, 'selectedMetric' | 'metric' | 'role'>,
-): string =>
+): MetricLabel =>
   toMetricLabel(
     entry.selectedMetric ??
       (entry.metric === 'DPS' || entry.metric === 'HPS' || entry.metric === 'DTPS'
@@ -246,7 +262,7 @@ export const buildRaidSuperlatives = (
       ? [
           {
             label: 'Fastest phase',
-            text: `${fastestPhase.bossName} ${fastestPhase.label} ${(fastestPhase.durationMs / 1000).toFixed(1)}s`,
+            text: `${fastestPhase.bossName} ${fastestPhase.label} ${formatShortDuration(fastestPhase.durationMs)}`,
           },
         ]
       : []),

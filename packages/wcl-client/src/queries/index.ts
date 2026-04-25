@@ -1,4 +1,9 @@
-import { KILL_TYPES, REPORT_TABLE_DATA_TYPES } from "../schema-enums.js";
+import {
+    KILL_TYPES,
+    REPORT_RECAP_TABLE_DATA_TYPES,
+    REPORT_TABLE_DATA_TYPES,
+    type TableDataType,
+} from "../schema-enums.js";
 
 export interface BaseReportSummaryPayload {
     data?: {
@@ -185,25 +190,43 @@ export const TABLE_QUERY = `
 `;
 
 export const REPORT_WIDE_TABLE_QUERY = `
-  query ReportWideTable(
+  query ReportWideTableByType(
     $code: String!
     $allowUnlisted: Boolean!
-    $startTime: Float!
-    $endTime: Float!
+    $fightIDs: [Int]
+    $filterExpression: String
   ) {
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
-        damageDone: table(dataType: ${REPORT_TABLE_DATA_TYPES[0]}, startTime: $startTime, endTime: $endTime)
-        damageTaken: table(dataType: ${REPORT_TABLE_DATA_TYPES[1]}, startTime: $startTime, endTime: $endTime)
-        healing: table(dataType: ${REPORT_TABLE_DATA_TYPES[2]}, startTime: $startTime, endTime: $endTime)
-        deaths: table(dataType: ${REPORT_TABLE_DATA_TYPES[3]}, startTime: $startTime, endTime: $endTime)
-        dispels: table(dataType: ${REPORT_TABLE_DATA_TYPES[4]}, startTime: $startTime, endTime: $endTime)
-        interrupts: table(dataType: ${REPORT_TABLE_DATA_TYPES[5]}, startTime: $startTime, endTime: $endTime)
-        survivability: table(dataType: ${REPORT_TABLE_DATA_TYPES[6]}, startTime: $startTime, endTime: $endTime)
+        table(
+          dataType: DATA_TYPE_PLACEHOLDER
+          fightIDs: $fightIDs
+          filterExpression: $filterExpression
+        )
       }
     }
   }
 `;
+
+export const REPORT_WIDE_KILL_TABLE_FILTERS: Record<
+    (typeof REPORT_RECAP_TABLE_DATA_TYPES)[number],
+    string
+> = {
+    DamageDone:
+        '((encounterID != 0) AND (encounterEnd = "kill")) AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
+    DamageTaken:
+        '((encounterID != 0) AND (encounterEnd = "kill")) AND (target.disposition = "friendly")',
+    Healing:
+        '((encounterID != 0) AND (encounterEnd = "kill")) AND (inCategory("healing") = true) AND (source.disposition = "friendly") AND (target.disposition = "friendly")',
+    Deaths: '((encounterID != 0) AND (encounterEnd = "kill")) AND (type = "death") AND (target.disposition = "friendly") AND (feign = false)',
+    Dispels:
+        '((encounterID != 0) AND (encounterEnd = "kill")) AND (source.disposition = "friendly")',
+    Interrupts:
+        '((encounterID != 0) AND (encounterEnd = "kill")) AND (type = "interrupt") AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
+};
+
+export const buildReportWideTableQuery = (dataType: TableDataType): string =>
+    REPORT_WIDE_TABLE_QUERY.replace("DATA_TYPE_PLACEHOLDER", dataType);
 
 export type GraphQlExecutor = <TPayload>(
     query: string,
@@ -229,14 +252,24 @@ export const createWclQueries = (execute: GraphQlExecutor) => ({
         startTime: number;
         endTime: number;
     }) => execute<PlayerDetailsPayload>(PLAYER_DETAILS_QUERY, variables),
-    table: (variables: { code: string; allowUnlisted: boolean; fightIDs?: number[] }) =>
-        execute<ReportTablePayload>(TABLE_QUERY, variables),
+    table: (variables: {
+        code: string;
+        allowUnlisted: boolean;
+        fightIDs?: number[];
+    }) => execute<ReportTablePayload>(TABLE_QUERY, variables),
     reportWideTable: (variables: {
         code: string;
         allowUnlisted: boolean;
-        startTime: number;
-        endTime: number;
-    }) => execute<ReportTablePayload>(REPORT_WIDE_TABLE_QUERY, variables),
+        dataType: TableDataType;
+        fightIDs?: number[];
+        filterExpression?: string;
+    }) => {
+        const { dataType, ...requestVariables } = variables;
+        return execute<ReportTablePayload>(
+            buildReportWideTableQuery(dataType),
+            requestVariables,
+        );
+    },
 });
 
 export type WclQueries = ReturnType<typeof createWclQueries>;

@@ -1,34 +1,4 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { readFileSync } from "node:fs";
-import { join } from "node:path";
-
-const loadPublicProbeFixture = (name: string): unknown =>
-    JSON.parse(
-        readFileSync(
-            join(
-                process.cwd(),
-                "src",
-                "fixtures",
-                "probes",
-                `${name}.v4apgdkyWQmrZ3q8.fight-46.json`,
-            ),
-            "utf8",
-        ),
-    ) as unknown;
-
-const loadBaseReportFixture = (): unknown =>
-    JSON.parse(
-        readFileSync(
-            join(
-                process.cwd(),
-                "src",
-                "fixtures",
-                "probes",
-                "base-report.v4apgdkyWQmrZ3q8.json",
-            ),
-            "utf8",
-        ),
-    ) as unknown;
 
 describe("index contract", () => {
     vi.mock(
@@ -376,19 +346,54 @@ describe("index contract", () => {
             expect(normalized.players[0]?.name).toBe("Alyra");
         });
 
-        it("normalizes selected Lei Shen fight from public probe fixtures", () => {
-            const base = loadBaseReportFixture();
-            const deaths = loadPublicProbeFixture("deaths");
-            const dispels = loadPublicProbeFixture("dispels");
-            const interrupts = loadPublicProbeFixture("interrupts");
-            const damageTaken = loadPublicProbeFixture("damage-taken");
-            const healing = loadPublicProbeFixture("healing");
-            const survivability = loadPublicProbeFixture("survivability");
-            const bossRankings = loadPublicProbeFixture("boss-rankings");
-
+        it("normalizes selected Lei Shen fight from representative probe payloads", () => {
             const normalized = normalizeEnrichedReport(
                 {
-                    base: { reportData: { report: base } },
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Throne of Thunder",
+                                startTime: 1000,
+                                endTime: 441287,
+                                phases: [
+                                    {
+                                        encounterID: 51579,
+                                        phases: [
+                                            { id: 1, name: "Phase 1", isIntermission: false },
+                                            { id: 2, name: "Intermission 1", isIntermission: true },
+                                            { id: 3, name: "Phase 3", isIntermission: false },
+                                            { id: 4, name: "Intermission 2", isIntermission: true },
+                                            { id: 5, name: "Phase 5", isIntermission: false },
+                                        ],
+                                    },
+                                ],
+                                fights: [
+                                    {
+                                        id: 46,
+                                        name: "Lei Shen",
+                                        startTime: 1000,
+                                        endTime: 441287,
+                                        kill: true,
+                                        encounterID: 51579,
+                                        phaseTransitions: [
+                                            { id: 2, startTime: 120000 },
+                                            { id: 3, startTime: 130000 },
+                                            { id: 4, startTime: 300000 },
+                                            { id: 5, startTime: 310000 },
+                                        ],
+                                    },
+                                ],
+                                masterData: {
+                                    actors: [
+                                        { id: 1, name: "Raikami", subType: "Hunter" },
+                                        { id: 2, name: "Arakinak", subType: "Druid" },
+                                        { id: 3, name: "Floorroller", subType: "Monk" },
+                                        { id: 4, name: "Pearl", subType: "Priest" },
+                                    ],
+                                },
+                            },
+                        },
+                    },
                     encounterSummaries: [
                         {
                             encounterID: 51579,
@@ -396,14 +401,112 @@ describe("index contract", () => {
                             fightId: 46,
                             kill: true,
                             difficulty: 3,
-                            rankings: bossRankings,
+                            rankings: {
+                                rankings: [
+                                    {
+                                        playerID: 1,
+                                        name: "Raikami",
+                                        rankPercent: 99,
+                                        amount: 169858,
+                                        role: "DPS",
+                                        className: "Hunter",
+                                        spec: "Survival",
+                                    },
+                                    {
+                                        playerID: 2,
+                                        name: "Arakinak",
+                                        rankPercent: 79,
+                                        amount: 94429,
+                                        role: "Tank",
+                                        playerMetric: "dtps",
+                                        className: "Druid",
+                                        spec: "Guardian",
+                                    },
+                                    {
+                                        playerID: 3,
+                                        name: "Floorroller",
+                                        rankPercent: 43,
+                                        amount: 48423,
+                                        role: "Healer",
+                                        selectedMetric: "hps",
+                                        className: "Monk",
+                                        spec: "Mistweaver",
+                                    },
+                                    {
+                                        playerID: 4,
+                                        name: "Pearl",
+                                        rankPercent: 41,
+                                        amount: 42000,
+                                        role: "Healer",
+                                        selectedMetric: "hps",
+                                        className: "Priest",
+                                        spec: "Holy",
+                                    },
+                                ],
+                            },
                             tables: {
-                                DamageTaken: damageTaken,
-                                Healing: healing,
-                                Deaths: deaths,
-                                Dispels: dispels,
-                                Interrupts: interrupts,
-                                Survivability: survivability,
+                                DamageTaken: {
+                                    entries: [{ id: 2, name: "Arakinak", total: 94429 }],
+                                },
+                                Healing: {
+                                    entries: [
+                                        { id: 3, name: "Floorroller", total: 48423 },
+                                        { id: 4, name: "Pearl", total: 42000 },
+                                    ],
+                                },
+                                Deaths: {
+                                    data: {
+                                        entries: [
+                                            { id: 1, name: "Raikami", timestamp: 1000, overkill: 1 },
+                                            { id: 2, name: "Arakinak", timestamp: 2000, events: [] },
+                                            { id: 3, name: "Floorroller", timestamp: 3000, deathWindow: [] },
+                                            {
+                                                id: 4,
+                                                name: "Pearl",
+                                                timestamp: 4000,
+                                                killingBlow: { name: "Thunderstruck" },
+                                            },
+                                        ],
+                                    },
+                                },
+                                Dispels: {
+                                    data: {
+                                        entries: [
+                                            {
+                                                entries: [
+                                                    {
+                                                        details: [
+                                                            { id: 4, name: "Pearl", total: 1 },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                },
+                                Interrupts: {
+                                    data: {
+                                        entries: [
+                                            {
+                                                entries: [
+                                                    {
+                                                        details: [
+                                                            { id: 1, name: "Raikami", total: 3 },
+                                                        ],
+                                                    },
+                                                ],
+                                            },
+                                        ],
+                                    },
+                                },
+                                Survivability: {
+                                    data: {
+                                        players: [{ id: 1, name: "Raikami" }],
+                                        fights: [{ id: 46 }],
+                                        actortotals: [{ id: 1, name: "Raikami", class: "HUNTER" }],
+                                        abilitytotals: [],
+                                    },
+                                },
                             },
                         },
                     ],
@@ -688,7 +791,10 @@ describe("index contract", () => {
                             data: {
                                 entries: [
                                     {
-                                        entries: [{ id: 2, name: "Healz", dispels: 5 }],
+                                        entries: [
+                                            { id: 2, name: "Healz", dispels: 5 },
+                                            { id: 2, name: "Healz", dispels: 2 },
+                                        ],
                                     },
                                 ],
                             },
@@ -697,7 +803,10 @@ describe("index contract", () => {
                             data: {
                                 entries: [
                                     {
-                                        entries: [{ id: 1, name: "Dpsy", interrupts: 4 }],
+                                        entries: [
+                                            { id: 1, name: "Dpsy", interrupts: 4 },
+                                            { id: 1, name: "Dpsy", interrupts: 3 },
+                                        ],
                                     },
                                 ],
                             },
@@ -723,11 +832,15 @@ describe("index contract", () => {
             expect(normalized.reportWideRecap?.topHealingDone[0]?.playerName).toBe("Healz");
             expect(normalized.reportWideRecap?.topDamageTaken?.[0]?.playerName).toBe("Dpsy");
             expect(normalized.reportWideRecap?.topInterrupts?.[0]?.playerName).toBe("Dpsy");
+            expect(normalized.reportWideRecap?.topInterrupts?.[0]?.value).toBe(7);
+            expect(normalized.reportWideRecap?.topInterrupts).toHaveLength(1);
             expect(normalized.reportWideRecap?.topDispels?.[0]?.playerName).toBe("Healz");
+            expect(normalized.reportWideRecap?.topDispels?.[0]?.value).toBe(7);
+            expect(normalized.reportWideRecap?.topDispels).toHaveLength(1);
             expect(normalized.reportWideRecap?.topSurvivability?.[0]?.playerName).toBe("Dpsy");
             expect(normalized.reportWideRecap?.totals.deaths).toBe(3);
-            expect(normalized.reportWideRecap?.totals.dispels).toBe(5);
-            expect(normalized.reportWideRecap?.totals.interrupts).toBe(4);
+            expect(normalized.reportWideRecap?.totals.dispels).toBe(7);
+            expect(normalized.reportWideRecap?.totals.interrupts).toBe(7);
         });
     });
 
@@ -750,7 +863,11 @@ describe("index contract", () => {
                     reportCode: "abc123xyz4567890",
                     sourceUrl: "https://www.warcraftlogs.com/reports/abc123xyz4567890",
                     gameFamily: "retail",
-                    rawPayload: { base: cachedBase, encounterSummaries: [] },
+                    rawPayload: {
+                        rawPayloadVersion: 3,
+                        base: cachedBase,
+                        encounterSummaries: [],
+                    },
                     normalizedPayload: {
                         reportCode: "abc123xyz4567890",
                         title: "Stale Title",
@@ -783,7 +900,58 @@ describe("index contract", () => {
             const upsertArgs = store.upsert.mock.calls[0]?.[0] as
                 | { normalizedPayloadVersion?: number }
                 | undefined;
-            expect(upsertArgs?.normalizedPayloadVersion).toBe(2);
+            expect(upsertArgs?.normalizedPayloadVersion).toBe(3);
+        });
+
+        it("refetches old raw cache payloads without the current enrichment version", async () => {
+            const previousFixtureSetting = process.env.WCL_USE_FIXTURES;
+            process.env.WCL_USE_FIXTURES = "true";
+            const store = {
+                getByReportCode: vi.fn().mockResolvedValue({
+                    reportCode: "abc123xyz4567890",
+                    sourceUrl: "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+                    gameFamily: "retail",
+                    rawPayload: { base: { reportData: { report: { title: "Old Raw" } } } },
+                    normalizedPayload: {
+                        reportCode: "abc123xyz4567890",
+                        title: "Old Normalized",
+                        startTime: 1,
+                        endTime: 2,
+                        gameFamily: "retail",
+                        fights: [],
+                        players: [],
+                        leaderboards: [],
+                        bossPerformances: [],
+                    },
+                    normalizedPayloadVersion: 3,
+                    fetchedAt: new Date(),
+                }),
+                upsert: vi.fn().mockResolvedValue(undefined),
+            };
+            const client = new WclClient({
+                clientId: "id",
+                clientSecret: "secret",
+                apiBaseUrl: "https://example.com",
+                reportCacheStore: store,
+            });
+
+            try {
+                await client.fetchAndNormalizeReport(
+                    "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+                );
+            } finally {
+                if (previousFixtureSetting === undefined) {
+                    delete process.env.WCL_USE_FIXTURES;
+                } else {
+                    process.env.WCL_USE_FIXTURES = previousFixtureSetting;
+                }
+            }
+
+            expect(store.upsert).toHaveBeenCalledTimes(1);
+            const upsertArgs = store.upsert.mock.calls[0]?.[0] as
+                | { rawPayload?: { rawPayloadVersion?: number } }
+                | undefined;
+            expect(upsertArgs?.rawPayload?.rawPayloadVersion).toBe(3);
         });
     });
 });

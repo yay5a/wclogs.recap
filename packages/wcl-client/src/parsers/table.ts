@@ -32,7 +32,10 @@ const VALUE_KEY_BY_TYPE: Record<TableDataType, string[]> = {
     Summary: ["value", "amount", "total"],
 };
 
-const findValue = (entry: Record<string, unknown>, keys: string[]): number | undefined => {
+const findValue = (
+    entry: Record<string, unknown>,
+    keys: string[],
+): number | undefined => {
     for (const key of keys) {
         const value = asNumber(entry[key]);
         if (typeof value === "number") return value;
@@ -110,8 +113,11 @@ const isDeathsEventRow = (entry: Record<string, unknown>): boolean => {
     return hasDeathPayload;
 };
 
-const parseDeathsEventRow = (entry: Record<string, unknown>): ParsedTableEntry[] => {
-    const playerName = asString(entry.name) ?? asString(asObject(entry.actor)?.name);
+const parseDeathsEventRow = (
+    entry: Record<string, unknown>,
+): ParsedTableEntry[] => {
+    const playerName =
+        asString(entry.name) ?? asString(asObject(entry.actor)?.name);
     const playerId =
         asNumber(entry.id) ??
         asNumber(entry.playerID) ??
@@ -136,10 +142,13 @@ const getTableEntries = (
     const root = asObject(payload);
     if (!root) {
         const rows = asArray(payload) ?? [];
-        if (rows.length === 0) {
-            warn(`table parser (${dataType} payload): unrecognized payload shape`, {
-                payload,
-            });
+        if (payload !== undefined && payload !== null && rows.length === 0) {
+            warn(
+                `table parser (${dataType} payload): unrecognized payload shape`,
+                {
+                    payload,
+                },
+            );
         }
         return { rows, isValidShape: rows.length > 0 };
     }
@@ -187,9 +196,12 @@ const getTableEntries = (
 
     if (rows.length === 0) {
         if (!hasExplicitEmptyEntries) {
-            warn(`table parser (${dataType} payload): unrecognized payload shape`, {
-                payload,
-            });
+            warn(
+                `table parser (${dataType} payload): unrecognized payload shape`,
+                {
+                    payload,
+                },
+            );
         }
         return { rows, isValidShape: hasExplicitEmptyEntries };
     }
@@ -242,7 +254,8 @@ export const parseTablePayloadDetailed = (
             asNumber(entry.playerID) ??
             asNumber(entry.playerId) ??
             asNumber(entry.guid);
-        const playerName = asString(entry.name) ?? asString(asObject(entry.actor)?.name);
+        const playerName =
+            asString(entry.name) ?? asString(asObject(entry.actor)?.name);
 
         const parsedEntry: ParsedTableEntry = {
             dataType,
@@ -262,4 +275,5 @@ export const parseTablePayload = (
     payload: unknown,
     dataType: TableDataType,
     warn: DebugWarn = defaultDebugWarn,
-): ParsedTableEntry[] => parseTablePayloadDetailed(payload, dataType, warn).entries;
+): ParsedTableEntry[] =>
+    parseTablePayloadDetailed(payload, dataType, warn).entries;

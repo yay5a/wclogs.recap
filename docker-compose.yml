@@ -24,6 +24,9 @@ services:
       WCL_CLIENT_ID: ${WCL_CLIENT_ID}
       WCL_CLIENT_SECRET: ${WCL_CLIENT_SECRET}
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
+      DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY}
+      DISCORD_APPLICATION_ID: ${DISCORD_APPLICATION_ID}
+      COOKIE_SECRET: ${COOKIE_SECRET}
       # Configure the callback URL for the Warcraft Logs OAuth redirect.
       WCL_REDIRECT_URI: https://yaysa.wclogsdiscobot.org/api/auth/wcl/callback
       # Configure the Discord interactions endpoint (if your integration uses it).

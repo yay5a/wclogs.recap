@@ -41,6 +41,7 @@ export interface HandleOptions {
     guildConfigStore: GuildConfigStore;
     recapPreviewStateService: RecapPreviewStateService;
     previewStateTtlSeconds?: number;
+    scheduleBackgroundTask?: (task: () => void) => void;
 }
 
 export interface DiscordInteractionData {

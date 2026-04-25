@@ -33,10 +33,15 @@ import {
     type ParsedTableEntry,
 } from "./parsers/index.js";
 import {
+    REPORT_RECAP_TABLE_DATA_TYPES,
     REPORT_TABLE_DATA_TYPES,
     type TableDataType,
 } from "./schema-enums.js";
-import { createWclQueries, type WclQueries } from "./queries/index.js";
+import {
+    createWclQueries,
+    REPORT_WIDE_KILL_TABLE_FILTERS,
+    type WclQueries,
+} from "./queries/index.js";
 
 export interface ParsedReportUrl {
     reportCode: string;
@@ -52,7 +57,9 @@ const INACCESSIBLE_REPORT_TTL_MS = 6 * 60 * 60 * 1000;
 const RECENT_REPORT_WINDOW_MS = 6 * 60 * 60 * 1000;
 // Reports are fetched from user-submitted URLs/codes, so we intentionally allow unlisted reports.
 const DEFAULT_ALLOW_UNLISTED_REPORTS = true;
-const NORMALIZED_PAYLOAD_VERSION = 2;
+const RAW_PAYLOAD_VERSION = 3;
+const NORMALIZED_PAYLOAD_VERSION = 3;
+const BOSS_RANKINGS_CONCURRENCY = 4;
 const logger = createLogger("wcl-client");
 
 interface WclClientOptions {
@@ -81,30 +88,45 @@ interface EncounterSummaryRow {
     tables: Partial<Record<TableDataType, unknown>>;
 }
 
-const TABLE_FIELD_BY_TYPE: Record<
-    (typeof REPORT_TABLE_DATA_TYPES)[number],
-    string
-> = {
-    DamageDone: "damageDone",
-    DamageTaken: "damageTaken",
-    Healing: "healing",
-    Deaths: "deaths",
-    Dispels: "dispels",
-    Interrupts: "interrupts",
-    Survivability: "survivability",
+const getKillEncounterFightIds = (
+    report: Record<string, unknown> | undefined,
+): number[] => {
+    if (!report) return [];
+
+    return parseFightSummaries(report).flatMap((fight) => {
+        const encounterID = getBossEncounterId(fight);
+        if (typeof encounterID !== "number" || !fight.kill) return [];
+        return [fight.id];
+    });
 };
 
-const mapReportTablesByType = (
-    tableNode: Record<string, unknown> | undefined,
-): Partial<Record<TableDataType, unknown>> =>
-    Object.fromEntries(
-        REPORT_TABLE_DATA_TYPES.map((dataType) => [
-            dataType,
-            tableNode?.[TABLE_FIELD_BY_TYPE[dataType]],
-        ]),
+const mapWithConcurrency = async <TInput, TOutput>(
+    inputs: readonly TInput[],
+    concurrency: number,
+    mapper: (input: TInput, index: number) => Promise<TOutput>,
+): Promise<TOutput[]> => {
+    const results = new Array<TOutput>(inputs.length);
+    let nextIndex = 0;
+    const workerCount = Math.min(Math.max(1, concurrency), inputs.length);
+
+    await Promise.all(
+        Array.from({ length: workerCount }, async () => {
+            while (nextIndex < inputs.length) {
+                const currentIndex = nextIndex;
+                nextIndex += 1;
+                results[currentIndex] = await mapper(
+                    inputs[currentIndex] as TInput,
+                    currentIndex,
+                );
+            }
+        }),
     );
 
+    return results;
+};
+
 interface EnrichedRawReport {
+    rawPayloadVersion: number;
     base: unknown;
     // TODO(domain): expose archive accessibility status on NormalizedReport when the domain model supports it.
     archiveAccessLimited?: boolean;
@@ -332,24 +354,6 @@ const buildRealmLabel = (
     return serverName;
 };
 
-const resolveReportWideTableRangeFromFights = (
-    report: Record<string, unknown> | undefined,
-): { startTime: number; endTime: number } | undefined => {
-    if (!report) return undefined;
-
-    const validFightRanges = parseFightSummaries(report).map((fight) => ({
-        startTime: fight.startTime,
-        endTime: fight.endTime,
-    }));
-
-    if (validFightRanges.length === 0) return undefined;
-
-    return {
-        startTime: Math.min(...validFightRanges.map((row) => row.startTime)),
-        endTime: Math.max(...validFightRanges.map((row) => row.endTime)),
-    };
-};
-
 const isWithinTtl = (fetchedAt: unknown, ttlMs: number): boolean => {
     if (!(fetchedAt instanceof Date)) return false;
     return Date.now() - fetchedAt.getTime() <= ttlMs;
@@ -394,6 +398,11 @@ const shouldUseCachedReport = (cached: {
     rawPayload: unknown;
     fetchedAt?: Date;
 }): boolean => {
+    const enriched = asObject(cached.rawPayload);
+    if (asNumber(enriched?.rawPayloadVersion) !== RAW_PAYLOAD_VERSION) {
+        return false;
+    }
+
     const state = getReportCacheState(cached.rawPayload);
 
     if (state === "completed") {
@@ -471,7 +480,11 @@ const getMetricFromLeaderboard = (
     ];
     for (const metric of explicitMetricCandidates) {
         const normalized = metric?.trim().toUpperCase();
-        if (normalized === "DPS" || normalized === "HPS" || normalized === "DTPS") {
+        if (
+            normalized === "DPS" ||
+            normalized === "HPS" ||
+            normalized === "DTPS"
+        ) {
             return normalized;
         }
     }
@@ -649,7 +662,9 @@ const computeSelectedFightPhaseTimes = (
     for (const transition of transitions) {
         const duration = transition.startTime - currentStart;
         const phaseInfo = phaseById.get(currentPhaseId);
-        const isIntermission = phaseInfo ? Boolean(phaseInfo.isIntermission) : false;
+        const isIntermission = phaseInfo
+            ? Boolean(phaseInfo.isIntermission)
+            : false;
         if (duration > 0 && !isIntermission) {
             rows.push({
                 phaseId: currentPhaseId,
@@ -664,7 +679,9 @@ const computeSelectedFightPhaseTimes = (
 
     const finalDuration = fight.endTime - currentStart;
     const finalInfo = phaseById.get(currentPhaseId);
-    const finalIsIntermission = finalInfo ? Boolean(finalInfo.isIntermission) : false;
+    const finalIsIntermission = finalInfo
+        ? Boolean(finalInfo.isIntermission)
+        : false;
     if (finalDuration > 0 && !finalIsIntermission) {
         rows.push({
             phaseId: currentPhaseId,
@@ -744,7 +761,6 @@ const parseEncounterSummariesFromRaw = (
         return [summary];
     });
 };
-
 
 export const normalizeReportUrlInput = (raw: string): string => {
     const trimmed = raw.trim();
@@ -920,6 +936,7 @@ export class WclClient {
 
         if (isArchiveAccessLimited) {
             return {
+                rawPayloadVersion: RAW_PAYLOAD_VERSION,
                 base,
                 archiveAccessLimited: true,
                 ...(rateLimitData ? { rateLimitData } : {}),
@@ -940,14 +957,16 @@ export class WclClient {
         } catch (error) {
             noteSkippedEnrichment(
                 `Failed report rankings enrichment; continuing without report rankings (${error instanceof Error ? error.message : "unknown error"}).`,
-                );
+            );
         }
         logTiming("fetch report rankings", reportRankingsStartedAt, {
             requested: 1,
             succeeded: reportRankingsRaw ? 1 : 0,
         });
         let playerDetailsRaw: unknown;
-        let reportTablesRaw: unknown;
+        let reportTablesRaw:
+            | Partial<Record<TableDataType, unknown>>
+            | undefined;
         const reportStartTime = asNumber(baseReport?.startTime);
         const reportEndTime = asNumber(baseReport?.endTime);
         const playerDetailsStartedAt = now();
@@ -981,25 +1000,39 @@ export class WclClient {
             succeeded: playerDetailsRaw ? 1 : 0,
         });
         const reportWideTablesStartedAt = now();
+        const reportWideKillFightIds = getKillEncounterFightIds(baseReport);
+        let reportWideTablesRequested = 0;
+        let reportWideTablesSucceeded = 0;
         if (ratePressure.level !== "critical") {
-            const reportWideTableRange =
-                resolveReportWideTableRangeFromFights(baseReport);
-            if (reportWideTableRange) {
-                try {
-                    reportTablesRaw = await this.queries.reportWideTable({
-                        code,
-                        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                        startTime: reportWideTableRange.startTime,
-                        endTime: reportWideTableRange.endTime,
-                    });
-                } catch (error) {
-                    noteSkippedEnrichment(
-                        `Failed report-wide table enrichment; continuing without report-wide tables (${error instanceof Error ? error.message : "unknown error"}).`,
-                    );
+            if (reportWideKillFightIds.length > 0) {
+                reportTablesRaw = {};
+                for (const dataType of REPORT_RECAP_TABLE_DATA_TYPES) {
+                    reportWideTablesRequested += 1;
+                    try {
+                        const tablePayload = await this.queries.reportWideTable(
+                            {
+                                code,
+                                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                                dataType,
+                                fightIDs: reportWideKillFightIds,
+                                filterExpression:
+                                    REPORT_WIDE_KILL_TABLE_FILTERS[dataType],
+                            },
+                        );
+                        const tableNode = getReportNode(tablePayload)?.table;
+                        if (tableNode !== undefined && tableNode !== null) {
+                            reportTablesRaw[dataType] = tableNode;
+                        }
+                        reportWideTablesSucceeded += 1;
+                    } catch (error) {
+                        noteSkippedEnrichment(
+                            `Failed report-wide ${dataType} table enrichment; continuing without this table (${error instanceof Error ? error.message : "unknown error"}).`,
+                        );
+                    }
                 }
             } else {
                 noteSkippedEnrichment(
-                    "Skipped report-wide tables enrichment due to missing valid fights startTime/endTime bounds.",
+                    "Skipped report-wide tables enrichment due to missing kill fight IDs.",
                 );
             }
         } else {
@@ -1008,11 +1041,10 @@ export class WclClient {
             );
         }
         logTiming("fetch report-wide tables", reportWideTablesStartedAt, {
-            requested: ratePressure.level !== "critical" ? 1 : 0,
-            succeeded: reportTablesRaw ? 1 : 0,
+            requested: reportWideTablesRequested,
+            succeeded: reportWideTablesSucceeded,
         });
         const rawFights = baseReport ? parseFightSummaries(baseReport) : [];
-        const encounterSummaries: EncounterSummaryRow[] = [];
         const fightsByEncounterId = new Map<number, FightSummaryRow[]>();
         for (const fight of rawFights) {
             const encounterID = getBossEncounterId(fight);
@@ -1029,78 +1061,77 @@ export class WclClient {
         }
 
         const perEncounterFetchStartedAt = now();
-        let perEncounterRequested = 0;
-        let perEncounterRankingsSucceeded = 0;
-        let perEncounterTablesSucceeded = 0;
-        for (const [encounterID, encounterFights] of fightsByEncounterId.entries()) {
+        const encounterSummaryInputs = Array.from(
+            fightsByEncounterId.entries(),
+        ).flatMap(([encounterID, encounterFights]) => {
             const summaryFight = pickEncounterSummaryFight(encounterFights);
-            if (!summaryFight) continue;
-            perEncounterRequested += 1;
+            if (!summaryFight) return [];
+            return [{ encounterID, summaryFight }];
+        });
+        const encounterSummaryResults = await mapWithConcurrency(
+            encounterSummaryInputs,
+            BOSS_RANKINGS_CONCURRENCY,
+            async ({ encounterID, summaryFight }) => {
+                const fightIDs = toFightIDs(summaryFight.id);
+                let rankingsPayload: unknown;
+                let rankingsSucceeded = false;
 
-            const fightIDs = toFightIDs(summaryFight.id);
-            let rankingsPayload: unknown;
-            let tableNode: Record<string, unknown> | undefined;
-
-            if (ratePressure.level !== "critical") {
-                try {
-                    rankingsPayload = await this.queries.bossRankings({
-                        code,
-                        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                        ...(fightIDs ? { fightIDs } : {}),
-                    });
-                    perEncounterRankingsSucceeded += 1;
-                } catch (error) {
-                    noteSkippedEnrichment(
-                        `Failed boss rankings enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without boss rankings (${error instanceof Error ? error.message : "unknown error"}).`,
-                    );
+                if (ratePressure.level !== "critical") {
+                    try {
+                        rankingsPayload = await this.queries.bossRankings({
+                            code,
+                            allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                            ...(fightIDs ? { fightIDs } : {}),
+                        });
+                        rankingsSucceeded = true;
+                    } catch (error) {
+                        noteSkippedEnrichment(
+                            `Failed boss rankings enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without boss rankings (${error instanceof Error ? error.message : "unknown error"}).`,
+                        );
+                    }
                 }
 
-                try {
-                    const tablesPayload = await this.queries.table({
-                        code,
-                        allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                        ...(fightIDs ? { fightIDs } : {}),
-                    });
-                    tableNode = getReportNode(tablesPayload);
-                    perEncounterTablesSucceeded += 1;
-                } catch (error) {
-                    noteSkippedEnrichment(
-                        `Failed encounter table enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without encounter tables (${error instanceof Error ? error.message : "unknown error"}).`,
-                    );
-                }
-            }
-
-            const summary: EncounterSummaryRow = {
-                encounterID,
-                bossName: summaryFight.name,
-                fightId: summaryFight.id,
-                kill: summaryFight.kill,
-                rankings: getReportNode(rankingsPayload)?.rankings,
-                tables: mapReportTablesByType(tableNode),
-                ...(typeof summaryFight.difficulty === "number"
-                    ? { difficulty: summaryFight.difficulty }
-                    : {}),
-            };
-            encounterSummaries.push(summary);
-        }
+                return {
+                    summary: {
+                        encounterID,
+                        bossName: summaryFight.name,
+                        fightId: summaryFight.id,
+                        kill: summaryFight.kill,
+                        rankings: getReportNode(rankingsPayload)?.rankings,
+                        tables: {},
+                        ...(typeof summaryFight.difficulty === "number"
+                            ? { difficulty: summaryFight.difficulty }
+                            : {}),
+                    } satisfies EncounterSummaryRow,
+                    rankingsSucceeded,
+                };
+            },
+        );
+        const encounterSummaries = encounterSummaryResults.map(
+            (result) => result.summary,
+        );
+        const perEncounterRankingsSucceeded = encounterSummaryResults.filter(
+            (result) => result.rankingsSucceeded,
+        ).length;
         logTiming(
-            "per-encounter fetch rankings/tables",
+            "per-encounter fetch rankings",
             perEncounterFetchStartedAt,
             {
-                requested: perEncounterRequested,
+                requested: encounterSummaryInputs.length,
                 summaries: encounterSummaries.length,
                 rankingsSucceeded: perEncounterRankingsSucceeded,
-                tablesSucceeded: perEncounterTablesSucceeded,
+                concurrency: BOSS_RANKINGS_CONCURRENCY,
             },
         );
 
         return {
+            rawPayloadVersion: RAW_PAYLOAD_VERSION,
             base,
             ...(rateLimitData ? { rateLimitData } : {}),
             ...(skippedEnrichments.length > 0 ? { skippedEnrichments } : {}),
             reportRankings: getReportNode(reportRankingsRaw)?.rankings,
             playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
-            reportTables: mapReportTablesByType(getReportNode(reportTablesRaw)),
+            ...(reportTablesRaw ? { reportTables: reportTablesRaw } : {}),
             encounterSummaries,
         };
     }
@@ -1124,7 +1155,10 @@ export class WclClient {
                 return cached.normalizedPayload;
             }
 
-            const reNormalized = normalizeEnrichedReport(cached.rawPayload, parsed);
+            const reNormalized = normalizeEnrichedReport(
+                cached.rawPayload,
+                parsed,
+            );
             await this.options.reportCacheStore?.upsert({
                 reportCode: parsed.reportCode,
                 sourceUrl: url,
@@ -1140,6 +1174,7 @@ export class WclClient {
         let rawPayload: unknown;
         if (process.env.WCL_USE_FIXTURES === "true") {
             rawPayload = {
+                rawPayloadVersion: RAW_PAYLOAD_VERSION,
                 base: fixture,
                 reportRankings: getReportNode(fixture)?.rankings,
                 playerDetails: undefined,
@@ -1342,26 +1377,30 @@ export const normalizeEnrichedReport = (
     const parseReportWideTablesStartedAt = now();
     const reportTableNode = asObject(enriched?.reportTables);
     const parsedReportTableResults: Partial<
-        Record<TableDataType, { entries: ParsedTableEntry[]; isValidEmpty: boolean }>
-    > = Object.fromEntries(
-        REPORT_TABLE_DATA_TYPES.map((dataType) => [
+        Record<
+            TableDataType,
+            { entries: ParsedTableEntry[]; isValidEmpty: boolean }
+        >
+    > = {};
+    for (const dataType of REPORT_TABLE_DATA_TYPES) {
+        const payload = reportTableNode?.[dataType];
+        if (payload === undefined || payload === null) continue;
+
+        parsedReportTableResults[dataType] = parseTablePayloadDetailed(
+            payload,
             dataType,
-            parseTablePayloadDetailed(
-                reportTableNode?.[dataType],
-                dataType,
-                (message, context) => {
-                    logger.warn(
-                        {
-                            reportCode: parsed.reportCode,
-                            section: `report_table:${dataType}`,
-                            context,
-                        },
-                        message,
-                    );
-                },
-            ),
-        ]),
-    );
+            (message, context) => {
+                logger.warn(
+                    {
+                        reportCode: parsed.reportCode,
+                        section: `report_table:${dataType}`,
+                        context,
+                    },
+                    message,
+                );
+            },
+        );
+    }
     const mapReportWideRows = (
         entries: ParsedTableEntry[] | undefined,
         limit: number,
@@ -1372,10 +1411,22 @@ export const normalizeEnrichedReport = (
         specName?: string;
     }> =>
         takeTopEntries(
-            (entries ?? []).filter((entry) => {
-                if (!entry.playerName) return false;
-                return playerByName.has(normalizeName(entry.playerName));
-            }),
+            Array.from(
+                (entries ?? []).reduce((byPlayer, entry) => {
+                    if (!entry.playerName) return byPlayer;
+                    const nameKey = normalizeName(entry.playerName);
+                    if (!playerByName.has(nameKey)) return byPlayer;
+
+                    const existing = byPlayer.get(nameKey);
+                    if (existing) {
+                        existing.value += entry.value ?? 0;
+                        return byPlayer;
+                    }
+
+                    byPlayer.set(nameKey, { ...entry, value: entry.value ?? 0 });
+                    return byPlayer;
+                }, new Map<string, ParsedTableEntry>()),
+            ).map(([, entry]) => entry),
             limit,
         ).map((entry) => {
             const player = entry.playerName
@@ -1405,51 +1456,57 @@ export const normalizeEnrichedReport = (
             parsedReportTableResults.Interrupts?.entries,
             3,
         ),
-        topDispels: mapReportWideRows(parsedReportTableResults.Dispels?.entries, 3),
+        topDispels: mapReportWideRows(
+            parsedReportTableResults.Dispels?.entries,
+            3,
+        ),
         topSurvivability: mapReportWideRows(
             parsedReportTableResults.Survivability?.entries,
             3,
         ),
         totals: {
-            ...(typeof sumTableValues(parsedReportTableResults.Deaths?.entries) ===
-            "number"
+            ...(parsedReportTableResults.Deaths &&
+            typeof sumTableValues(parsedReportTableResults.Deaths.entries) ===
+                "number"
                 ? {
                       deaths: sumTableValues(
-                          parsedReportTableResults.Deaths?.entries,
+                          parsedReportTableResults.Deaths.entries,
                       ),
                   }
                 : {}),
-            ...(typeof
-                sumTableValues(parsedReportTableResults.DamageTaken?.entries) ===
-            "number"
+            ...(parsedReportTableResults.DamageTaken &&
+            typeof sumTableValues(
+                parsedReportTableResults.DamageTaken.entries,
+            ) === "number"
                 ? {
                       raidDamageTaken: sumTableValues(
-                          parsedReportTableResults.DamageTaken?.entries,
+                          parsedReportTableResults.DamageTaken.entries,
                       ),
                   }
                 : {}),
-            ...(typeof
-                sumTableValues(parsedReportTableResults.Dispels?.entries) ===
-            "number"
+            ...(parsedReportTableResults.Dispels &&
+            typeof sumTableValues(parsedReportTableResults.Dispels.entries) ===
+                "number"
                 ? {
                       dispels: sumTableValues(
-                          parsedReportTableResults.Dispels?.entries,
+                          parsedReportTableResults.Dispels.entries,
                       ),
                   }
                 : {}),
-            ...(typeof
-                sumTableValues(parsedReportTableResults.Interrupts?.entries) ===
-            "number"
+            ...(parsedReportTableResults.Interrupts &&
+            typeof sumTableValues(
+                parsedReportTableResults.Interrupts.entries,
+            ) === "number"
                 ? {
                       interrupts: sumTableValues(
-                          parsedReportTableResults.Interrupts?.entries,
+                          parsedReportTableResults.Interrupts.entries,
                       ),
                   }
                 : {}),
         },
     };
     logTiming("parse report-wide tables", parseReportWideTablesStartedAt, {
-        tableTypes: REPORT_TABLE_DATA_TYPES.length,
+        tableTypes: Object.keys(parsedReportTableResults).length,
         playerRows: players.length,
     });
 
@@ -1504,7 +1561,8 @@ export const normalizeEnrichedReport = (
             encounterSummariesForEncounter.length > 0
                 ? encounterSummariesForEncounter
                 : (() => {
-                      const fallbackFight = pickEncounterSummaryFight(encounterFights);
+                      const fallbackFight =
+                          pickEncounterSummaryFight(encounterFights);
                       if (!fallbackFight) return [];
                       return [
                           {
@@ -1521,17 +1579,19 @@ export const normalizeEnrichedReport = (
                   })();
 
         for (const summaryFight of summaryRows) {
-        const tableNode = asObject(summaryFight.tables);
-        const parsedTableResults: Partial<
-            Record<
-                TableDataType,
-                { entries: ParsedTableEntry[]; isValidEmpty: boolean }
-            >
-        > = Object.fromEntries(
-            REPORT_TABLE_DATA_TYPES.map((dataType) => [
-                dataType,
-                parseTablePayloadDetailed(
-                    tableNode?.[dataType],
+            const tableNode = asObject(summaryFight.tables);
+            const parsedTableResults: Partial<
+                Record<
+                    TableDataType,
+                    { entries: ParsedTableEntry[]; isValidEmpty: boolean }
+                >
+            > = {};
+            for (const dataType of REPORT_TABLE_DATA_TYPES) {
+                const payload = tableNode?.[dataType];
+                if (payload === undefined || payload === null) continue;
+
+                parsedTableResults[dataType] = parseTablePayloadDetailed(
+                    payload,
                     dataType,
                     (message, context) => {
                         logger.warn(
@@ -1544,229 +1604,261 @@ export const normalizeEnrichedReport = (
                             message,
                         );
                     },
-                ),
-            ]),
-        );
-        parsedEncounterTableCount += REPORT_TABLE_DATA_TYPES.length;
-        const parsedTables: Partial<Record<TableDataType, ParsedTableEntry[]>> =
-            Object.fromEntries(
+                );
+                parsedEncounterTableCount += 1;
+            }
+            const parsedTables: Partial<
+                Record<TableDataType, ParsedTableEntry[]>
+            > = Object.fromEntries(
                 REPORT_TABLE_DATA_TYPES.map((dataType) => [
                     dataType,
                     parsedTableResults[dataType]?.entries ?? [],
                 ]),
             );
 
-        const bossEntries = [
-            ...(bossLeaderboardsByFightId.get(summaryFight.fightId) ?? []),
-        ].sort((left, right) => right.value - left.value);
+            const bossEntries = [
+                ...(bossLeaderboardsByFightId.get(summaryFight.fightId) ?? []),
+            ].sort((left, right) => right.value - left.value);
 
-        const topBossParse = bossEntries[0];
-        const basePerformance = summarizeBossTables(
-            summaryFight.bossName,
-            summaryFight.fightId,
-            parsedTables,
-            topBossParse,
-        );
+            const topBossParse = bossEntries[0];
+            const basePerformance = summarizeBossTables(
+                summaryFight.bossName,
+                summaryFight.fightId,
+                parsedTables,
+                topBossParse,
+            );
 
-        const bestParses = bossEntries.slice(0, 3).flatMap((entry) => {
-            const playerName = getNameFromLeaderboard(entry);
-            if (!playerName) return [];
+            const bestParses = bossEntries.slice(0, 3).flatMap((entry) => {
+                const playerName = getNameFromLeaderboard(entry);
+                if (!playerName) return [];
 
-            const actorId = getActorIdFromLeaderboard(entry);
-            const player =
-                (typeof actorId === "number"
-                    ? playerByActorId.get(actorId)
-                    : undefined) ?? playerByName.get(normalizeName(playerName));
-            const amount = getAmountFromLeaderboard(entry);
-            const metric = getMetricFromLeaderboard(entry);
-            const className =
-                getClassFromLeaderboard(entry) ?? player?.className;
-            const specName = getSpecFromLeaderboard(entry) ?? player?.specName;
-
-            return [
-                {
-                    playerName,
-                    parse: entry.value,
-                    ...(typeof amount === "number" ? { amount } : {}),
-                    ...(typeof metric === "string" && metric.length > 0
-                        ? { metric }
-                        : {}),
-                    ...(className ? { className } : {}),
-                    ...(specName ? { specName } : {}),
-                },
-            ];
-        });
-
-        const leaderboardByPlayerName = new Map<string, NormalizedLeaderboardEntry>();
-        for (const entry of bossEntries) {
-            const playerName = getNameFromLeaderboard(entry);
-            if (!playerName) continue;
-            const key = normalizeName(playerName);
-            if (!leaderboardByPlayerName.has(key)) {
-                leaderboardByPlayerName.set(key, entry);
-            }
-        }
-
-        const mapTableRows = (
-            entries: ParsedTableEntry[] | undefined,
-            limit = 3,
-        ) =>
-            takeTopEntries(
-                (entries ?? []).filter((entry) => {
-                    if (!entry.playerName) return false;
-                    return playerByName.has(normalizeName(entry.playerName));
-                }),
-                limit,
-            ).map((entry) => {
-                const player = entry.playerName
-                    ? playerByName.get(normalizeName(entry.playerName))
-                    : undefined;
-                const leaderboardRow = entry.playerName
-                    ? leaderboardByPlayerName.get(normalizeName(entry.playerName))
-                    : undefined;
+                const actorId = getActorIdFromLeaderboard(entry);
+                const player =
+                    (typeof actorId === "number"
+                        ? playerByActorId.get(actorId)
+                        : undefined) ??
+                    playerByName.get(normalizeName(playerName));
+                const amount = getAmountFromLeaderboard(entry);
+                const metric = getMetricFromLeaderboard(entry);
                 const className =
-                    getClassFromLeaderboard(leaderboardRow) ?? player?.className;
+                    getClassFromLeaderboard(entry) ?? player?.className;
                 const specName =
-                    getSpecFromLeaderboard(leaderboardRow) ?? player?.specName;
+                    getSpecFromLeaderboard(entry) ?? player?.specName;
 
-                return {
-                    playerName: entry.playerName ?? "Unknown",
-                    value: entry.value ?? 0,
-                    ...(className ? { className } : {}),
-                    ...(specName ? { specName } : {}),
-                };
+                return [
+                    {
+                        playerName,
+                        parse: entry.value,
+                        ...(typeof amount === "number" ? { amount } : {}),
+                        ...(typeof metric === "string" && metric.length > 0
+                            ? { metric }
+                            : {}),
+                        ...(className ? { className } : {}),
+                        ...(specName ? { specName } : {}),
+                    },
+                ];
             });
+
+            const leaderboardByPlayerName = new Map<
+                string,
+                NormalizedLeaderboardEntry
+            >();
+            for (const entry of bossEntries) {
+                const playerName = getNameFromLeaderboard(entry);
+                if (!playerName) continue;
+                const key = normalizeName(playerName);
+                if (!leaderboardByPlayerName.has(key)) {
+                    leaderboardByPlayerName.set(key, entry);
+                }
+            }
+
+            const mapTableRows = (
+                entries: ParsedTableEntry[] | undefined,
+                limit = 3,
+            ) =>
+                takeTopEntries(
+                    (entries ?? []).filter((entry) => {
+                        if (!entry.playerName) return false;
+                        return playerByName.has(
+                            normalizeName(entry.playerName),
+                        );
+                    }),
+                    limit,
+                ).map((entry) => {
+                    const player = entry.playerName
+                        ? playerByName.get(normalizeName(entry.playerName))
+                        : undefined;
+                    const leaderboardRow = entry.playerName
+                        ? leaderboardByPlayerName.get(
+                              normalizeName(entry.playerName),
+                          )
+                        : undefined;
+                    const className =
+                        getClassFromLeaderboard(leaderboardRow) ??
+                        player?.className;
+                    const specName =
+                        getSpecFromLeaderboard(leaderboardRow) ??
+                        player?.specName;
+
+                    return {
+                        playerName: entry.playerName ?? "Unknown",
+                        value: entry.value ?? 0,
+                        ...(className ? { className } : {}),
+                        ...(specName ? { specName } : {}),
+                    };
+                });
 
             const summaryFightRow = encounterFights.find(
                 (fight) => fight.id === summaryFight.fightId,
             );
-        const difficultyName = getDifficultyLabel(
-            summaryFight.difficulty,
-            report,
-        );
-        const fightDurationMs = summaryFightRow
-            ? summaryFightRow.endTime - summaryFightRow.startTime
-            : undefined;
-        const fightDate =
-            reportStartTime > 0 && summaryFightRow
-                ? reportStartTime + summaryFightRow.endTime
+            const difficultyName = getDifficultyLabel(
+                summaryFight.difficulty,
+                report,
+            );
+            const fightDurationMs = summaryFightRow
+                ? summaryFightRow.endTime - summaryFightRow.startTime
                 : undefined;
+            const fightDate =
+                reportStartTime > 0 && summaryFightRow
+                    ? reportStartTime + summaryFightRow.endTime
+                    : undefined;
 
             const recap: BossPerformanceRecap = {
                 ...basePerformance,
                 encounterId: encounterID,
-            // Include difficulty only when defined to satisfy exactOptionalPropertyTypes
-            ...(typeof summaryFight.difficulty === "number"
-                ? { difficulty: summaryFight.difficulty }
-                : {}),
-            ...(difficultyName ? { difficultyName } : {}),
-            kill: summaryFight.kill,
-            pullCount: encounterFights.length,
-            ...(typeof fightDurationMs === "number" ? { fightDurationMs } : {}),
-            ...(typeof fightDate === "number" ? { fightDate } : {}),
-            ...(guildName ? { guildName } : {}),
-            ...(realmName ? { realmName } : {}),
-            ...(zoneName ? { zoneName } : {}),
-            reportUrl: parsed.rawUrl,
-            bestParses,
-            ...((summaryFightRow && hasDungeonPullData(summaryFightRow)) ||
-            reportContainsDungeonPulls
-                ? {
-                      // TODO(dungeon): add dedicated Mythic+/dungeon recap fields derived from dungeonPulls
-                      // instead of raid-boss phase/table aggregates.
-                  }
-                : {
-                      ...(() => {
-                          const deathsFromTable = sumTableValues(
-                              parsedTables.Deaths,
-                          );
-                          const deaths =
-                              typeof deathsFromTable === "number"
-                                  ? deathsFromTable
-                                  : parsedTableResults.Deaths?.isValidEmpty
-                                    ? 0
-                                    : getFightDeathsFromRankingsPayload(
-                                          summaryFight.rankings,
-                                          summaryFight.fightId,
-                                      );
-                          const raidDamageTaken = sumTableValues(
+                // Include difficulty only when defined to satisfy exactOptionalPropertyTypes
+                ...(typeof summaryFight.difficulty === "number"
+                    ? { difficulty: summaryFight.difficulty }
+                    : {}),
+                ...(difficultyName ? { difficultyName } : {}),
+                kill: summaryFight.kill,
+                pullCount: encounterFights.length,
+                ...(typeof fightDurationMs === "number"
+                    ? { fightDurationMs }
+                    : {}),
+                ...(typeof fightDate === "number" ? { fightDate } : {}),
+                ...(guildName ? { guildName } : {}),
+                ...(realmName ? { realmName } : {}),
+                ...(zoneName ? { zoneName } : {}),
+                reportUrl: parsed.rawUrl,
+                bestParses,
+                ...((summaryFightRow && hasDungeonPullData(summaryFightRow)) ||
+                reportContainsDungeonPulls
+                    ? {
+                          // TODO(dungeon): add dedicated Mythic+/dungeon recap fields derived from dungeonPulls
+                          // instead of raid-boss phase/table aggregates.
+                      }
+                    : {
+                          ...(() => {
+                              const deathsFromTable = sumTableValues(
+                                  parsedTables.Deaths,
+                              );
+                              const deaths =
+                                  typeof deathsFromTable === "number"
+                                      ? deathsFromTable
+                                      : parsedTableResults.Deaths?.isValidEmpty
+                                        ? 0
+                                        : getFightDeathsFromRankingsPayload(
+                                              summaryFight.rankings,
+                                              summaryFight.fightId,
+                                          );
+                              const raidDamageTaken = sumTableValues(
+                                  parsedTables.DamageTaken,
+                              );
+                              const dispelsFromTable = sumTableValues(
+                                  parsedTables.Dispels,
+                              );
+                              const dispels =
+                                  typeof dispelsFromTable === "number"
+                                      ? dispelsFromTable
+                                      : parsedTableResults.Dispels?.isValidEmpty
+                                        ? 0
+                                        : undefined;
+                              const kicksFromTable = sumTableValues(
+                                  parsedTables.Interrupts,
+                              );
+                              const kicks =
+                                  typeof kicksFromTable === "number"
+                                      ? kicksFromTable
+                                      : parsedTableResults.Interrupts
+                                              ?.isValidEmpty
+                                        ? 0
+                                        : undefined;
+                              return {
+                                  ...(typeof deaths === "number"
+                                      ? { deaths }
+                                      : {}),
+                                  ...(typeof raidDamageTaken === "number"
+                                      ? { raidDamageTaken }
+                                      : {}),
+                                  ...(typeof dispels === "number"
+                                      ? { dispels }
+                                      : {}),
+                                  ...(typeof kicks === "number"
+                                      ? { kicks }
+                                      : {}),
+                              };
+                          })(),
+                          fastestPhaseTimes: (() => {
+                              const selectedFightPhases =
+                                  computeSelectedFightPhaseTimes(
+                                      summaryFightRow,
+                                      phaseMetadataByEncounterId.get(
+                                          encounterID,
+                                      ) ?? [],
+                                  );
+                              if (selectedFightPhases.length > 0)
+                                  return selectedFightPhases;
+                              return computeFastestPhaseTimes(
+                                  encounterFights,
+                                  phaseMetadataByEncounterId.get(encounterID) ??
+                                      [],
+                              );
+                          })(),
+                          topDamageTaken: mapTableRows(
                               parsedTables.DamageTaken,
-                          );
-                          const dispelsFromTable = sumTableValues(
-                              parsedTables.Dispels,
-                          );
-                          const dispels =
-                              typeof dispelsFromTable === "number"
-                                  ? dispelsFromTable
-                                  : parsedTableResults.Dispels?.isValidEmpty
-                                    ? 0
-                                    : undefined;
-                          const kicksFromTable = sumTableValues(
-                              parsedTables.Interrupts,
-                          );
-                          const kicks =
-                              typeof kicksFromTable === "number"
-                                  ? kicksFromTable
-                                  : parsedTableResults.Interrupts?.isValidEmpty
-                                    ? 0
-                                    : undefined;
-                      return {
-                              ...(typeof deaths === "number" ? { deaths } : {}),
-                              ...(typeof raidDamageTaken === "number"
-                                  ? { raidDamageTaken }
-                                  : {}),
-                              ...(typeof dispels === "number"
-                                  ? { dispels }
-                                  : {}),
-                              ...(typeof kicks === "number" ? { kicks } : {}),
-                      };
-                  })(),
-                      fastestPhaseTimes: (() => {
-                          const selectedFightPhases = computeSelectedFightPhaseTimes(
-                              summaryFightRow,
-                              phaseMetadataByEncounterId.get(encounterID) ?? [],
-                          );
-                          if (selectedFightPhases.length > 0) return selectedFightPhases;
-                          return computeFastestPhaseTimes(
-                              encounterFights,
-                              phaseMetadataByEncounterId.get(encounterID) ?? [],
-                          );
-                      })(),
-                      topDamageTaken: mapTableRows(parsedTables.DamageTaken),
-                      topHealers: bossEntries
-                          .filter(
-                              (entry) =>
-                                  asString(asObject(entry as unknown)?.role)?.toLowerCase() ===
-                                  "healer",
-                          )
-                          .slice(0, 3)
-                          .flatMap((entry) => {
-                              const playerName = getNameFromLeaderboard(entry);
-                              if (!playerName) return [];
-                              const value = getAmountFromLeaderboard(entry);
-                              if (typeof value !== "number") return [];
+                          ),
+                          topHealers: bossEntries
+                              .filter(
+                                  (entry) =>
+                                      asString(
+                                          asObject(entry as unknown)?.role,
+                                      )?.toLowerCase() === "healer",
+                              )
+                              .slice(0, 3)
+                              .flatMap((entry) => {
+                                  const playerName =
+                                      getNameFromLeaderboard(entry);
+                                  if (!playerName) return [];
+                                  const value = getAmountFromLeaderboard(entry);
+                                  if (typeof value !== "number") return [];
 
-                              const actorId = getActorIdFromLeaderboard(entry);
-                              const player =
-                                  (typeof actorId === "number"
-                                      ? playerByActorId.get(actorId)
-                                      : undefined) ??
-                                  playerByName.get(normalizeName(playerName));
-                              const className =
-                                  getClassFromLeaderboard(entry) ?? player?.className;
-                              const specName =
-                                  getSpecFromLeaderboard(entry) ?? player?.specName;
+                                  const actorId =
+                                      getActorIdFromLeaderboard(entry);
+                                  const player =
+                                      (typeof actorId === "number"
+                                          ? playerByActorId.get(actorId)
+                                          : undefined) ??
+                                      playerByName.get(
+                                          normalizeName(playerName),
+                                      );
+                                  const className =
+                                      getClassFromLeaderboard(entry) ??
+                                      player?.className;
+                                  const specName =
+                                      getSpecFromLeaderboard(entry) ??
+                                      player?.specName;
 
-                              return [
-                                  {
-                                      playerName,
-                                      value,
-                                      ...(className ? { className } : {}),
-                                      ...(specName ? { specName } : {}),
-                                  },
-                              ];
-                          }),
-                  }),
+                                  return [
+                                      {
+                                          playerName,
+                                          value,
+                                          ...(className ? { className } : {}),
+                                          ...(specName ? { specName } : {}),
+                                      },
+                                  ];
+                              }),
+                      }),
             };
 
             bossPerformances.push(recap);

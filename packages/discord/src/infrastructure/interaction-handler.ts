@@ -52,7 +52,14 @@ export const handleInteraction = async (
                 };
             }
 
-            void processReportRecapInteraction(typedInteraction, options, url);
+            const backgroundTask = () => {
+                void processReportRecapInteraction(typedInteraction, options, url);
+            };
+            if (options.scheduleBackgroundTask) {
+                options.scheduleBackgroundTask(backgroundTask);
+            } else {
+                queueMicrotask(backgroundTask);
+            }
             return {
                 type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
                 data: { flags: EPHEMERAL_MESSAGE_FLAG },
