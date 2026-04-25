@@ -600,6 +600,68 @@ describe("handleInteraction", () => {
         ).toHaveBeenCalledWith({ reportCode: "ABC123", guildId: "guild-1" });
     });
 
+    it("can schedule report recap processing outside the initial response path", async () => {
+        const fetchAndNormalizeReport = vi.fn().mockResolvedValue(makeReport());
+        const wclClient = {
+            fetchAndNormalizeReport,
+            findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+        } as never;
+        const guildConfigStore: GuildConfigStore = {
+            getGuildConfig: vi.fn().mockResolvedValue({
+                guildId: "guild-1",
+                defaultGameFamily: "retail",
+                compareModeDefault: "mixed",
+                accountabilityVisibility: "officers-only",
+                coachingShareabilityDefault: "shareable",
+                recapPostModeDefault: "preview-and-post",
+            }),
+            saveGuildConfig: vi.fn(),
+        };
+        const recapPreviewStateService = {
+            savePreviewState: vi.fn().mockResolvedValue(undefined),
+            getValidPreviewState: vi.fn(),
+            consumeValidPreviewState: vi.fn(),
+            deletePreviewState: vi.fn(),
+        };
+        const scheduledTasks: Array<() => void> = [];
+
+        const response = await handleInteraction(
+            {
+                type: InteractionType.APPLICATION_COMMAND,
+                id: "interaction-1",
+                application_id: "app-1",
+                token: "token-1",
+                guild_id: "guild-1",
+                channel_id: "channel-1",
+                member: { user: { id: "user-1" } },
+                data: {
+                    name: "report",
+                    options: [
+                        {
+                            name: "recap",
+                            options: [
+                                {
+                                    name: "url",
+                                    value: "https://www.warcraftlogs.com/reports/ABC123",
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
+            {
+                wclClient,
+                guildConfigStore,
+                recapPreviewStateService,
+                scheduleBackgroundTask: (task) => scheduledTasks.push(task),
+            },
+        );
+
+        expect(response).toMatchObject({ type: expect.any(Number) });
+        expect(scheduledTasks).toHaveLength(1);
+        expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
+    });
+
     it("returns an ephemeral error when preview state is missing or expired", async () => {
         const recapPreviewStateService = {
             savePreviewState: vi.fn(),
@@ -852,101 +914,58 @@ describe("embed rendering", () => {
                 .filter((field) => field.name !== "\u200B")
                 .map((field) => field.name),
         ).toEqual([
-            "🛡️ Raid",
-            "🏆 Boss Highlights",
-            "🌟 Standouts",
-            "📈 Overall Rankings",
-            "⭐ Best Player Parses",
-            "📊 Top Overall Parsers",
-            "⚔️ Top Overall Damage Parse",
-            "💚 Top Overall Healing Parse",
-            "🏅 Raid Superlatives",
-            "⚔️ Top Damage Done",
-            "💚 Top Healing Done",
-            "🩸 Top Damage Taken",
-            "🛑 Top Interrupts",
-            "✨ Top Dispels",
-            "🛡️ Top Survivability",
-            "🧾 Totals",
+            "🏁 Outcome",
+            "📈 Performance",
+            "📊 Volume",
+            "🎯 Execution",
             "🔗 Report",
         ]);
-        expect(
-            embed.fields.filter(
-                (field) => field.name === "\u200B" && field.value === "\u200B",
-            ).length,
-        ).toBeGreaterThan(0);
-        expect(
-            embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).not.toContain("Most wipes:");
-        expect(
-            embed.fields.find((field) => field.name === "💚 Top Overall Healing Parse")?.value,
-        ).toContain("💚 **Pearl** **97.4** (HPS)");
-        expect(
-            embed.fields.find((field) => field.name === "💚 Top Overall Healing Parse")?.value,
-        ).not.toContain("healing");
-        expect(
-            embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value,
-        ).toContain("**250K DPS**");
-        expect(
-            embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value,
-        ).toContain("Shadow Priest");
-        expect(
-            embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).toContain("🩸 **Raid damage taken:** 1.2M");
-        expect(
-            embed.fields.find((field) => field.name === "📈 Overall Rankings")?.value,
-        ).toContain("🥇 Best single-boss parse: **Alyra 99.0 DPS** (One-Armed Bandit)");
-        expect(
-            embed.fields.find((field) => field.name === "📈 Overall Rankings")?.value,
-        ).toContain("📊 Best average parse: **Pearl 97.4 HPS**");
-        expect(embed.fields.find((field) => field.name === "🌟 Standouts")?.value).not.toContain(
+        const outcome = embed.fields.find((field) => field.name === "🏁 Outcome")?.value ?? "";
+        const performance =
+            embed.fields.find((field) => field.name === "📈 Performance")?.value ?? "";
+        const volume = embed.fields.find((field) => field.name === "📊 Volume")?.value ?? "";
+        const execution =
+            embed.fields.find((field) => field.name === "🎯 Execution")?.value ?? "";
+
+        expect(volume).not.toContain("Most wipes:");
+        expect(performance).toContain("💚 **Pearl** **97.4** (HPS)");
+        expect(performance).not.toContain("healing");
+        expect(performance).toContain("**250K DPS**");
+        expect(performance).toContain("Shadow Priest");
+        expect(volume).toContain("🩸 **Raid damage taken:** 1.2M");
+        expect(performance).toContain(
+            "🥇 Best single-boss parse: **Alyra 99.0 DPS** (One-Armed Bandit)",
+        );
+        expect(performance).toContain("📊 Best average parse: **Pearl 97.4 HPS**");
+        expect(execution).not.toContain(
             "Best single-boss parse",
         );
-        expect(embed.fields.find((field) => field.name === "🌟 Standouts")?.value).toContain(
+        expect(execution).toContain(
             "Best execution",
         );
-        expect(embed.fields.find((field) => field.name === "🌟 Standouts")?.value).toContain(
+        expect(execution).toContain(
             "Most improved",
         );
-        expect(
-            embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("⚔️ **Alyra** **99.0** (DPS)");
-        expect(
-            embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("💚 **Pearl** **97.4** (HPS)");
-        expect(
-            embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value,
-        ).toContain("🛡️ **Bulwark** **95.2** (DTPS)");
-        expect(
-            embed.fields.find((field) => field.name === "⚔️ Top Overall Damage Parse")?.value,
-        ).toContain("⚔️ **Alyra** **99.0** (DPS)");
-        expect(
-            embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value,
-        ).toContain("⚔️ **Alyra** **99** · **250K DPS** · Shadow Priest");
-        const bestParsesValue =
-            embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value ?? "";
+        expect(performance).toContain("⚔️ **Alyra** **99.0** (DPS)");
+        expect(performance).toContain("💚 **Pearl** **97.4** (HPS)");
+        expect(performance).toContain("🛡️ **Bulwark** **95.2** (DTPS)");
+        expect(performance).toContain("⚔️ **Alyra** **99** · **250K DPS** · Shadow Priest");
         for (const removedTierBadge of ["🩷", "🟧", "🟪", "🟦", "🟩", "⬛"]) {
-            expect(bestParsesValue).not.toContain(removedTierBadge);
+            expect(performance).not.toContain(removedTierBadge);
         }
-        expect(
-            embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).toContain("☠️ **Total deaths:** 5");
-        expect(
-            embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).toContain("✨ **Dispels:** 8");
-        expect(
-            embed.fields.find((field) => field.name === "🧾 Totals")?.value,
-        ).toContain("🛑 **Kicks:** 11");
-        expect(
-            embed.fields.find((field) => field.name === "🏆 Boss Highlights")?.value,
-        ).toContain("• **One-Armed Bandit:** Kill secured.");
-        expect(embed.fields.find((field) => field.name === "⚔️ Top Damage Done")?.value).toContain(
+        expect(volume).toContain("☠️ **Total deaths:** 5");
+        expect(volume).toContain("✨ **Dispels:** 8");
+        expect(volume).toContain("🛑 **Kicks:** 11");
+        expect(outcome).toContain("• **One-Armed Bandit:** Kill secured.");
+        expect(volume).toContain(
             "1. **Alyra** 250K · Shadow Priest",
         );
-        expect(embed.fields.find((field) => field.name === "🛑 Top Interrupts")?.value).toContain(
+        expect(volume).not.toContain("Shadow Priest,");
+        expect(execution).toContain(
             "1. **Bulwark** 11",
         );
-        expect(embed.fields.find((field) => field.name === "🏅 Raid Superlatives")?.value).not.toContain(
+        expect(execution).not.toContain("**Bulwark** 11,");
+        expect(execution).not.toContain(
             "parse",
         );
     });
@@ -960,7 +979,7 @@ describe("embed rendering", () => {
             ],
         });
 
-        expect(embed.fields.find((field) => field.name === "💚 Top Overall Healing Parse")).toBeUndefined();
+        expect(embed.fields.find((field) => field.name === "📈 Performance")).toBeUndefined();
     });
 
     it("degrades cleanly when optional fields are missing", () => {
@@ -973,8 +992,8 @@ describe("embed rendering", () => {
                 .filter((field) => field.name !== "\u200B")
                 .map((field) => field.name),
         ).toEqual([
-            "🛡️ Raid",
-            "🧾 Totals",
+            "🏁 Outcome",
+            "📊 Volume",
             "🔗 Report",
         ]);
     });
@@ -987,7 +1006,7 @@ describe("embed rendering", () => {
             ],
         });
 
-        expect(embed.fields.find((field) => field.name === "🏆 Boss Highlights")?.value).toContain(
+        expect(embed.fields.find((field) => field.name === "🏁 Outcome")?.value).toContain(
             "• **Horridon:** Wipe at 52%.",
         );
     });
@@ -1034,13 +1053,13 @@ describe("embed rendering", () => {
         });
         const embed = buildPublicRecapEmbed(summary);
 
-        const bestPlayerParsesField =
-            embed.fields.find((field) => field.name === "⭐ Best Player Parses")?.value ?? "";
-        const topOverallParsersField =
-            embed.fields.find((field) => field.name === "📊 Top Overall Parsers")?.value ?? "";
+        const performanceField =
+            embed.fields.find((field) => field.name === "📈 Performance")?.value ?? "";
+        const sectionValue = (label: string): string =>
+            performanceField.split(`**${label}**\n`)[1]?.split("\n**")[0] ?? "";
 
-        expect(bestPlayerParsesField.match(/Tankhem/g)).toHaveLength(1);
-        expect(topOverallParsersField.match(/Tankhem/g)).toHaveLength(1);
+        expect(sectionValue("Best Player Parses").match(/Tankhem/g)).toHaveLength(1);
+        expect(sectionValue("Top Overall Parsers").match(/Tankhem/g)).toHaveLength(1);
     });
 });
 

@@ -38,4 +38,11 @@ describe("playerDetails parser", () => {
         expect(entries).toEqual([]);
         expect(warn).not.toHaveBeenCalled();
     });
+
+    it("returns empty details silently when optional enrichment is absent", () => {
+        const warn = vi.fn();
+        expect(parsePlayerDetailsPayload(undefined, warn)).toEqual([]);
+        expect(parsePlayerDetailsPayload(null, warn)).toEqual([]);
+        expect(warn).not.toHaveBeenCalled();
+    });
 });

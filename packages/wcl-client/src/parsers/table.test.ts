@@ -1,28 +1,25 @@
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
 import { parseTablePayload, parseTablePayloadDetailed } from "./table.js";
+import type { TableDataType } from "../schema-enums.js";
 
-const loadProbeFixture = (name: string): unknown => {
-    const path = join(
-        process.cwd(),
-        "src",
-        "fixtures",
-        "probes",
-        `${name}.abc123xyz4567890.fight-5.json`,
-    );
-    return JSON.parse(readFileSync(path, "utf8")) as unknown;
-};
+const PROBE_ROOT = "/home/_yaysa/dev/wcl-probes/probes";
+const REPORT_WIDE_KILLS_PROBE_DIR = join(
+    PROBE_ROOT,
+    "cNxRty7DWgPBLQT.table.report-wide.kills",
+);
 
-const loadPublicFixture = (name: string): unknown => {
-    const path = join(
-        process.cwd(),
-        "src",
-        "fixtures",
-        "probes",
-        `${name}.v4apgdkyWQmrZ3q8.fight-46.json`,
+const loadReportWideKillsProbePayload = (dataType: TableDataType): unknown => {
+    const raw = readFileSync(
+        join(
+            REPORT_WIDE_KILLS_PROBE_DIR,
+            `table.cNxRty7DWgPBLQT9.report-wide.kills.${dataType}.debug.json`,
+        ),
+        "utf8",
     );
-    return JSON.parse(readFileSync(path, "utf8")) as unknown;
+    const parsed = JSON.parse(raw) as { payload?: unknown };
+    return parsed.payload;
 };
 
 describe("table parser", () => {
@@ -45,9 +42,16 @@ describe("table parser", () => {
         expect(deaths[0]?.value).toBe(2);
     });
 
-    it("returns empty rows and warns for null sections", () => {
+    it("returns empty rows silently for absent optional sections", () => {
         const warn = vi.fn();
         const entries = parseTablePayload(null, "Healing", warn);
+        expect(entries).toEqual([]);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("warns for malformed present sections", () => {
+        const warn = vi.fn();
+        const entries = parseTablePayload({ totalTime: 100 }, "Healing", warn);
         expect(entries).toEqual([]);
         expect(warn).toHaveBeenCalled();
     });
@@ -67,7 +71,13 @@ describe("table parser", () => {
     it("supports survivability payload shape", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            loadProbeFixture("survivability"),
+            {
+                data: {
+                    actortotals: [
+                        { id: 101, name: "Alyra", survivability: 98.2 },
+                    ],
+                },
+            },
             "Survivability",
             warn,
         );
@@ -79,7 +89,14 @@ describe("table parser", () => {
     it("omits survivability rows when payload exposes metadata totals only", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            loadPublicFixture("survivability"),
+            {
+                data: {
+                    players: [{ id: 101, name: "Alyra" }],
+                    fights: [{ id: 46 }],
+                    actortotals: [{ id: 101, name: "Alyra", class: "PALADIN" }],
+                    abilitytotals: [],
+                },
+            },
             "Survivability",
             warn,
         );
@@ -90,79 +107,186 @@ describe("table parser", () => {
     it("parses deaths event rows as one death each", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            loadProbeFixture("deaths"),
+            {
+                entries: [
+                    { id: 101, name: "Alyra", timestamp: 1000, overkill: 12 },
+                    {
+                        id: 102,
+                        name: "Bronn",
+                        timestamp: 2000,
+                        killingBlow: { name: "Lightning" },
+                    },
+                ],
+            },
             "Deaths",
             warn,
         );
 
         expect(parsed.entries).toHaveLength(2);
-        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(2);
+        expect(
+            parsed.entries.reduce((total, row) => total + row.value, 0),
+        ).toBe(2);
         expect(warn).not.toHaveBeenCalled();
     });
 
     it("parses public deaths fixture event rows", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            loadPublicFixture("deaths"),
+            {
+                data: {
+                    entries: [
+                        {
+                            id: 1,
+                            name: "One",
+                            timestamp: 1000,
+                            deathWindow: [],
+                        },
+                        { id: 2, name: "Two", timestamp: 2000, events: [] },
+                        { id: 3, name: "Three", timestamp: 3000, overkill: 1 },
+                        {
+                            id: 4,
+                            name: "Four",
+                            timestamp: 4000,
+                            killingBlow: { name: "Static Shock" },
+                        },
+                    ],
+                },
+            },
             "Deaths",
             warn,
         );
         expect(parsed.entries).toHaveLength(4);
-        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(4);
+        expect(
+            parsed.entries.reduce((total, row) => total + row.value, 0),
+        ).toBe(4);
         expect(warn).not.toHaveBeenCalled();
     });
 
     it("parses dispels totals from nested details rows", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            loadProbeFixture("dispels"),
+            {
+                entries: [
+                    {
+                        details: [
+                            { id: 101, name: "Alyra", total: 4 },
+                            { id: 102, name: "Bronn", total: 5 },
+                        ],
+                    },
+                ],
+            },
             "Dispels",
             warn,
         );
 
         expect(parsed.entries).toEqual([
-            { dataType: "Dispels", playerId: 101, playerName: "Alyra", value: 4 },
-            { dataType: "Dispels", playerId: 102, playerName: "Bronn", value: 5 },
+            {
+                dataType: "Dispels",
+                playerId: 101,
+                playerName: "Alyra",
+                value: 4,
+            },
+            {
+                dataType: "Dispels",
+                playerId: 102,
+                playerName: "Bronn",
+                value: 5,
+            },
         ]);
-        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(9);
+        expect(
+            parsed.entries.reduce((total, row) => total + row.value, 0),
+        ).toBe(9);
         expect(warn).not.toHaveBeenCalled();
     });
 
     it("parses interrupts totals from nested details rows", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            loadProbeFixture("interrupts"),
+            {
+                entries: [
+                    {
+                        details: [
+                            { id: 101, name: "Alyra", total: 3 },
+                            { id: 109, name: "Kickz", total: 5 },
+                        ],
+                    },
+                ],
+            },
             "Interrupts",
             warn,
         );
 
         expect(parsed.entries).toEqual([
-            { dataType: "Interrupts", playerId: 101, playerName: "Alyra", value: 3 },
-            { dataType: "Interrupts", playerId: 109, playerName: "Kickz", value: 5 },
+            {
+                dataType: "Interrupts",
+                playerId: 101,
+                playerName: "Alyra",
+                value: 3,
+            },
+            {
+                dataType: "Interrupts",
+                playerId: 109,
+                playerName: "Kickz",
+                value: 5,
+            },
         ]);
-        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(8);
+        expect(
+            parsed.entries.reduce((total, row) => total + row.value, 0),
+        ).toBe(8);
         expect(warn).not.toHaveBeenCalled();
     });
 
     it("parses public dispels nested entries details totals", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            loadPublicFixture("dispels"),
+            {
+                data: {
+                    entries: [
+                        {
+                            entries: [
+                                {
+                                    details: [
+                                        { id: 3, name: "Dispeller", total: 1 },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
             "Dispels",
             warn,
         );
-        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(1);
+        expect(
+            parsed.entries.reduce((total, row) => total + row.value, 0),
+        ).toBe(1);
         expect(warn).not.toHaveBeenCalled();
     });
 
     it("parses public interrupts nested entries details totals", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
-            loadPublicFixture("interrupts"),
+            {
+                data: {
+                    entries: [
+                        {
+                            entries: [
+                                {
+                                    details: [
+                                        { id: 7, name: "Kicker", total: 3 },
+                                    ],
+                                },
+                            ],
+                        },
+                    ],
+                },
+            },
             "Interrupts",
             warn,
         );
-        expect(parsed.entries.reduce((total, row) => total + row.value, 0)).toBe(3);
+        expect(
+            parsed.entries.reduce((total, row) => total + row.value, 0),
+        ).toBe(3);
         expect(warn).not.toHaveBeenCalled();
     });
 
@@ -190,7 +314,12 @@ describe("table parser", () => {
         );
 
         expect(parsed.entries).toEqual([
-            { dataType: "Dispels", playerId: 7, playerName: "Priest", value: 1 },
+            {
+                dataType: "Dispels",
+                playerId: 7,
+                playerName: "Priest",
+                value: 1,
+            },
             { dataType: "Dispels", playerId: 9, playerName: "Monk", value: 2 },
         ]);
         expect(warn).not.toHaveBeenCalled();
@@ -219,7 +348,12 @@ describe("table parser", () => {
         );
 
         expect(parsed.entries).toEqual([
-            { dataType: "Interrupts", playerId: 4, playerName: "Shaman", value: 3 },
+            {
+                dataType: "Interrupts",
+                playerId: 4,
+                playerName: "Shaman",
+                value: 3,
+            },
         ]);
         expect(warn).not.toHaveBeenCalled();
     });
@@ -242,4 +376,67 @@ describe("table parser", () => {
         expect(parsed.entries).toEqual([]);
         expect(warn).not.toHaveBeenCalled();
     });
+});
+
+const describeProbeFixtures = existsSync(REPORT_WIDE_KILLS_PROBE_DIR)
+    ? describe
+    : describe.skip;
+
+describeProbeFixtures("report-wide kill probe payloads", () => {
+    it.each([
+        ["DamageDone", 13],
+        ["DamageTaken", 11],
+        ["Healing", 10],
+    ] satisfies Array<[TableDataType, number]>)(
+        "parses %s direct player totals from probed payloads",
+        (dataType, expectedRows) => {
+            const warn = vi.fn();
+            const parsed = parseTablePayloadDetailed(
+                loadReportWideKillsProbePayload(dataType),
+                dataType,
+                warn,
+            );
+
+            expect(parsed.entries).toHaveLength(expectedRows);
+            expect(parsed.entries[0]?.value).toBeGreaterThan(0);
+            expect(parsed.entries[0]?.playerName).toBeTruthy();
+            expect(warn).not.toHaveBeenCalled();
+        },
+    );
+
+    it("parses death event rows from probed payloads", () => {
+        const warn = vi.fn();
+        const parsed = parseTablePayloadDetailed(
+            loadReportWideKillsProbePayload("Deaths"),
+            "Deaths",
+            warn,
+        );
+
+        expect(parsed.entries).toHaveLength(19);
+        expect(
+            parsed.entries.reduce((total, row) => total + row.value, 0),
+        ).toBe(19);
+        expect(warn).not.toHaveBeenCalled();
+    });
+
+    it.each([
+        ["Dispels", 8],
+        ["Interrupts", 9],
+    ] satisfies Array<[TableDataType, number]>)(
+        "parses %s nested detail totals from probed payloads",
+        (dataType, minimumTotal) => {
+            const warn = vi.fn();
+            const parsed = parseTablePayloadDetailed(
+                loadReportWideKillsProbePayload(dataType),
+                dataType,
+                warn,
+            );
+
+            expect(parsed.entries.length).toBeGreaterThan(0);
+            expect(
+                parsed.entries.reduce((total, row) => total + row.value, 0),
+            ).toBeGreaterThanOrEqual(minimumTotal);
+            expect(warn).not.toHaveBeenCalled();
+        },
+    );
 });

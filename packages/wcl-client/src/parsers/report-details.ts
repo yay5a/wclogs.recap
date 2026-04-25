@@ -72,6 +72,8 @@ export const parsePlayerDetailsPayload = (
     payload: unknown,
     warn: DebugWarn = defaultDebugWarn,
 ): ParsedPlayerDetail[] => {
+    if (payload === undefined || payload === null) return [];
+
     const parsed = parseUnknownJson(payload, warn, "playerDetails");
     const rows = collectPlayerNodes(parsed);
     if (rows.length === 0) {

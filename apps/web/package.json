@@ -9,7 +9,8 @@
         "start": "node dist/apps/web/src/index.js",
         "lint": "eslint src --ext .ts",
         "typecheck": "tsc -p tsconfig.json --noEmit",
-        "test": "vitest run --passWithNoTests"
+        "test": "vitest run --passWithNoTests",
+        "register:discord-commands": "tsx src/ops/register-discord-commands.ts"
     },
     "dependencies": {
         "@fastify/cookie": "^11.0.2",

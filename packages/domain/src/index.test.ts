@@ -309,7 +309,8 @@ describe("buildRecapSummary report-wide output", () => {
                 },
             ],
             reportWideRecap: {
-                topDamageDone: [{ playerName: "Tankhem", value: 220000 }],
+                topDamageDone: [{ playerName: "Alyra", value: 220000 }],
+                topDamageTaken: [{ playerName: "Tankhem", value: 333000 }],
                 topHealingDone: [],
                 totals: {},
             },
@@ -321,7 +322,7 @@ describe("buildRecapSummary report-wide output", () => {
                 parse: 96.4,
                 metricLabel: "DTPS",
                 metric: "DTPS",
-                amount: 220000,
+                amount: 333000,
                 className: "Warrior",
                 specName: "Protection",
                 classSpecLabel: "Protection Warrior",
@@ -331,6 +332,7 @@ describe("buildRecapSummary report-wide output", () => {
                 parse: 95.7,
                 metricLabel: "DPS",
                 metric: "DPS",
+                amount: 220000,
             },
         ]);
         expect(summary.topOverallParsers).toEqual([
@@ -430,6 +432,32 @@ describe("buildRecapSummary report-wide output", () => {
         expect(threeHoursFive.killTimeLabel).toBe("03 Hours 05 Min");
         expect(oneHourOne.killTimeLabel).toBe("01 Hour 01 Min");
         expect(fortyFiveMinutes.killTimeLabel).toBe("45 Min");
+    });
+
+    it("formats phase timing callouts as minute/second labels", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+            bossPerformances: [
+                {
+                    bossName: "Ji-Kun",
+                    fightId: 1,
+                    kill: true,
+                    fastestPhaseTimes: [{ phaseId: 1, label: "P1", durationMs: 142_700 }],
+                },
+            ],
+        });
+
+        expect(summary.bossHighlights[0]?.text).toContain("Fast P1 2m 22.7s");
+        expect(summary.raidSuperlatives).toContainEqual({
+            label: "Fastest phase",
+            text: "Ji-Kun P1 2m 22.7s",
+        });
     });
 
     it("sets bestExecution from report players and omits when missing", () => {

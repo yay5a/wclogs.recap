@@ -3,3 +3,7 @@ dist
 .env*
 .env.example
 coverage
+.agents/
+.codex/
+.codex*
+nvim.log

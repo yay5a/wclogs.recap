@@ -13,26 +13,15 @@
     "noUncheckedIndexedAccess": true,
     "exactOptionalPropertyTypes": true,
     "forceConsistentCasingInFileNames": true,
-    "types": [
-      "node"
-    ],
+    "types": ["node"],
     "baseUrl": ".",
     "paths": {
-      "@wcl/shared": [
-        "packages/shared/src/index.ts"
-      ],
-      "@wcl/domain": [
-        "packages/domain/src/index.ts"
-      ],
-      "@wcl/db": [
-        "packages/db/src/index.ts"
-      ],
-      "@wcl/discord": [
-        "packages/discord/src/index.ts"
-      ],
-      "@wcl/wcl-client": [
-        "packages/wcl-client/src/index.ts"
-      ]
+      "@wcl/shared": ["packages/shared/src/index.ts"],
+      "@wcl/domain": ["packages/domain/src/index.ts"],
+      "@wcl/db": ["packages/db/src/index.ts"],
+      "@wcl/discord": ["packages/discord/src/index.ts"],
+      "@wcl/wcl-client": ["packages/wcl-client/src/index.ts"],
+      "@wcl/contracts": ["packages/contracts/src/index.ts"]
     }
   }
 }
