@@ -1,149 +1,206 @@
-# Warcraft Logs-focused Discord companion app
+# wclogs.recap
 
-This project provides a World of Warcraft raid recap generator, built to fetch data from Warcraft Logs
-, normalize it into a structured domain model, and publish recap summaries to Discord or other targets. The refactored structure aims to be modular, maintainable, and aligned with a clear domain model.
+Beta Warcraft Logs recap service for Discord.
 
-## Overview
+`wclogs.recap` fetches Warcraft Logs reports, normalizes the GraphQL payloads into typed raid recap models, and renders concise Discord-ready summaries. The current beta focuses on `/report recap` for Warcraft Logs Classic raid reports, with Mongo-backed caching and preview state.
 
-The system pulls data from Warcraft Logs, organizes it into four core domains, and then renders it via presentation adapters:
+## Beta Status
 
-Outcome – progression status and extremes (boss kills, attempts, kill times, deaths).
-Performance – highlights of top performers for kill-only data (best parsers, average parses, best single‑boss parse, most improved vs historical).
-Volume – statistical summary of totals and extremes (overall damage, healing, damage taken, interrupts, dispels) and per‑fight standouts.
-Execution – wipe analysis detailing top damaging mechanics, common death causes, and wipe signatures.
+The beta is usable for live recap generation, but the internals are still being hardened.
 
-By cleanly separating these concepts, the recap generator stays focused and easy to extend.
+Currently working:
 
-## Repository Structure
+- Discord interaction webhook handling with signature verification.
+- `/report recap` flow for Warcraft Logs report URLs.
+- Deferred Discord responses so longer WCL fetches do not block the initial interaction ACK.
+- Recap sections for Outcome, Performance, Volume, Execution, and Report link.
+- Report-wide damage, healing, damage taken, deaths, dispels, and interrupts from WCL table payloads.
+- Human-readable phase durations in boss highlights and raid superlatives.
+- Mongo-backed report cache, guild config, recap preview state, WCL user auth, and trend/job models.
+- Background worker for Mongo job polling, currently used for trend recomputation.
 
+Known beta limitations:
+
+- `@wcl/wcl-client` still owns too much orchestration and normalization logic in one large module.
+- WCL GraphQL payload shapes vary; parsers are defensive, but new report shapes may require probe-backed fixes.
+- There is no database migration system yet.
+- Worker processing is intentionally simple and serial.
+- Public `/api/recap` abuse protection/rate limiting is not implemented yet.
+- The Discord renderer is optimized for concise embeds, not exhaustive raid analysis.
+
+## Repository Layout
+
+```text
 wclogs.recap/
-├── packages/
-│   ├── transport/        # API clients and data-fetching logic
-│   ├── domain/           # Domain models and builders for Outcome/Performance/Volume/Execution
-│   ├── presentation/     # Presentation adapters (Discord embeds, web UI components, etc.)
-│   └── app/              # Orchestration layer combining modules to generate a recap
-├── apps/
-│   ├── web/              # Optional web service (API endpoints, OAuth handling)
-│   └── worker/           # Optional background workers (e.g. trend recompute, syncing)
-├── .env.example          # Sample environment variables
-├── docker-compose.yml    # Containerized development environment
-└── README.md             # You are here
+  apps/
+    web/            Fastify API, Discord webhook, WCL OAuth routes
+    worker/         Mongo-backed background job worker
+  packages/
+    contracts/      Shared contract package placeholder
+    db/             Mongoose models and Mongo stores/services
+    discord/        Discord commands, interaction handling, embed rendering
+    domain/         Normalized raid types and recap section builders
+    shared/         Logger, Zod helpers, shared utility types
+    wcl-client/     Warcraft Logs GraphQL client, cache policy, parsers
+  docker-compose.yml
+  pnpm-workspace.yaml
+```
 
-### Core Packages
+## Recap Output
 
-| Package        | Purpose                                                                                                                                                                                              |
-| -------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `transport`    | Provides functions like `fetchReportSummary`, `fetchKillRankings`, `fetchSummaryTables`, and `fetchPlayerDetails`.  Handles OAuth token management and only minimal payload transformation.          |
-| `domain`       | Contains domain entities (`Outcome`, `Performance`, `Volume`, `Execution`) and builders that transform raw data into these objects.  No external API calls or UI knowledge lives here.               |
-| `presentation` | Converts domain objects into concrete outputs (Discord embeds, HTML fragments, etc.).  Each adapter is isolated; for example, the Discord adapter is unaware of web or Slack.                        |
-| `app`          | Coordinates the flow: obtains data via `transport`, builds domain models via `domain`, and passes them to a `presentation` adapter for rendering.  It also handles configuration and error handling. |
+The beta recap is rendered as a Discord embed with these sections:
 
-### Setup
+- `Outcome`: raid title, guild/realm, duration, date, and boss highlights.
+- `Performance`: best parses, best average, best single-boss parse, and overall DPS/HPS/DTPS rankings.
+- `Volume`: top damage done, healing done, damage taken, and raid totals.
+- `Execution`: top interrupts, top dispels, and raid superlatives.
+- `Report`: source Warcraft Logs report URL.
 
-#### Prerequisites
+Example source input:
 
-Node.js 18+ with pnpm
-; use corepack enable if pnpm is not globally installed.
-MongoDB if you intend to persist data (optional; the app can run statelessly for simple recaps).
-Discord bot token (optional, only if using the Discord adapter).
-Warcraft Logs API credentials: you will need a client ID and client secret from Warcraft Logs API
-. At runtime the app exchanges these for an OAuth bearer token.
-Installation
+```text
+https://classic.warcraftlogs.com/reports/jLXw9HBGyRW6D8vZ
+```
 
-#### Installation
+## Requirements
 
-```bash
-# install dependencies
+- Node.js compatible with the repo toolchain.
+- PNPM via Corepack. The repo declares `pnpm@10.33.0`.
+- MongoDB connection string.
+- Warcraft Logs API client ID and client secret.
+- Discord application credentials for the Discord webhook flow.
+
+## Environment
+
+The web app loads `.env` from the repo root when present. Docker Compose also reads root `.env` for variable substitution.
+
+Required for `apps/web`:
+
+| Variable | Purpose |
+| --- | --- |
+| `MONGODB_URI` | MongoDB connection URI. |
+| `DISCORD_PUBLIC_KEY` | 64-character Discord public key used to verify interactions. |
+| `DISCORD_APPLICATION_ID` | Discord application ID. |
+| `DISCORD_BOT_TOKEN` | Discord bot token used for command registration and response edits. |
+| `WCL_CLIENT_ID` | Warcraft Logs OAuth client ID. |
+| `WCL_CLIENT_SECRET` | Warcraft Logs OAuth client secret. |
+| `WCL_REDIRECT_URI` | Callback URL for WCL user OAuth routes. |
+| `COOKIE_SECRET` | Secret for signed cookies used by OAuth state handling. |
+
+Optional web variables:
+
+| Variable | Default | Purpose |
+| --- | --- | --- |
+| `NODE_ENV` | `development` | Runtime mode: `development`, `test`, or `production`. |
+| `PORT` | `3000` | HTTP port for the Fastify web service. |
+| `WCL_API_BASE_URL` | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint. |
+| `PREVIEW_STATE_TTL_SECONDS` | `900` | TTL for Discord recap preview state. |
+
+Required for `apps/worker`:
+
+| Variable | Purpose |
+| --- | --- |
+| `MONGODB_URI` | MongoDB connection URI. |
+
+Useful WCL client toggles:
+
+| Variable | Purpose |
+| --- | --- |
+| `WCL_OAUTH_TOKEN` | Use an explicit WCL bearer token instead of client credentials. |
+| `WCL_BYPASS_CACHE=true` | Force report fetches to bypass cached payloads. |
+| `WCL_USE_FIXTURES=true` | Use local fixture mode in targeted development paths. |
+
+## Install
+
+```sh
 corepack enable
 pnpm install
-
-# copy environment template and set secrets
-cp .env.example .env
-# Edit .env with your WCL client ID/secret and Discord credentials
 ```
 
-### Running Testing/Development
+Create a root `.env` with the variables above. This repo does not currently ship a committed `.env.example`.
 
-- **Transport layer tests**: fetch data from Warcraft Logs and print domain objects.
+## Local Development
 
-```bash
-pnpm run dev:transport
+Run the web app:
+
+```sh
+pnpm dev:web
 ```
 
-- **Domain layer tests**: build domain objects from sample payloads and verify outputs.
+Run the worker:
 
-```bash
-pnpm run dev:domain
+```sh
+pnpm dev:worker
 ```
 
-- **Discord bot**: start the bot locally and register commands in your development guild/server.
+Register Discord commands:
 
-```bash
-pnpm run dev:bot
+```sh
+pnpm --filter @wcl/web register:discord-commands
 ```
 
-- **Web API**(optional): start the API server if you need HTTP endpoints or OAuth flows
+To register commands to a guild, provide `DISCORD_GUILD_ID` in the environment or pass the guild ID as the command argument if using the app script convention.
 
-```bash
-pnpm run dev:web
+## Docker
+
+Build and start the beta stack:
+
+```sh
+docker compose up --build
 ```
 
-### Running in Production
+When using environment loaded by another tool such as `direnv`, run Compose through that tool:
 
-- Use Docker to build and run the app in a container. The `docker-compose.yml` file includes services for the app, a worker, and MongoDB
-
-```bash
-# Pull images and start up services
-docker compose up --build -d 
-
-# For debugging
-docker compose logs -f
+```sh
+direnv exec . docker compose up --build
 ```
 
-## Usage
+The Compose file defines:
 
-### Generating a Raid-log Recap through the CLI
+- `web`: Fastify API and Discord interactions service on port `3000`.
+- `worker`: background Mongo job worker.
+- `backend`: internal Docker network.
 
-A typical workflow to generate a recap of raid logs from a real-world log report:
+The checked-in Compose file includes deployment-specific public URLs. Adjust `WCL_REDIRECT_URI`, `DISCORD_INTERACTIONS_URL`, and `PUBLIC_URL` for the target beta environment before deploying elsewhere.
 
-```bash
-pnpm run recap <reportCode>
+## HTTP Routes
+
+| Route | Purpose |
+| --- | --- |
+| `GET /health` | Basic health check returning `{ "status": "ok" }`. |
+| `POST /api/recap` | Fetch and normalize a report recap payload from a report code or URL. |
+| `POST /discord/interactions` | Discord interaction webhook endpoint. |
+| `GET /api/auth/wcl/status` | Inspect stored WCL user OAuth state. |
+| `GET /api/auth/wcl/login` | Start WCL user OAuth. |
+| `GET /api/auth/wcl/callback` | Complete WCL user OAuth. |
+
+## Verification
+
+Run the same checks used during beta hardening:
+
+```sh
+pnpm test
+pnpm typecheck
+pnpm lint
+pnpm -r build
 ```
 
-This will:
+Focused package checks are useful while working inside one package:
 
-1. Fetch/query the necessary data from the Warcraft Logs API using GraphQL queries and resolvers in `transport`.
-2. Build the `domain` objects.
-3. Render a Discord embed (default) via the `presentation` layer.
-4. Optionally post the embed to a Discord channel/server.
+```sh
+pnpm --filter @wcl/wcl-client test
+pnpm --filter @wcl/discord test
+pnpm --filter @wcl/domain test
+```
 
-Although the focus of this repo is on Discord, you can add new adapters under `packages/presentation` for other outputs. Each adapter should consume the domain objects and produce platform-specific payloads.
+## Operational Notes
 
-## Configuration
-
-The project reads configurations from environment variables:
-| Variable                    | Description                                          | Required?        |
-| --------------------------- | ---------------------------------------------------- | ---------------- |
-| `WCL_CLIENT_ID`             | Warcraft Logs client ID                              | Yes              |
-| `WCL_CLIENT_SECRET`         | Warcraft Logs client secret                          | Yes              |
-| `DISCORD_BOT_TOKEN`         | Token for your Discord bot                           | If using Discord |
-| `DISCORD_PUBLIC_CHANNEL_ID` | ID of the channel where public recaps will be posted | If using Discord |
-| `MONGODB_URI`               | MongoDB connection string                            | Optional         |
-| `PREVIEW_STATE_TTL_SECONDS` | TTL for preview state caching in seconds             | Optional         |
-
-Additional configuration (e.g. caching, TTLs, API endpoints) can be added in `.env` as needed
-
-## Contributing
-
-1. Fork the repository and create a feature branch.
-2. Make your changes following the modular architecture:
-    - Add or modify functions in packages/transport only for data fetching.
-    - Adjust domain builders in packages/domain to compute new metrics or modify existing ones.
-    - Update presentation adapters in packages/presentation to render new domain fields.
-    - Keep cross‑cutting concerns (e.g. logging, error handling) confined to the app layer.
-3. Run pnpm lint and pnpm typecheck to ensure code quality.
-4. Submit a pull request.
+- Discord requires interaction webhooks to acknowledge quickly. The web route defers the response and schedules the heavier WCL recap work after the HTTP response finishes.
+- Report-wide table data is fetched from kill fight IDs and normalized into recap totals and top-player rows.
+- Per-encounter boss rankings are fetched with bounded concurrency to reduce report latency without firing every boss request at once.
+- Mongo report cache entries include payload versions so stale normalized/raw payload shapes can be refetched after parser changes.
+- Logs are emitted through Pino with sensitive fields redacted by `@wcl/shared`.
 
 ## License
 
-MIT -- see `License` for details.
+MIT.
