@@ -34,4 +34,4 @@ coverage
 
 # Ignore unused probe fixtures or large test data (if present)
 packages/wcl-client/src/fixtures/
-
+!packages/wcl-client/src/fixtures/report-fixture.json
