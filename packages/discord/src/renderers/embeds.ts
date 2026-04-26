@@ -21,6 +21,9 @@ const getMetricIcon = (metricLabel?: string, metric?: string): string | undefine
 };
 const formatCompactNumber = (value: number): string =>
     new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(value);
+const MEDAL_PREFIXES = ["🥇", "🥈", "🥉"] as const;
+const formatMedalPrefix = (index: number): string =>
+    MEDAL_PREFIXES[index] ?? `${index + 1}.`;
 const formatParseHighlightRow = (entry: RecapSummary["bestPlayerParses"][number]): string => {
     const parseValue = Number.isInteger(entry.parse) ? entry.parse.toFixed(0) : entry.parse.toFixed(1);
     const metricLabel = toMetricLabel(entry.metricLabel, entry.metric);
@@ -31,13 +34,13 @@ const formatParseHighlightRow = (entry: RecapSummary["bestPlayerParses"][number]
     return `${metricIcon ? `${metricIcon} ` : ""}**${entry.playerName}** **${parseValue}**${amountSection}${classSpecSection}`;
 };
 const formatCompactParseRow = (playerName: string, value: number, metric: string): string =>
-    `${getMetricIcon(undefined, metric) ? `${getMetricIcon(undefined, metric)} ` : ""}**${playerName}** **${value.toFixed(1)}** (${metric})`;
+    `${getMetricIcon(undefined, metric) ? `${getMetricIcon(undefined, metric)} ` : ""}**${playerName}** · **${value.toFixed(1)}** ${metric}`;
 const formatRankingLine = (labelIcon: string, label: string, playerName: string, value: number, metric: string, bossName?: string): string =>
-    `${labelIcon} ${label}: **${playerName} ${value.toFixed(1)} ${metric}**${bossName ? ` (${bossName})` : ""}`;
-const formatTotalLine = (label: string, value: string | number, icon?: string, emphasizeLabel = false): string =>
-    icon ? `${icon} ${emphasizeLabel ? `**${label}:**` : `${label}:`} ${value}` : `${emphasizeLabel ? `**${label}:**` : `${label}:`} ${value}`;
+    `${labelIcon} **${label}** · ${playerName} **${value.toFixed(1)} ${metric}**${bossName ? ` · ${bossName}` : ""}`;
+const formatTotalBadge = (label: string, value: string | number, icon?: string): string =>
+    `${icon ? `${icon} ` : ""}${label} **${value}**`;
 const formatTopStatRows = (entries: Array<{ playerName: string; value: number; classSpecLabel?: string }>, formatter: (value: number) => string): string =>
-    entries.slice(0, 3).map((entry, index) => `${index + 1}. **${entry.playerName}** ${formatter(entry.value)}${entry.classSpecLabel ? ` · ${entry.classSpecLabel}` : ""}`).join("\n");
+    entries.slice(0, 3).map((entry, index) => `${formatMedalPrefix(index)} **${entry.playerName}** · ${formatter(entry.value)}${entry.classSpecLabel ? ` · ${entry.classSpecLabel}` : ""}`).join("\n");
 const DISCORD_FIELD_VALUE_LIMIT = 1024;
 const truncateFieldValue = (value: string): string =>
     value.length <= DISCORD_FIELD_VALUE_LIMIT
@@ -46,7 +49,16 @@ const truncateFieldValue = (value: string): string =>
 const joinSectionLines = (lines: Array<string | undefined>): string =>
     lines.filter((line): line is string => Boolean(line)).join("\n");
 const sectionBlock = (label: string, body: string | undefined): string | undefined =>
-    body && body.length > 0 ? `**${label}**\n${body}` : undefined;
+    body && body.length > 0 ? `__${label}__\n${body}` : undefined;
+const formatBossHighlightRow = (entry: RecapSummary["bossHighlights"][number]): string =>
+    `• **${entry.bossName}** · ${entry.text}`;
+const formatRaidSuperlativeRow = (entry: RecapSummary["raidSuperlatives"][number]): string =>
+    `• **${entry.label}** · ${entry.text}`;
+const formatSummaryDescription = (model: RecapRenderModel): string =>
+    joinSectionLines([
+        `**${model.outcome.secondaryLine}**`,
+        `⏱ ${model.outcome.killTimeLabel} · ${model.outcome.pullCount} pulls · ${model.outcome.reportDateLabel}`,
+    ]);
 
 export const makeRecapComponentCustomId = (action: string, reportCode: string, guildId: string): string =>
     `${RECAP_COMPONENT_PREFIX}:${action}:${reportCode}:${guildId}`;
@@ -83,28 +95,25 @@ export const buildRecapPreviewBody = (summary: RecapSummary, reportCode: string,
 
 export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
     const standoutLines = [
-        model.performance.bestExecution ? `🎯 Best execution: **${model.performance.bestExecution.playerName} ${model.performance.bestExecution.value.toFixed(1)}**` : undefined,
-        model.performance.mostImprovedPlayer ? `📈 Most improved: **${model.performance.mostImprovedPlayer.playerName} +${model.performance.mostImprovedPlayer.delta.toFixed(1)}**` : undefined,
+        model.performance.bestExecution ? `🎯 **Best execution** · ${model.performance.bestExecution.playerName} **${model.performance.bestExecution.value.toFixed(1)}**` : undefined,
+        model.performance.mostImprovedPlayer ? `📈 **Most improved** · ${model.performance.mostImprovedPlayer.playerName} **+${model.performance.mostImprovedPlayer.delta.toFixed(1)}**` : undefined,
     ].filter((line): line is string => Boolean(line));
     const rankingLines = [
         model.performance.bestSingleBossParse ? formatRankingLine("🥇", "Best single-boss parse", model.performance.bestSingleBossParse.playerName, model.performance.bestSingleBossParse.value, model.performance.bestSingleBossParse.metric, model.performance.bestSingleBossParse.bossName) : undefined,
         model.performance.bestAverageParse ? formatRankingLine("📊", "Best average parse", model.performance.bestAverageParse.playerName, model.performance.bestAverageParse.value, model.performance.bestAverageParse.metric) : undefined,
     ].filter((line): line is string => Boolean(line));
     const totalLines = [
-        typeof model.outcome.totals.totalDeaths === "number" ? formatTotalLine("Total deaths", model.outcome.totals.totalDeaths, "☠️", true) : undefined,
-        typeof model.outcome.totals.raidDamageTaken === "number" ? formatTotalLine("Raid damage taken", formatCompactNumber(model.outcome.totals.raidDamageTaken), "🩸", true) : undefined,
-        typeof model.outcome.totals.dispels === "number" ? formatTotalLine("Dispels", model.outcome.totals.dispels, "✨", true) : undefined,
-        typeof model.outcome.totals.battleRezzes === "number" ? formatTotalLine("Battle rezzes", model.outcome.totals.battleRezzes) : undefined,
-        typeof model.outcome.totals.kicks === "number" ? formatTotalLine("Kicks", model.outcome.totals.kicks, "🛑", true) : undefined,
+        typeof model.outcome.totals.totalDeaths === "number" ? formatTotalBadge("Deaths", model.outcome.totals.totalDeaths, "☠️") : undefined,
+        typeof model.outcome.totals.raidDamageTaken === "number" ? formatTotalBadge("Damage taken", formatCompactNumber(model.outcome.totals.raidDamageTaken), "🩸") : undefined,
+        typeof model.outcome.totals.dispels === "number" ? formatTotalBadge("Dispels", model.outcome.totals.dispels, "✨") : undefined,
+        typeof model.outcome.totals.battleRezzes === "number" ? formatTotalBadge("Battle rezzes", model.outcome.totals.battleRezzes, "🕯️") : undefined,
+        typeof model.outcome.totals.kicks === "number" ? formatTotalBadge("Kicks", model.outcome.totals.kicks, "🛑") : undefined,
     ].filter((line): line is string => Boolean(line));
     const fields: Array<{ name: string; value: string; inline?: boolean }> = [
         {
-            name: "🏁 Outcome",
+            name: "🏁 Raid Snapshot",
             value: truncateFieldValue(joinSectionLines([
-                model.outcome.secondaryLine,
-                `Raid Duration: ${model.outcome.killTimeLabel} (${model.outcome.pullCount} Pulls)`,
-                `Date: ${model.outcome.reportDateLabel}`,
-                sectionBlock("Boss Highlights", model.outcome.bossHighlights.slice(0, 4).map((entry) => `• **${entry.bossName}:** ${entry.text}`).join("\n")),
+                sectionBlock("Boss Highlights", model.outcome.bossHighlights.slice(0, 4).map(formatBossHighlightRow).join("\n")),
             ])),
         },
     ];
@@ -112,36 +121,41 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
         if (value.length > 0) fields.push({ name, value: truncateFieldValue(value) });
     };
     if (model.performance.bestSingleBossParse || model.performance.bestAverageParse) {
-        pushSection("📈 Performance", joinSectionLines([
-            sectionBlock("Overall Rankings", rankingLines.join("\n")),
-            sectionBlock("Best Player Parses", model.performance.bestPlayerParses.map((entry) => formatParseHighlightRow(entry)).join("\n")),
-            sectionBlock("Top Overall Parsers", model.performance.topOverallParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
-            sectionBlock("Top Overall Damage Parse", model.performance.topOverallDamageParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
-            sectionBlock("Top Overall Healing Parse", model.performance.topOverallHealingParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+        pushSection("⚔️ Performance Board", joinSectionLines([
+            sectionBlock("Signature Parses", rankingLines.join("\n")),
+            sectionBlock("Player Standouts", model.performance.bestPlayerParses.map((entry) => formatParseHighlightRow(entry)).join("\n")),
+            sectionBlock("Overall", model.performance.topOverallParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+            sectionBlock("Damage", model.performance.topOverallDamageParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+            sectionBlock("Healing", model.performance.topOverallHealingParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
         ]));
     } else {
-        pushSection("📈 Performance", joinSectionLines([
-            sectionBlock("Best Player Parses", model.performance.bestPlayerParses.map((entry) => formatParseHighlightRow(entry)).join("\n")),
-            sectionBlock("Top Overall Parsers", model.performance.topOverallParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
-            sectionBlock("Top Overall Damage Parse", model.performance.topOverallDamageParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
-            sectionBlock("Top Overall Healing Parse", model.performance.topOverallHealingParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+        pushSection("⚔️ Performance Board", joinSectionLines([
+            sectionBlock("Player Standouts", model.performance.bestPlayerParses.map((entry) => formatParseHighlightRow(entry)).join("\n")),
+            sectionBlock("Overall", model.performance.topOverallParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+            sectionBlock("Damage", model.performance.topOverallDamageParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
+            sectionBlock("Healing", model.performance.topOverallHealingParsers.map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric)).join("\n")),
         ]));
     }
-    pushSection("📊 Volume", joinSectionLines([
-        sectionBlock("Top Damage Done", formatTopStatRows(model.volume.topDamageDone, (value) => formatCompactNumber(value))),
-        sectionBlock("Top Healing Done", formatTopStatRows(model.volume.topHealingDone, (value) => formatCompactNumber(value))),
-        sectionBlock("Top Damage Taken", formatTopStatRows(model.volume.topDamageTaken, (value) => formatCompactNumber(value))),
-        sectionBlock("Totals", totalLines.join("\n")),
+    pushSection("📊 Volume Leaders", joinSectionLines([
+        sectionBlock("Damage Done", formatTopStatRows(model.volume.topDamageDone, (value) => formatCompactNumber(value))),
+        sectionBlock("Healing Done", formatTopStatRows(model.volume.topHealingDone, (value) => formatCompactNumber(value))),
+        sectionBlock("Damage Taken", formatTopStatRows(model.volume.topDamageTaken, (value) => formatCompactNumber(value))),
+        sectionBlock("Raid Totals", totalLines.join(" · ")),
     ]));
-    pushSection("🎯 Execution", joinSectionLines([
+    pushSection("🎯 Execution Checks", joinSectionLines([
         sectionBlock("Standouts", standoutLines.join("\n")),
         sectionBlock("Top Interrupts", formatTopStatRows(model.execution.topInterrupts, (value) => value.toFixed(0))),
         sectionBlock("Top Dispels", formatTopStatRows(model.execution.topDispels, (value) => value.toFixed(0))),
         sectionBlock("Top Survivability", formatTopStatRows(model.execution.topSurvivability, (value) => value.toFixed(1))),
-        sectionBlock("Raid Superlatives", model.outcome.raidSuperlatives.slice(0, 4).map((entry) => `• **${entry.label}:** ${entry.text}`).join("\n")),
+        sectionBlock("Raid Superlatives", model.outcome.raidSuperlatives.slice(0, 4).map(formatRaidSuperlativeRow).join("\n")),
     ]));
-    pushSection("🔗 Report", model.outcome.reportLink);
-    return { title: model.outcome.titleLine, fields };
+    pushSection("🔗 Warcraft Logs", model.outcome.reportLink);
+    return {
+        title: model.outcome.titleLine,
+        description: formatSummaryDescription(model),
+        color: 0x5b8def,
+        fields,
+    };
 }
 
 export const buildPublicRecapEmbed = (summary: RecapSummary) =>
