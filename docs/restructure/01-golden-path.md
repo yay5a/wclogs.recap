@@ -5,7 +5,7 @@ A user pastes a Warcraft Logs report URL into Discord and receives a correct rec
 
 ## Start and end of the path
 Start:
-- Discord slash command `/recap report` (or current command name)
+- Discord slash command `/recap`
 - report URL provided by user
 
 End:
@@ -47,5 +47,4 @@ Given a known report URL, the new path can:
 2. build recap domains
 3. render the Discord recap
 4. produce output that is at least as correct as the current path
-
 

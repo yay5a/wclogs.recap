@@ -37,14 +37,3 @@ export const handleConfigCommand = async (
         },
     };
 };
-
-export const getNestedStringOption = (
-    options: unknown,
-    subcommandName: string,
-    name: string,
-): string | undefined => {
-    const subcommand = (Array.isArray(options) ? options : []).find(
-        (o) => typeof o === "object" && o !== null && (o as { name?: unknown }).name === subcommandName,
-    ) as { options?: unknown } | undefined;
-    return getStringOption(subcommand?.options, name);
-};

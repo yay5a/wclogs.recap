@@ -110,11 +110,11 @@ afterEach(() => {
 });
 
 describe("command payload builder", () => {
-    it("keeps command surface focused on health/config/report only", () => {
+    it("keeps command surface focused on health/config/recap only", () => {
         expect(commandDefinitions.map((command) => command.name)).toEqual([
             "health",
             "config",
-            "report",
+            "recap",
         ]);
         const configCommand = commandDefinitions.find(
             (command) => command.name === "config",
@@ -461,7 +461,7 @@ describe("handleInteraction", () => {
         expect((response as { type?: number }).type).toBeDefined();
     });
 
-    it("creates report recap preview and post flow", async () => {
+    it("creates recap preview and post flow", async () => {
         const report = makeReport();
         const previous: NormalizedPlayer[] = [];
         const wclClient = {
@@ -530,16 +530,11 @@ describe("handleInteraction", () => {
                 channel_id: "channel-1",
                 member: { user: { id: "user-1" } },
                 data: {
-                    name: "report",
+                    name: "recap",
                     options: [
                         {
-                            name: "recap",
-                            options: [
-                                {
-                                    name: "url",
-                                    value: "https://www.warcraftlogs.com/reports/ABC123",
-                                },
-                            ],
+                            name: "url",
+                            value: "https://www.warcraftlogs.com/reports/ABC123",
                         },
                     ],
                 },
@@ -600,7 +595,7 @@ describe("handleInteraction", () => {
         ).toHaveBeenCalledWith({ reportCode: "ABC123", guildId: "guild-1" });
     });
 
-    it("can schedule report recap processing outside the initial response path", async () => {
+    it("can schedule recap processing outside the initial response path", async () => {
         const fetchAndNormalizeReport = vi.fn().mockResolvedValue(makeReport());
         const wclClient = {
             fetchAndNormalizeReport,
@@ -635,16 +630,11 @@ describe("handleInteraction", () => {
                 channel_id: "channel-1",
                 member: { user: { id: "user-1" } },
                 data: {
-                    name: "report",
+                    name: "recap",
                     options: [
                         {
-                            name: "recap",
-                            options: [
-                                {
-                                    name: "url",
-                                    value: "https://www.warcraftlogs.com/reports/ABC123",
-                                },
-                            ],
+                            name: "url",
+                            value: "https://www.warcraftlogs.com/reports/ABC123",
                         },
                     ],
                 },
@@ -691,7 +681,7 @@ describe("handleInteraction", () => {
             type: expect.any(Number),
             data: {
                 content:
-                    "This recap preview has already been posted or expired. Please run /report recap again.",
+                    "This recap preview has already been posted or expired. Please run /recap again.",
                 flags: 64,
             },
         });
@@ -765,7 +755,7 @@ describe("handleInteraction", () => {
             type: expect.any(Number),
             data: {
                 content:
-                    "This recap preview has already been posted or expired. Please run /report recap again.",
+                    "This recap preview has already been posted or expired. Please run /recap again.",
                 flags: 64,
             },
         });

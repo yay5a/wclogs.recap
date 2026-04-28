@@ -77,7 +77,7 @@ export const commandDefinitions: CommandDefinition[] = [
         { name: "game_family", description: "Default game family", type: 3, required: false, choices: [{ name: "retail", value: "retail" }, { name: "mop_classic", value: "mop_classic" }] },
         { name: "compare_mode", description: "Default compare mode", type: 3, required: false, choices: [{ name: "character", value: "character" }, { name: "mixed", value: "mixed" }] },
     ]},
-    { name: "report", description: "Report tools", type: 1, options: [{ name: "recap", description: "Generate a recap preview from a WCL report URL", type: 1, options: [{ name: "url", description: "WCL report URL", type: 3, required: true }] }] },
+    { name: "recap", description: "Generate a recap preview from a WCL report URL", type: 1, options: [{ name: "url", description: "WCL report URL", type: 3, required: true }] },
 ];
 
 export class DiscordCommandRegistrationError extends Error {

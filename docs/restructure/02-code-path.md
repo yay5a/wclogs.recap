@@ -17,7 +17,7 @@ The first seam is:
 `separating recap data building from Discord embed rendering`
 
 ```typescript
-const processReportRecapInteraction = async (
+const processRecapInteraction = async (
   interaction: DiscordInteraction,
   options: HandleOptions,
   url: string,
@@ -40,7 +40,7 @@ const processReportRecapInteraction = async (
         applicationIdPresent: Boolean(applicationId),
         tokenPresent: Boolean(interactionToken),
       },
-      "report recap missing application id or token",
+      "recap missing application id or token",
     );
     return;
   }
@@ -48,11 +48,11 @@ const processReportRecapInteraction = async (
   try {
     const guildConfigStart = Date.now();
     const guildConfig = await options.guildConfigStore.getGuildConfig(guildId);
-    logReportRecapStep(interactionId, "guild_config_load", guildConfigStart);
+    logRecapStep(interactionId, "guild_config_load", guildConfigStart);
 
     const reportFetchStart = Date.now();
     const report = await options.wclClient.fetchAndNormalizeReport(url);
-    logReportRecapStep(
+    logRecapStep(
       interactionId,
       "report_fetch_normalize",
       reportFetchStart,
@@ -65,7 +65,7 @@ const processReportRecapInteraction = async (
           new Date(report.startTime),
         )
       : [];
-    logReportRecapStep(
+    logRecapStep(
       interactionId,
       "previous_raid_summary_lookup",
       previousLookupStart,
@@ -75,7 +75,7 @@ const processReportRecapInteraction = async (
     const summary = buildRecapSummary(report, previousPlayers, {
       guildConfig,
     });
-    logReportRecapStep(interactionId, "summary_build", summaryBuildStart);
+    logRecapStep(interactionId, "summary_build", summaryBuildStart);
 
     const createdAt = new Date();
     const previewStateInput: SavePreviewStateInput = {
@@ -99,7 +99,7 @@ const processReportRecapInteraction = async (
       interactionToken,
       buildRecapPreviewBody(summary, report.reportCode, guildId),
     );
-    logReportRecapStep(interactionId, "original_response_edit", editStart);
+    logRecapStep(interactionId, "original_response_edit", editStart);
   } catch (error) {
     logger.error(
       {
@@ -107,7 +107,7 @@ const processReportRecapInteraction = async (
         interactionId,
         guildId,
       },
-      "report recap processing failed",
+      "recap processing failed",
     );
     const errorMessage =
       error instanceof Error ? error.message.toLowerCase() : "";
@@ -181,7 +181,7 @@ export interface RecapPreviewStateService {
     ): Promise<PreviewStateRecord | null>;
     deletePreviewState(lookup: PreviewStateLookup): Promise<void>;
 
-const logReportRecapStep = (
+const logRecapStep = (
     interactionId: string | undefined,
     step: string,
     startedAt: number,
@@ -192,7 +192,7 @@ const logReportRecapStep = (
             step,
             durationMs: toDurationMs(startedAt),
         },
-        "report recap step complete",
+        "recap step complete",
     );
 };
 

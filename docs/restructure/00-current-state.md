@@ -6,7 +6,7 @@ The discord bot has suffered extreme over engineering due to vibe-coding feature
 
 ## What works (and doesn't) in Production & Development
 
-Everything runs more or less; I'm able to invite the bot/install the app on a server I created for testing and run the `/recap report` with a link to a raid log recorded by my guild.
+Everything runs more or less; I'm able to invite the bot/install the app on a server I created for testing and run `/recap` with a link to a raid log recorded by my guild.
 The embedded report looks like this:
 
 ![current-embed-sate](current-state.png)

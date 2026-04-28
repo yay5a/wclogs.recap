@@ -1,10 +1,10 @@
 import { InteractionResponseType, InteractionType } from "discord-interactions";
 import { createLogger } from "@wcl/shared";
 import type { HandleOptions } from "../types.js";
-import { handleConfigCommand, getNestedStringOption } from "../commands/config.js";
+import { handleConfigCommand } from "../commands/config.js";
 import {
     handleRecapComponentInteraction,
-    processReportRecapInteraction,
+    processRecapInteraction,
 } from "../commands/recap.js";
 
 const logger = createLogger("discord");
@@ -32,15 +32,11 @@ export const handleInteraction = async (
             return handleConfigCommand(typedInteraction, options);
         }
 
-        if (typedInteraction.data?.name === "report") {
-            const url = getNestedStringOption(
-                typedInteraction.data.options,
-                "recap",
-                "url",
-            );
+        if (typedInteraction.data?.name === "recap") {
+            const url = getStringCommandOption(typedInteraction.data.options, "url");
             logger.info(
                 { interactionId: typedInteraction.id, rawUrl: url ?? null },
-                "report recap url received",
+                "recap url received",
             );
             if (!url || typeof url !== "string") {
                 return {
@@ -53,7 +49,7 @@ export const handleInteraction = async (
             }
 
             const backgroundTask = () => {
-                void processReportRecapInteraction(typedInteraction, options, url);
+                void processRecapInteraction(typedInteraction, options, url);
             };
             if (options.scheduleBackgroundTask) {
                 options.scheduleBackgroundTask(backgroundTask);
@@ -81,4 +77,12 @@ export const handleInteraction = async (
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: { content: "Unsupported interaction in MVP.", flags: 64 },
     };
+};
+
+const getStringCommandOption = (options: unknown, name: string): string | undefined => {
+    if (!Array.isArray(options)) return undefined;
+    const found = options.find(
+        (option) => typeof option === "object" && option !== null && (option as { name?: unknown }).name === name,
+    ) as { value?: unknown } | undefined;
+    return typeof found?.value === "string" ? found.value : undefined;
 };

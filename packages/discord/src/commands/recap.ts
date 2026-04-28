@@ -10,11 +10,11 @@ const EPHEMERAL_MESSAGE_FLAG = 64;
 const POST_RECAP_ACTION = "post";
 
 const toDurationMs = (startedAt: number): number => Date.now() - startedAt;
-const logReportRecapStep = (interactionId: string | undefined, step: string, startedAt: number) => {
-    logger.info({ interactionId, step, durationMs: toDurationMs(startedAt) }, "report recap step complete");
+const logRecapStep = (interactionId: string | undefined, step: string, startedAt: number) => {
+    logger.info({ interactionId, step, durationMs: toDurationMs(startedAt) }, "recap step complete");
 };
 
-export const processReportRecapInteraction = async (
+export const processRecapInteraction = async (
     interaction: DiscordInteraction,
     options: HandleOptions,
     url: string,
@@ -28,26 +28,26 @@ export const processReportRecapInteraction = async (
     const interactionToken = interaction.token;
 
     if (!applicationId || !interactionToken) {
-        logger.error({ interactionId, applicationIdPresent: Boolean(applicationId), tokenPresent: Boolean(interactionToken) }, "report recap missing application id or token");
+        logger.error({ interactionId, applicationIdPresent: Boolean(applicationId), tokenPresent: Boolean(interactionToken) }, "recap missing application id or token");
         return;
     }
 
     try {
         const guildConfigStart = Date.now();
         const guildConfig = await options.guildConfigStore.getGuildConfig(guildId);
-        logReportRecapStep(interactionId, "guild_config_load", guildConfigStart);
+        logRecapStep(interactionId, "guild_config_load", guildConfigStart);
 
         const reportFetchStart = Date.now();
         const report = await options.wclClient.fetchAndNormalizeReport(url);
-        logReportRecapStep(interactionId, "report_fetch_normalize", reportFetchStart);
+        logRecapStep(interactionId, "report_fetch_normalize", reportFetchStart);
 
         const previousLookupStart = Date.now();
         const previousPlayers = options.wclClient.findPreviousRaidSummaries ? await options.wclClient.findPreviousRaidSummaries(guildId, new Date(report.startTime)) : [];
-        logReportRecapStep(interactionId, "previous_raid_summary_lookup", previousLookupStart);
+        logRecapStep(interactionId, "previous_raid_summary_lookup", previousLookupStart);
 
         const summaryBuildStart = Date.now();
         const summary = buildRecapSummary(report, previousPlayers, { guildConfig });
-        logReportRecapStep(interactionId, "summary_build", summaryBuildStart);
+        logRecapStep(interactionId, "summary_build", summaryBuildStart);
 
         const createdAt = new Date();
         const previewStateInput: SavePreviewStateInput = {
@@ -65,9 +65,9 @@ export const processReportRecapInteraction = async (
 
         const editStart = Date.now();
         await editOriginalInteractionResponse(applicationId, interactionToken, buildRecapPreviewBody(summary, report.reportCode, guildId));
-        logReportRecapStep(interactionId, "original_response_edit", editStart);
+        logRecapStep(interactionId, "original_response_edit", editStart);
     } catch (error) {
-        logger.error({ error, interactionId, guildId }, "report recap processing failed");
+        logger.error({ error, interactionId, guildId }, "recap processing failed");
         const errorMessage = error instanceof Error ? error.message.toLowerCase() : "";
         const userFacingContent = errorMessage.includes("report code")
             ? "I couldn't find a Warcraft Logs report code in that URL. Paste the full report link."
@@ -97,7 +97,7 @@ export const handleRecapComponentInteraction = async (
         logger.info({ action: "recap.post.consume_preview_state_noop", guildId, reportCode, interactionId: interaction.id }, "recap post ignored because preview state was already consumed or expired");
         return {
             type: 4,
-            data: { content: "This recap preview has already been posted or expired. Please run /report recap again.", flags: 64 },
+            data: { content: "This recap preview has already been posted or expired. Please run /recap again.", flags: 64 },
         };
     }
 

@@ -4,7 +4,7 @@
 
 Beta Warcraft Logs recap service for Discord.
 
-`wclogs.recap` fetches Warcraft Logs reports, normalizes the GraphQL payloads into typed raid recap models, and renders concise Discord-ready summaries. The current beta focuses on `/report recap` for Warcraft Logs Classic raid reports, with Mongo-backed caching and preview state.
+`wclogs.recap` fetches Warcraft Logs reports, normalizes the GraphQL payloads into typed raid recap models, and renders concise Discord-ready summaries. The current beta focuses on `/recap` for Warcraft Logs Classic raid reports, with Mongo-backed caching and preview state.
 
 ## Beta Status
 
@@ -13,7 +13,7 @@ The beta is usable for live recap generation, but the internals are still being 
 Currently working:
 
 - Discord interaction webhook handling with signature verification.
-- `/report recap` flow for Warcraft Logs report URLs.
+- `/recap` flow for Warcraft Logs report URLs.
 - Deferred Discord responses so longer WCL fetches do not block the initial interaction ACK.
 - Recap sections for Outcome, Performance, Volume, Execution, and Report link.
 - Report-wide damage, healing, damage taken, deaths, dispels, and interrupts from WCL table payloads.
@@ -42,7 +42,7 @@ Please focus on the current user-facing Discord flow:
 
 1. Run `/health` to confirm the bot is responding.
 2. Run `/config` to review or update server defaults.
-3. Run `/report recap <warcraft-logs-url>` with a public Warcraft Logs report.
+3. Run `/recap <warcraft-logs-url>` with a public Warcraft Logs report.
 4. Review the private preview response.
 5. Use the post/confirm button if the recap looks correct.
 6. Report bugs, confusing output, or missing context.
@@ -68,7 +68,7 @@ Known beta limitations may include:
 - Trend/history features may be incomplete.
 - Some Warcraft Logs payloads may omit stable IDs, so joins between players, fights, bosses, and metrics may be imperfect.
 - Private or restricted Warcraft Logs reports may not work unless the app has the correct API access.
-- Preview buttons may expire and require rerunning `/report recap`.
+- Preview buttons may expire and require rerunning `/recap`.
 - Some recap fields may be missing when Warcraft Logs does not return the needed data.
 
 ### Where to test
@@ -98,7 +98,7 @@ A useful bug report should include:
     Short description of the problem
 
     Command used:
-    Example: /report recap <url>
+    Example: /recap <url>
 
     Warcraft Logs report:
     Paste the public report URL or report code if it can be shared.
@@ -316,7 +316,7 @@ The checked-in Compose file includes deployment-specific public URLs. Adjust `WC
 | Route                        | Purpose                                                               |
 | ---------------------------- | --------------------------------------------------------------------- |
 | `GET /health`                | Basic health check returning `{ "status": "ok" }`.                    |
-| `POST /api/recap`            | Fetch and normalize a report recap payload from a report code or URL. |
+| `POST /api/recap`            | Fetch and normalize a recap payload from a report code or URL. |
 | `POST /discord/interactions` | Discord interaction webhook endpoint.                                 |
 | `GET /api/auth/wcl/status`   | Inspect stored WCL user OAuth state.                                  |
 | `GET /api/auth/wcl/login`    | Start WCL user OAuth.                                                 |
