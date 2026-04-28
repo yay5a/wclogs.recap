@@ -7,6 +7,7 @@ const RECAP_COMPONENT_PREFIX = 'recap:v1';
 const POST_RECAP_ACTION = 'post';
 const CANCEL_RECAP_ACTION = 'cancel';
 const EPHEMERAL_MESSAGE_FLAG = 64;
+const DOMAIN_DIVIDER = '━━━━━━━━━━━━━━━━━━━━';
 const PERFORMANCE_NOTE =
   'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.';
 const formatWarcraftLogsField = (reportLink: string): string =>
@@ -125,6 +126,8 @@ const joinSectionLines = (lines: Array<string | undefined>): string =>
   lines.filter((line): line is string => Boolean(line)).join('\n');
 const joinSectionBlocks = (blocks: Array<string | undefined>): string =>
   blocks.filter((block): block is string => Boolean(block)).join('\n\n');
+const withDomainDivider = (value: string): string =>
+  value.length > 0 ? `${value}\n\n${DOMAIN_DIVIDER}` : value;
 const indentLines = (body: string): string =>
   body
     .split('\n')
@@ -239,13 +242,13 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
     {
       name: '🏁 Raid Snapshot',
       value: truncateFieldValue(
-        joinSectionBlocks([
+        withDomainDivider(joinSectionBlocks([
           subsectionBlock(
             'Boss Highlights',
             model.outcome.bossHighlights.slice(0, 4).map(formatBossHighlightRow).join('\n'),
           ),
           subsectionBlock('Raid Totals', formatTotalLine(model)),
-        ]),
+        ])),
       ),
     },
   ];
@@ -255,7 +258,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
   if (model.performance.bestSingleBossParse || model.performance.bestAverageParse) {
     pushSection(
       '⚡ Performance',
-      joinSectionBlocks([
+      withDomainDivider(joinSectionBlocks([
         subsectionBlock('Signature Parses', rankingLines.join('\n')),
         subsectionBlock(
           'Player Standouts',
@@ -287,12 +290,12 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             )
             .join('\n'),
         ),
-      ]),
+      ])),
     );
   } else {
     pushSection(
       '⚡ Performance',
-      joinSectionBlocks([
+      withDomainDivider(joinSectionBlocks([
         subsectionBlock(
           'Player Standouts',
           model.performance.bestPlayerParses
@@ -323,12 +326,12 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             )
             .join('\n'),
         ),
-      ]),
+      ])),
     );
   }
   pushSection(
     '🎛️ Output & Intake',
-    joinSectionBlocks([
+    withDomainDivider(joinSectionBlocks([
       subsectionBlock(
         'Damage Done',
         formatTopStatRows(model.volume.topDamageDone, (value) => formatCompactNumber(value)),
@@ -341,7 +344,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
         'Damage Taken',
         formatTopStatRows(model.volume.topDamageTaken, (value) => formatCompactNumber(value)),
       ),
-    ]),
+    ])),
   );
   pushSection(
     '🎯 Utility & Execution',

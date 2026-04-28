@@ -996,6 +996,7 @@ describe('embed rendering', () => {
     const execution =
       embed.fields.find((field) => field.name === '🎯 Utility & Execution')?.value ?? '';
     const logs = embed.fields.find((field) => field.name === '🔗 Warcraft Logs')?.value ?? '';
+    const domainDivider = '━━━━━━━━━━━━━━━━━━━━';
 
     expect(output).not.toContain('Most wipes:');
     expect(performance).toContain('  #2 **Pearl** · 97.4 HPS parse');
@@ -1009,6 +1010,7 @@ describe('embed rendering', () => {
     expect(outcome).toContain(
       '▸ __**Boss Highlights**__\n  • **One-Armed Bandit** · Kill secured.\n\n▸ __**Raid Totals**__',
     );
+    expect(outcome.endsWith(`\n\n${domainDivider}`)).toBe(true);
     expect(output).not.toContain('Damage taken: 1.2M');
     expect(performance).toContain(
       '  👹 Best boss parse: **Alyra** · 99.0 DPS parse · One-Armed Bandit',
@@ -1019,6 +1021,7 @@ describe('embed rendering', () => {
     expect(performance).toContain('▸ __**Overall Parses**__\n');
     expect(performance).toContain('▸ __**Damage Parses**__\n');
     expect(performance).toContain('▸ __**Healing Parses**__\n');
+    expect(performance.endsWith(`\n\n${domainDivider}`)).toBe(true);
     expect(performance).not.toContain('Note: Parses are WCL percentiles');
     expect(logs).toBe(
       'https://www.warcraftlogs.com/reports/ABC123\n\n*Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.*',
@@ -1041,6 +1044,7 @@ describe('embed rendering', () => {
     expect(output).toContain('▸ __**Damage Done**__\n  #1 **Alyra** · 250K · Shadow Priest');
     expect(output).toContain('▸ __**Healing Done**__\n  #1 **Healz** · 67.9K · Mistweaver Monk');
     expect(output).toContain('▸ __**Damage Taken**__\n  #1 **Bulwark** · 120K · Protection Warrior');
+    expect(output.endsWith(`\n\n${domainDivider}`)).toBe(true);
     expect(output).not.toMatch(/^\s+\d+\./m);
     expect(output).not.toContain('Shadow Priest,');
     expect(execution).toContain('▸ __**Top Interrupts**__\n  #1 **Bulwark** · 11');
@@ -1049,6 +1053,8 @@ describe('embed rendering', () => {
     expect(execution).not.toContain('Raid Superlatives');
     expect(execution).not.toContain('**Bulwark** 11,');
     expect(execution).not.toContain('parse');
+    expect(execution).not.toContain(domainDivider);
+    expect(logs).not.toContain(domainDivider);
   });
 
   it('omits top overall healing parse when parse rows do not exist', () => {
