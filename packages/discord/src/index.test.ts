@@ -985,47 +985,56 @@ describe('embed rendering', () => {
     ).toEqual([
       '🏁 Raid Snapshot',
       '⚔️ Performance',
-      '📊 Volume',
-      '🎯 Execution',
+      '📊 Output & Intake',
+      '🎯 Utility & Execution',
       '🔗 Warcraft Logs',
     ]);
     const outcome = embed.fields.find((field) => field.name === '🏁 Raid Snapshot')?.value ?? '';
     const performance =
       embed.fields.find((field) => field.name === '⚔️ Performance')?.value ?? '';
-    const volume = embed.fields.find((field) => field.name === '📊 Volume')?.value ?? '';
+    const output = embed.fields.find((field) => field.name === '📊 Output & Intake')?.value ?? '';
     const execution =
-      embed.fields.find((field) => field.name === '🎯 Execution')?.value ?? '';
+      embed.fields.find((field) => field.name === '🎯 Utility & Execution')?.value ?? '';
 
-    expect(volume).not.toContain('Most wipes:');
-    expect(performance).toContain('2. **Pearl** · **97.4** HPS');
+    expect(output).not.toContain('Most wipes:');
+    expect(performance).toContain('2. **Pearl** · 97.4 HPS');
     expect(performance).not.toContain('healing');
-    expect(performance).toContain('**250K DPS**');
+    expect(performance).toContain('250K DPS');
     expect(performance).toContain('Shadow Priest');
-    expect(volume).toContain('🩸 Damage taken **1.2M**');
-    expect(performance).toContain(
-      '**Best boss parse** · Alyra · **99.0 DPS** · One-Armed Bandit',
+    expect(outcome).toContain('Deaths: 5 · Damage taken: 1.2M · Kicks: 11 · Dispels: 8');
+    expect(outcome).toContain('Battle rezzes: 2');
+    expect(outcome).toContain(
+      '**Boss Highlights**\n• **One-Armed Bandit** · Kill secured.\n\n**Raid Totals**',
     );
-    expect(performance).toContain('**Best average parse** · Pearl · **97.4 HPS**');
+    expect(output).not.toContain('Damage taken: 1.2M');
+    expect(performance).toContain(
+      '**Best boss parse:** Alyra · 99.0 DPS · One-Armed Bandit',
+    );
+    expect(performance).toContain('**Best average parse:** Pearl · 97.4 HPS');
+    expect(performance).toContain('**Signature Parses**\n');
+    expect(performance).toContain('\n\n**Player Standouts**\n');
     expect(execution).not.toContain('Best boss parse');
     expect(execution).toContain('Best execution');
     expect(execution).toContain('Most improved');
-    expect(performance).toContain('1. **Alyra** · **99.0** DPS');
-    expect(performance).toContain('2. **Pearl** · **97.4** HPS');
-    expect(performance).toContain('3. **Bulwark** · **95.2** DTPS');
-    expect(performance).toContain('1. **Alyra** · **99** · **250K DPS** · Shadow Priest');
+    expect(performance).toContain('1. **Alyra** · 99.0 DPS');
+    expect(performance).toContain('2. **Pearl** · 97.4 HPS');
+    expect(performance).toContain('3. **Bulwark** · 95.2 DTPS');
+    expect(performance).toContain('1. **Alyra** · 99 · 250K DPS · Shadow Priest');
     for (const removedTierBadge of ['🩷', '🟧', '🟪', '🟦', '🟩', '⬛']) {
       expect(performance).not.toContain(removedTierBadge);
     }
     for (const rowMetricIcon of ['⚔️ **Alyra**', '💚 **Pearl**', '🛡️ **Bulwark**']) {
       expect(performance).not.toContain(rowMetricIcon);
     }
-    expect(volume).toContain('☠️ Deaths **5**');
-    expect(volume).toContain('✨ Dispels **8**');
-    expect(volume).toContain('🛑 Kicks **11**');
+    expect(outcome).not.toContain('☠️ Deaths **5**');
+    expect(outcome).not.toContain('✨ Dispels **8**');
+    expect(outcome).not.toContain('🛑 Kicks **11**');
     expect(outcome).toContain('• **One-Armed Bandit** · Kill secured.');
-    expect(volume).toContain('1. **Alyra** · 250K · Shadow Priest');
-    expect(volume).not.toContain('Shadow Priest,');
+    expect(output).toContain('1. **Alyra** · 250K · Shadow Priest');
+    expect(output).not.toContain('Shadow Priest,');
     expect(execution).toContain('1. **Bulwark** · 11');
+    expect(execution).toContain('**Raid Notes**');
+    expect(execution).not.toContain('Raid Superlatives');
     expect(execution).not.toContain('**Bulwark** 11,');
     expect(execution).not.toContain('parse');
   });
@@ -1049,7 +1058,7 @@ describe('embed rendering', () => {
 
     expect(
       embed.fields.filter((field) => field.name !== '\u200B').map((field) => field.name),
-    ).toEqual(['🏁 Raid Snapshot', '📊 Volume', '🔗 Warcraft Logs']);
+    ).toEqual(['🏁 Raid Snapshot', '🔗 Warcraft Logs']);
   });
 
   it('formats non-kill boss highlight rows as progress pulls', () => {
