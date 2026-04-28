@@ -1,4 +1,4 @@
-import { createLogger } from '@wcl/shared';
+import { createLogger, serializeError } from '@wcl/shared';
 import { buildRecapSummary } from '@wcl/domain';
 import type { DiscordInteraction, HandleOptions, SavePreviewStateInput } from '../types.js';
 import {
@@ -20,6 +20,20 @@ const CANCEL_RECAP_ACTION = 'cancel';
 const toDurationMs = (startedAt: number): number => Date.now() - startedAt;
 const logRecapStep = (interactionId: string | undefined, step: string, startedAt: number) => {
   logger.info({ interactionId, step, durationMs: toDurationMs(startedAt) }, 'recap step complete');
+};
+
+const getRecapFailureMessage = (error: unknown): string => {
+  const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
+  if (errorMessage.includes('report code')) {
+    return "I couldn't find a Warcraft Logs report code in that URL. Paste the full report link.";
+  }
+  if (errorMessage.includes('wcl oauth failed') || errorMessage.includes('missing wcl auth')) {
+    return 'Warcraft Logs authentication failed; check server configuration.';
+  }
+  if (errorMessage.includes('unexpected wcl payload shape')) {
+    return 'Warcraft Logs returned an unexpected payload for that report.';
+  }
+  return 'Could not build recap preview for that report. Please verify the URL and try again.';
 };
 
 export const processRecapInteraction = async (
@@ -89,11 +103,8 @@ export const processRecapInteraction = async (
     );
     logRecapStep(interactionId, 'original_response_edit', editStart);
   } catch (error) {
-    logger.error({ error, interactionId, guildId }, 'recap processing failed');
-    const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
-    const userFacingContent = errorMessage.includes('report code')
-      ? "I couldn't find a Warcraft Logs report code in that URL. Paste the full report link."
-      : 'Could not build recap preview for that report. Please verify the URL and try again.';
+    logger.error({ error: serializeError(error), interactionId, guildId }, 'recap processing failed');
+    const userFacingContent = getRecapFailureMessage(error);
     await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
       flags: EPHEMERAL_MESSAGE_FLAG,
       content: userFacingContent,

@@ -662,6 +662,93 @@ describe('handleInteraction', () => {
     expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
   });
 
+  it.each([
+    [
+      new Error('WCL OAuth failed: 401'),
+      'Warcraft Logs authentication failed; check server configuration.',
+    ],
+    [
+      new Error('Unexpected WCL payload shape'),
+      'Warcraft Logs returned an unexpected payload for that report.',
+    ],
+    [
+      new Error('Could not find a Warcraft Logs report code in the URL'),
+      "I couldn't find a Warcraft Logs report code in that URL. Paste the full report link.",
+    ],
+  ])('edits the deferred response with a useful recap failure message', async (error, content) => {
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn().mockRejectedValue(error),
+      findPreviousRaidSummaries: vi.fn(),
+    } as never;
+    const guildConfigStore: GuildConfigStore = {
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'mixed',
+        accountabilityVisibility: 'officers-only',
+        coachingShareabilityDefault: 'shareable',
+        recapPostModeDefault: 'preview-and-post',
+      }),
+      saveGuildConfig: vi.fn(),
+    };
+    const recapPreviewStateService = {
+      savePreviewState: vi.fn(),
+      getValidPreviewState: vi.fn(),
+      consumeValidPreviewState: vi.fn(),
+      deletePreviewState: vi.fn(),
+    };
+    const editFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    });
+    vi.stubGlobal('fetch', editFetch);
+
+    await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        id: 'interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        member: { user: { id: 'user-1' } },
+        data: {
+          name: 'recap',
+          options: [
+            {
+              name: 'url',
+              value: 'https://www.warcraftlogs.com/reports/ABC123',
+            },
+          ],
+        },
+      },
+      {
+        wclClient,
+        guildConfigStore,
+        recapPreviewStateService,
+      },
+    );
+
+    await vi.waitFor(() => {
+      expect(editFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/webhooks/'),
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
+    const patchCall = editFetch.mock.calls.find(
+      ([url]) =>
+        typeof url === 'string' &&
+        url.includes('/webhooks/') &&
+        url.includes('/messages/@original'),
+    );
+    const body =
+      patchCall?.[1] && typeof patchCall[1] === 'object' && 'body' in patchCall[1]
+        ? (patchCall[1] as { body: string }).body
+        : '{}';
+    expect(JSON.parse(body)).toMatchObject({ content, flags: 64 });
+    expect(recapPreviewStateService.savePreviewState).not.toHaveBeenCalled();
+  });
+
   it('returns an ephemeral error when preview state is missing or expired', async () => {
     const recapPreviewStateService = {
       savePreviewState: vi.fn(),
