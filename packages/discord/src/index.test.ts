@@ -995,6 +995,7 @@ describe('embed rendering', () => {
     const output = embed.fields.find((field) => field.name === '🎛️ Output & Intake')?.value ?? '';
     const execution =
       embed.fields.find((field) => field.name === '🎯 Utility & Execution')?.value ?? '';
+    const logs = embed.fields.find((field) => field.name === '🔗 Warcraft Logs')?.value ?? '';
 
     expect(output).not.toContain('Most wipes:');
     expect(performance).toContain('  #2 **Pearl** · 97.4 HPS parse');
@@ -1018,8 +1019,9 @@ describe('embed rendering', () => {
     expect(performance).toContain('▸ __**Overall Parses**__\n');
     expect(performance).toContain('▸ __**Damage Parses**__\n');
     expect(performance).toContain('▸ __**Healing Parses**__\n');
-    expect(performance).toContain(
-      'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.',
+    expect(performance).not.toContain('Note: Parses are WCL percentiles');
+    expect(logs).toBe(
+      'https://www.warcraftlogs.com/reports/ABC123\n\n*Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.*',
     );
     expect(execution).not.toContain('Best boss parse');
     expect(execution).toContain('Best execution');

@@ -9,6 +9,8 @@ const CANCEL_RECAP_ACTION = 'cancel';
 const EPHEMERAL_MESSAGE_FLAG = 64;
 const PERFORMANCE_NOTE =
   'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.';
+const formatWarcraftLogsField = (reportLink: string): string =>
+  `${reportLink}\n\n*${PERFORMANCE_NOTE}*`;
 
 type RecapMetric = 'DPS' | 'HPS' | 'DTPS';
 const toMetricLabel = (metricLabel?: string, metric?: string): RecapMetric | undefined => {
@@ -204,11 +206,6 @@ export const buildRecapPreviewBody = (summary: RecapSummary, reportCode: string,
   buildRecapPreviewBodyFromModel(toRecapRenderModel(summary), reportCode, guildId);
 
 export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
-  const hasPerformanceRows =
-    model.performance.bestPlayerParses.length > 0 ||
-    model.performance.topOverallParsers.length > 0 ||
-    model.performance.topOverallDamageParsers.length > 0 ||
-    model.performance.topOverallHealingParsers.length > 0;
   const standoutLines = [
     model.performance.bestExecution
       ? `**Best execution:** ${model.performance.bestExecution.playerName} · ${model.performance.bestExecution.value.toFixed(1)}`
@@ -290,7 +287,6 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             )
             .join('\n'),
         ),
-        PERFORMANCE_NOTE,
       ]),
     );
   } else {
@@ -327,7 +323,6 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             )
             .join('\n'),
         ),
-        hasPerformanceRows ? PERFORMANCE_NOTE : undefined,
       ]),
     );
   }
@@ -370,7 +365,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
       ),
     ]),
   );
-  pushSection('🔗 Warcraft Logs', model.outcome.reportLink);
+  pushSection('🔗 Warcraft Logs', formatWarcraftLogsField(model.outcome.reportLink));
   return {
     title: model.outcome.titleLine,
     description: formatSummaryDescription(model),
