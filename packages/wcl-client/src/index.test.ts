@@ -16,12 +16,27 @@ describe("index contract", () => {
     let parseReportUrl: typeof import("./index.js").parseReportUrl;
     let normalizeReport: typeof import("./index.js").normalizeReport;
     let normalizeEnrichedReport: typeof import("./index.js").normalizeEnrichedReport;
+    let createWclClient: typeof import("./index.js").createWclClient;
     let WclClient: typeof import("./index.js").WclClient;
 
     beforeAll(async () => {
-        ({ parseReportUrl, normalizeReport, normalizeEnrichedReport, WclClient } = await import(
-            "./index.js"
-        ));
+        ({
+            parseReportUrl,
+            normalizeReport,
+            normalizeEnrichedReport,
+            createWclClient,
+            WclClient,
+        } = await import("./index.js"));
+    });
+
+    it("exports a WclClient factory facade", () => {
+        expect(
+            createWclClient({
+                clientId: "id",
+                clientSecret: "secret",
+                apiBaseUrl: "https://example.com",
+            }),
+        ).toBeInstanceOf(WclClient);
     });
 
     describe("parseReportUrl", () => {

@@ -984,45 +984,57 @@ describe('embed rendering', () => {
       embed.fields.filter((field) => field.name !== '\u200B').map((field) => field.name),
     ).toEqual([
       '🏁 Raid Snapshot',
-      '⚔️ Performance Board',
-      '📊 Volume Leaders',
-      '🎯 Execution Checks',
+      '⚔️ Performance',
+      '📊 Output & Intake',
+      '🎯 Utility & Execution',
       '🔗 Warcraft Logs',
     ]);
     const outcome = embed.fields.find((field) => field.name === '🏁 Raid Snapshot')?.value ?? '';
     const performance =
-      embed.fields.find((field) => field.name === '⚔️ Performance Board')?.value ?? '';
-    const volume = embed.fields.find((field) => field.name === '📊 Volume Leaders')?.value ?? '';
+      embed.fields.find((field) => field.name === '⚔️ Performance')?.value ?? '';
+    const output = embed.fields.find((field) => field.name === '📊 Output & Intake')?.value ?? '';
     const execution =
-      embed.fields.find((field) => field.name === '🎯 Execution Checks')?.value ?? '';
+      embed.fields.find((field) => field.name === '🎯 Utility & Execution')?.value ?? '';
 
-    expect(volume).not.toContain('Most wipes:');
-    expect(performance).toContain('💚 **Pearl** · **97.4** HPS');
+    expect(output).not.toContain('Most wipes:');
+    expect(performance).toContain('2. **Pearl** · 97.4 HPS');
     expect(performance).not.toContain('healing');
-    expect(performance).toContain('**250K DPS**');
+    expect(performance).toContain('250K DPS');
     expect(performance).toContain('Shadow Priest');
-    expect(volume).toContain('🩸 Damage taken **1.2M**');
-    expect(performance).toContain(
-      '🥇 **Best single-boss parse** · Alyra **99.0 DPS** · One-Armed Bandit',
+    expect(outcome).toContain('Deaths: 5 · Damage taken: 1.2M · Kicks: 11 · Dispels: 8');
+    expect(outcome).toContain('Battle rezzes: 2');
+    expect(outcome).toContain(
+      '**Boss Highlights**\n• **One-Armed Bandit** · Kill secured.\n\n**Raid Totals**',
     );
-    expect(performance).toContain('📊 **Best average parse** · Pearl **97.4 HPS**');
-    expect(execution).not.toContain('Best single-boss parse');
+    expect(output).not.toContain('Damage taken: 1.2M');
+    expect(performance).toContain(
+      '**Best boss parse:** Alyra · 99.0 DPS · One-Armed Bandit',
+    );
+    expect(performance).toContain('**Best average parse:** Pearl · 97.4 HPS');
+    expect(performance).toContain('**Signature Parses**\n');
+    expect(performance).toContain('\n\n**Player Standouts**\n');
+    expect(execution).not.toContain('Best boss parse');
     expect(execution).toContain('Best execution');
     expect(execution).toContain('Most improved');
-    expect(performance).toContain('⚔️ **Alyra** · **99.0** DPS');
-    expect(performance).toContain('💚 **Pearl** · **97.4** HPS');
-    expect(performance).toContain('🛡️ **Bulwark** · **95.2** DTPS');
-    expect(performance).toContain('⚔️ **Alyra** **99** · **250K DPS** · Shadow Priest');
+    expect(performance).toContain('1. **Alyra** · 99.0 DPS');
+    expect(performance).toContain('2. **Pearl** · 97.4 HPS');
+    expect(performance).toContain('3. **Bulwark** · 95.2 DTPS');
+    expect(performance).toContain('1. **Alyra** · 99 · 250K DPS · Shadow Priest');
     for (const removedTierBadge of ['🩷', '🟧', '🟪', '🟦', '🟩', '⬛']) {
       expect(performance).not.toContain(removedTierBadge);
     }
-    expect(volume).toContain('☠️ Deaths **5**');
-    expect(volume).toContain('✨ Dispels **8**');
-    expect(volume).toContain('🛑 Kicks **11**');
+    for (const rowMetricIcon of ['⚔️ **Alyra**', '💚 **Pearl**', '🛡️ **Bulwark**']) {
+      expect(performance).not.toContain(rowMetricIcon);
+    }
+    expect(outcome).not.toContain('☠️ Deaths **5**');
+    expect(outcome).not.toContain('✨ Dispels **8**');
+    expect(outcome).not.toContain('🛑 Kicks **11**');
     expect(outcome).toContain('• **One-Armed Bandit** · Kill secured.');
-    expect(volume).toContain('🥇 **Alyra** · 250K · Shadow Priest');
-    expect(volume).not.toContain('Shadow Priest,');
-    expect(execution).toContain('🥇 **Bulwark** · 11');
+    expect(output).toContain('1. **Alyra** · 250K · Shadow Priest');
+    expect(output).not.toContain('Shadow Priest,');
+    expect(execution).toContain('1. **Bulwark** · 11');
+    expect(execution).toContain('**Raid Notes**');
+    expect(execution).not.toContain('Raid Superlatives');
     expect(execution).not.toContain('**Bulwark** 11,');
     expect(execution).not.toContain('parse');
   });
@@ -1036,7 +1048,7 @@ describe('embed rendering', () => {
       ],
     });
 
-    expect(embed.fields.find((field) => field.name === '⚔️ Performance Board')).toBeUndefined();
+    expect(embed.fields.find((field) => field.name === '⚔️ Performance')).toBeUndefined();
   });
 
   it('degrades cleanly when optional fields are missing', () => {
@@ -1046,7 +1058,7 @@ describe('embed rendering', () => {
 
     expect(
       embed.fields.filter((field) => field.name !== '\u200B').map((field) => field.name),
-    ).toEqual(['🏁 Raid Snapshot', '📊 Volume Leaders', '🔗 Warcraft Logs']);
+    ).toEqual(['🏁 Raid Snapshot', '🔗 Warcraft Logs']);
   });
 
   it('formats non-kill boss highlight rows as progress pulls', () => {
@@ -1103,9 +1115,9 @@ describe('embed rendering', () => {
     const embed = buildPublicRecapEmbed(summary);
 
     const performanceField =
-      embed.fields.find((field) => field.name === '⚔️ Performance Board')?.value ?? '';
+      embed.fields.find((field) => field.name === '⚔️ Performance')?.value ?? '';
     const sectionValue = (label: string): string =>
-      performanceField.split(`__${label}__\n`)[1]?.split('\n__')[0] ?? '';
+      performanceField.split(`**${label}**\n`)[1]?.split('\n**')[0] ?? '';
 
     expect(sectionValue('Player Standouts').match(/Tankhem/g)).toHaveLength(1);
     expect(sectionValue('Overall').match(/Tankhem/g)).toHaveLength(1);
@@ -1125,6 +1137,13 @@ describe('preview rendering', () => {
             amount: 250000,
           },
         ],
+        bestSingleBossParse: {
+          playerName: 'Alyra',
+          value: 99,
+          metric: 'DPS',
+          bossName: 'Megaera',
+          fightId: 1,
+        },
       },
       'ABC123',
       'guild-1',
@@ -1140,6 +1159,8 @@ describe('preview rendering', () => {
     expect(description).toContain('Guild on Realm-US');
     expect(description).toContain('45 Min · 9 pulls · 01/01/1970');
     expect(description).toContain('**Top Line:**');
+    expect(description).toContain('Best boss parse: Alyra - 99.0 DPS on Megaera');
+    expect(description).not.toContain('Best parse on a boss');
     expect(description).toContain('☠️ Deaths: 0 · 🛑 Kicks: 0 · ✨ Dispels: 0');
     expect(description).not.toContain('[object Object]');
   });

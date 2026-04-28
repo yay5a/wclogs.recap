@@ -5,7 +5,7 @@ import {
     type TableDataType,
 } from "../schema-enums.js";
 
-export interface BaseReportSummaryPayload {
+interface BaseReportSummaryPayload {
     data?: {
         rateLimitData?: {
             limitPerHour?: number;
@@ -18,7 +18,7 @@ export interface BaseReportSummaryPayload {
     };
 }
 
-export interface ReportRankingsPayload {
+interface ReportRankingsPayload {
     data?: {
         reportData?: {
             report?: {
@@ -28,7 +28,7 @@ export interface ReportRankingsPayload {
     };
 }
 
-export interface PlayerDetailsPayload {
+interface PlayerDetailsPayload {
     data?: {
         reportData?: {
             report?: {
@@ -38,7 +38,7 @@ export interface PlayerDetailsPayload {
     };
 }
 
-export interface ReportTablePayload {
+interface ReportTablePayload {
     data?: {
         reportData?: {
             report?: Record<string, unknown>;
@@ -46,7 +46,7 @@ export interface ReportTablePayload {
     };
 }
 
-export interface BossRankingsPayload {
+interface BossRankingsPayload {
     data?: {
         reportData?: {
             report?: {
@@ -56,7 +56,7 @@ export interface BossRankingsPayload {
     };
 }
 
-export const BASE_REPORT_QUERY = `
+const BASE_REPORT_QUERY = `
   query BaseReportSummary(
     $code: String!
     $allowUnlisted: Boolean!
@@ -130,7 +130,7 @@ export const BASE_REPORT_QUERY = `
   }
 `;
 
-export const REPORT_RANKINGS_QUERY = `
+const REPORT_RANKINGS_QUERY = `
   query ReportRankings($code: String!, $allowUnlisted: Boolean!) {
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
@@ -140,7 +140,7 @@ export const REPORT_RANKINGS_QUERY = `
   }
 `;
 
-export const BOSS_RANKINGS_QUERY = `
+const BOSS_RANKINGS_QUERY = `
   query BossRankings(
     $code: String!
     $allowUnlisted: Boolean!
@@ -154,7 +154,7 @@ export const BOSS_RANKINGS_QUERY = `
   }
 `;
 
-export const PLAYER_DETAILS_QUERY = `
+const PLAYER_DETAILS_QUERY = `
   query PlayerDetails(
     $code: String!
     $allowUnlisted: Boolean!
@@ -173,7 +173,7 @@ export const PLAYER_DETAILS_QUERY = `
   }
 `;
 
-export const TABLE_QUERY = `
+const TABLE_QUERY = `
   query ReportTable($code: String!, $allowUnlisted: Boolean!, $fightIDs: [Int]) {
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
@@ -189,7 +189,7 @@ export const TABLE_QUERY = `
   }
 `;
 
-export const REPORT_WIDE_TABLE_QUERY = `
+const REPORT_WIDE_TABLE_QUERY = `
   query ReportWideTableByType(
     $code: String!
     $allowUnlisted: Boolean!
@@ -228,7 +228,7 @@ export const REPORT_WIDE_KILL_TABLE_FILTERS: Record<
 export const buildReportWideTableQuery = (dataType: TableDataType): string =>
     REPORT_WIDE_TABLE_QUERY.replace("DATA_TYPE_PLACEHOLDER", dataType);
 
-export type GraphQlExecutor = <TPayload>(
+type GraphQlExecutor = <TPayload>(
     query: string,
     variables: Record<string, unknown>,
 ) => Promise<TPayload>;
