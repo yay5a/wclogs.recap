@@ -8,7 +8,7 @@ const POST_RECAP_ACTION = 'post';
 const CANCEL_RECAP_ACTION = 'cancel';
 const EPHEMERAL_MESSAGE_FLAG = 64;
 const PERFORMANCE_NOTE =
-  'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills.';
+  'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.';
 
 type RecapMetric = 'DPS' | 'HPS' | 'DTPS';
 const toMetricLabel = (metricLabel?: string, metric?: string): RecapMetric | undefined => {
