@@ -7,6 +7,8 @@ const RECAP_COMPONENT_PREFIX = 'recap:v1';
 const POST_RECAP_ACTION = 'post';
 const CANCEL_RECAP_ACTION = 'cancel';
 const EPHEMERAL_MESSAGE_FLAG = 64;
+const PERFORMANCE_NOTE =
+  'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills.';
 
 type RecapMetric = 'DPS' | 'HPS' | 'DTPS';
 const toMetricLabel = (metricLabel?: string, metric?: string): RecapMetric | undefined => {
@@ -16,6 +18,12 @@ const toMetricLabel = (metricLabel?: string, metric?: string): RecapMetric | und
 const formatCompactNumber = (value: number): string =>
   new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 const formatRankPrefix = (index: number): string => `${index + 1}.`;
+const formatAmountFamilyLabel = (metric?: RecapMetric): string => {
+  if (metric === 'DPS') return 'damage';
+  if (metric === 'HPS') return 'healing';
+  if (metric === 'DTPS') return 'damage taken';
+  return 'total';
+};
 const formatParseHighlightRow = (
   entry: RecapSummary['bestPlayerParses'][number],
   index: number,
@@ -26,20 +34,20 @@ const formatParseHighlightRow = (
   const metricLabel = toMetricLabel(entry.metricLabel, entry.metric);
   const amountSection =
     typeof entry.amount === 'number'
-      ? ` · ${formatCompactNumber(entry.amount)}${metricLabel ? ` ${metricLabel}` : ''}`
+      ? ` · ${formatCompactNumber(entry.amount)} ${formatAmountFamilyLabel(metricLabel)}`
       : '';
   const classSpec =
     entry.classSpecLabel ??
     [entry.specName, entry.className].filter((value): value is string => Boolean(value)).join(' ');
   const classSpecSection = classSpec ? ` · ${classSpec}` : '';
-  return `${formatRankPrefix(index)} **${entry.playerName}** · ${parseValue}${amountSection}${classSpecSection}`;
+  return `${formatRankPrefix(index)} **${entry.playerName}** · ${parseValue}${metricLabel ? ` ${metricLabel}` : ''} parse${amountSection}${classSpecSection}`;
 };
 const formatCompactParseRow = (
   playerName: string,
   value: number,
   metric: string,
   index: number,
-): string => `${formatRankPrefix(index)} **${playerName}** · ${value.toFixed(1)} ${metric}`;
+): string => `${formatRankPrefix(index)} **${playerName}** · ${value.toFixed(1)} ${metric} parse`;
 const formatPreviewRankingLine = (
   label: string,
   entry?: { playerName: string; value: number; metric: string; bossName?: string },
@@ -72,7 +80,7 @@ const formatRankingLine = (
   metric: string,
   bossName?: string,
 ): string =>
-  `**${label}:** ${playerName} · ${value.toFixed(1)} ${metric}${bossName ? ` · ${bossName}` : ''}`;
+  `**${label}:** ${playerName} · ${value.toFixed(1)} ${metric} parse${bossName ? ` · ${bossName}` : ''}`;
 const formatTotalLine = (model: RecapRenderModel): string | undefined => {
   const totals = [
     typeof model.outcome.totals.totalDeaths === 'number'
@@ -188,6 +196,11 @@ export const buildRecapPreviewBody = (summary: RecapSummary, reportCode: string,
   buildRecapPreviewBodyFromModel(toRecapRenderModel(summary), reportCode, guildId);
 
 export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
+  const hasPerformanceRows =
+    model.performance.bestPlayerParses.length > 0 ||
+    model.performance.topOverallParsers.length > 0 ||
+    model.performance.topOverallDamageParsers.length > 0 ||
+    model.performance.topOverallHealingParsers.length > 0;
   const standoutLines = [
     model.performance.bestExecution
       ? `**Best execution:** ${model.performance.bestExecution.playerName} · ${model.performance.bestExecution.value.toFixed(1)}`
@@ -244,7 +257,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             .join('\n'),
         ),
         sectionBlock(
-          'Overall',
+          'Overall Parses',
           model.performance.topOverallParsers
             .map((entry, index) =>
               formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
@@ -252,7 +265,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             .join('\n'),
         ),
         sectionBlock(
-          'Damage',
+          'Damage Parses',
           model.performance.topOverallDamageParsers
             .map((entry, index) =>
               formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
@@ -260,13 +273,14 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             .join('\n'),
         ),
         sectionBlock(
-          'Healing',
+          'Healing Parses',
           model.performance.topOverallHealingParsers
             .map((entry, index) =>
               formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
             )
             .join('\n'),
         ),
+        PERFORMANCE_NOTE,
       ]),
     );
   } else {
@@ -280,7 +294,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             .join('\n'),
         ),
         sectionBlock(
-          'Overall',
+          'Overall Parses',
           model.performance.topOverallParsers
             .map((entry, index) =>
               formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
@@ -288,7 +302,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             .join('\n'),
         ),
         sectionBlock(
-          'Damage',
+          'Damage Parses',
           model.performance.topOverallDamageParsers
             .map((entry, index) =>
               formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
@@ -296,13 +310,14 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
             .join('\n'),
         ),
         sectionBlock(
-          'Healing',
+          'Healing Parses',
           model.performance.topOverallHealingParsers
             .map((entry, index) =>
               formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
             )
             .join('\n'),
         ),
+        hasPerformanceRows ? PERFORMANCE_NOTE : undefined,
       ]),
     );
   }

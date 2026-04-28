@@ -997,9 +997,8 @@ describe('embed rendering', () => {
       embed.fields.find((field) => field.name === '🎯 Utility & Execution')?.value ?? '';
 
     expect(output).not.toContain('Most wipes:');
-    expect(performance).toContain('2. **Pearl** · 97.4 HPS');
-    expect(performance).not.toContain('healing');
-    expect(performance).toContain('250K DPS');
+    expect(performance).toContain('2. **Pearl** · 97.4 HPS parse');
+    expect(performance).toContain('250K damage');
     expect(performance).toContain('Shadow Priest');
     expect(outcome).toContain('Deaths: 5 · Damage taken: 1.2M · Kicks: 11 · Dispels: 8');
     expect(outcome).toContain('Battle rezzes: 2');
@@ -1008,18 +1007,25 @@ describe('embed rendering', () => {
     );
     expect(output).not.toContain('Damage taken: 1.2M');
     expect(performance).toContain(
-      '**Best boss parse:** Alyra · 99.0 DPS · One-Armed Bandit',
+      '**Best boss parse:** Alyra · 99.0 DPS parse · One-Armed Bandit',
     );
-    expect(performance).toContain('**Best average parse:** Pearl · 97.4 HPS');
+    expect(performance).toContain('**Best average parse:** Pearl · 97.4 HPS parse');
     expect(performance).toContain('**Signature Parses**\n');
     expect(performance).toContain('\n\n**Player Standouts**\n');
+    expect(performance).toContain('**Overall Parses**\n');
+    expect(performance).toContain('**Damage Parses**\n');
+    expect(performance).toContain('**Healing Parses**\n');
+    expect(performance).toContain(
+      'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills.',
+    );
     expect(execution).not.toContain('Best boss parse');
     expect(execution).toContain('Best execution');
     expect(execution).toContain('Most improved');
-    expect(performance).toContain('1. **Alyra** · 99.0 DPS');
-    expect(performance).toContain('2. **Pearl** · 97.4 HPS');
-    expect(performance).toContain('3. **Bulwark** · 95.2 DTPS');
-    expect(performance).toContain('1. **Alyra** · 99 · 250K DPS · Shadow Priest');
+    expect(performance).toContain('1. **Alyra** · 99.0 DPS parse');
+    expect(performance).toContain('2. **Pearl** · 97.4 HPS parse');
+    expect(performance).toContain('3. **Bulwark** · 95.2 DTPS parse');
+    expect(performance).toContain('1. **Alyra** · 99 DPS parse · 250K damage · Shadow Priest');
+    expect(performance).not.toMatch(/\d(?:\.\d+)?[KMB] (?:DPS|HPS|DTPS)\b/);
     for (const removedTierBadge of ['🩷', '🟧', '🟪', '🟦', '🟩', '⬛']) {
       expect(performance).not.toContain(removedTierBadge);
     }
@@ -1120,7 +1126,7 @@ describe('embed rendering', () => {
       performanceField.split(`**${label}**\n`)[1]?.split('\n**')[0] ?? '';
 
     expect(sectionValue('Player Standouts').match(/Tankhem/g)).toHaveLength(1);
-    expect(sectionValue('Overall').match(/Tankhem/g)).toHaveLength(1);
+    expect(sectionValue('Overall Parses').match(/Tankhem/g)).toHaveLength(1);
   });
 });
 
