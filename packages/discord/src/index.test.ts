@@ -762,7 +762,8 @@ describe('handleInteraction', () => {
     expect(secondResponse).toMatchObject({
       type: expect.any(Number),
       data: {
-        content: 'This recap preview has already been posted or expired. Please run /recap again.',
+        content:
+          'This recap preview has already been posted or expired. Please run /recap with the URL again.',
         flags: 64,
       },
     });
@@ -1045,12 +1046,12 @@ describe('preview rendering', () => {
     const description =
       (body.embeds?.[0] as { description?: string } | undefined)?.description ?? '';
     expect(description).toContain('Guild on Realm-US');
-    expect(description).toContain('Raid Duration: 45 Min (9 Pulls)');
-    expect(description).toContain('Date: 01/01/1970');
-    expect(description).toContain('Best Parse: ⚔️ Alyra (99.0)');
+    expect(description).toContain('01/01/1970 · 9 pulls ·');
+    expect(description).toContain('**Top Line:**');
+    expect(description).toContain('☠️ Deaths: 0 · 🛑 Kicks: 0 · ✨ Dispels: 0');
   });
 
-  it('renders human-readable raid duration in preview', () => {
+  it('renders compact preview metadata line', () => {
     const body = buildRecapPreviewBody(
       {
         ...makePreviewSummary(),
@@ -1062,7 +1063,7 @@ describe('preview rendering', () => {
 
     const description =
       (body.embeds?.[0] as { description?: string } | undefined)?.description ?? '';
-    expect(description).toContain('Raid Duration: 01 Hour 09 Min (9 Pulls)');
+    expect(description).toContain('01/01/1970 · 9 pulls ·');
   });
 
   it('uses durable recap component ids for preview buttons', () => {
@@ -1074,7 +1075,18 @@ describe('preview rendering', () => {
       'guild-1',
     );
 
-    const customId = body.components?.[0]?.components?.[0]?.custom_id ?? '';
-    expect(customId).toBe('recap:v1:post:ABC123:guild-1');
+    type PreviewButton = {
+      custom_id?: string;
+      label?: string;
+    };
+
+    const buttons = (body.components?.[0]?.components as PreviewButton[] | undefined) ?? [];
+    const postButton = buttons.find((button) => button.custom_id?.includes(':post:'));
+    const cancelButton = buttons.find((button) => button.custom_id?.includes(':cancel:'));
+
+    expect(postButton?.custom_id).toBe('recap:v1:post:ABC123:guild-1');
+    expect(postButton?.label).toBe('Post to Current Channel');
+    expect(cancelButton?.custom_id).toBe('recap:v1:cancel:ABC123:guild-1');
+    expect(cancelButton?.label).toBe('Cancel');
   });
 });
