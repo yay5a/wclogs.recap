@@ -13,23 +13,17 @@ const toMetricLabel = (metricLabel?: string, metric?: string): RecapMetric | und
   const candidate = metricLabel?.trim().toUpperCase() ?? metric?.trim().toUpperCase();
   return candidate === 'DPS' || candidate === 'HPS' || candidate === 'DTPS' ? candidate : undefined;
 };
-const getMetricIcon = (metricLabel?: string, metric?: string): string | undefined => {
-  const metricValue = toMetricLabel(metricLabel, metric);
-  if (metricValue === 'DPS') return '⚔️';
-  if (metricValue === 'HPS') return '💚';
-  if (metricValue === 'DTPS') return '🛡️';
-  return undefined;
-};
 const formatCompactNumber = (value: number): string =>
   new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-const MEDAL_PREFIXES = ['🥇', '🥈', '🥉'] as const;
-const formatMedalPrefix = (index: number): string => MEDAL_PREFIXES[index] ?? `${index + 1}.`;
-const formatParseHighlightRow = (entry: RecapSummary['bestPlayerParses'][number]): string => {
+const formatRankPrefix = (index: number): string => `${index + 1}.`;
+const formatParseHighlightRow = (
+  entry: RecapSummary['bestPlayerParses'][number],
+  index: number,
+): string => {
   const parseValue = Number.isInteger(entry.parse)
     ? entry.parse.toFixed(0)
     : entry.parse.toFixed(1);
   const metricLabel = toMetricLabel(entry.metricLabel, entry.metric);
-  const metricIcon = getMetricIcon(entry.metricLabel, entry.metric);
   const amountSection =
     typeof entry.amount === 'number'
       ? ` · **${formatCompactNumber(entry.amount)}${metricLabel ? ` ${metricLabel}` : ''}**`
@@ -38,17 +32,20 @@ const formatParseHighlightRow = (entry: RecapSummary['bestPlayerParses'][number]
     entry.classSpecLabel ??
     [entry.specName, entry.className].filter((value): value is string => Boolean(value)).join(' ');
   const classSpecSection = classSpec ? ` · ${classSpec}` : '';
-  return `${metricIcon ? `${metricIcon} ` : ''}**${entry.playerName}** **${parseValue}**${amountSection}${classSpecSection}`;
+  return `${formatRankPrefix(index)} **${entry.playerName}** · **${parseValue}**${amountSection}${classSpecSection}`;
 };
-const formatCompactParseRow = (playerName: string, value: number, metric: string): string =>
-  `${getMetricIcon(undefined, metric) ? `${getMetricIcon(undefined, metric)} ` : ''}**${playerName}** · **${value.toFixed(1)}** ${metric}`;
+const formatCompactParseRow = (
+  playerName: string,
+  value: number,
+  metric: string,
+  index: number,
+): string => `${formatRankPrefix(index)} **${playerName}** · **${value.toFixed(1)}** ${metric}`;
 const formatPreviewRankingLine = (
-  labelIcon: string,
   label: string,
   entry?: { playerName: string; value: number; metric: string; bossName?: string },
 ): string | undefined =>
   entry
-    ? `${labelIcon} ${label}: ${entry.playerName} - ${entry.value.toFixed(1)} ${entry.metric}${
+    ? `${label}: ${entry.playerName} - ${entry.value.toFixed(1)} ${entry.metric}${
         entry.bossName ? ` on ${entry.bossName}` : ''
       }`
     : undefined;
@@ -69,14 +66,13 @@ const formatPreviewTotalsLine = (model: RecapRenderModel): string | undefined =>
 };
 
 const formatRankingLine = (
-  labelIcon: string,
   label: string,
   playerName: string,
   value: number,
   metric: string,
   bossName?: string,
 ): string =>
-  `${labelIcon} **${label}** · ${playerName} **${value.toFixed(1)} ${metric}**${bossName ? ` · ${bossName}` : ''}`;
+  `**${label}** · ${playerName} · **${value.toFixed(1)} ${metric}**${bossName ? ` · ${bossName}` : ''}`;
 const formatTotalBadge = (label: string, value: string | number, icon?: string): string =>
   `${icon ? `${icon} ` : ''}${label} **${value}**`;
 const formatTopStatRows = (
@@ -87,7 +83,7 @@ const formatTopStatRows = (
     .slice(0, 3)
     .map(
       (entry, index) =>
-        `${formatMedalPrefix(index)} **${entry.playerName}** · ${formatter(entry.value)}${entry.classSpecLabel ? ` · ${entry.classSpecLabel}` : ''}`,
+        `${formatRankPrefix(index)} **${entry.playerName}** · ${formatter(entry.value)}${entry.classSpecLabel ? ` · ${entry.classSpecLabel}` : ''}`,
     )
     .join('\n');
 const DISCORD_FIELD_VALUE_LIMIT = 1024;
@@ -98,7 +94,7 @@ const truncateFieldValue = (value: string): string =>
 const joinSectionLines = (lines: Array<string | undefined>): string =>
   lines.filter((line): line is string => Boolean(line)).join('\n');
 const sectionBlock = (label: string, body: string | undefined): string | undefined =>
-  body && body.length > 0 ? `__${label}__\n${body}` : undefined;
+  body && body.length > 0 ? `**${label}**\n${body}` : undefined;
 const formatBossHighlightRow = (entry: RecapSummary['bossHighlights'][number]): string =>
   `• **${entry.bossName}** · ${entry.text}`;
 const formatRaidSuperlativeRow = (entry: RecapSummary['raidSuperlatives'][number]): string =>
@@ -140,12 +136,8 @@ export const buildRecapPreviewBodyFromModel = (
         `${model.outcome.killTimeLabel} · ${model.outcome.pullCount} pulls · ${model.outcome.reportDateLabel}`,
         '',
         '**Top Line:**',
-        formatPreviewRankingLine(
-          '🥇',
-          'Best parse on a boss',
-          model.performance.bestSingleBossParse,
-        ),
-        formatPreviewRankingLine('📊', 'Best average parse', model.performance.bestAverageParse),
+        formatPreviewRankingLine('Best boss parse', model.performance.bestSingleBossParse),
+        formatPreviewRankingLine('Best average parse', model.performance.bestAverageParse),
         formatPreviewTotalsLine(model),
       ]),
     },
@@ -186,8 +178,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
   const rankingLines = [
     model.performance.bestSingleBossParse
       ? formatRankingLine(
-          '🥇',
-          'Best single-boss parse',
+          'Best boss parse',
           model.performance.bestSingleBossParse.playerName,
           model.performance.bestSingleBossParse.value,
           model.performance.bestSingleBossParse.metric,
@@ -196,7 +187,6 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
       : undefined,
     model.performance.bestAverageParse
       ? formatRankingLine(
-          '📊',
           'Best average parse',
           model.performance.bestAverageParse.playerName,
           model.performance.bestAverageParse.value,
@@ -243,68 +233,80 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
   };
   if (model.performance.bestSingleBossParse || model.performance.bestAverageParse) {
     pushSection(
-      '⚔️ Performance Board',
+      '⚔️ Performance',
       joinSectionLines([
         sectionBlock('Signature Parses', rankingLines.join('\n')),
         sectionBlock(
           'Player Standouts',
           model.performance.bestPlayerParses
-            .map((entry) => formatParseHighlightRow(entry))
+            .map((entry, index) => formatParseHighlightRow(entry, index))
             .join('\n'),
         ),
         sectionBlock(
           'Overall',
           model.performance.topOverallParsers
-            .map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric))
+            .map((entry, index) =>
+              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+            )
             .join('\n'),
         ),
         sectionBlock(
           'Damage',
           model.performance.topOverallDamageParsers
-            .map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric))
+            .map((entry, index) =>
+              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+            )
             .join('\n'),
         ),
         sectionBlock(
           'Healing',
           model.performance.topOverallHealingParsers
-            .map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric))
+            .map((entry, index) =>
+              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+            )
             .join('\n'),
         ),
       ]),
     );
   } else {
     pushSection(
-      '⚔️ Performance Board',
+      '⚔️ Performance',
       joinSectionLines([
         sectionBlock(
           'Player Standouts',
           model.performance.bestPlayerParses
-            .map((entry) => formatParseHighlightRow(entry))
+            .map((entry, index) => formatParseHighlightRow(entry, index))
             .join('\n'),
         ),
         sectionBlock(
           'Overall',
           model.performance.topOverallParsers
-            .map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric))
+            .map((entry, index) =>
+              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+            )
             .join('\n'),
         ),
         sectionBlock(
           'Damage',
           model.performance.topOverallDamageParsers
-            .map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric))
+            .map((entry, index) =>
+              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+            )
             .join('\n'),
         ),
         sectionBlock(
           'Healing',
           model.performance.topOverallHealingParsers
-            .map((entry) => formatCompactParseRow(entry.playerName, entry.value, entry.metric))
+            .map((entry, index) =>
+              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+            )
             .join('\n'),
         ),
       ]),
     );
   }
   pushSection(
-    '📊 Volume Leaders',
+    '📊 Volume',
     joinSectionLines([
       sectionBlock(
         'Damage Done',
@@ -322,7 +324,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
     ]),
   );
   pushSection(
-    '🎯 Execution Checks',
+    '🎯 Execution',
     joinSectionLines([
       sectionBlock('Standouts', standoutLines.join('\n')),
       sectionBlock(
