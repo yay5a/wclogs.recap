@@ -22,7 +22,7 @@ const formatCompactNumber = (value: number): string =>
   new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 const formatRankPrefix = (index: number): string => `#${index + 1}`;
 const formatAmountFamilyLabel = (metric?: RecapMetric): string => {
-  if (metric === 'DPS') return 'damage';
+  if (metric === 'DPS') return 'damage done';
   if (metric === 'HPS') return 'healing';
   if (metric === 'DTPS') return 'damage taken';
   return 'total';
@@ -66,10 +66,10 @@ const formatPreviewTotalsLine = (model: RecapRenderModel): string | undefined =>
       ? `☠️ Deaths: ${model.outcome.totals.totalDeaths}`
       : undefined,
     typeof model.outcome.totals.kicks === 'number'
-      ? `🛑 Kicks: ${model.outcome.totals.kicks}`
+      ? `🦵 Kicks: ${model.outcome.totals.kicks}`
       : undefined,
     typeof model.outcome.totals.dispels === 'number'
-      ? `✨ Dispels: ${model.outcome.totals.dispels}`
+      ? `🪄 Dispels: ${model.outcome.totals.dispels}`
       : undefined,
   ].filter((line): line is string => Boolean(line));
 
@@ -242,13 +242,15 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
     {
       name: '🏁 Raid Snapshot',
       value: truncateFieldValue(
-        withDomainDivider(joinSectionBlocks([
-          subsectionBlock(
-            'Boss Highlights',
-            model.outcome.bossHighlights.slice(0, 4).map(formatBossHighlightRow).join('\n'),
-          ),
-          subsectionBlock('Raid Totals', formatTotalLine(model)),
-        ])),
+        withDomainDivider(
+          joinSectionBlocks([
+            subsectionBlock(
+              'Boss Highlights',
+              model.outcome.bossHighlights.slice(0, 4).map(formatBossHighlightRow).join('\n'),
+            ),
+            subsectionBlock('Raid Totals', formatTotalLine(model)),
+          ]),
+        ),
       ),
     },
   ];
@@ -258,93 +260,99 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
   if (model.performance.bestSingleBossParse || model.performance.bestAverageParse) {
     pushSection(
       '⚡ Performance',
-      withDomainDivider(joinSectionBlocks([
-        subsectionBlock('Signature Parses', rankingLines.join('\n')),
-        subsectionBlock(
-          'Player Standouts',
-          model.performance.bestPlayerParses
-            .map((entry, index) => formatParseHighlightRow(entry, index))
-            .join('\n'),
-        ),
-        subsectionBlock(
-          'Overall Parses',
-          model.performance.topOverallParsers
-            .map((entry, index) =>
-              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-            )
-            .join('\n'),
-        ),
-        subsectionBlock(
-          'Damage Parses',
-          model.performance.topOverallDamageParsers
-            .map((entry, index) =>
-              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-            )
-            .join('\n'),
-        ),
-        subsectionBlock(
-          'Healing Parses',
-          model.performance.topOverallHealingParsers
-            .map((entry, index) =>
-              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-            )
-            .join('\n'),
-        ),
-      ])),
+      withDomainDivider(
+        joinSectionBlocks([
+          subsectionBlock('Signature Parses', rankingLines.join('\n')),
+          subsectionBlock(
+            'Player Standouts',
+            model.performance.bestPlayerParses
+              .map((entry, index) => formatParseHighlightRow(entry, index))
+              .join('\n'),
+          ),
+          subsectionBlock(
+            'Overall Parses',
+            model.performance.topOverallParsers
+              .map((entry, index) =>
+                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+              )
+              .join('\n'),
+          ),
+          subsectionBlock(
+            'Damage Parses',
+            model.performance.topOverallDamageParsers
+              .map((entry, index) =>
+                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+              )
+              .join('\n'),
+          ),
+          subsectionBlock(
+            'Healing Parses',
+            model.performance.topOverallHealingParsers
+              .map((entry, index) =>
+                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+              )
+              .join('\n'),
+          ),
+        ]),
+      ),
     );
   } else {
     pushSection(
       '⚡ Performance',
-      withDomainDivider(joinSectionBlocks([
-        subsectionBlock(
-          'Player Standouts',
-          model.performance.bestPlayerParses
-            .map((entry, index) => formatParseHighlightRow(entry, index))
-            .join('\n'),
-        ),
-        subsectionBlock(
-          'Overall Parses',
-          model.performance.topOverallParsers
-            .map((entry, index) =>
-              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-            )
-            .join('\n'),
-        ),
-        subsectionBlock(
-          'Damage Parses',
-          model.performance.topOverallDamageParsers
-            .map((entry, index) =>
-              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-            )
-            .join('\n'),
-        ),
-        subsectionBlock(
-          'Healing Parses',
-          model.performance.topOverallHealingParsers
-            .map((entry, index) =>
-              formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-            )
-            .join('\n'),
-        ),
-      ])),
+      withDomainDivider(
+        joinSectionBlocks([
+          subsectionBlock(
+            'Player Standouts',
+            model.performance.bestPlayerParses
+              .map((entry, index) => formatParseHighlightRow(entry, index))
+              .join('\n'),
+          ),
+          subsectionBlock(
+            'Overall Parses',
+            model.performance.topOverallParsers
+              .map((entry, index) =>
+                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+              )
+              .join('\n'),
+          ),
+          subsectionBlock(
+            'Damage Parses',
+            model.performance.topOverallDamageParsers
+              .map((entry, index) =>
+                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+              )
+              .join('\n'),
+          ),
+          subsectionBlock(
+            'Healing Parses',
+            model.performance.topOverallHealingParsers
+              .map((entry, index) =>
+                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
+              )
+              .join('\n'),
+          ),
+        ]),
+      ),
     );
   }
   pushSection(
     '🎛️ Output & Intake',
-    withDomainDivider(joinSectionBlocks([
-      subsectionBlock(
-        'Damage Done',
-        formatTopStatRows(model.volume.topDamageDone, (value) => formatCompactNumber(value)),
-      ),
-      subsectionBlock(
-        'Healing Done',
-        formatTopStatRows(model.volume.topHealingDone, (value) => formatCompactNumber(value)),
-      ),
-      subsectionBlock(
-        'Damage Taken',
-        formatTopStatRows(model.volume.topDamageTaken, (value) => formatCompactNumber(value)),
-      ),
-    ])),
+    withDomainDivider(
+      joinSectionBlocks([
+        subsectionBlock(
+          'Damage Done',
+          formatTopStatRows(model.volume.topDamageDone, (value) => formatCompactNumber(value)),
+        ),
+        subsectionBlock(
+          'Healing Done',
+          formatTopStatRows(model.volume.topHealingDone, (value) => formatCompactNumber(value)),
+        ),
+        subsectionBlock(
+          'Damage Taken',
+          formatTopStatRows(model.volume.topDamageTaken, (value) => formatCompactNumber(value)),
+        ),
+      ]),
+    ),
   );
   pushSection(
     '🎯 Utility & Execution',
