@@ -1,5 +1,7 @@
 # wclogs.recap
 
+![raidlog-recap concept](docs/restructure/current-state.png)
+
 Beta Warcraft Logs recap service for Discord.
 
 `wclogs.recap` fetches Warcraft Logs reports, normalizes the GraphQL payloads into typed raid recap models, and renders concise Discord-ready summaries. The current beta focuses on `/report recap` for Warcraft Logs Classic raid reports, with Mongo-backed caching and preview state.
