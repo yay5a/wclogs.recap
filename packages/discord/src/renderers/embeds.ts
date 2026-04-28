@@ -17,7 +17,7 @@ const toMetricLabel = (metricLabel?: string, metric?: string): RecapMetric | und
 };
 const formatCompactNumber = (value: number): string =>
   new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
-const formatRankPrefix = (index: number): string => `${index + 1}.`;
+const formatRankPrefix = (index: number): string => `#${index + 1}`;
 const formatAmountFamilyLabel = (metric?: RecapMetric): string => {
   if (metric === 'DPS') return 'damage';
   if (metric === 'HPS') return 'healing';
@@ -74,13 +74,14 @@ const formatPreviewTotalsLine = (model: RecapRenderModel): string | undefined =>
 };
 
 const formatRankingLine = (
+  icon: string,
   label: string,
   playerName: string,
   value: number,
   metric: string,
   bossName?: string,
 ): string =>
-  `**${label}:** ${playerName} · ${value.toFixed(1)} ${metric} parse${bossName ? ` · ${bossName}` : ''}`;
+  `${icon} ${label}: **${playerName}** · ${value.toFixed(1)} ${metric} parse${bossName ? ` · ${bossName}` : ''}`;
 const formatTotalLine = (model: RecapRenderModel): string | undefined => {
   const totals = [
     typeof model.outcome.totals.totalDeaths === 'number'
@@ -219,6 +220,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
   const rankingLines = [
     model.performance.bestSingleBossParse
       ? formatRankingLine(
+          '👹',
           'Best boss parse',
           model.performance.bestSingleBossParse.playerName,
           model.performance.bestSingleBossParse.value,
@@ -228,6 +230,7 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
       : undefined,
     model.performance.bestAverageParse
       ? formatRankingLine(
+          '🎖️',
           'Best average parse',
           model.performance.bestAverageParse.playerName,
           model.performance.bestAverageParse.value,
