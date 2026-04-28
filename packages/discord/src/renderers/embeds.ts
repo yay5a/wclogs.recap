@@ -131,13 +131,13 @@ export const buildRecapPreviewBodyFromModel = (
 ) => ({
   flags: EPHEMERAL_MESSAGE_FLAG,
   content:
-    'Review this preview before posting the recap for everyone. Press cancel if the wrong link was provided.',
+    'Review this preview before posting for everyone to see; cancel if you pasted the wrong link.',
   embeds: [
     {
-      title: `Preview of: ${model.outcome.titleLine}`,
+      title: `Preview: ${model.outcome.titleLine}`,
       description: joinSectionLines([
         model.outcome.secondaryLine,
-        `${model.outcome.reportDateLabel} · ${model.outcome.pullCount} pulls · ${model.outcome.bossHighlights}`,
+        `${model.outcome.killTimeLabel} · ${model.outcome.pullCount} pulls · ${model.outcome.reportDateLabel}`,
         '',
         '**Top Line:**',
         formatPreviewRankingLine(

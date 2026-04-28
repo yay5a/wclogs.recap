@@ -1132,10 +1132,16 @@ describe('preview rendering', () => {
 
     const description =
       (body.embeds?.[0] as { description?: string } | undefined)?.description ?? '';
+    const title = (body.embeds?.[0] as { title?: string } | undefined)?.title ?? '';
+    expect(body.content).toBe(
+      'Review this preview before posting for everyone to see; cancel if you pasted the wrong link.',
+    );
+    expect(title).toBe('Preview: Boss - Mythic - Zone');
     expect(description).toContain('Guild on Realm-US');
-    expect(description).toContain('01/01/1970 · 9 pulls ·');
+    expect(description).toContain('45 Min · 9 pulls · 01/01/1970');
     expect(description).toContain('**Top Line:**');
     expect(description).toContain('☠️ Deaths: 0 · 🛑 Kicks: 0 · ✨ Dispels: 0');
+    expect(description).not.toContain('[object Object]');
   });
 
   it('renders compact preview metadata line', () => {
@@ -1150,7 +1156,26 @@ describe('preview rendering', () => {
 
     const description =
       (body.embeds?.[0] as { description?: string } | undefined)?.description ?? '';
-    expect(description).toContain('01/01/1970 · 9 pulls ·');
+    expect(description).toContain('01 Hour 09 Min · 9 pulls · 01/01/1970');
+  });
+
+  it('does not stringify boss highlight objects in preview metadata', () => {
+    const body = buildRecapPreviewBody(
+      {
+        ...makePreviewSummary(),
+        bossHighlights: [
+          { bossName: 'Megaera', fightId: 1, text: 'Kill in 05 Min.' },
+          { bossName: 'Ji-Kun', fightId: 2, text: 'Wipe at 4%.' },
+        ],
+      },
+      'ABC123',
+      'guild-1',
+    );
+
+    const description =
+      (body.embeds?.[0] as { description?: string } | undefined)?.description ?? '';
+    expect(description).toContain('45 Min · 9 pulls · 01/01/1970');
+    expect(description).not.toContain('[object Object]');
   });
 
   it('uses durable recap component ids for preview buttons', () => {
