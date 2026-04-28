@@ -984,47 +984,49 @@ describe('embed rendering', () => {
       embed.fields.filter((field) => field.name !== '\u200B').map((field) => field.name),
     ).toEqual([
       '🏁 Raid Snapshot',
-      '⚔️ Performance',
-      '📊 Output & Intake',
+      '⚡ Performance',
+      '🎛️ Output & Intake',
       '🎯 Utility & Execution',
       '🔗 Warcraft Logs',
     ]);
     const outcome = embed.fields.find((field) => field.name === '🏁 Raid Snapshot')?.value ?? '';
     const performance =
-      embed.fields.find((field) => field.name === '⚔️ Performance')?.value ?? '';
-    const output = embed.fields.find((field) => field.name === '📊 Output & Intake')?.value ?? '';
+      embed.fields.find((field) => field.name === '⚡ Performance')?.value ?? '';
+    const output = embed.fields.find((field) => field.name === '🎛️ Output & Intake')?.value ?? '';
     const execution =
       embed.fields.find((field) => field.name === '🎯 Utility & Execution')?.value ?? '';
 
     expect(output).not.toContain('Most wipes:');
-    expect(performance).toContain('2. **Pearl** · 97.4 HPS parse');
-    expect(performance).toContain('250K damage');
+    expect(performance).toContain('  2. **Pearl** · 97.4 HPS parse');
+    expect(performance).toContain('  1. **Alyra** · 99 DPS parse · 250K damage · Shadow Priest');
     expect(performance).toContain('Shadow Priest');
-    expect(outcome).toContain('Deaths: 5 · Damage taken: 1.2M · Kicks: 11 · Dispels: 8');
-    expect(outcome).toContain('Battle rezzes: 2');
+    expect(outcome).toContain('  ☠️ Deaths: 5');
+    expect(outcome).toContain('  🩸 Raid-wide damage taken: 1.2M');
+    expect(outcome).toContain('  🦵 Kicks: 11');
+    expect(outcome).toContain('  🪄 Dispels: 8');
+    expect(outcome).toContain('  ♻️ Battle rezzes: 2');
     expect(outcome).toContain(
-      '**Boss Highlights**\n• **One-Armed Bandit** · Kill secured.\n\n**Raid Totals**',
+      '▸ __**Boss Highlights**__\n  • **One-Armed Bandit** · Kill secured.\n\n▸ __**Raid Totals**__',
     );
     expect(output).not.toContain('Damage taken: 1.2M');
     expect(performance).toContain(
-      '**Best boss parse:** Alyra · 99.0 DPS parse · One-Armed Bandit',
+      '  **Best boss parse:** Alyra · 99.0 DPS parse · One-Armed Bandit',
     );
-    expect(performance).toContain('**Best average parse:** Pearl · 97.4 HPS parse');
-    expect(performance).toContain('**Signature Parses**\n');
-    expect(performance).toContain('\n\n**Player Standouts**\n');
-    expect(performance).toContain('**Overall Parses**\n');
-    expect(performance).toContain('**Damage Parses**\n');
-    expect(performance).toContain('**Healing Parses**\n');
+    expect(performance).toContain('  **Best average parse:** Pearl · 97.4 HPS parse');
+    expect(performance).toContain('▸ __**Signature Parses**__\n');
+    expect(performance).toContain('\n\n▸ __**Player Standouts**__\n');
+    expect(performance).toContain('▸ __**Overall Parses**__\n');
+    expect(performance).toContain('▸ __**Damage Parses**__\n');
+    expect(performance).toContain('▸ __**Healing Parses**__\n');
     expect(performance).toContain(
-      'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills.',
+      'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.',
     );
     expect(execution).not.toContain('Best boss parse');
     expect(execution).toContain('Best execution');
     expect(execution).toContain('Most improved');
-    expect(performance).toContain('1. **Alyra** · 99.0 DPS parse');
-    expect(performance).toContain('2. **Pearl** · 97.4 HPS parse');
-    expect(performance).toContain('3. **Bulwark** · 95.2 DTPS parse');
-    expect(performance).toContain('1. **Alyra** · 99 DPS parse · 250K damage · Shadow Priest');
+    expect(performance).toContain('  1. **Alyra** · 99.0 DPS parse');
+    expect(performance).toContain('  2. **Pearl** · 97.4 HPS parse');
+    expect(performance).toContain('  3. **Bulwark** · 95.2 DTPS parse');
     expect(performance).not.toMatch(/\d(?:\.\d+)?[KMB] (?:DPS|HPS|DTPS)\b/);
     for (const removedTierBadge of ['🩷', '🟧', '🟪', '🟦', '🟩', '⬛']) {
       expect(performance).not.toContain(removedTierBadge);
@@ -1032,14 +1034,13 @@ describe('embed rendering', () => {
     for (const rowMetricIcon of ['⚔️ **Alyra**', '💚 **Pearl**', '🛡️ **Bulwark**']) {
       expect(performance).not.toContain(rowMetricIcon);
     }
-    expect(outcome).not.toContain('☠️ Deaths **5**');
-    expect(outcome).not.toContain('✨ Dispels **8**');
-    expect(outcome).not.toContain('🛑 Kicks **11**');
-    expect(outcome).toContain('• **One-Armed Bandit** · Kill secured.');
-    expect(output).toContain('1. **Alyra** · 250K · Shadow Priest');
+    expect(outcome).toContain('  • **One-Armed Bandit** · Kill secured.');
+    expect(output).toContain('▸ __**Damage Done**__\n  1. **Alyra** · 250K · Shadow Priest');
+    expect(output).toContain('▸ __**Healing Done**__\n  1. **Healz** · 67.9K · Mistweaver Monk');
+    expect(output).toContain('▸ __**Damage Taken**__\n  1. **Bulwark** · 120K · Protection Warrior');
     expect(output).not.toContain('Shadow Priest,');
-    expect(execution).toContain('1. **Bulwark** · 11');
-    expect(execution).toContain('**Raid Notes**');
+    expect(execution).toContain('▸ __**Top Interrupts**__\n  1. **Bulwark** · 11');
+    expect(execution).toContain('▸ __**Raid Notes**__');
     expect(execution).not.toContain('Raid Superlatives');
     expect(execution).not.toContain('**Bulwark** 11,');
     expect(execution).not.toContain('parse');
@@ -1054,7 +1055,7 @@ describe('embed rendering', () => {
       ],
     });
 
-    expect(embed.fields.find((field) => field.name === '⚔️ Performance')).toBeUndefined();
+    expect(embed.fields.find((field) => field.name === '⚡ Performance')).toBeUndefined();
   });
 
   it('degrades cleanly when optional fields are missing', () => {
@@ -1121,9 +1122,9 @@ describe('embed rendering', () => {
     const embed = buildPublicRecapEmbed(summary);
 
     const performanceField =
-      embed.fields.find((field) => field.name === '⚔️ Performance')?.value ?? '';
+      embed.fields.find((field) => field.name === '⚡ Performance')?.value ?? '';
     const sectionValue = (label: string): string =>
-      performanceField.split(`**${label}**\n`)[1]?.split('\n**')[0] ?? '';
+      performanceField.split(`▸ __**${label}**__\n`)[1]?.split('\n\n▸ __**')[0] ?? '';
 
     expect(sectionValue('Player Standouts').match(/Tankhem/g)).toHaveLength(1);
     expect(sectionValue('Overall Parses').match(/Tankhem/g)).toHaveLength(1);
