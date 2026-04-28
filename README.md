@@ -289,6 +289,8 @@ pnpm --filter @wcl/web register:discord-commands
 
 To register commands to a guild, provide `DISCORD_GUILD_ID` in the environment or pass the guild ID as the command argument if using the app script convention.
 
+For a `401 Unauthorized` response, reset/copy the bot token from the Discord Developer Portal **Bot** page and store only the raw token in `DISCORD_BOT_TOKEN`. Do not include the `Bot ` prefix, and do not use the public key, client secret, or application ID in that variable.
+
 ## Docker
 
 Build and start the beta stack:

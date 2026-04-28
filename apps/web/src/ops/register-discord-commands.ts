@@ -16,7 +16,14 @@ if (existsSync(envPath)) {
 
 const envSchema = z.object({
     DISCORD_APPLICATION_ID: trimmed().regex(/^\d+$/),
-    DISCORD_BOT_TOKEN: trimmed().regex(/^\S+$/),
+    DISCORD_BOT_TOKEN: trimmed()
+        .regex(/^\S+$/)
+        .refine((token) => !token.toLowerCase().startsWith("bot "), {
+            message: "DISCORD_BOT_TOKEN must be the raw token without a 'Bot ' prefix.",
+        })
+        .refine((token) => !/^[a-f0-9]{64}$/i.test(token), {
+            message: "DISCORD_BOT_TOKEN looks like DISCORD_PUBLIC_KEY. Use the bot token from the Discord Developer Portal Bot page.",
+        }),
     DISCORD_GUILD_ID: trimmed().regex(/^\d+$/).optional(),
 });
 

@@ -334,6 +334,26 @@ describe("command registration endpoints", () => {
             }),
         } satisfies Partial<DiscordCommandRegistrationError>);
     });
+
+    it("adds credential remediation for unauthorized registration responses", async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+            ok: false,
+            status: 401,
+            statusText: "Unauthorized",
+            text: vi.fn().mockResolvedValue('{"message":"401: Unauthorized"}'),
+        });
+        vi.stubGlobal("fetch", fetchMock);
+
+        await expect(
+            registerGuildCommands("app123", "token123", "guild456"),
+        ).rejects.toMatchObject({
+            name: "DiscordCommandRegistrationError",
+            details: expect.objectContaining({
+                status: 401,
+                remediation: expect.stringContaining("DISCORD_BOT_TOKEN"),
+            }),
+        } satisfies Partial<DiscordCommandRegistrationError>);
+    });
 });
 
 describe("Discord HTTP contract behavior", () => {

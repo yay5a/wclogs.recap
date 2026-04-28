@@ -81,8 +81,13 @@ export const commandDefinitions: CommandDefinition[] = [
 ];
 
 export class DiscordCommandRegistrationError extends Error {
-    constructor(message: string, readonly details: { status: number; statusText: string; responseBody: string; targetScope: "global" | "guild"; payloadSnippet: string; }) { super(message); this.name = "DiscordCommandRegistrationError"; }
+    constructor(message: string, readonly details: { status: number; statusText: string; responseBody: string; targetScope: "global" | "guild"; payloadSnippet: string; remediation?: string; }) { super(message); this.name = "DiscordCommandRegistrationError"; }
 }
+
+const getRegistrationRemediation = (status: number): string | undefined => {
+    if (status !== 401) return undefined;
+    return "Discord rejected DISCORD_BOT_TOKEN. Use the raw bot token for the same DISCORD_APPLICATION_ID, without a 'Bot ' prefix.";
+};
 
 const registerCommandSet = async (appId: string, botToken: string, targetScope: "global" | "guild", endpoint: string, guildId?: string): Promise<void> => {
     const payload = buildDiscordCommandPayloads(commandDefinitions);
@@ -91,7 +96,9 @@ const registerCommandSet = async (appId: string, botToken: string, targetScope: 
     const text = await response.text();
     if (!response.ok) {
         const payloadSnippet = JSON.stringify(payload.map(({ name, type, description, options }) => ({ name, type, ...(description ? { description } : {}), ...(options ? { options } : {}) }))).slice(0, 2000);
-        throw new DiscordCommandRegistrationError(`Discord command registration failed (${targetScope}): ${response.status} ${response.statusText}`, { status: response.status, statusText: response.statusText, responseBody: text, targetScope, payloadSnippet });
+        const remediation = getRegistrationRemediation(response.status);
+        const details = { status: response.status, statusText: response.statusText, responseBody: text, targetScope, payloadSnippet, ...(remediation ? { remediation } : {}) };
+        throw new DiscordCommandRegistrationError(`Discord command registration failed (${targetScope}): ${response.status} ${response.statusText}`, details);
     }
 };
 
