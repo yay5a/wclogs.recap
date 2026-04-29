@@ -1,5 +1,6 @@
 import {
     asArray,
+    asNumber,
     asObject,
     asString,
     defaultDebugWarn,
@@ -9,27 +10,62 @@ import type { DebugWarn } from "./common.js";
 
 export interface ParsedPlayerDetail {
     name: string;
+    warcraftLogsActorId?: number;
+    warcraftLogsGuid?: number;
+    server?: string;
+    region?: string;
     className?: string;
     specName?: string;
     role?: string;
 }
 
-const collectPlayerNodes = (parsed: unknown): unknown[] => {
+interface PlayerNodeCandidate {
+    value: unknown;
+    role?: string;
+}
+
+const PLAYER_DETAIL_ROLE_BUCKETS = [
+    { key: "tanks", role: "tank" },
+    { key: "healers", role: "healer" },
+    { key: "dps", role: "dps" },
+] as const;
+
+const collectBucketNodes = (
+    container: Record<string, unknown> | undefined,
+): PlayerNodeCandidate[] =>
+    PLAYER_DETAIL_ROLE_BUCKETS.flatMap(({ key, role }) =>
+        (asArray(container?.[key]) ?? []).map((value) => ({ value, role })),
+    );
+
+const collectPlainNodes = (values: Array<unknown[] | undefined>): PlayerNodeCandidate[] =>
+    values.flatMap((rows) => (rows ?? []).map((value) => ({ value })));
+
+const collectPlayerNodes = (parsed: unknown): PlayerNodeCandidate[] => {
     const root = asObject(parsed);
-    if (!root) return asArray(parsed) ?? [];
+    if (!root) return collectPlainNodes([asArray(parsed)]);
 
     const players = asObject(root.players);
     const details = asObject(root.details);
     const playerDetails = asObject(root.playerDetails);
+    const data = asObject(root.data);
+    const dataPlayerDetailsRows = asArray(data?.playerDetails);
+    const dataPlayerDetails = asObject(data?.playerDetails);
     return [
-        ...(asArray(root.data) ?? []),
-        ...(asArray(root.entries) ?? []),
-        ...(asArray(root.composition) ?? []),
-        ...(asArray(root.players) ?? []),
-        ...(asArray(players?.data) ?? []),
-        ...(asArray(playerDetails?.data) ?? []),
-        ...(asArray(details?.players) ?? []),
-        root,
+        ...collectPlainNodes([
+            asArray(root.data),
+            asArray(root.entries),
+            asArray(root.composition),
+            asArray(root.players),
+            asArray(players?.data),
+            asArray(playerDetails?.data),
+            dataPlayerDetailsRows,
+            asArray(dataPlayerDetails?.data),
+            asArray(details?.players),
+        ]),
+        ...collectBucketNodes(root),
+        ...collectBucketNodes(playerDetails),
+        ...collectBucketNodes(dataPlayerDetails),
+        { value: root },
     ];
 };
 
@@ -85,19 +121,29 @@ export const parsePlayerDetailsPayload = (
 
     const results: ParsedPlayerDetail[] = [];
     for (const candidate of rows) {
-        const entry = asObject(candidate);
+        const entry = asObject(candidate.value);
         if (!entry) continue;
 
         const name = asString(entry.name) ?? asString(asObject(entry.player)?.name);
         if (!name) continue;
 
+        const warcraftLogsActorId = asNumber(entry.id);
+        const warcraftLogsGuid = asNumber(entry.guid);
+        const server = asString(entry.server);
+        const region = asString(entry.region);
         const className = asString(entry.class) ?? asString(entry.type);
         const specName = asString(entry.spec) ?? asString(asObject(entry.talentTree)?.name);
-        const role = asString(entry.role);
+        const role = asString(entry.role) ?? candidate.role;
         // Build the detail object, omitting optional properties when they are undefined. Under
         // exactOptionalPropertyTypes, assigning undefined to an optional property is not permitted.
         const detail: ParsedPlayerDetail = {
             name,
+            ...(typeof warcraftLogsActorId === "number"
+                ? { warcraftLogsActorId }
+                : {}),
+            ...(typeof warcraftLogsGuid === "number" ? { warcraftLogsGuid } : {}),
+            ...(server ? { server } : {}),
+            ...(region ? { region } : {}),
             ...(className ? { className } : {}),
             ...(specName ? { specName } : {}),
             ...(role ? { role } : {}),

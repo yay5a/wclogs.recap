@@ -34,9 +34,13 @@ export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
 export interface NormalizedPlayer {
   id: string;
   actorId?: number;
+  warcraftLogsActorId?: number;
+  warcraftLogsGuid?: number;
   name: string;
   nameKey?: string;
   realm?: string;
+  server?: string;
+  region?: string;
   className?: string;
   specName?: string;
   role?: string;

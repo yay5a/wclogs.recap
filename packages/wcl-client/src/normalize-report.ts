@@ -613,6 +613,14 @@ export const normalizeEnrichedReport = (
     const className = asString(actor.subType) ?? detail?.className;
     const realm = asString(actor.server);
 
+    if (typeof detail?.warcraftLogsActorId === 'number') {
+      player.warcraftLogsActorId = detail.warcraftLogsActorId;
+    }
+    if (typeof detail?.warcraftLogsGuid === 'number') {
+      player.warcraftLogsGuid = detail.warcraftLogsGuid;
+    }
+    if (detail?.server) player.server = detail.server;
+    if (detail?.region) player.region = detail.region;
     if (className) player.className = className;
     if (realm) player.realm = realm;
     if (detail?.specName) player.specName = detail.specName;

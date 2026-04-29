@@ -1,4 +1,5 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
+import { extractComparisonSnapshots } from "@wcl/domain";
 
 describe("index contract", () => {
     vi.mock(
@@ -166,6 +167,112 @@ describe("index contract", () => {
             expect(normalized.players[0]?.specName).toBe("Holy");
             expect(normalized.leaderboards?.length).toBeGreaterThan(0);
             expect(normalized.bossPerformances?.[0]?.topDamage?.playerName).toBe("Alyra");
+        });
+
+        it("normalizes probe-backed Warcraft Logs participant identity fields", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Raid",
+                                startTime: 100,
+                                endTime: 200,
+                                fights: [],
+                                masterData: {
+                                    actors: [
+                                        {
+                                            id: 1,
+                                            name: "Yaysa",
+                                            subType: "Rogue",
+                                            server: "Stormrage",
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    playerDetails: {
+                        dps: [
+                            {
+                                name: "Yaysa",
+                                id: 7,
+                                guid: 99060818,
+                                type: "Rogue",
+                                server: "Stormrage",
+                                region: "US",
+                            },
+                        ],
+                    },
+                },
+                parsed,
+            );
+
+            expect(normalized.players[0]).toMatchObject({
+                id: "1",
+                actorId: 1,
+                warcraftLogsActorId: 7,
+                warcraftLogsGuid: 99060818,
+                name: "Yaysa",
+                realm: "Stormrage",
+                server: "Stormrage",
+                region: "US",
+            });
+            expect(normalized.players[0]).not.toHaveProperty("playerProfileId");
+
+            const extraction = extractComparisonSnapshots({
+                guildId: "guild-1",
+                report: normalized,
+            });
+            expect(extraction.issues).toEqual([]);
+            expect(extraction.snapshots[0]?.participantKey).toBe(
+                "character:us:stormrage:yaysa",
+            );
+        });
+
+        it("keeps probe-backed Warcraft Logs participant identity fields optional", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Raid",
+                                startTime: 100,
+                                endTime: 200,
+                                fights: [],
+                                masterData: {
+                                    actors: [
+                                        {
+                                            id: 1,
+                                            name: "Yaysa",
+                                            subType: "Rogue",
+                                            server: "Stormrage",
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    playerDetails: {
+                        players: {
+                            data: [{ name: "Yaysa" }],
+                        },
+                    },
+                },
+                parsed,
+            );
+
+            expect(normalized.players[0]).toMatchObject({
+                id: "1",
+                actorId: 1,
+                name: "Yaysa",
+                realm: "Stormrage",
+            });
+            expect(normalized.players[0]).not.toHaveProperty("warcraftLogsActorId");
+            expect(normalized.players[0]).not.toHaveProperty("warcraftLogsGuid");
+            expect(normalized.players[0]).not.toHaveProperty("server");
+            expect(normalized.players[0]).not.toHaveProperty("region");
+            expect(normalized.players[0]).not.toHaveProperty("playerProfileId");
         });
 
         it("normalizes multiple boss performances from multi-encounter summaries", () => {
