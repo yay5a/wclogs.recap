@@ -60,6 +60,46 @@ const makeReport = (): NormalizedReport => ({
   ],
 });
 
+const makeReportWithComparisonIdentity = (): NormalizedReport => ({
+  ...makeReport(),
+  startTime: Date.UTC(2026, 3, 9),
+  players: [
+    {
+      id: '1',
+      actorId: 1,
+      warcraftLogsActorId: 7,
+      warcraftLogsGuid: 99060818,
+      name: 'Alyra',
+      realm: 'Stormrage',
+      server: 'Stormrage',
+      region: 'US',
+      bestParse: 90,
+      avgParse: 85,
+      executionScore: 88,
+    },
+  ],
+  reportWideRankings: {
+    dps: [
+      {
+        scope: 'report',
+        playerId: 7,
+        playerName: 'Alyra',
+        metric: 'rankPercent',
+        value: 82,
+        rankPercent: 82,
+      },
+    ],
+    hps: [],
+  },
+  reportWideRecap: {
+    topDamageDone: [{ playerName: 'Alyra', value: 1234 }],
+    topHealingDone: [{ playerName: 'Alyra', value: 567 }],
+    topInterrupts: [{ playerName: 'Alyra', value: 5 }],
+    topDispels: [{ playerName: 'Alyra', value: 1 }],
+    totals: {},
+  },
+});
+
 type PreviewSummary = Parameters<typeof buildRecapPreviewBody>[0];
 
 const makePreviewSummary = (): PreviewSummary => ({
@@ -698,6 +738,239 @@ describe('handleInteraction', () => {
       reportCode: 'ABC123',
       guildId: 'guild-1',
     });
+  });
+
+  it('persists extracted character comparison snapshots after a successful recap fetch', async () => {
+    const report = makeReportWithComparisonIdentity();
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
+      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+    } as never;
+    const guildConfigStore: GuildConfigStore = {
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'mixed',
+        accountabilityVisibility: 'officers-only',
+        coachingShareabilityDefault: 'shareable',
+        recapPostModeDefault: 'preview-and-post',
+      }),
+      saveGuildConfig: vi.fn(),
+    };
+    const recapPreviewStateService = {
+      savePreviewState: vi.fn().mockResolvedValue(undefined),
+      getValidPreviewState: vi.fn(),
+      consumeValidPreviewState: vi.fn(),
+      deletePreviewState: vi.fn(),
+    };
+    const comparisonHistoryStore = {
+      saveComparisonSnapshot: vi.fn().mockResolvedValue(undefined),
+      findCharacterHistory: vi.fn(),
+    };
+    const editFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    });
+    vi.stubGlobal('fetch', editFetch);
+
+    await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        id: 'interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        member: { user: { id: 'user-1' } },
+        data: {
+          name: 'recap',
+          options: [{ name: 'url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
+        },
+      },
+      {
+        wclClient,
+        guildConfigStore,
+        recapPreviewStateService,
+        comparisonHistoryStore,
+      },
+    );
+
+    await vi.waitFor(() => {
+      expect(comparisonHistoryStore.saveComparisonSnapshot).toHaveBeenCalledOnce();
+      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
+      expect(editFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/webhooks/'),
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
+
+    expect(comparisonHistoryStore.saveComparisonSnapshot).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: 'guild-1',
+        reportCode: 'ABC123',
+        participantKey: 'character:us:stormrage:alyra',
+        warcraftLogsActorId: 7,
+        warcraftLogsGuid: 99060818,
+        characterName: 'Alyra',
+        server: 'Stormrage',
+        region: 'US',
+        realm: 'Stormrage',
+        rankPercent: 82,
+        damageTotal: 1234,
+        healingTotal: 567,
+        interrupts: 5,
+        dispels: 1,
+      }),
+    );
+    const savedSnapshot = comparisonHistoryStore.saveComparisonSnapshot.mock.calls[0]?.[0];
+    expect(savedSnapshot).not.toHaveProperty('playerProfileId');
+    expect(savedSnapshot).not.toHaveProperty('rawPayload');
+    expect(savedSnapshot).not.toHaveProperty('normalizedPayload');
+    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
+
+    const patchCall = editFetch.mock.calls.find(
+      ([url]) =>
+        typeof url === 'string' &&
+        url.includes('/webhooks/') &&
+        url.includes('/messages/@original'),
+    );
+    const body =
+      patchCall?.[1] &&
+      typeof patchCall[1] === 'object' &&
+      'body' in (patchCall[1] as Record<string, unknown>)
+        ? (patchCall[1] as { body: string }).body
+        : '{}';
+    expect(body).not.toMatch(/participantKey|baseline|history|playerProfileId|snapshot/i);
+  });
+
+  it('keeps recap preview successful when comparison extraction returns no snapshots', async () => {
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
+      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+    } as never;
+    const guildConfigStore: GuildConfigStore = {
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'character',
+        accountabilityVisibility: 'officers-only',
+        coachingShareabilityDefault: 'shareable',
+        recapPostModeDefault: 'preview-and-post',
+      }),
+      saveGuildConfig: vi.fn(),
+    };
+    const recapPreviewStateService = {
+      savePreviewState: vi.fn().mockResolvedValue(undefined),
+      getValidPreviewState: vi.fn(),
+      consumeValidPreviewState: vi.fn(),
+      deletePreviewState: vi.fn(),
+    };
+    const comparisonHistoryStore = {
+      saveComparisonSnapshot: vi.fn(),
+      findCharacterHistory: vi.fn(),
+    };
+    const editFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    });
+    vi.stubGlobal('fetch', editFetch);
+
+    await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        id: 'interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        member: { user: { id: 'user-1' } },
+        data: {
+          name: 'recap',
+          options: [{ name: 'url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
+        },
+      },
+      {
+        wclClient,
+        guildConfigStore,
+        recapPreviewStateService,
+        comparisonHistoryStore,
+      },
+    );
+
+    await vi.waitFor(() => {
+      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
+      expect(editFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/webhooks/'),
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
+    expect(comparisonHistoryStore.saveComparisonSnapshot).not.toHaveBeenCalled();
+    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
+  });
+
+  it('keeps recap preview successful when comparison snapshot persistence fails', async () => {
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReportWithComparisonIdentity()),
+      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+    } as never;
+    const guildConfigStore: GuildConfigStore = {
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'character',
+        accountabilityVisibility: 'officers-only',
+        coachingShareabilityDefault: 'shareable',
+        recapPostModeDefault: 'preview-and-post',
+      }),
+      saveGuildConfig: vi.fn(),
+    };
+    const recapPreviewStateService = {
+      savePreviewState: vi.fn().mockResolvedValue(undefined),
+      getValidPreviewState: vi.fn(),
+      consumeValidPreviewState: vi.fn(),
+      deletePreviewState: vi.fn(),
+    };
+    const comparisonHistoryStore = {
+      saveComparisonSnapshot: vi.fn().mockRejectedValue(new Error('snapshot write failed')),
+      findCharacterHistory: vi.fn(),
+    };
+    const editFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    });
+    vi.stubGlobal('fetch', editFetch);
+
+    await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        id: 'interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        member: { user: { id: 'user-1' } },
+        data: {
+          name: 'recap',
+          options: [{ name: 'url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
+        },
+      },
+      {
+        wclClient,
+        guildConfigStore,
+        recapPreviewStateService,
+        comparisonHistoryStore,
+      },
+    );
+
+    await vi.waitFor(() => {
+      expect(comparisonHistoryStore.saveComparisonSnapshot).toHaveBeenCalledOnce();
+      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
+      expect(editFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/webhooks/'),
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
+    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
   });
 
   it('can schedule recap processing outside the initial response path', async () => {

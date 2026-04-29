@@ -3,6 +3,7 @@ import fastifyRawBody from 'fastify-raw-body';
 import fastifyCookie from '@fastify/cookie';
 import {
   connectMongo,
+  MongoComparisonHistoryStore,
   MongoGuildConfigStore,
   MongoRecapPreviewStateStore,
   MongoWclUserAuthStore,
@@ -63,6 +64,7 @@ const wclClient = new WclClient({
 
 const guildConfigStore = new MongoGuildConfigStore();
 const recapPreviewStateService = new MongoRecapPreviewStateStore();
+const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const wclUserAuthStore = new MongoWclUserAuthStore();
 
 app.get('/health', async () => ({ status: 'ok' }));
@@ -83,6 +85,7 @@ await app.register(registerDiscordInteractionRoutes, {
   wclClient,
   guildConfigStore,
   recapPreviewStateService,
+  comparisonHistoryStore,
   logger,
 });
 

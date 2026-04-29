@@ -1,4 +1,8 @@
-import type { GuildConfigStore, PreviousRaidLookup } from "@wcl/domain";
+import type {
+    ComparisonSnapshotInput,
+    GuildConfigStore,
+    PreviousRaidLookup,
+} from "@wcl/domain";
 import type { buildRecapSummary } from "@wcl/domain";
 import type { WclClient } from "@wcl/wcl-client";
 
@@ -36,10 +40,15 @@ export interface RecapPreviewStateService {
     deletePreviewState(lookup: PreviewStateLookup): Promise<void>;
 }
 
+export interface ComparisonHistoryStore {
+    saveComparisonSnapshot(input: ComparisonSnapshotInput): Promise<unknown>;
+}
+
 export interface HandleOptions {
     wclClient: WclClient & Partial<PreviousRaidLookup>;
     guildConfigStore: GuildConfigStore;
     recapPreviewStateService: RecapPreviewStateService;
+    comparisonHistoryStore?: ComparisonHistoryStore;
     previewStateTtlSeconds?: number;
     scheduleBackgroundTask?: (task: () => void) => void;
 }

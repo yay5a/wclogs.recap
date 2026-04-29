@@ -1,5 +1,6 @@
 import { createLogger, serializeError } from '@wcl/shared';
-import { buildRecapSummary } from '@wcl/domain';
+import { buildRecapSummary, extractComparisonSnapshots } from '@wcl/domain';
+import type { NormalizedReport } from '@wcl/domain';
 import type { DiscordInteraction, HandleOptions, SavePreviewStateInput } from '../types.js';
 import {
   buildPublicRecapEmbed,
@@ -20,6 +21,90 @@ const CANCEL_RECAP_ACTION = 'cancel';
 const toDurationMs = (startedAt: number): number => Date.now() - startedAt;
 const logRecapStep = (interactionId: string | undefined, step: string, startedAt: number) => {
   logger.info({ interactionId, step, durationMs: toDurationMs(startedAt) }, 'recap step complete');
+};
+
+const persistComparisonSnapshotsForReport = async ({
+  guildId,
+  interactionId,
+  report,
+  options,
+}: {
+  guildId: string;
+  interactionId?: string;
+  report: NormalizedReport;
+  options: HandleOptions;
+}): Promise<void> => {
+  const comparisonHistoryStore = options.comparisonHistoryStore;
+  if (!comparisonHistoryStore) return;
+
+  try {
+    const extraction = extractComparisonSnapshots({ guildId, report });
+
+    if (extraction.issues.length > 0) {
+      logger.debug(
+        {
+          interactionId,
+          guildId,
+          reportCode: report.reportCode,
+          issueCount: extraction.issues.length,
+          issues: extraction.issues,
+        },
+        'comparison snapshot extraction skipped participants',
+      );
+    }
+
+    if (extraction.snapshots.length === 0) {
+      logger.info(
+        { interactionId, guildId, reportCode: report.reportCode },
+        'comparison snapshot extraction produced no snapshots',
+      );
+      return;
+    }
+
+    const saveResults = await Promise.allSettled(
+      extraction.snapshots.map(async (snapshot) =>
+        comparisonHistoryStore.saveComparisonSnapshot(snapshot),
+      ),
+    );
+
+    const rejectedResults = saveResults.flatMap((result, index) =>
+      result.status === 'rejected'
+        ? [{ error: result.reason, snapshot: extraction.snapshots[index] }]
+        : [],
+    );
+
+    if (rejectedResults.length > 0) {
+      for (const rejected of rejectedResults) {
+        logger.error(
+          {
+            interactionId,
+            guildId,
+            reportCode: report.reportCode,
+            participantKey: rejected.snapshot?.participantKey,
+            error: serializeError(rejected.error),
+          },
+          'comparison snapshot persistence failed',
+        );
+      }
+    }
+
+    logger.debug(
+      {
+        interactionId,
+        guildId,
+        reportCode: report.reportCode,
+        snapshotCount: extraction.snapshots.length,
+        savedCount: saveResults.length - rejectedResults.length,
+        failedCount: rejectedResults.length,
+      },
+      'comparison snapshot persistence completed',
+    );
+  } catch (error) {
+    logger.error(
+      { interactionId, guildId, reportCode: report.reportCode, error: serializeError(error) },
+      'comparison snapshot persistence skipped after unexpected error',
+    );
+  }
 };
 
 const getRecapFailureMessage = (error: unknown): string => {
@@ -70,6 +155,15 @@ export const processRecapInteraction = async (
     const reportFetchStart = Date.now();
     const report = await options.wclClient.fetchAndNormalizeReport(url);
     logRecapStep(interactionId, 'report_fetch_normalize', reportFetchStart);
+
+    const comparisonSnapshotStart = Date.now();
+    await persistComparisonSnapshotsForReport({
+      guildId,
+      ...(interactionId ? { interactionId } : {}),
+      report,
+      options,
+    });
+    logRecapStep(interactionId, 'comparison_snapshot_persist', comparisonSnapshotStart);
 
     const previousLookupStart = Date.now();
     const previousPlayers = options.wclClient.findPreviousRaidSummaries
