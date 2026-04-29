@@ -272,6 +272,23 @@ export {
   parseNearPercentilePoints,
   trustedSampleSize,
 } from './comparison/constants.js';
+export {
+  buildParticipantKey,
+  normalizeIdentityPart,
+  resolveCharacterComparisonIdentity,
+  resolveComparisonIdentity,
+  resolveMixedComparisonIdentity,
+} from './comparison/identity.js';
+export type {
+  ComparisonIdentity,
+  ComparisonIdentityInput,
+  ComparisonIdentityKind,
+  ComparisonIdentityStatus,
+  MissingPlayerMappingComparisonIdentity,
+  NotComparableComparisonIdentity,
+  ReadyCharacterComparisonIdentity,
+  ReadyPlayerComparisonIdentity,
+} from './comparison/identity.js';
 export { deriveDeterministicTeamNote, Outcome } from './recap/outcome.js';
 export { Performance } from './recap/performance.js';
 export { Volume } from './recap/volume.js';
