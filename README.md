@@ -23,7 +23,7 @@ Known beta limitations:
 - Worker processing is intentionally simple and serial.
 - The Discord renderer is optimized for concise leaderboards, not granular analysis.
 - Error handling is rudimentary at best, requires more debugging than necessary.
-- - `/config` persists guild defaults, but some options are forward-looking. `compare_mode` is saved and passed into recap summary metadata, but full player/character comparison behavior for trends, coaching, and accountability is not complete yet.
+- - `/config` persists `character` default, but some options are forward-looking; `compare_mode` is saved and passed into recap summary metadata, but full player/character comparison behavior for trends, coaching, and accountability is not complete yet.
  
 ## Beta Testing
 
@@ -47,7 +47,7 @@ Useful things to check:
 - Does the app reject invalid Warcraft Logs URLs clearly?
 - Does the recap identify the raid, date, and bosses correctly?
 - Do player names, classes, and performance highlights look correct?
-- Do the labels, rankings, and metrics make sense and understandable?
+- Do the labels, rankings, and metrics make sense and are understandable?
 - Does the preview/post flow behave as expected?
 - Does repeated use of the same report behave consistently?
 
