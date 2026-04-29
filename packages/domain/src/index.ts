@@ -259,6 +259,22 @@ export interface BuildRecapSummaryOptions {
 }
 
 export {
+  buildComparisonBaseline,
+} from './comparison/baseline.js';
+export type {
+  AvailableBaselineMetricComparison,
+  BaselineMetricComparison,
+  BaselineMetricDirection,
+  BaselineMetricLabel,
+  BaselineMetricName,
+  BaselineMetrics,
+  BaselineStatus,
+  ComparisonBaseline,
+  ComparisonBaselineRow,
+  UnavailableBaselineMetricComparison,
+  UnavailableBaselineReason,
+} from './comparison/baseline.js';
+export {
   COMPARE_MODES,
   DEFAULT_COMPARE_MODE,
   isCompareMode,
