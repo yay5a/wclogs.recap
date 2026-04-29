@@ -423,15 +423,9 @@ describe('Discord HTTP contract behavior', () => {
 });
 
 describe('handleInteraction', () => {
-  it('saves guild config values', async () => {
-    const saveGuildConfig = vi.fn().mockResolvedValue({
-      guildId: 'guild-1',
-      defaultGameFamily: 'mop_classic',
-      compareModeDefault: 'mixed',
-      accountabilityVisibility: 'shareable',
-      coachingShareabilityDefault: 'shareable',
-      recapPostModeDefault: 'preview-only',
-    });
+  const makeConfigOptions = (
+    saveGuildConfig: GuildConfigStore['saveGuildConfig'],
+  ) => {
     const guildConfigStore: GuildConfigStore = {
       getGuildConfig: vi.fn(),
       saveGuildConfig,
@@ -446,6 +440,19 @@ describe('handleInteraction', () => {
       consumeValidPreviewState: vi.fn(),
       deletePreviewState: vi.fn(),
     };
+    return { wclClient, guildConfigStore, recapPreviewStateService };
+  };
+
+  it('saves mixed as the guild default comparison policy', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'mop_classic',
+      compareModeDefault: 'mixed',
+      accountabilityVisibility: 'shareable',
+      coachingShareabilityDefault: 'shareable',
+      recapPostModeDefault: 'preview-only',
+    });
+    const options = makeConfigOptions(saveGuildConfig);
 
     const response = await handleInteraction(
       {
@@ -459,14 +466,103 @@ describe('handleInteraction', () => {
           ],
         },
       },
-      { wclClient, guildConfigStore, recapPreviewStateService },
+      options,
     );
 
     expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
       defaultGameFamily: 'mop_classic',
       compareModeDefault: 'mixed',
     });
-    expect((response as { type?: number }).type).toBeDefined();
+    expect((response as { data?: { content?: string } }).data?.content).toBe(
+      'Default comparison mode set to mixed. Future comparisons will use mapped player history when available. Alts are not guessed automatically.',
+    );
+    expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
+  });
+
+  it('saves character as the guild default comparison policy', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      accountabilityVisibility: 'off',
+      coachingShareabilityDefault: 'private',
+      recapPostModeDefault: 'preview-and-post',
+    });
+    const options = makeConfigOptions(saveGuildConfig);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        data: {
+          name: 'config',
+          options: [{ name: 'compare_mode', value: 'character' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
+      compareModeDefault: 'character',
+    });
+    expect((response as { data?: { content?: string } }).data?.content).toBe(
+      'Default comparison mode set to character. Future comparisons will match exact character history unless a command overrides it.',
+    );
+    expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
+  });
+
+  it('rejects invalid compare_mode values without saving config', async () => {
+    const saveGuildConfig = vi.fn();
+    const options = makeConfigOptions(saveGuildConfig);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        data: {
+          name: 'config',
+          options: [{ name: 'compare_mode', value: 'alts' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      data: {
+        content: 'Invalid compare_mode. Choose character or mixed.',
+        flags: 64,
+      },
+    });
+  });
+
+  it('uses the saved default response when compare_mode is omitted', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      accountabilityVisibility: 'off',
+      coachingShareabilityDefault: 'private',
+      recapPostModeDefault: 'preview-and-post',
+    });
+    const options = makeConfigOptions(saveGuildConfig);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        data: {
+          name: 'config',
+          options: [],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {});
+    expect((response as { data?: { content?: string } }).data?.content).toBe(
+      'Default comparison mode set to character. Future comparisons will match exact character history unless a command overrides it.',
+    );
   });
 
   it('creates recap preview and post flow', async () => {

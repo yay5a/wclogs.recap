@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { RecapSummary } from "@wcl/domain";
+import { DEFAULT_COMPARE_MODE, type RecapSummary } from "@wcl/domain";
 import {
     GuildSettingsModel,
     MongoGuildConfigStore,
@@ -63,8 +63,37 @@ describe("MongoGuildConfigStore", () => {
         const config = await store.getGuildConfig("guild-1");
 
         expect(config.guildId).toBe("guild-1");
-        expect(config.compareModeDefault).toBe("character");
+        expect(config.compareModeDefault).toBe(DEFAULT_COMPARE_MODE);
         expect(config.accountabilityVisibility).toBe("off");
+    });
+
+    it("defaults compare mode when persisted config is missing compareModeDefault", async () => {
+        vi.spyOn(GuildSettingsModel, "findOne").mockReturnValue({
+            lean: vi.fn().mockResolvedValue({
+                guildId: "guild-1",
+                defaultGameFamily: "retail",
+            }),
+        } as never);
+
+        const store = new MongoGuildConfigStore();
+        const config = await store.getGuildConfig("guild-1");
+
+        expect(config.compareModeDefault).toBe(DEFAULT_COMPARE_MODE);
+    });
+
+    it("defaults compare mode when persisted config contains an invalid value", async () => {
+        vi.spyOn(GuildSettingsModel, "findOne").mockReturnValue({
+            lean: vi.fn().mockResolvedValue({
+                guildId: "guild-1",
+                defaultGameFamily: "retail",
+                compareModeDefault: "alts",
+            }),
+        } as never);
+
+        const store = new MongoGuildConfigStore();
+        const config = await store.getGuildConfig("guild-1");
+
+        expect(config.compareModeDefault).toBe(DEFAULT_COMPARE_MODE);
     });
 
     it("persists configured values via upsert", async () => {

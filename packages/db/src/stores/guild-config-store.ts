@@ -1,8 +1,7 @@
-import { defaultGuildConfigFor } from "@wcl/domain";
+import { defaultGuildConfigFor, parseCompareMode } from "@wcl/domain";
 import type {
     AccountabilityVisibility,
     CoachingShareability,
-    CompareMode,
     GameFamily,
     GuildConfig,
     GuildConfigStore,
@@ -12,8 +11,6 @@ import { GuildSettingsModel } from "../index.js";
 
 const parseGameFamily = (value: unknown): GameFamily =>
     value === "mop_classic" ? "mop_classic" : "retail";
-const parseCompareMode = (value: unknown): CompareMode =>
-    value === "mixed" ? "mixed" : "character";
 const parseVisibility = (value: unknown): AccountabilityVisibility =>
     value === "officers-only" || value === "shareable" ? value : "off";
 const parseCoachingShareability = (value: unknown): CoachingShareability =>
@@ -29,7 +26,8 @@ const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
     return {
         guildId,
         defaultGameFamily: parseGameFamily(raw.defaultGameFamily),
-        compareModeDefault: parseCompareMode(raw.compareModeDefault),
+        compareModeDefault:
+            parseCompareMode(raw.compareModeDefault) ?? fallback.compareModeDefault,
         accountabilityVisibility: parseVisibility(raw.accountabilityVisibility),
         coachingShareabilityDefault: parseCoachingShareability(
             raw.coachingShareabilityDefault,
