@@ -8,44 +8,38 @@ Beta Warcraft Logs recap service for Discord.
 
 ## Beta Status
 
-The beta is usable for live recap generation, but the internals are still being hardened.
+The beta is usable for live recap generation, but the internals are still being refined.
 
 Currently working:
 
 - Discord interaction webhook handling with signature verification.
-- `/recap` flow for Warcraft Logs report URLs.
-- Deferred Discord responses so longer WCL fetches do not block the initial interaction ACK.
+- `/recap` flow for Warcraft Logs URLs.
 - Recap sections for Outcome, Performance, Volume, Execution, and Report link.
-- Report-wide damage, healing, damage taken, deaths, dispels, and interrupts from WCL table payloads.
-- Human-readable phase durations in boss highlights and raid superlatives.
-- Mongo-backed report cache, guild config, recap preview state, WCL user auth, and trend/job models.
-- Background worker for Mongo job polling, currently used for trend recomputation.
+- Report-wide leaderboard for damage, healing, and damage taken pareses. As well as total deaths, dispels, and interrupts.
 
 Known beta limitations:
 
-- `@wcl/wcl-client` still owns too much orchestration and normalization logic in one large module.
-- WCL GraphQL payload shapes vary; parsers are defensive, but new report shapes may require probe-backed fixes.
-- There is no database migration system yet.
+- WCL GraphQL payload shapes vary, and so may results.
 - Worker processing is intentionally simple and serial.
-- Public `/api/recap` abuse protection/rate limiting is not implemented yet.
-- The Discord renderer is optimized for concise embeds, not exhaustive raid analysis.
-
+- The Discord renderer is optimized for concise leaderboards, not granular analysis.
+- Error handling is rudimentary at best, requires more debugging than necessary.
+- - `/config` persists guild defaults, but some options are forward-looking. `compare_mode` is saved and passed into recap summary metadata, but full player/character comparison behavior for trends, coaching, and accountability is not complete yet.
+ 
 ## Beta Testing
 
 WCLogs Recap is currently in beta. The app is being tested in a dedicated Discord server before it is treated as stable for wider use.
 
-Beta testers are invited to try the current Discord command flow, report confusing behavior, and submit reproducible bugs or feature requests.
+Beta testers invited to the server are encouraged to try the current Discord command flow, report confusing behavior, and submit reproducible bugs or feature requests.
 
 ### What testers should test
 
 Please focus on the current user-facing Discord flow:
 
 1. Run `/health` to confirm the bot is responding.
-2. Run `/config` to review or update server defaults.
-3. Run `/recap <warcraft-logs-url>` with a public Warcraft Logs report.
-4. Review the private preview response.
-5. Use the post/confirm button if the recap looks correct.
-6. Report bugs, confusing output, or missing context.
+2. Run `/recap <log url>` with a public Warcraft Logs report.
+3. Review the private preview response.
+4. Use the post/confirm button if the recap looks correct, or cancel if not.
+5. Report bugs, confusing output, or missing context.
 
 Useful things to check:
 
@@ -53,36 +47,9 @@ Useful things to check:
 - Does the app reject invalid Warcraft Logs URLs clearly?
 - Does the recap identify the raid, date, and bosses correctly?
 - Do player names, classes, and performance highlights look correct?
-- Does the best single-boss result include enough context?
-- Are deaths, execution, interrupts, damage, or healing summaries understandable?
+- Do the labels, rankings, and metrics make sense and understandable?
 - Does the preview/post flow behave as expected?
 - Does repeated use of the same report behave consistently?
-
-### Known beta limitations
-
-Some features may be incomplete, experimental, or placeholder-only.
-
-Known beta limitations may include:
-
-- Coaching and accountability output may not represent final behavior.
-- Trend/history features may be incomplete.
-- Some Warcraft Logs payloads may omit stable IDs, so joins between players, fights, bosses, and metrics may be imperfect.
-- Private or restricted Warcraft Logs reports may not work unless the app has the correct API access.
-- Preview buttons may expire and require rerunning `/recap`.
-- Some recap fields may be missing when Warcraft Logs does not return the needed data.
-
-### Where to test
-
-Use the beta Discord server for live testing and discussion.
-
-Recommended Discord channels:
-
-- `#welcome` - basic orientation
-- `#how-to-test` - testing instructions
-- `#bot-testing` - run bot commands here
-- `#feedback` - discuss confusing behavior or suggestions
-- `#known-issues` - check before reporting duplicate bugs
-- `#github` - links to repository, issues, and contribution docs
 
 ### Reporting bugs
 
@@ -123,13 +90,9 @@ A useful bug report should include:
     Environment:
     Discord desktop, Discord mobile, browser, or other relevant context.
 
-Please avoid posting private logs, private Discord messages, secrets, tokens, or anything that should not be public.
+Please avoid posting anything that should not be public.
 
 ### Requesting features
-
-Feature requests should also be submitted through GitHub Issues:
-
-https://github.com/yay5a/wclogs.recap/issues
 
 A useful feature request should explain:
 
