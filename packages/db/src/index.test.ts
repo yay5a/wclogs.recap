@@ -1,12 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_COMPARE_MODE, type RecapSummary } from "@wcl/domain";
+import { DEFAULT_COMPARE_MODE, historyLimit, type RecapSummary } from "@wcl/domain";
 import {
+    COMPARISON_SNAPSHOT_HISTORY_PROJECTION,
+    ComparisonSnapshotModel,
     GuildSettingsModel,
+    MongoComparisonHistoryStore,
     MongoGuildConfigStore,
     MongoRecapPreviewStateStore,
     RecapPreviewStateModel,
     MongoTrendTrackingService,
     PlayerRaidSummaryModel,
+    ReportCacheModel,
     TrendSnapshotModel,
 } from "./index.js";
 
@@ -230,6 +234,273 @@ describe("MongoRecapPreviewStateStore", () => {
             guildId: "guild-1",
             expiresAt: { $gt: now },
         });
+    });
+});
+describe("MongoComparisonHistoryStore", () => {
+    const reportStartedAt = new Date("2026-04-09T00:00:00.000Z");
+    const before = new Date("2026-04-10T00:00:00.000Z");
+    const participantKey = "character:us:galakras:sigismund";
+
+    const makeSnapshot = () => ({
+        guildId: "guild-1",
+        reportCode: "ABC123",
+        reportStartedAt,
+        participantKey,
+    });
+
+    const mockHistoryQuery = (docs: unknown[] = []) => {
+        const lean = vi.fn().mockResolvedValue(docs);
+        const select = vi.fn().mockReturnValue({ lean });
+        const limit = vi.fn().mockReturnValue({ select });
+        const sort = vi.fn().mockReturnValue({ limit });
+        const find = vi.spyOn(ComparisonSnapshotModel, "find").mockReturnValue({
+            sort,
+        } as never);
+
+        return { find, sort, limit, select, lean };
+    };
+
+    it("defines unique report participant and character history indexes", () => {
+        const indexes = ComparisonSnapshotModel.schema.indexes();
+
+        const hasUniqueSnapshotIndex = indexes.some(([fields, options]) => {
+            return (
+                fields.guildId === 1 &&
+                fields.reportCode === 1 &&
+                fields.participantKey === 1 &&
+                options.unique === true
+            );
+        });
+        const hasCharacterLookupIndex = indexes.some(([fields]) => {
+            return (
+                fields.guildId === 1 &&
+                fields.participantKey === 1 &&
+                fields.reportStartedAt === -1
+            );
+        });
+        const hasMixedLookupIndex = indexes.some(([fields]) =>
+            Object.prototype.hasOwnProperty.call(fields, "playerProfileId"),
+        );
+
+        expect(hasUniqueSnapshotIndex).toBe(true);
+        expect(hasCharacterLookupIndex).toBe(true);
+        expect(hasMixedLookupIndex).toBe(false);
+    });
+
+    it("saves comparison snapshots using guildId, reportCode, and participantKey as upsert identity", async () => {
+        const input = makeSnapshot();
+        const lean = vi.fn().mockResolvedValue(input);
+        const upsert = vi
+            .spyOn(ComparisonSnapshotModel, "findOneAndUpdate")
+            .mockReturnValue({
+                lean,
+            } as never);
+
+        const store = new MongoComparisonHistoryStore();
+        await store.saveComparisonSnapshot(input);
+
+        expect(upsert).toHaveBeenCalledWith(
+            {
+                guildId: "guild-1",
+                reportCode: "ABC123",
+                participantKey,
+            },
+            {
+                $set: input,
+            },
+            {
+                upsert: true,
+                new: true,
+                setDefaultsOnInsert: true,
+            },
+        );
+    });
+
+    it("does not require raw Warcraft Logs payload fields when saving", async () => {
+        const input = makeSnapshot();
+        vi.spyOn(ComparisonSnapshotModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(input),
+        } as never);
+
+        const store = new MongoComparisonHistoryStore();
+        const saved = await store.saveComparisonSnapshot(input);
+
+        expect(saved).toEqual(input);
+        const update = vi.mocked(ComparisonSnapshotModel.findOneAndUpdate).mock
+            .calls[0]?.[1] as { $set?: Record<string, unknown> } | undefined;
+        expect(update?.$set).not.toHaveProperty("rawPayload");
+        expect(update?.$set).not.toHaveProperty("normalizedPayload");
+    });
+
+    it("can persist probe-backed participant identity fields when provided", async () => {
+        const input = {
+            ...makeSnapshot(),
+            sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+            zoneName: "Throne of Thunder",
+            warcraftLogsActorId: 7,
+            warcraftLogsGuid: 99060818,
+            characterName: "Sîgïsmund",
+            region: "US",
+            realm: "Galakras",
+            server: "Galakras",
+            className: "Warlock",
+            specName: "Affliction",
+            role: "dps",
+            icon: "Warlock-Affliction",
+            rankPercent: 83,
+            damageTotal: 984820677,
+            healingTotal: 53328327,
+            deaths: 1,
+            interrupts: 3,
+            dispels: 0,
+            bestBossName: "Jin'rokh the Breaker",
+            lowestBossName: "Dark Animus",
+        };
+        vi.spyOn(ComparisonSnapshotModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(input),
+        } as never);
+
+        const store = new MongoComparisonHistoryStore();
+        const saved = await store.saveComparisonSnapshot(input);
+
+        expect(saved).toMatchObject({
+            warcraftLogsActorId: 7,
+            warcraftLogsGuid: 99060818,
+            characterName: "Sîgïsmund",
+            className: "Warlock",
+            specName: "Affliction",
+            damageTotal: 984820677,
+            healingTotal: 53328327,
+        });
+    });
+
+    it("distinguishes warcraftLogsActorId from warcraftLogsGuid", async () => {
+        const input = {
+            ...makeSnapshot(),
+            warcraftLogsActorId: 7,
+            warcraftLogsGuid: 99060818,
+        };
+        vi.spyOn(ComparisonSnapshotModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(input),
+        } as never);
+
+        const store = new MongoComparisonHistoryStore();
+        await store.saveComparisonSnapshot(input);
+
+        const update = vi.mocked(ComparisonSnapshotModel.findOneAndUpdate).mock
+            .calls[0]?.[1] as { $set?: Record<string, unknown> } | undefined;
+        expect(update?.$set?.warcraftLogsActorId).toBe(7);
+        expect(update?.$set?.warcraftLogsGuid).toBe(99060818);
+        expect(update?.$set).not.toHaveProperty("characterId");
+    });
+
+    it("finds character history by guildId, participantKey, and reportStartedAt before current report", async () => {
+        const query = mockHistoryQuery([makeSnapshot()]);
+
+        const store = new MongoComparisonHistoryStore();
+        await store.findCharacterHistory({
+            guildId: "guild-1",
+            participantKey,
+            before,
+        });
+
+        expect(query.find).toHaveBeenCalledWith({
+            guildId: "guild-1",
+            participantKey,
+            reportStartedAt: { $lt: before },
+        });
+        expect(query.sort).toHaveBeenCalledWith({ reportStartedAt: -1 });
+        expect(query.limit).toHaveBeenCalledWith(historyLimit);
+        expect(query.select).toHaveBeenCalledWith(
+            COMPARISON_SNAPSHOT_HISTORY_PROJECTION,
+        );
+    });
+
+    it("does not filter character history by characterName", async () => {
+        const query = mockHistoryQuery([]);
+
+        const store = new MongoComparisonHistoryStore();
+        await store.findCharacterHistory({
+            guildId: "guild-1",
+            participantKey,
+            before,
+        });
+
+        const calls = query.find.mock.calls as unknown as Array<
+            [Record<string, unknown>]
+        >;
+        const filter = calls[0]?.[0];
+        expect(filter).toBeDefined();
+        expect(filter).not.toHaveProperty("characterName");
+    });
+
+    it("accepts an explicit character history limit override", async () => {
+        const query = mockHistoryQuery([]);
+
+        const store = new MongoComparisonHistoryStore();
+        await store.findCharacterHistory({
+            guildId: "guild-1",
+            participantKey,
+            before,
+            limit: 2,
+        });
+
+        expect(query.limit).toHaveBeenCalledWith(2);
+    });
+
+    it("falls back to historyLimit for invalid limits to avoid unbounded queries", async () => {
+        const query = mockHistoryQuery([]);
+
+        const store = new MongoComparisonHistoryStore();
+        await store.findCharacterHistory({
+            guildId: "guild-1",
+            participantKey,
+            before,
+            limit: 0,
+        });
+
+        expect(query.limit).toHaveBeenCalledWith(historyLimit);
+    });
+
+    it("returns an empty array safely when character history is missing", async () => {
+        mockHistoryQuery([]);
+
+        const store = new MongoComparisonHistoryStore();
+        const history = await store.findCharacterHistory({
+            guildId: "guild-1",
+            participantKey,
+            before,
+        });
+
+        expect(history).toEqual([]);
+    });
+
+    it("does not use ReportCacheModel, PlayerRaidSummaryModel, or trend services for comparison history", async () => {
+        const reportCacheFind = vi
+            .spyOn(ReportCacheModel, "find")
+            .mockReturnValue({} as never);
+        const playerSummaryFind = vi
+            .spyOn(PlayerRaidSummaryModel, "find")
+            .mockReturnValue({} as never);
+        const trendIngest = vi
+            .spyOn(MongoTrendTrackingService.prototype, "ingestRaidHistory")
+            .mockResolvedValue(undefined);
+        const trendRecompute = vi
+            .spyOn(MongoTrendTrackingService.prototype, "recomputeTrendsForGuild")
+            .mockResolvedValue(undefined);
+        mockHistoryQuery([]);
+
+        const store = new MongoComparisonHistoryStore();
+        await store.findCharacterHistory({
+            guildId: "guild-1",
+            participantKey,
+            before,
+        });
+
+        expect(reportCacheFind).not.toHaveBeenCalled();
+        expect(playerSummaryFind).not.toHaveBeenCalled();
+        expect(trendIngest).not.toHaveBeenCalled();
+        expect(trendRecompute).not.toHaveBeenCalled();
     });
 });
 describe("MongoTrendTrackingService", () => {

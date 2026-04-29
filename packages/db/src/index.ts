@@ -1,7 +1,9 @@
 import mongoose, { Schema } from 'mongoose';
 
 export * from './models/wcl-user-auth-model.js';
+export * from './models/comparison-snapshot-model.js';
 export * from './mongo-wcl-user-auth-store.js';
+export * from './stores/comparison-history-store.js';
 export * from './stores/guild-config-store.js';
 export * from './stores/recap-preview-state-store.js';
 export * from './services/trend-tracking-service.js';
