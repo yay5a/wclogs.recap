@@ -261,6 +261,9 @@ const processCompareInteraction = async (
     const baseline = buildComparisonBaseline(snapshot, history ?? []);
     const viewModel = {
       characterName: player.name,
+      reportCode: report.reportCode,
+      reportDate: snapshot.reportStartedAt,
+      raidName: report.zoneName ?? report.title,
       mode: params.mode,
       historyCount: history?.length ?? 0,
       baseline,

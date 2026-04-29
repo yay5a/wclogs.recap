@@ -17,6 +17,13 @@ const decimalFormatter = new Intl.NumberFormat('en-US', {
   maximumFractionDigits: 1,
 });
 
+const dateFormatter = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  day: 'numeric',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+
 const metricLabels: Record<BaselineMetricName, string> = {
   parse: 'Parse',
   damageTotal: 'Damage total',
@@ -42,6 +49,9 @@ const summaryMetricLabels: Record<BaselineMetricName, { label: string; verb: 'is
 
 export interface CompareBaselineResponseViewModel {
   characterName: string;
+  reportCode: string;
+  reportDate: Date;
+  raidName: string;
   mode: Extract<CompareMode, 'character'>;
   historyCount: number;
   baseline: ComparisonBaseline;
@@ -57,6 +67,9 @@ const formatMetricValue = (metricName: BaselineMetricName, value: number): strin
 
   return numberFormatter.format(value);
 };
+
+const formatReportDate = (date: Date): string =>
+  Number.isFinite(date.getTime()) ? dateFormatter.format(date) : 'Unknown';
 
 const formatBaselineLabel = (label: AvailableBaselineMetricComparison['label']): string => {
   switch (label) {
@@ -240,6 +253,9 @@ const buildSampleSizeLine = (baseline: ComparisonBaseline): string => {
 
 export const buildCompareResponseBody = ({
   characterName,
+  reportCode,
+  reportDate,
+  raidName,
   mode,
   historyCount,
   baseline,
@@ -251,6 +267,9 @@ export const buildCompareResponseBody = ({
     flags: EPHEMERAL_MESSAGE_FLAG,
     content: [
       `Comparison: ${characterName}`,
+      `Report: ${reportCode}`,
+      `Raid: ${raidName}`,
+      `Date: ${formatReportDate(reportDate)}`,
       `Mode: ${mode}`,
       `History: ${historyCount} prior ${pluralize(historyCount, 'report')}`,
       '',

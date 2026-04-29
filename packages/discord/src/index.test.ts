@@ -1148,6 +1148,9 @@ describe('handleInteraction', () => {
     });
     expect(body.flags).toBe(64);
     expect(body.content).toContain('Comparison: Alyra');
+    expect(body.content).toContain('Report: ABC123');
+    expect(body.content).toContain('Raid: Vault');
+    expect(body.content).toContain('Date: Apr 9, 2026');
     expect(body.content).toContain('Mode: character');
     expect(body.content).toContain('History: 3 prior reports');
     expect(body.content).toContain('Summary:');
@@ -1383,6 +1386,9 @@ describe('handleInteraction', () => {
     };
 
     expect(publicBody.content).toContain('Comparison: Alyra');
+    expect(publicBody.content).toContain('Report: ABC123');
+    expect(publicBody.content).toContain('Raid: Vault');
+    expect(publicBody.content).toContain('Date: Apr 9, 2026');
     expect(publicBody.content).toContain('Metric sample size:');
     expect(publicBody).not.toHaveProperty('flags');
     expect(publicBody.content).not.toMatch(/participantKey|playerProfileId/i);
