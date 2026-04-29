@@ -274,6 +274,13 @@ export type {
   UnavailableBaselineMetricComparison,
   UnavailableBaselineReason,
 } from './comparison/baseline.js';
+export { extractComparisonSnapshots } from './comparison/snapshot.js';
+export type {
+  ComparisonSnapshotExtractionIssue,
+  ComparisonSnapshotExtractionResult,
+  ComparisonSnapshotInput,
+  ExtractComparisonSnapshotsInput,
+} from './comparison/snapshot.js';
 export {
   COMPARE_MODES,
   DEFAULT_COMPARE_MODE,
