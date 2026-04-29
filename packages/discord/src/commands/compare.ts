@@ -19,6 +19,8 @@ import { createLogger, serializeError } from '@wcl/shared';
 import type { DiscordInteraction, HandleOptions } from '../types.js';
 import {
   createFollowupInteractionResponse,
+  editOriginalInteractionResponse,
+  safeCreateFollowupInteractionResponse,
   safeEditOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
 import {
@@ -89,6 +91,33 @@ const resolveCurrentSnapshot = (
     identity,
     snapshot,
   };
+};
+
+const respondWithAuthorizationDenial = async ({
+  applicationId,
+  interactionToken,
+  authorization,
+}: {
+  applicationId: string;
+  interactionToken: string;
+  authorization: Parameters<typeof getCompareAuthorizationDenialMessage>[0];
+}): Promise<void> => {
+  const body = buildCompareErrorBody(getCompareAuthorizationDenialMessage(authorization));
+
+  try {
+    await editOriginalInteractionResponse(applicationId, interactionToken, body);
+  } catch (error) {
+    logger.error(
+      {
+        applicationId,
+        reason: authorization.reason,
+        requestedVisibility: authorization.requestedVisibility,
+        error: serializeError(error),
+      },
+      'failed to edit compare authorization denial; sending ephemeral followup',
+    );
+    await safeCreateFollowupInteractionResponse(applicationId, interactionToken, body);
+  }
 };
 
 const processCompareInteraction = async (
@@ -214,11 +243,11 @@ const processCompareInteraction = async (
     );
 
     if (!authorization.allowed) {
-      await safeEditOriginalInteractionResponse(
+      await respondWithAuthorizationDenial({
         applicationId,
         interactionToken,
-        buildCompareErrorBody(getCompareAuthorizationDenialMessage(authorization)),
-      );
+        authorization,
+      });
       return;
     }
 

@@ -667,6 +667,7 @@ describe('handleInteraction', () => {
     interaction = makeCompareInteraction('character', character),
     guildConfigStore = makeGuildConfigStore(),
     characterClaimStore = makeCharacterClaimStore(),
+    editFetch,
   }: {
     report?: NormalizedReport;
     history: ComparisonSnapshotInput[];
@@ -674,6 +675,7 @@ describe('handleInteraction', () => {
     interaction?: ReturnType<typeof makeCompareInteraction>;
     guildConfigStore?: GuildConfigStore;
     characterClaimStore?: ReturnType<typeof makeCharacterClaimStore>;
+    editFetch?: ReturnType<typeof vi.fn>;
   }) => {
     const wclClient = {
       fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
@@ -683,11 +685,11 @@ describe('handleInteraction', () => {
       saveComparisonSnapshot: vi.fn(),
       findCharacterHistory: vi.fn().mockResolvedValue(history),
     };
-    const editFetch = vi.fn().mockResolvedValue({
+    const fetchMock = editFetch ?? vi.fn().mockResolvedValue({
       ok: true,
       text: vi.fn().mockResolvedValue('ok'),
     });
-    vi.stubGlobal('fetch', editFetch);
+    vi.stubGlobal('fetch', fetchMock);
 
     const response = await handleInteraction(
       interaction,
@@ -706,18 +708,19 @@ describe('handleInteraction', () => {
     });
 
     await vi.waitFor(() => {
-      expect(editFetch).toHaveBeenCalledWith(
+      expect(fetchMock).toHaveBeenCalledWith(
         expect.stringContaining('/webhooks/'),
         expect.objectContaining({ method: 'PATCH' }),
       );
     });
 
     return {
-      body: parseEditedOriginalResponseBody(editFetch),
+      initialResponse: response,
+      body: parseEditedOriginalResponseBody(fetchMock),
       comparisonHistoryStore,
       characterClaimStore,
       wclClient,
-      editFetch,
+      editFetch: fetchMock,
     };
   };
 
@@ -1423,11 +1426,71 @@ describe('handleInteraction', () => {
     });
 
     expect(denied.comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
+    expect(denied.initialResponse).toMatchObject({
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { flags: 64 },
+    });
     expect(denied.body).toMatchObject({
       content: 'This comparison can be viewed privately, but it cannot be posted publicly.',
       flags: 64,
     });
-    expect(denied.body.content).not.toMatch(/opted out|privacy setting|target denied/i);
+    expect(denied.body.content).not.toMatch(
+      /Unsupported interaction|opted out|target-public-post-not-enabled|participantKey|character:us|privacy setting|target denied/i,
+    );
+
+    const editFailureFetch = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: vi.fn().mockResolvedValue('unknown interaction'),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        statusText: 'OK',
+        text: vi.fn().mockResolvedValue('ok'),
+      });
+
+    const followup = await runDeferredCompare({
+      history: [makeHistorySnapshot()],
+      interaction: makeCompareInteraction('character', 'Alyra', {
+        visibility: 'public',
+        member: { user: { id: 'officer-1' }, permissions: '32' },
+      }),
+      guildConfigStore,
+      editFetch: editFailureFetch,
+      characterClaimStore: makeCharacterClaimStore({
+        findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
+          makeApprovedClaim({
+            discordUserId: 'owner-1',
+            publicPostOptIn: false,
+          }),
+        ]),
+      }),
+    });
+
+    const followupCall = followup.editFetch.mock.calls.find(
+      ([url, init]) =>
+        typeof url === 'string' &&
+        url.endsWith('/webhooks/app-1/token-1') &&
+        typeof init === 'object' &&
+        init !== null &&
+        (init as { method?: string }).method === 'POST',
+    );
+    const followupBody = JSON.parse((followupCall?.[1] as { body: string }).body) as {
+      content?: string;
+      flags?: number;
+    };
+
+    expect(followupBody).toMatchObject({
+      content: 'This comparison can be viewed privately, but it cannot be posted publicly.',
+      flags: 64,
+    });
+    expect(followupBody.content).not.toMatch(
+      /Unsupported interaction|opted out|target-public-post-not-enabled|participantKey|character:us|privacy setting|target denied/i,
+    );
 
     const allowed = await runDeferredCompare({
       history: [
