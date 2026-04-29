@@ -1,9 +1,11 @@
 import type {
+  CompareMode,
   GuildConfig,
   NormalizedBossPerformance,
   NormalizedReport,
   RecapSummary,
 } from '../index.js';
+import { DEFAULT_COMPARE_MODE } from '../comparison/compare-mode.js';
 import {
   buildTitleContext,
   formatDateMmDdYyyy,
@@ -43,6 +45,8 @@ export interface OutcomeResult {
 
 export const Outcome = {
   build({ report, guildConfig, selectedBoss }: OutcomeInput): OutcomeResult {
+    const compareModeUsed: CompareMode =
+      guildConfig?.compareModeDefault ?? DEFAULT_COMPARE_MODE;
     const killed = report.fights.filter((f) => f.kill).length;
     const zoneName = selectedBoss?.zoneName ?? report.zoneName;
     const difficultyLabel = resolveDifficultyLabel(
@@ -69,7 +73,7 @@ export const Outcome = {
         selectedBoss?.reportUrl ?? `https://www.warcraftlogs.com/reports/${report.reportCode}`,
       gameFamily: report.gameFamily,
       bossesKilled: killed,
-      compareModeUsed: guildConfig?.compareModeDefault ?? 'character',
+      compareModeUsed,
       accountabilityVisibility: guildConfig?.accountabilityVisibility ?? 'off',
       coachingShareability: guildConfig?.coachingShareabilityDefault ?? 'private',
       recapPostMode: guildConfig?.recapPostModeDefault ?? 'preview-and-post',

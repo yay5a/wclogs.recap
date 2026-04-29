@@ -1,6 +1,7 @@
-export type GameFamily = 'retail' | 'mop_classic';
-export type CompareMode = 'character' | 'mixed';
 import type { AccountabilityVisibility, CoachingShareability } from '@wcl/contracts';
+import { DEFAULT_COMPARE_MODE, type CompareMode } from './comparison/compare-mode.js';
+
+export type GameFamily = 'retail' | 'mop_classic';
 
 export type RecapPostMode = 'preview-and-post' | 'preview-only';
 
@@ -24,7 +25,7 @@ export interface GuildConfigStore {
 export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
   guildId,
   defaultGameFamily: 'retail',
-  compareModeDefault: 'character',
+  compareModeDefault: DEFAULT_COMPARE_MODE,
   accountabilityVisibility: 'off',
   coachingShareabilityDefault: 'private',
   recapPostModeDefault: 'preview-and-post',
@@ -257,6 +258,20 @@ export interface BuildRecapSummaryOptions {
   guildConfig?: GuildConfig;
 }
 
+export {
+  COMPARE_MODES,
+  DEFAULT_COMPARE_MODE,
+  isCompareMode,
+  parseCompareMode,
+} from './comparison/compare-mode.js';
+export type { CompareMode, CompareModeSource } from './comparison/compare-mode.js';
+export {
+  countNearDelta,
+  historyLimit,
+  outputNearPercent,
+  parseNearPercentilePoints,
+  trustedSampleSize,
+} from './comparison/constants.js';
 export { deriveDeterministicTeamNote, Outcome } from './recap/outcome.js';
 export { Performance } from './recap/performance.js';
 export { Volume } from './recap/volume.js';
