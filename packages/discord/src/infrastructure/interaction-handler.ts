@@ -1,6 +1,13 @@
 import { InteractionResponseType, InteractionType } from "discord-interactions";
 import { createLogger } from "@wcl/shared";
 import type { HandleOptions } from "../types.js";
+import {
+    handleApproveCharacterCommand,
+    handleClaimCharacterCommand,
+    handleComparePrivacyCommand,
+    handleMyCharactersCommand,
+    handleRejectCharacterCommand,
+} from "../commands/character-claims.js";
 import { handleCompareCommand } from "../commands/compare.js";
 import { handleConfigCommand } from "../commands/config.js";
 import {
@@ -35,6 +42,26 @@ export const handleInteraction = async (
 
         if (typedInteraction.data?.name === "compare") {
             return handleCompareCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "claim_character") {
+            return handleClaimCharacterCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "approve_character") {
+            return handleApproveCharacterCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "reject_character") {
+            return handleRejectCharacterCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "my_characters") {
+            return handleMyCharactersCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "compare_privacy") {
+            return handleComparePrivacyCommand(typedInteraction, options);
         }
 
         if (typedInteraction.data?.name === "recap") {

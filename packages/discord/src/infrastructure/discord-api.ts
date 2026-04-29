@@ -32,7 +32,7 @@ const readDiscordRateLimitMetadata = async (response: Response): Promise<Discord
 
 interface DiscordApiRequestOptions {
     endpoint: string;
-    method: "PATCH" | "PUT";
+    method: "PATCH" | "POST" | "PUT";
     route: string;
     botToken?: string;
     body?: unknown;
@@ -74,6 +74,20 @@ export const safeEditOriginalInteractionResponse = async (applicationId: string,
         await editOriginalInteractionResponse(applicationId, token, body);
     } catch (error) {
         logger.error({ error, applicationId }, "failed to edit original interaction response");
+    }
+};
+
+export const createFollowupInteractionResponse = async (applicationId: string, token: string, body: unknown): Promise<void> => {
+    const endpoint = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}`;
+    const response = await discordApiRequest({ endpoint, method: "POST", route: "/webhooks/{applicationId}/{token}", body });
+    if (!response.ok) throw new Error(`Failed to create followup interaction response: ${response.status} ${response.statusText} ${await response.text()}`);
+};
+
+export const safeCreateFollowupInteractionResponse = async (applicationId: string, token: string, body: unknown): Promise<void> => {
+    try {
+        await createFollowupInteractionResponse(applicationId, token, body);
+    } catch (error) {
+        logger.error({ error, applicationId }, "failed to create followup interaction response");
     }
 };
 

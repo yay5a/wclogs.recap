@@ -15,7 +15,33 @@ The intended command direction is:
 - `/recap url:<report_url> compare_mode:<character|mixed>` may later allow an explicit override, but should not become the rich comparison surface.
 - `/compare report:<report_url> character:<name-or-id> mode:<character|mixed>` is the targeted comparison surface.
 
-`/compare` should be private/ephemeral by default. A later "post summary" flow can be added after the private comparison experience is reliable.
+`/compare` is private/ephemeral by default. `visibility:public` is explicit and must pass separate server and target safeguards before anything is posted to the channel.
+
+## Current Privacy And Authorization MVP
+
+The bot treats calculation and access as separate questions:
+
+- Can the character comparison be calculated from exact character identity and stored snapshots?
+- Is the requester allowed to view or publicly post the targeted comparison card?
+
+Private view access defaults to `officer_only` for beta safety. Officers are users with Administrator, Manage Guild, or a configured compare officer role. Servers may relax private view access to approved character owners or opted-in target peers through guild config.
+
+Public posting is disabled by default. When enabled, public posting still requires explicit `visibility:public` and target safeguards:
+
+- Approved owners may publicly post their own comparison.
+- Officers may privately view raid-review comparisons.
+- Officers may publicly post someone else's comparison only when an approved owner for that target has enabled public-post opt-in.
+- Public posting denial messages must not reveal whether the target opted in or out.
+
+Character ownership is exact-character and officer-approved:
+
+- `/claim_character character:<name> realm:<realm> region:<region>` creates a pending claim for the requester.
+- `/approve_character user:<user> character:<name> realm:<realm> region:<region>` approves a claim for an authorized raid role.
+- `/reject_character user:<user> character:<name> realm:<realm> region:<region>` rejects a pending claim for an authorized raid role.
+- `/my_characters` lists the requester's claims privately.
+- `/compare_privacy character:<name> realm:<realm> region:<region> peer_compare:<private|allow_guild> public_post:<deny|allow>` updates privacy for an approved owner claim.
+
+No claim command uses display names, fuzzy matching, inferred alts, or mixed-mode player mapping.
 
 ## Compare Modes
 
@@ -177,6 +203,9 @@ Planned Discord modules:
 - `/compare` command registration.
 - Small command handler that fetches current report, resolves target and mode, loads history, calls domain builder, and returns an ephemeral response.
 - Separate compare renderer that formats an already-built view model.
+- Character claim commands for officer-approved exact-character ownership.
+- Compare privacy command for target opt-in/opt-out safeguards.
+- Compare authorization helper usage before history is queried or comparison output is rendered.
 
 Package boundaries:
 
@@ -189,6 +218,8 @@ Package boundaries:
 
 - Private/ephemeral output by default.
 - No public callouts by default.
+- Public posting must be explicit and separately authorized.
+- Denial messages must not reveal target privacy settings.
 - No blame wording.
 - No automatic alt detection.
 - No fuzzy matching.

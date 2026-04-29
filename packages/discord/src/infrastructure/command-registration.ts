@@ -1,10 +1,13 @@
 import { createLogger } from "@wcl/shared";
-import { COMPARE_MODES } from "@wcl/domain";
+import { COMPARE_ACCESS_MODES, COMPARE_MODES, COMPARE_VISIBILITIES } from "@wcl/domain";
 import { discordApiRequest, getDiscordApiBaseUrl } from "./discord-api.js";
 
 const logger = createLogger("discord");
 const STRING_OPTION_TYPE = 3;
 const INTEGER_OPTION_TYPE = 4;
+const BOOLEAN_OPTION_TYPE = 5;
+const USER_OPTION_TYPE = 6;
+const ROLE_OPTION_TYPE = 8;
 const NUMBER_OPTION_TYPE = 10;
 const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 
@@ -24,6 +27,8 @@ export type CommandDefinition = ChatInputCommandDefinition | UserCommandDefiniti
 
 const commandTypeLabel = (type: CommandDefinition["type"]): string => (type === 1 ? "CHAT_INPUT" : type === 2 ? "USER" : "MESSAGE");
 const compareModeChoices = COMPARE_MODES.map((mode) => ({ name: mode, value: mode }));
+const compareVisibilityChoices = COMPARE_VISIBILITIES.map((visibility) => ({ name: visibility, value: visibility }));
+const compareAccessModeChoices = COMPARE_ACCESS_MODES.map((mode) => ({ name: mode, value: mode }));
 const validateCommandNameUniqueness = (commands: CommandDefinition[]) => {
     const seen = new Set<string>();
     for (const command of commands) {
@@ -78,12 +83,41 @@ export const commandDefinitions: CommandDefinition[] = [
     { name: "config", description: "Configure guild recap behavior", type: 1, options: [
         { name: "game_family", description: "Default game family", type: 3, required: false, choices: [{ name: "retail", value: "retail" }, { name: "mop_classic", value: "mop_classic" }] },
         { name: "compare_mode", description: "Default compare mode", type: 3, required: false, choices: compareModeChoices },
+        { name: "compare_access_mode", description: "Who can view private comparison cards", type: STRING_OPTION_TYPE, required: false, choices: compareAccessModeChoices },
+        { name: "compare_public_posting", description: "Enable explicit public compare posting safeguards", type: BOOLEAN_OPTION_TYPE, required: false },
+        { name: "compare_officer_role", description: "Role authorized to view private compare cards", type: ROLE_OPTION_TYPE, required: false },
     ]},
     { name: "recap", description: "Generate a recap preview from a WCL report URL", type: 1, options: [{ name: "url", description: "WCL report URL", type: 3, required: true }] },
     { name: "compare", description: "Privately compare one character against recent stored history", type: 1, options: [
         { name: "report", description: "WCL report URL", type: 3, required: true },
         { name: "character", description: "Character name in the report", type: 3, required: true },
         { name: "mode", description: "Comparison mode", type: 3, required: true, choices: compareModeChoices },
+        { name: "visibility", description: "Where to show the comparison", type: STRING_OPTION_TYPE, required: false, choices: compareVisibilityChoices },
+    ] },
+    { name: "claim_character", description: "Request officer approval for one character claim", type: 1, options: [
+        { name: "character", description: "Character name", type: STRING_OPTION_TYPE, required: true },
+        { name: "realm", description: "Character realm/server", type: STRING_OPTION_TYPE, required: true },
+        { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
+    ] },
+    { name: "approve_character", description: "Approve a member character claim", type: 1, options: [
+        { name: "user", description: "Discord user who owns the character", type: USER_OPTION_TYPE, required: true },
+        { name: "character", description: "Character name", type: STRING_OPTION_TYPE, required: true },
+        { name: "realm", description: "Character realm/server", type: STRING_OPTION_TYPE, required: true },
+        { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
+    ] },
+    { name: "reject_character", description: "Reject a pending character claim", type: 1, options: [
+        { name: "user", description: "Discord user who requested the character", type: USER_OPTION_TYPE, required: true },
+        { name: "character", description: "Character name", type: STRING_OPTION_TYPE, required: true },
+        { name: "realm", description: "Character realm/server", type: STRING_OPTION_TYPE, required: true },
+        { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
+    ] },
+    { name: "my_characters", description: "List your character claims", type: 1 },
+    { name: "compare_privacy", description: "Update comparison privacy for an approved character claim", type: 1, options: [
+        { name: "character", description: "Character name", type: STRING_OPTION_TYPE, required: true },
+        { name: "realm", description: "Character realm/server", type: STRING_OPTION_TYPE, required: true },
+        { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
+        { name: "peer_compare", description: "Allow or deny guild peer private comparisons", type: STRING_OPTION_TYPE, required: true, choices: [{ name: "private", value: "private" }, { name: "allow_guild", value: "allow_guild" }] },
+        { name: "public_post", description: "Allow or deny public posting safeguards for this character", type: STRING_OPTION_TYPE, required: true, choices: [{ name: "deny", value: "deny" }, { name: "allow", value: "allow" }] },
     ] },
 ];
 

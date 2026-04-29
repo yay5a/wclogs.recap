@@ -1,5 +1,9 @@
 import type { AccountabilityVisibility, CoachingShareability } from '@wcl/contracts';
 import { DEFAULT_COMPARE_MODE, type CompareMode } from './comparison/compare-mode.js';
+import {
+  DEFAULT_COMPARE_ACCESS_MODE,
+  type CompareAccessMode,
+} from './comparison/privacy.js';
 
 export type GameFamily = 'retail' | 'mop_classic';
 
@@ -9,6 +13,9 @@ export interface GuildConfig {
   guildId: string;
   defaultGameFamily: GameFamily;
   compareModeDefault: CompareMode;
+  compareAccessMode: CompareAccessMode;
+  compareOfficerRoleIds: string[];
+  comparePublicPostingEnabled: boolean;
   accountabilityVisibility: AccountabilityVisibility;
   coachingShareabilityDefault: CoachingShareability;
   recapPostModeDefault: RecapPostMode;
@@ -26,6 +33,9 @@ export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
   guildId,
   defaultGameFamily: 'retail',
   compareModeDefault: DEFAULT_COMPARE_MODE,
+  compareAccessMode: DEFAULT_COMPARE_ACCESS_MODE,
+  compareOfficerRoleIds: [],
+  comparePublicPostingEnabled: false,
   accountabilityVisibility: 'off',
   coachingShareabilityDefault: 'private',
   recapPostModeDefault: 'preview-and-post',
@@ -299,6 +309,33 @@ export {
   parseNearPercentilePoints,
   trustedSampleSize,
 } from './comparison/constants.js';
+export {
+  authorizeCompareRequest,
+  CHARACTER_CLAIM_STATUSES,
+  COMPARE_ACCESS_MODES,
+  COMPARE_VISIBILITIES,
+  DEFAULT_COMPARE_ACCESS_MODE,
+  DEFAULT_COMPARE_VISIBILITY,
+  getCompareAuthorizationDenialMessage,
+  hasDiscordPermission,
+  isCharacterClaimStatus,
+  isCompareAccessMode,
+  isCompareOfficer,
+  isCompareVisibility,
+  parseCompareAccessMode,
+  parseCompareVisibility,
+} from './comparison/privacy.js';
+export type {
+  CharacterClaimStatus,
+  CompareAccessMode,
+  CompareApprovedCharacterClaim,
+  CompareAuthorizationDecision,
+  CompareAuthorizationGuildSettings,
+  CompareAuthorizationInput,
+  CompareAuthorizationReason,
+  CompareRequesterContext,
+  CompareVisibility,
+} from './comparison/privacy.js';
 export {
   buildParticipantKey,
   normalizeIdentityPart,

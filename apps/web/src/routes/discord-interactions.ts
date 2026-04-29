@@ -1,6 +1,7 @@
 import { verifyKey } from "discord-interactions";
 import type { FastifyPluginAsync } from "fastify";
 import type {
+    MongoCharacterClaimStore,
     MongoComparisonHistoryStore,
     MongoGuildConfigStore,
     MongoRecapPreviewStateStore,
@@ -16,6 +17,7 @@ type DiscordInteractionRouteOptions = {
     guildConfigStore: MongoGuildConfigStore;
     recapPreviewStateService: MongoRecapPreviewStateStore;
     comparisonHistoryStore: MongoComparisonHistoryStore;
+    characterClaimStore: MongoCharacterClaimStore;
     logger: ReturnType<typeof createLogger>;
 };
 
@@ -72,6 +74,7 @@ export const registerDiscordInteractionRoutes: FastifyPluginAsync<
                     guildConfigStore: options.guildConfigStore,
                     recapPreviewStateService: options.recapPreviewStateService,
                     comparisonHistoryStore: options.comparisonHistoryStore,
+                    characterClaimStore: options.characterClaimStore,
                     previewStateTtlSeconds: options.env.PREVIEW_STATE_TTL_SECONDS,
                     scheduleBackgroundTask: (task) => {
                         backgroundTasks.push(task);

@@ -1,9 +1,16 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DEFAULT_COMPARE_MODE, historyLimit, type RecapSummary } from "@wcl/domain";
 import {
+    DEFAULT_COMPARE_ACCESS_MODE,
+    DEFAULT_COMPARE_MODE,
+    historyLimit,
+    type RecapSummary,
+} from "@wcl/domain";
+import {
+    CharacterClaimModel,
     COMPARISON_SNAPSHOT_HISTORY_PROJECTION,
     ComparisonSnapshotModel,
     GuildSettingsModel,
+    MongoCharacterClaimStore,
     MongoComparisonHistoryStore,
     MongoGuildConfigStore,
     MongoRecapPreviewStateStore,
@@ -68,6 +75,9 @@ describe("MongoGuildConfigStore", () => {
 
         expect(config.guildId).toBe("guild-1");
         expect(config.compareModeDefault).toBe(DEFAULT_COMPARE_MODE);
+        expect(config.compareAccessMode).toBe(DEFAULT_COMPARE_ACCESS_MODE);
+        expect(config.compareOfficerRoleIds).toEqual([]);
+        expect(config.comparePublicPostingEnabled).toBe(false);
         expect(config.accountabilityVisibility).toBe("off");
     });
 
@@ -100,6 +110,24 @@ describe("MongoGuildConfigStore", () => {
         expect(config.compareModeDefault).toBe(DEFAULT_COMPARE_MODE);
     });
 
+    it("defaults compare privacy config when persisted values are missing or invalid", async () => {
+        vi.spyOn(GuildSettingsModel, "findOne").mockReturnValue({
+            lean: vi.fn().mockResolvedValue({
+                guildId: "guild-1",
+                compareAccessMode: "guild_open",
+                compareOfficerRoleIds: ["role-1", 42, "role-2"],
+                comparePublicPostingEnabled: "yes",
+            }),
+        } as never);
+
+        const store = new MongoGuildConfigStore();
+        const config = await store.getGuildConfig("guild-1");
+
+        expect(config.compareAccessMode).toBe(DEFAULT_COMPARE_ACCESS_MODE);
+        expect(config.compareOfficerRoleIds).toEqual(["role-1", "role-2"]);
+        expect(config.comparePublicPostingEnabled).toBe(false);
+    });
+
     it("persists configured values via upsert", async () => {
         const lean = vi.fn().mockResolvedValue({
             guildId: "guild-1",
@@ -108,6 +136,9 @@ describe("MongoGuildConfigStore", () => {
             accountabilityVisibility: "shareable",
             coachingShareabilityDefault: "shareable",
             recapPostModeDefault: "preview-only",
+            compareAccessMode: "owner_opt_in_or_officer",
+            compareOfficerRoleIds: ["role-1"],
+            comparePublicPostingEnabled: true,
         });
         vi.spyOn(GuildSettingsModel, "findOneAndUpdate").mockReturnValue({
             lean,
@@ -120,11 +151,284 @@ describe("MongoGuildConfigStore", () => {
             accountabilityVisibility: "shareable",
             coachingShareabilityDefault: "shareable",
             recapPostModeDefault: "preview-only",
+            compareAccessMode: "owner_opt_in_or_officer",
+            compareOfficerRoleIds: ["role-1"],
+            comparePublicPostingEnabled: true,
         });
 
         expect(saved.defaultGameFamily).toBe("mop_classic");
         expect(saved.compareModeDefault).toBe("mixed");
+        expect(saved.compareAccessMode).toBe("owner_opt_in_or_officer");
+        expect(saved.compareOfficerRoleIds).toEqual(["role-1"]);
+        expect(saved.comparePublicPostingEnabled).toBe(true);
         expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledOnce();
+    });
+});
+
+describe("MongoCharacterClaimStore", () => {
+    const requestedAt = new Date("2026-04-09T00:00:00.000Z");
+    const reviewedAt = new Date("2026-04-10T00:00:00.000Z");
+    const claimInput = {
+        guildId: "guild-1",
+        discordUserId: "user-1",
+        participantKey: "character:us:stormrage:alyra",
+        characterName: "Alyra",
+        region: "US",
+        realm: "Stormrage",
+    };
+    const makeClaim = (overrides: Record<string, unknown> = {}) => ({
+        ...claimInput,
+        status: "pending",
+        peerCompareOptIn: false,
+        publicPostOptIn: false,
+        requestedAt,
+        ...overrides,
+    });
+
+    const mockFindOneLean = (value: unknown) => {
+        vi.spyOn(CharacterClaimModel, "findOne").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(value),
+        } as never);
+    };
+
+    it("defines exact claim identity and lookup indexes without display identity fields", () => {
+        const indexes = CharacterClaimModel.schema.indexes();
+        const hasUniqueIdentity = indexes.some(([fields, options]) =>
+            fields.guildId === 1 &&
+            fields.discordUserId === 1 &&
+            fields.participantKey === 1 &&
+            options.unique === true,
+        );
+        const hasTargetLookup = indexes.some(([fields]) =>
+            fields.guildId === 1 &&
+            fields.participantKey === 1 &&
+            fields.status === 1,
+        );
+        const hasUserLookup = indexes.some(([fields]) =>
+            fields.guildId === 1 &&
+            fields.discordUserId === 1 &&
+            fields.status === 1,
+        );
+
+        expect(hasUniqueIdentity).toBe(true);
+        expect(hasTargetLookup).toBe(true);
+        expect(hasUserLookup).toBe(true);
+        expect(CharacterClaimModel.schema.path("displayName")).toBeUndefined();
+        expect(CharacterClaimModel.schema.path("playerProfileId")).toBeUndefined();
+    });
+
+    it("requests pending claims with privacy disabled by default", async () => {
+        mockFindOneLean(null);
+        const savedDoc = makeClaim();
+        const upsert = vi
+            .spyOn(CharacterClaimModel, "findOneAndUpdate")
+            .mockReturnValue({
+                lean: vi.fn().mockResolvedValue(savedDoc),
+            } as never);
+
+        const store = new MongoCharacterClaimStore();
+        const saved = await store.requestCharacterClaim({
+            ...claimInput,
+            requestedAt,
+        });
+
+        expect(saved).toMatchObject({
+            status: "pending",
+            peerCompareOptIn: false,
+            publicPostOptIn: false,
+        });
+        expect(upsert).toHaveBeenCalledWith(
+            {
+                guildId: "guild-1",
+                discordUserId: "user-1",
+                participantKey: "character:us:stormrage:alyra",
+            },
+            expect.objectContaining({
+                $set: expect.objectContaining({
+                    status: "pending",
+                    peerCompareOptIn: false,
+                    publicPostOptIn: false,
+                    requestedAt,
+                }),
+            }),
+            expect.objectContaining({ upsert: true, new: true }),
+        );
+    });
+
+    it("does not allow duplicate active pending or approved claims", async () => {
+        mockFindOneLean(makeClaim({ status: "approved" }));
+        const upsert = vi.spyOn(CharacterClaimModel, "findOneAndUpdate");
+
+        const store = new MongoCharacterClaimStore();
+        await expect(store.requestCharacterClaim(claimInput)).rejects.toThrow(/active character claim/i);
+
+        expect(upsert).not.toHaveBeenCalled();
+    });
+
+    it("approves claims and records reviewer metadata", async () => {
+        const savedDoc = makeClaim({
+            status: "approved",
+            reviewedAt,
+            reviewedByDiscordUserId: "officer-1",
+        });
+        const upsert = vi
+            .spyOn(CharacterClaimModel, "findOneAndUpdate")
+            .mockReturnValue({
+                lean: vi.fn().mockResolvedValue(savedDoc),
+            } as never);
+
+        const store = new MongoCharacterClaimStore();
+        const approved = await store.approveCharacterClaim({
+            ...claimInput,
+            reviewedByDiscordUserId: "officer-1",
+            reviewedAt,
+        });
+
+        expect(approved).toMatchObject({
+            status: "approved",
+            reviewedAt,
+            reviewedByDiscordUserId: "officer-1",
+        });
+        expect(upsert).toHaveBeenCalledWith(
+            {
+                guildId: "guild-1",
+                discordUserId: "user-1",
+                participantKey: "character:us:stormrage:alyra",
+            },
+            expect.objectContaining({
+                $set: expect.objectContaining({
+                    status: "approved",
+                    reviewedAt,
+                    reviewedByDiscordUserId: "officer-1",
+                }),
+                $setOnInsert: expect.objectContaining({
+                    peerCompareOptIn: false,
+                    publicPostOptIn: false,
+                    requestedAt: reviewedAt,
+                }),
+            }),
+            expect.objectContaining({ upsert: true, new: true }),
+        );
+    });
+
+    it("rejects pending claims", async () => {
+        vi.spyOn(CharacterClaimModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(makeClaim({
+                status: "rejected",
+                reviewedAt,
+                reviewedByDiscordUserId: "officer-1",
+            })),
+        } as never);
+
+        const store = new MongoCharacterClaimStore();
+        const rejected = await store.rejectCharacterClaim({
+            ...claimInput,
+            reviewedAt,
+            reviewedByDiscordUserId: "officer-1",
+        });
+
+        expect(rejected?.status).toBe("rejected");
+        expect(CharacterClaimModel.findOneAndUpdate).toHaveBeenCalledWith(
+            expect.objectContaining({ status: "pending" }),
+            expect.objectContaining({ $set: expect.objectContaining({ status: "rejected" }) }),
+            { new: true },
+        );
+    });
+
+    it("revokes approved claims", async () => {
+        vi.spyOn(CharacterClaimModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(makeClaim({
+                status: "revoked",
+                reviewedAt,
+            })),
+        } as never);
+
+        const store = new MongoCharacterClaimStore();
+        const revoked = await store.revokeCharacterClaim({
+            guildId: "guild-1",
+            discordUserId: "user-1",
+            participantKey: "character:us:stormrage:alyra",
+            reviewedAt,
+        });
+
+        expect(revoked?.status).toBe("revoked");
+        expect(CharacterClaimModel.findOneAndUpdate).toHaveBeenCalledWith(
+            expect.objectContaining({ status: "approved" }),
+            expect.objectContaining({ $set: expect.objectContaining({ status: "revoked" }) }),
+            { new: true },
+        );
+    });
+
+    it("looks up approved claims only", async () => {
+        mockFindOneLean(makeClaim({ status: "approved" }));
+
+        const store = new MongoCharacterClaimStore();
+        await store.findApprovedClaimForUserCharacter({
+            guildId: "guild-1",
+            discordUserId: "user-1",
+            participantKey: "character:us:stormrage:alyra",
+        });
+
+        expect(CharacterClaimModel.findOne).toHaveBeenCalledWith({
+            guildId: "guild-1",
+            discordUserId: "user-1",
+            participantKey: "character:us:stormrage:alyra",
+            status: "approved",
+        });
+    });
+
+    it("finds approved target claims by participantKey", async () => {
+        vi.spyOn(CharacterClaimModel, "find").mockReturnValue({
+            lean: vi.fn().mockResolvedValue([makeClaim({ status: "approved" })]),
+        } as never);
+
+        const store = new MongoCharacterClaimStore();
+        const claims = await store.findApprovedClaimsForParticipant({
+            guildId: "guild-1",
+            participantKey: "character:us:stormrage:alyra",
+        });
+
+        expect(claims).toHaveLength(1);
+        expect(CharacterClaimModel.find).toHaveBeenCalledWith({
+            guildId: "guild-1",
+            participantKey: "character:us:stormrage:alyra",
+            status: "approved",
+        });
+    });
+
+    it("updates privacy only for an approved owner claim", async () => {
+        const savedDoc = makeClaim({
+            status: "approved",
+            peerCompareOptIn: true,
+            publicPostOptIn: true,
+        });
+        vi.spyOn(CharacterClaimModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(savedDoc),
+        } as never);
+
+        const store = new MongoCharacterClaimStore();
+        const updated = await store.updateClaimPrivacy({
+            guildId: "guild-1",
+            discordUserId: "user-1",
+            participantKey: "character:us:stormrage:alyra",
+            peerCompareOptIn: true,
+            publicPostOptIn: true,
+        });
+
+        expect(updated).toMatchObject({
+            peerCompareOptIn: true,
+            publicPostOptIn: true,
+        });
+        expect(CharacterClaimModel.findOneAndUpdate).toHaveBeenCalledWith(
+            {
+                guildId: "guild-1",
+                discordUserId: "user-1",
+                participantKey: "character:us:stormrage:alyra",
+                status: "approved",
+            },
+            { $set: { peerCompareOptIn: true, publicPostOptIn: true } },
+            { new: true },
+        );
     });
 });
 

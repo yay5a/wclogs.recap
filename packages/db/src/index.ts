@@ -1,8 +1,10 @@
 import mongoose, { Schema } from 'mongoose';
 
 export * from './models/wcl-user-auth-model.js';
+export * from './models/character-claim-model.js';
 export * from './models/comparison-snapshot-model.js';
 export * from './mongo-wcl-user-auth-store.js';
+export * from './stores/character-claim-store.js';
 export * from './stores/comparison-history-store.js';
 export * from './stores/guild-config-store.js';
 export * from './stores/recap-preview-state-store.js';
@@ -38,6 +40,19 @@ const guildSettingsSchema = new Schema(
       type: String,
       enum: ['preview-and-post', 'preview-only'],
       default: 'preview-and-post',
+    },
+    compareAccessMode: {
+      type: String,
+      enum: ['officer_only', 'owner_or_officer', 'owner_opt_in_or_officer'],
+      default: 'officer_only',
+    },
+    compareOfficerRoleIds: {
+      type: [String],
+      default: [],
+    },
+    comparePublicPostingEnabled: {
+      type: Boolean,
+      default: false,
     },
 
     officersRoleIds: [{ type: String }],

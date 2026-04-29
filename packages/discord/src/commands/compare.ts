@@ -2,22 +2,36 @@ import { InteractionResponseType } from 'discord-interactions';
 import {
   buildComparisonBaseline,
   extractComparisonSnapshots,
+  authorizeCompareRequest,
+  DEFAULT_COMPARE_VISIBILITY,
+  getCompareAuthorizationDenialMessage,
   historyLimit,
   normalizeIdentityPart,
+  parseCompareVisibility,
   parseCompareMode,
   resolveCharacterComparisonIdentity,
   type CompareMode,
+  type CompareVisibility,
   type NormalizedPlayer,
   type NormalizedReport,
 } from '@wcl/domain';
 import { createLogger, serializeError } from '@wcl/shared';
 import type { DiscordInteraction, HandleOptions } from '../types.js';
-import { safeEditOriginalInteractionResponse } from '../infrastructure/discord-api.js';
+import {
+  createFollowupInteractionResponse,
+  safeEditOriginalInteractionResponse,
+} from '../infrastructure/discord-api.js';
 import {
   buildCompareErrorBody,
+  buildPublicCompareResponseBody,
   buildCompareResponseBody,
   buildMixedCompareUnavailableBody,
 } from '../renderers/compare.js';
+import {
+  getRequesterDiscordUserId,
+  getRequesterPermissions,
+  getRequesterRoleIds,
+} from './character-claims.js';
 
 const logger = createLogger('discord');
 const EPHEMERAL_MESSAGE_FLAG = 64;
@@ -26,6 +40,7 @@ interface CompareCommandParams {
   reportUrl: string;
   characterName: string;
   mode: Extract<CompareMode, 'character'>;
+  visibility: CompareVisibility;
 }
 
 const getStringOption = (options: unknown, name: string): string | undefined => {
@@ -137,6 +152,76 @@ const processCompareInteraction = async (
       return;
     }
 
+    if (!options.characterClaimStore) {
+      await safeEditOriginalInteractionResponse(
+        applicationId,
+        interactionToken,
+        buildCompareErrorBody('Comparison authorization is not available yet.'),
+      );
+      return;
+    }
+
+    const requesterDiscordUserId = getRequesterDiscordUserId(interaction);
+    if (!requesterDiscordUserId) {
+      await safeEditOriginalInteractionResponse(
+        applicationId,
+        interactionToken,
+        buildCompareErrorBody('Discord user context is required for /compare.'),
+      );
+      return;
+    }
+
+    const guildConfig = await options.guildConfigStore.getGuildConfig(guildId);
+    const [requesterApprovedClaim, targetApprovedClaims] = await Promise.all([
+      options.characterClaimStore.findApprovedClaimForUserCharacter({
+        guildId,
+        discordUserId: requesterDiscordUserId,
+        participantKey: identity.participantKey,
+      }),
+      options.characterClaimStore.findApprovedClaimsForParticipant({
+        guildId,
+        participantKey: identity.participantKey,
+      }),
+    ]);
+
+    const authorization = authorizeCompareRequest({
+      requesterDiscordUserId,
+      requesterRoleIds: getRequesterRoleIds(interaction),
+      requesterPermissions: getRequesterPermissions(interaction),
+      targetParticipantKey: identity.participantKey,
+      requestedVisibility: params.visibility,
+      guildSettings: guildConfig,
+      requesterApprovedClaim,
+      targetApprovedClaims,
+    });
+
+    logger.info(
+      {
+        guildId,
+        requesterDiscordUserId,
+        targetCharacterName: player.name,
+        targetParticipantKey: identity.participantKey,
+        reportCode: report.reportCode,
+        mode: params.mode,
+        requestedVisibility: params.visibility,
+        allowed: authorization.allowed,
+        reason: authorization.reason,
+        isOfficer: authorization.isOfficer,
+        isOwner: authorization.isOwner,
+        timestamp: new Date().toISOString(),
+      },
+      'compare authorization decision',
+    );
+
+    if (!authorization.allowed) {
+      await safeEditOriginalInteractionResponse(
+        applicationId,
+        interactionToken,
+        buildCompareErrorBody(getCompareAuthorizationDenialMessage(authorization)),
+      );
+      return;
+    }
+
     const history = await options.comparisonHistoryStore?.findCharacterHistory({
       guildId,
       participantKey: identity.participantKey,
@@ -145,16 +230,48 @@ const processCompareInteraction = async (
     });
 
     const baseline = buildComparisonBaseline(snapshot, history ?? []);
+    const viewModel = {
+      characterName: player.name,
+      mode: params.mode,
+      historyCount: history?.length ?? 0,
+      baseline,
+    };
+
+    if (params.visibility === 'public') {
+      try {
+        await createFollowupInteractionResponse(
+          applicationId,
+          interactionToken,
+          buildPublicCompareResponseBody(viewModel),
+        );
+        await safeEditOriginalInteractionResponse(
+          applicationId,
+          interactionToken,
+          buildCompareErrorBody('Comparison posted to this channel.'),
+        );
+      } catch (error) {
+        logger.error(
+          {
+            interactionId: interaction.id,
+            guildId,
+            reportCode: report.reportCode,
+            error: serializeError(error),
+          },
+          'public compare posting failed',
+        );
+        await safeEditOriginalInteractionResponse(
+          applicationId,
+          interactionToken,
+          buildCompareErrorBody('Comparison was authorized, but public posting failed. Please try again.'),
+        );
+      }
+      return;
+    }
 
     await safeEditOriginalInteractionResponse(
       applicationId,
       interactionToken,
-      buildCompareResponseBody({
-        characterName: player.name,
-        mode: params.mode,
-        historyCount: history?.length ?? 0,
-        baseline,
-      }),
+      buildCompareResponseBody(viewModel),
     );
   } catch (error) {
     logger.error(
@@ -189,6 +306,9 @@ export const handleCompareCommand = (
   const characterName = getStringOption(interaction.data?.options, 'character');
   const rawMode = getStringOption(interaction.data?.options, 'mode');
   const mode = parseCompareMode(rawMode);
+  const rawVisibility = getStringOption(interaction.data?.options, 'visibility');
+  const visibility =
+    rawVisibility === undefined ? DEFAULT_COMPARE_VISIBILITY : parseCompareVisibility(rawVisibility);
 
   if (!reportUrl) {
     return {
@@ -211,6 +331,13 @@ export const handleCompareCommand = (
     };
   }
 
+  if (!visibility) {
+    return {
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: buildCompareErrorBody('Invalid visibility. Choose private or public.'),
+    };
+  }
+
   if (mode === 'mixed') {
     return {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -225,8 +352,15 @@ export const handleCompareCommand = (
     };
   }
 
+  if (!options.characterClaimStore) {
+    return {
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: buildCompareErrorBody('Comparison authorization is not available yet.'),
+    };
+  }
+
   const backgroundTask = () => {
-    void processCompareInteraction(interaction, options, { reportUrl, characterName, mode });
+    void processCompareInteraction(interaction, options, { reportUrl, characterName, mode, visibility });
   };
   if (options.scheduleBackgroundTask) {
     options.scheduleBackgroundTask(backgroundTask);

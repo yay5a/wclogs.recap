@@ -1,4 +1,5 @@
 import type {
+    CharacterClaimStatus,
     ComparisonSnapshotInput,
     GuildConfigStore,
     PreviousRaidLookup,
@@ -50,11 +51,76 @@ export interface ComparisonHistoryStore {
     }): Promise<ComparisonSnapshotInput[]>;
 }
 
+export interface CharacterClaimRecord {
+    guildId: string;
+    discordUserId: string;
+    participantKey: string;
+    characterName: string;
+    region: string;
+    realm: string;
+    status: CharacterClaimStatus;
+    peerCompareOptIn: boolean;
+    publicPostOptIn: boolean;
+    requestedAt: Date;
+    reviewedAt?: Date;
+    reviewedByDiscordUserId?: string;
+}
+
+export interface CharacterClaimStore {
+    requestCharacterClaim(input: {
+        guildId: string;
+        discordUserId: string;
+        participantKey: string;
+        characterName: string;
+        region: string;
+        realm: string;
+    }): Promise<CharacterClaimRecord>;
+    approveCharacterClaim(input: {
+        guildId: string;
+        discordUserId: string;
+        participantKey: string;
+        characterName: string;
+        region: string;
+        realm: string;
+        reviewedByDiscordUserId: string;
+    }): Promise<CharacterClaimRecord>;
+    rejectCharacterClaim(input: {
+        guildId: string;
+        discordUserId: string;
+        participantKey: string;
+        characterName: string;
+        region: string;
+        realm: string;
+        reviewedByDiscordUserId: string;
+    }): Promise<CharacterClaimRecord | null>;
+    findApprovedClaimForUserCharacter(input: {
+        guildId: string;
+        discordUserId: string;
+        participantKey: string;
+    }): Promise<CharacterClaimRecord | null>;
+    findApprovedClaimsForParticipant(input: {
+        guildId: string;
+        participantKey: string;
+    }): Promise<CharacterClaimRecord[]>;
+    updateClaimPrivacy(input: {
+        guildId: string;
+        discordUserId: string;
+        participantKey: string;
+        peerCompareOptIn?: boolean;
+        publicPostOptIn?: boolean;
+    }): Promise<CharacterClaimRecord | null>;
+    listClaimsForUser(input: {
+        guildId: string;
+        discordUserId: string;
+    }): Promise<CharacterClaimRecord[]>;
+}
+
 export interface HandleOptions {
     wclClient: WclClient & Partial<PreviousRaidLookup>;
     guildConfigStore: GuildConfigStore;
     recapPreviewStateService: RecapPreviewStateService;
     comparisonHistoryStore?: ComparisonHistoryStore;
+    characterClaimStore?: CharacterClaimStore;
     previewStateTtlSeconds?: number;
     scheduleBackgroundTask?: (task: () => void) => void;
 }
@@ -72,7 +138,7 @@ export interface DiscordInteraction {
     type?: number;
     guild_id?: string;
     channel_id?: string;
-    member?: { user?: { id?: string } };
+    member?: { user?: { id?: string }; roles?: string[]; permissions?: string | number };
     user?: { id?: string };
     data?: DiscordInteractionData;
 }

@@ -212,6 +212,13 @@ export const buildCompareResponseBody = ({
   };
 };
 
+export const buildPublicCompareResponseBody = (
+  viewModel: CompareBaselineResponseViewModel,
+): { content: string } => {
+  const { flags: _flags, ...body } = buildCompareResponseBody(viewModel);
+  return body;
+};
+
 export const buildCompareErrorBody = (content: string): { content: string; flags: number } => ({
   content,
   flags: EPHEMERAL_MESSAGE_FLAG,

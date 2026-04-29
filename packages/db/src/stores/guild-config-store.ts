@@ -1,4 +1,8 @@
-import { defaultGuildConfigFor, parseCompareMode } from "@wcl/domain";
+import {
+    defaultGuildConfigFor,
+    parseCompareAccessMode,
+    parseCompareMode,
+} from "@wcl/domain";
 import type {
     AccountabilityVisibility,
     CoachingShareability,
@@ -17,6 +21,10 @@ const parseCoachingShareability = (value: unknown): CoachingShareability =>
     value === "shareable" ? "shareable" : "private";
 const parseRecapPostMode = (value: unknown): RecapPostMode =>
     value === "preview-only" ? "preview-only" : "preview-and-post";
+const parseCompareOfficerRoleIds = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((roleId): roleId is string => typeof roleId === "string") : [];
+const parseBoolean = (value: unknown): boolean =>
+    typeof value === "boolean" ? value : false;
 
 const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
     const fallback = defaultGuildConfigFor(guildId);
@@ -33,6 +41,10 @@ const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
             raw.coachingShareabilityDefault,
         ),
         recapPostModeDefault: parseRecapPostMode(raw.recapPostModeDefault),
+        compareAccessMode:
+            parseCompareAccessMode(raw.compareAccessMode) ?? fallback.compareAccessMode,
+        compareOfficerRoleIds: parseCompareOfficerRoleIds(raw.compareOfficerRoleIds),
+        comparePublicPostingEnabled: parseBoolean(raw.comparePublicPostingEnabled),
     };
 };
 
