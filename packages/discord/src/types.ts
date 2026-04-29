@@ -42,6 +42,12 @@ export interface RecapPreviewStateService {
 
 export interface ComparisonHistoryStore {
     saveComparisonSnapshot(input: ComparisonSnapshotInput): Promise<unknown>;
+    findCharacterHistory(input: {
+        guildId: string;
+        participantKey: string;
+        before: Date;
+        limit?: number;
+    }): Promise<ComparisonSnapshotInput[]>;
 }
 
 export interface HandleOptions {

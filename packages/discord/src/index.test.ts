@@ -1,6 +1,11 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { InteractionType } from 'discord-interactions';
-import type { GuildConfigStore, NormalizedPlayer, NormalizedReport } from '@wcl/domain';
+import { InteractionResponseType, InteractionType } from 'discord-interactions';
+import type {
+  ComparisonSnapshotInput,
+  GuildConfigStore,
+  NormalizedPlayer,
+  NormalizedReport,
+} from '@wcl/domain';
 import { buildRecapSummary } from '@wcl/domain';
 import {
   buildRecapPreviewBody,
@@ -145,11 +150,12 @@ afterEach(() => {
 });
 
 describe('command payload builder', () => {
-  it('keeps command surface focused on health/config/recap only', () => {
+  it('keeps command surface focused on health/config/recap/compare', () => {
     expect(commandDefinitions.map((command) => command.name)).toEqual([
       'health',
       'config',
       'recap',
+      'compare',
     ]);
     const configCommand = commandDefinitions.find((command) => command.name === 'config');
     if (!configCommand || !('options' in configCommand)) {
@@ -157,6 +163,24 @@ describe('command payload builder', () => {
     }
     const optionNames = configCommand.options?.map((option) => option.name) ?? [];
     expect(optionNames).toEqual(['game_family', 'compare_mode']);
+
+    const compareCommand = commandDefinitions.find((command) => command.name === 'compare');
+    if (!compareCommand || !('options' in compareCommand)) {
+      throw new Error('Expected compare command options');
+    }
+    expect(compareCommand.options).toMatchObject([
+      { name: 'report', type: 3, required: true },
+      { name: 'character', type: 3, required: true },
+      {
+        name: 'mode',
+        type: 3,
+        required: true,
+        choices: [
+          { name: 'character', value: 'character' },
+          { name: 'mixed', value: 'mixed' },
+        ],
+      },
+    ]);
   });
 
   it('builds valid chat-input command payload', () => {
@@ -483,6 +507,136 @@ describe('handleInteraction', () => {
     return { wclClient, guildConfigStore, recapPreviewStateService };
   };
 
+  const makeGuildConfigStore = (): GuildConfigStore => ({
+    getGuildConfig: vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      accountabilityVisibility: 'off',
+      coachingShareabilityDefault: 'private',
+      recapPostModeDefault: 'preview-and-post',
+    }),
+    saveGuildConfig: vi.fn(),
+  });
+
+  const makeRecapPreviewStateService = () => ({
+    savePreviewState: vi.fn(),
+    getValidPreviewState: vi.fn(),
+    consumeValidPreviewState: vi.fn(),
+    deletePreviewState: vi.fn(),
+  });
+
+  const makeHistorySnapshot = (
+    overrides: Partial<ComparisonSnapshotInput> = {},
+  ): ComparisonSnapshotInput => ({
+    guildId: 'guild-1',
+    reportCode: 'OLD1',
+    reportStartedAt: new Date(Date.UTC(2026, 2, 1)),
+    participantKey: 'character:us:stormrage:alyra',
+    characterName: 'Alyra',
+    region: 'US',
+    realm: 'Stormrage',
+    rankPercent: 66.5,
+    damageTotal: 1000,
+    healingTotal: 100,
+    deaths: 1,
+    interrupts: 5,
+    dispels: 8,
+    ...overrides,
+  });
+
+  const makeCompareInteraction = (
+    mode: string,
+    character = 'Alyra',
+  ) => ({
+    type: InteractionType.APPLICATION_COMMAND,
+    id: 'compare-interaction-1',
+    application_id: 'app-1',
+    token: 'token-1',
+    guild_id: 'guild-1',
+    channel_id: 'channel-1',
+    member: { user: { id: 'user-1' } },
+    data: {
+      name: 'compare',
+      options: [
+        { name: 'report', value: 'https://www.warcraftlogs.com/reports/ABC123' },
+        { name: 'character', value: character },
+        { name: 'mode', value: mode },
+      ],
+    },
+  });
+
+  const parseEditedOriginalResponseBody = (
+    editFetch: ReturnType<typeof vi.fn>,
+  ): { content?: string; flags?: number } => {
+    const patchCall = editFetch.mock.calls.find(
+      ([url]) =>
+        typeof url === 'string' &&
+        url.includes('/webhooks/') &&
+        url.includes('/messages/@original'),
+    );
+    const body =
+      patchCall?.[1] &&
+      typeof patchCall[1] === 'object' &&
+      'body' in (patchCall[1] as Record<string, unknown>)
+        ? (patchCall[1] as { body: string }).body
+        : '{}';
+    return JSON.parse(body) as { content?: string; flags?: number };
+  };
+
+  const runDeferredCompare = async ({
+    report = makeReportWithComparisonIdentity(),
+    history,
+    character = 'Alyra',
+  }: {
+    report?: NormalizedReport;
+    history: ComparisonSnapshotInput[];
+    character?: string;
+  }) => {
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
+      findPreviousRaidSummaries: vi.fn(),
+    } as never;
+    const comparisonHistoryStore = {
+      saveComparisonSnapshot: vi.fn(),
+      findCharacterHistory: vi.fn().mockResolvedValue(history),
+    };
+    const editFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    });
+    vi.stubGlobal('fetch', editFetch);
+
+    const response = await handleInteraction(
+      makeCompareInteraction('character', character),
+      {
+        wclClient,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        comparisonHistoryStore,
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { flags: 64 },
+    });
+
+    await vi.waitFor(() => {
+      expect(editFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/webhooks/'),
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
+
+    return {
+      body: parseEditedOriginalResponseBody(editFetch),
+      comparisonHistoryStore,
+      wclClient,
+      editFetch,
+    };
+  };
+
   it('saves mixed as the guild default comparison policy', async () => {
     const saveGuildConfig = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
@@ -603,6 +757,170 @@ describe('handleInteraction', () => {
     expect((response as { data?: { content?: string } }).data?.content).toBe(
       'Default comparison mode set to character. Future comparisons will match exact character history unless a command overrides it.',
     );
+  });
+
+  it('runs character compare with sufficient stored history', async () => {
+    const { body, comparisonHistoryStore } = await runDeferredCompare({
+      history: [
+        makeHistorySnapshot({
+          reportCode: 'OLD1',
+          rankPercent: 60,
+          damageTotal: 1000,
+          healingTotal: 100,
+          dispels: 7,
+        }),
+        makeHistorySnapshot({
+          reportCode: 'OLD2',
+          reportStartedAt: new Date(Date.UTC(2026, 2, 2)),
+          rankPercent: 70,
+          damageTotal: 1000,
+          healingTotal: 100,
+          dispels: 8,
+        }),
+        makeHistorySnapshot({
+          reportCode: 'OLD3',
+          reportStartedAt: new Date(Date.UTC(2026, 2, 3)),
+          rankPercent: 69.5,
+          damageTotal: 1000,
+          healingTotal: 100,
+          dispels: 8,
+        }),
+      ],
+    });
+
+    expect(comparisonHistoryStore.findCharacterHistory).toHaveBeenCalledWith({
+      guildId: 'guild-1',
+      participantKey: 'character:us:stormrage:alyra',
+      before: new Date(Date.UTC(2026, 3, 9)),
+      limit: 5,
+    });
+    expect(body.flags).toBe(64);
+    expect(body.content).toContain('Comparison: Alyra');
+    expect(body.content).toContain('Mode: character');
+    expect(body.content).toContain('History: 3 prior reports');
+    expect(body.content).toContain('Summary:');
+    expect(body.content).toContain('Performance:');
+    expect(body.content).toContain('Execution:');
+    expect(body.content).toContain('Context:');
+    expect(body.content).toContain('Parse: 82, above baseline of 66.5 (samples: 3)');
+    expect(body.content).toContain('Damage total: 1,234, above baseline of 1,000 (samples: 3)');
+    expect(body.content).toContain('Healing total: 567, above baseline of 100 (samples: 3)');
+    expect(body.content).toContain('Dispels: 1, below baseline of 7.7 (samples: 3)');
+    expect(body.content).toContain('Metric sample size: 3');
+    expect(body.content).not.toMatch(/participantKey|playerProfileId/i);
+    expect(body.content).not.toMatch(/\bDPS\b|\bHPS\b/);
+  });
+
+  it('renders no-history compare responses without baseline claims', async () => {
+    const { body, comparisonHistoryStore } = await runDeferredCompare({ history: [] });
+
+    expect(comparisonHistoryStore.findCharacterHistory).toHaveBeenCalledOnce();
+    expect(body.flags).toBe(64);
+    expect(body.content).toContain('History: 0 prior reports');
+    expect(body.content).toContain('No prior character history was found for Alyra.');
+    expect(body.content).toContain('No trusted performance baseline is available.');
+    expect(body.content).toContain('No trusted execution baseline is available.');
+    expect(body.content).toContain('Metric sample size: 0 reports (trusted threshold: 3)');
+    expect(body.content).not.toMatch(/participantKey|playerProfileId/i);
+  });
+
+  it('renders insufficient-history compare responses without baseline claims', async () => {
+    const { body, comparisonHistoryStore } = await runDeferredCompare({
+      history: [
+        makeHistorySnapshot({ reportCode: 'OLD1' }),
+        makeHistorySnapshot({
+          reportCode: 'OLD2',
+          reportStartedAt: new Date(Date.UTC(2026, 2, 2)),
+        }),
+      ],
+    });
+
+    expect(comparisonHistoryStore.findCharacterHistory).toHaveBeenCalledOnce();
+    expect(body.flags).toBe(64);
+    expect(body.content).toContain('History: 2 prior reports');
+    expect(body.content).toContain(
+      'Insufficient history for a trusted baseline: 2 prior reports found; 3 required.',
+    );
+    expect(body.content).toContain('No trusted performance baseline is available.');
+    expect(body.content).toContain('No trusted execution baseline is available.');
+    expect(body.content).toContain('Metric sample size: 2 reports (trusted threshold: 3)');
+    expect(body.content).not.toMatch(/participantKey|playerProfileId/i);
+  });
+
+  it('returns a private missing character response for /compare', async () => {
+    const { body, comparisonHistoryStore } = await runDeferredCompare({
+      history: [],
+      character: 'Missingtoon',
+    });
+
+    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
+    expect(body).toMatchObject({
+      content: 'Character not found in the current report: Missingtoon.',
+      flags: 64,
+    });
+  });
+
+  it('rejects invalid compare modes without fetching a report', async () => {
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn(),
+      findPreviousRaidSummaries: vi.fn(),
+    } as never;
+    const comparisonHistoryStore = {
+      saveComparisonSnapshot: vi.fn(),
+      findCharacterHistory: vi.fn(),
+    };
+
+    const response = await handleInteraction(
+      makeCompareInteraction('alts'),
+      {
+        wclClient,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        comparisonHistoryStore,
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: 'Invalid compare mode. Choose character or mixed.',
+        flags: 64,
+      },
+    });
+    expect((wclClient as { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }).fetchAndNormalizeReport).not.toHaveBeenCalled();
+    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
+  });
+
+  it('returns mixed-mode missing mapping without character fallback', async () => {
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn(),
+      findPreviousRaidSummaries: vi.fn(),
+    } as never;
+    const comparisonHistoryStore = {
+      saveComparisonSnapshot: vi.fn(),
+      findCharacterHistory: vi.fn(),
+    };
+
+    const response = await handleInteraction(
+      makeCompareInteraction('mixed'),
+      {
+        wclClient,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        comparisonHistoryStore,
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content:
+          'Mixed comparisons require explicit player-character mapping and are not available yet. Alts are not guessed automatically.',
+        flags: 64,
+      },
+    });
+    expect((wclClient as { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }).fetchAndNormalizeReport).not.toHaveBeenCalled();
+    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
   });
 
   it('creates recap preview and post flow', async () => {

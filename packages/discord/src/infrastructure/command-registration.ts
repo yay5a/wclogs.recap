@@ -1,4 +1,5 @@
 import { createLogger } from "@wcl/shared";
+import { COMPARE_MODES } from "@wcl/domain";
 import { discordApiRequest, getDiscordApiBaseUrl } from "./discord-api.js";
 
 const logger = createLogger("discord");
@@ -22,6 +23,7 @@ export type MessageCommandDefinition = { type: 3; name: string; integration_type
 export type CommandDefinition = ChatInputCommandDefinition | UserCommandDefinition | MessageCommandDefinition;
 
 const commandTypeLabel = (type: CommandDefinition["type"]): string => (type === 1 ? "CHAT_INPUT" : type === 2 ? "USER" : "MESSAGE");
+const compareModeChoices = COMPARE_MODES.map((mode) => ({ name: mode, value: mode }));
 const validateCommandNameUniqueness = (commands: CommandDefinition[]) => {
     const seen = new Set<string>();
     for (const command of commands) {
@@ -75,9 +77,14 @@ export const commandDefinitions: CommandDefinition[] = [
     { name: "health", description: "Check bot health", type: 1 },
     { name: "config", description: "Configure guild recap behavior", type: 1, options: [
         { name: "game_family", description: "Default game family", type: 3, required: false, choices: [{ name: "retail", value: "retail" }, { name: "mop_classic", value: "mop_classic" }] },
-        { name: "compare_mode", description: "Default compare mode", type: 3, required: false, choices: [{ name: "character", value: "character" }, { name: "mixed", value: "mixed" }] },
+        { name: "compare_mode", description: "Default compare mode", type: 3, required: false, choices: compareModeChoices },
     ]},
     { name: "recap", description: "Generate a recap preview from a WCL report URL", type: 1, options: [{ name: "url", description: "WCL report URL", type: 3, required: true }] },
+    { name: "compare", description: "Privately compare one character against recent stored history", type: 1, options: [
+        { name: "report", description: "WCL report URL", type: 3, required: true },
+        { name: "character", description: "Character name in the report", type: 3, required: true },
+        { name: "mode", description: "Comparison mode", type: 3, required: true, choices: compareModeChoices },
+    ] },
 ];
 
 export class DiscordCommandRegistrationError extends Error {

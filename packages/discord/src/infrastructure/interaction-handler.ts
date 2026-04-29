@@ -1,6 +1,7 @@
 import { InteractionResponseType, InteractionType } from "discord-interactions";
 import { createLogger } from "@wcl/shared";
 import type { HandleOptions } from "../types.js";
+import { handleCompareCommand } from "../commands/compare.js";
 import { handleConfigCommand } from "../commands/config.js";
 import {
     handleRecapComponentInteraction,
@@ -30,6 +31,10 @@ export const handleInteraction = async (
 
         if (typedInteraction.data?.name === "config") {
             return handleConfigCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "compare") {
+            return handleCompareCommand(typedInteraction, options);
         }
 
         if (typedInteraction.data?.name === "recap") {
