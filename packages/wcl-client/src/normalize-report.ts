@@ -162,6 +162,12 @@ const buildRealmLabel = (report: Record<string, unknown>): string | undefined =>
   return serverName;
 };
 
+const getReportRegion = (report: Record<string, unknown>): string | undefined => {
+  const guild = asObject(report.guild);
+  const server = asObject(guild?.server);
+  return asString(asObject(server?.region)?.compactName);
+};
+
 const parseEncounterPhases = (
   report: Record<string, unknown>,
 ): Map<number, EncounterPhaseRow[]> => {
@@ -576,6 +582,7 @@ export const normalizeEnrichedReport = (
   const parsePlayersStartedAt = now();
   const playerDetails = parsePlayerDetailsPayload(enriched?.playerDetails);
   const detailByName = new Map(playerDetails.map((entry) => [normalizeName(entry.name), entry]));
+  const reportRegion = getReportRegion(report);
 
   const leaderboardIndex = indexLeaderboardByActorAndName([
     ...reportLeaderboards,
@@ -620,7 +627,11 @@ export const normalizeEnrichedReport = (
       player.warcraftLogsGuid = detail.warcraftLogsGuid;
     }
     if (detail?.server) player.server = detail.server;
-    if (detail?.region) player.region = detail.region;
+    if (detail?.region) {
+      player.region = detail.region;
+    } else if (reportRegion) {
+      player.region = reportRegion;
+    }
     if (className) player.className = className;
     if (realm) player.realm = realm;
     if (detail?.specName) player.specName = detail.specName;

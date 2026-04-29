@@ -7,7 +7,7 @@ const IN_PROGRESS_REPORT_TTL_MS = 2 * 60 * 1000;
 const INACCESSIBLE_REPORT_TTL_MS = 6 * 60 * 60 * 1000;
 const RECENT_REPORT_WINDOW_MS = 6 * 60 * 60 * 1000;
 export const RAW_PAYLOAD_VERSION = 4;
-export const NORMALIZED_PAYLOAD_VERSION = 4;
+export const NORMALIZED_PAYLOAD_VERSION = 5;
 type ReportCacheState = 'in_progress' | 'recent' | 'completed' | 'inaccessible';
 
 const isWithinTtl = (fetchedAt: unknown, ttlMs: number): boolean => {

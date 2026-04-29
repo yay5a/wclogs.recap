@@ -55,6 +55,14 @@ describe("cache policy", () => {
         ).toBe(true);
     });
 
+    it("rejects stale normalized payload versions", () => {
+        expect(
+            shouldUseCachedNormalizedPayload({
+                normalizedPayloadVersion: NORMALIZED_PAYLOAD_VERSION - 1,
+            }),
+        ).toBe(false);
+    });
+
     it("bypasses normalized payload reuse when requested", () => {
         process.env.WCL_BYPASS_CACHE = "true";
 

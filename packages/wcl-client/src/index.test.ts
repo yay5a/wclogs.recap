@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import { extractComparisonSnapshots } from "@wcl/domain";
+import { NORMALIZED_PAYLOAD_VERSION, RAW_PAYLOAD_VERSION } from "./cache-policy.js";
 
 describe("index contract", () => {
     vi.mock(
@@ -230,6 +231,128 @@ describe("index contract", () => {
             );
         });
 
+        it("falls back to report guild server region when playerDetails is empty", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Raid",
+                                startTime: 100,
+                                endTime: 200,
+                                guild: {
+                                    server: {
+                                        name: "Stormrage",
+                                        region: { compactName: "US" },
+                                    },
+                                },
+                                fights: [],
+                                masterData: {
+                                    actors: [
+                                        {
+                                            id: 1,
+                                            name: "Yaysa",
+                                            subType: "Rogue",
+                                            server: "Stormrage",
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    playerDetails: {
+                        players: { data: [] },
+                    },
+                },
+                parsed,
+            );
+
+            expect(normalized.players[0]).toMatchObject({
+                id: "1",
+                actorId: 1,
+                name: "Yaysa",
+                realm: "Stormrage",
+                region: "US",
+            });
+            expect(normalized.players[0]).not.toHaveProperty("server");
+            expect(normalized.players[0]).not.toHaveProperty("warcraftLogsGuid");
+            expect(normalized.players[0]).not.toHaveProperty("playerProfileId");
+
+            const extraction = extractComparisonSnapshots({
+                guildId: "guild-1",
+                report: normalized,
+            });
+            expect(extraction.issues).toEqual([]);
+            expect(extraction.snapshots[0]?.participantKey).toBe(
+                "character:us:stormrage:yaysa",
+            );
+            expect(extraction.snapshots[0]).not.toHaveProperty("playerProfileId");
+        });
+
+        it("prefers playerDetails region over report guild server region", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Raid",
+                                startTime: 100,
+                                endTime: 200,
+                                guild: {
+                                    server: {
+                                        name: "Silvermoon",
+                                        region: { compactName: "EU" },
+                                    },
+                                },
+                                fights: [],
+                                masterData: {
+                                    actors: [
+                                        {
+                                            id: 1,
+                                            name: "Yaysa",
+                                            subType: "Rogue",
+                                            server: "Stormrage",
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    playerDetails: {
+                        dps: [
+                            {
+                                name: "Yaysa",
+                                id: 7,
+                                guid: 99060818,
+                                type: "Rogue",
+                                server: "Stormrage",
+                                region: "US",
+                            },
+                        ],
+                    },
+                },
+                parsed,
+            );
+
+            expect(normalized.players[0]).toMatchObject({
+                name: "Yaysa",
+                realm: "Stormrage",
+                server: "Stormrage",
+                region: "US",
+                warcraftLogsActorId: 7,
+                warcraftLogsGuid: 99060818,
+            });
+
+            const extraction = extractComparisonSnapshots({
+                guildId: "guild-1",
+                report: normalized,
+            });
+            expect(extraction.issues).toEqual([]);
+            expect(extraction.snapshots[0]?.participantKey).toBe(
+                "character:us:stormrage:yaysa",
+            );
+        });
+
         it("keeps probe-backed Warcraft Logs participant identity fields optional", () => {
             const normalized = normalizeEnrichedReport(
                 {
@@ -273,6 +396,13 @@ describe("index contract", () => {
             expect(normalized.players[0]).not.toHaveProperty("server");
             expect(normalized.players[0]).not.toHaveProperty("region");
             expect(normalized.players[0]).not.toHaveProperty("playerProfileId");
+
+            const extraction = extractComparisonSnapshots({
+                guildId: "guild-1",
+                report: normalized,
+            });
+            expect(extraction.snapshots).toEqual([]);
+            expect(extraction.issues[0]?.code).toBe("missing-participant-identity");
         });
 
         it("normalizes multiple boss performances from multi-encounter summaries", () => {
@@ -1221,7 +1351,7 @@ describe("index contract", () => {
                     sourceUrl: "https://www.warcraftlogs.com/reports/abc123xyz4567890",
                     gameFamily: "retail",
                     rawPayload: {
-                        rawPayloadVersion: 4,
+                        rawPayloadVersion: RAW_PAYLOAD_VERSION,
                         base: cachedBase,
                         encounterSummaries: [],
                     },
@@ -1257,7 +1387,7 @@ describe("index contract", () => {
             const upsertArgs = store.upsert.mock.calls[0]?.[0] as
                 | { normalizedPayloadVersion?: number }
                 | undefined;
-            expect(upsertArgs?.normalizedPayloadVersion).toBe(4);
+            expect(upsertArgs?.normalizedPayloadVersion).toBe(NORMALIZED_PAYLOAD_VERSION);
         });
 
         it("refetches old raw cache payloads without the current enrichment version", async () => {
