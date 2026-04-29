@@ -78,7 +78,6 @@ const makePreviewSummary = (): PreviewSummary => ({
   coachingShareability: 'shareable' as const,
   recapPostMode: 'preview-and-post' as const,
   fastestPhaseTimes: [],
-  bestPlayerParses: [],
   topDamageDone: [],
   topHealingDone: [],
   topDamageTaken: [],
@@ -93,9 +92,9 @@ const makePreviewSummary = (): PreviewSummary => ({
     battleRezzes: 0,
     kicks: 0,
   },
-  topOverallParsers: [],
-  topOverallDamageParsers: [],
-  topOverallHealingParsers: [],
+  highestParses: [],
+  topDamageAverageParses: [],
+  topHealingAverageParses: [],
   bossHighlights: [],
   raidSuperlatives: [],
   teamNote: 'Team note',
@@ -929,15 +928,6 @@ describe('embed rendering', () => {
   it('renders report-wide recap field set', () => {
     const embed = buildPublicRecapEmbed({
       ...makePreviewSummary(),
-      bestPlayerParses: [
-        {
-          playerName: 'Alyra',
-          parse: 99,
-          amount: 250000,
-          metricLabel: 'DPS',
-          classSpecLabel: 'Shadow Priest',
-        },
-      ],
       topDamageDone: [{ playerName: 'Alyra', value: 250000, classSpecLabel: 'Shadow Priest' }],
       topHealingDone: [{ playerName: 'Healz', value: 67890, classSpecLabel: 'Mistweaver Monk' }],
       topDamageTaken: [
@@ -954,25 +944,20 @@ describe('embed rendering', () => {
         battleRezzes: 2,
         kicks: 11,
       },
-      bestSingleBossParse: {
-        playerName: 'Alyra',
-        value: 99,
-        bossName: 'One-Armed Bandit',
-        fightId: 11,
-        metric: 'DPS',
-      },
-      bestAverageParse: {
-        playerName: 'Pearl',
-        value: 97.4,
-        metric: 'HPS',
-      },
-      topOverallParsers: [
-        { playerName: 'Alyra', value: 99, metric: 'DPS' },
-        { playerName: 'Pearl', value: 97.4, metric: 'HPS' },
-        { playerName: 'Bulwark', value: 95.2, metric: 'DTPS' },
+      highestParses: [
+        { playerName: 'Kaltsit', metric: 'DPS', value: 90, bossName: 'Horridon' },
+        { playerName: 'Bustinsihder', metric: 'HPS', value: 89, bossName: 'Horridon' },
+        { playerName: 'Jokerofpain', metric: 'DPS', value: 81, bossName: 'Horridon' },
       ],
-      topOverallDamageParsers: [{ playerName: 'Alyra', value: 99, metric: 'DPS' }],
-      topOverallHealingParsers: [{ playerName: 'Pearl', value: 97.4, metric: 'HPS' }],
+      topDamageAverageParses: [
+        { playerName: 'Kaltsit', value: 61 },
+        { playerName: 'Jokerofpain', value: 61 },
+        { playerName: 'Venomblàdez', value: 57 },
+      ],
+      topHealingAverageParses: [
+        { playerName: 'Bustinsihder', value: 70 },
+        { playerName: 'Emerald', value: 54 },
+      ],
       bossHighlights: [{ bossName: 'One-Armed Bandit', fightId: 11, text: 'Kill secured.' }],
       bestExecution: { playerName: 'Alyra', value: 94.2 },
       mostImprovedPlayer: { playerName: 'Pearl', delta: 5.2 },
@@ -999,9 +984,26 @@ describe('embed rendering', () => {
     const domainDivider = '━━━━━━━━━━━━━━━━━━━━';
 
     expect(output).not.toContain('Most wipes:');
-    expect(performance).toContain('  #2 **Pearl** · 97.4 HPS parse');
-    expect(performance).toContain('  #1 **Alyra** · 99 DPS parse · 250K damage · Shadow Priest');
-    expect(performance).toContain('Shadow Priest');
+    expect(performance).toContain('▸ __**Highest Parse**__');
+    expect(performance).toContain('▸ __**Damage Parse Averages**__');
+    expect(performance).toContain('▸ __**Healing Parse Averages**__');
+    expect(performance).toContain('  #1 **Kaltsit** · DPS parse: 90.0 on Horridon');
+    expect(performance).toContain('  #2 **Bustinsihder** · HPS parse: 89.0 on Horridon');
+    expect(performance).toContain('  #3 **Jokerofpain** · DPS parse: 81.0 on Horridon');
+    expect(performance).toContain('  #1 **Kaltsit** · average parse: 61');
+    expect(performance).toContain('  #2 **Jokerofpain** · average parse: 61');
+    expect(performance).toContain('  #3 **Venomblàdez** · average parse: 57');
+    expect(performance).toContain('  #1 **Bustinsihder** · average parse: 70');
+    expect(performance).toContain('  #2 **Emerald** · average parse: 54');
+    expect(performance).not.toContain('Signature Parses');
+    expect(performance).not.toContain('Player Standouts');
+    expect(performance).not.toContain('Overall Parses');
+    expect(performance).not.toContain('Damage Parses');
+    expect(performance).not.toContain('Healing Parses');
+    expect(performance).not.toContain('DTPS parse');
+    expect(performance).not.toContain('damage done');
+    expect(performance).not.toContain('healing');
+    expect(performance).not.toContain('parsed 61');
     expect(outcome).toContain('  ☠️ Deaths: 5');
     expect(outcome).toContain('  🩸 Raid-wide damage taken: 1.2M');
     expect(outcome).toContain('  🦵 Kicks: 11');
@@ -1012,15 +1014,6 @@ describe('embed rendering', () => {
     );
     expect(outcome.endsWith(`\n\n${domainDivider}`)).toBe(true);
     expect(output).not.toContain('Damage taken: 1.2M');
-    expect(performance).toContain(
-      '  👹 Best boss parse: **Alyra** · 99.0 DPS parse · One-Armed Bandit',
-    );
-    expect(performance).toContain('  🎖️ Best average parse: **Pearl** · 97.4 HPS parse');
-    expect(performance).toContain('▸ __**Signature Parses**__\n');
-    expect(performance).toContain('\n\n▸ __**Player Standouts**__\n');
-    expect(performance).toContain('▸ __**Overall Parses**__\n');
-    expect(performance).toContain('▸ __**Damage Parses**__\n');
-    expect(performance).toContain('▸ __**Healing Parses**__\n');
     expect(performance.endsWith(`\n\n${domainDivider}`)).toBe(true);
     expect(performance).not.toContain('Note: Parses are WCL percentiles');
     expect(logs).toBe(
@@ -1029,9 +1022,6 @@ describe('embed rendering', () => {
     expect(execution).not.toContain('Best boss parse');
     expect(execution).toContain('Best execution');
     expect(execution).toContain('Most improved');
-    expect(performance).toContain('  #1 **Alyra** · 99.0 DPS parse');
-    expect(performance).toContain('  #2 **Pearl** · 97.4 HPS parse');
-    expect(performance).toContain('  #3 **Bulwark** · 95.2 DTPS parse');
     expect(performance).not.toMatch(/^\s+\d+\./m);
     expect(performance).not.toMatch(/\d(?:\.\d+)?[KMB] (?:DPS|HPS|DTPS)\b/);
     for (const removedTierBadge of ['🩷', '🟧', '🟪', '🟦', '🟩', '⬛']) {
@@ -1099,35 +1089,46 @@ describe('embed rendering', () => {
       gameFamily: 'retail',
       fights: [],
       players: [],
-      leaderboards: [
-        {
-          scope: 'report',
-          playerName: 'Tankhem',
-          metric: 'bestPerformanceAverage',
-          selectedMetric: 'DTPS',
-          value: 97.1,
-        },
-        {
-          scope: 'report',
-          playerName: 'Tankhem',
-          metric: 'bestPerformanceAverage',
-          selectedMetric: 'DTPS',
-          value: 97.1,
-          className: 'DeathKnight',
-          specName: 'Blood',
-        },
-        {
-          scope: 'report',
-          playerName: 'Pearl',
-          metric: 'bestPerformanceAverage',
-          selectedMetric: 'HPS',
-          value: 96.3,
-        },
-      ],
-      reportWideRecap: {
-        topDamageDone: [{ playerName: 'Tankhem', value: 210000 }],
-        topHealingDone: [],
-        totals: {},
+      reportWideRankings: {
+        dps: [
+          {
+            scope: 'report',
+            playerName: 'Tankhem',
+            metric: 'rankPercent',
+            selectedMetric: 'DPS',
+            role: 'dps',
+            value: 80,
+            rankPercent: 80,
+            bossName: 'Horridon',
+            fightId: 4,
+          },
+          {
+            scope: 'report',
+            playerName: 'Tankhem',
+            metric: 'rankPercent',
+            selectedMetric: 'DPS',
+            role: 'dps',
+            value: 80,
+            rankPercent: 80,
+            bossName: 'Horridon',
+            fightId: 4,
+            className: 'DeathKnight',
+            specName: 'Blood',
+          },
+        ],
+        hps: [
+          {
+            scope: 'report',
+            playerName: 'Pearl',
+            metric: 'rankPercent',
+            selectedMetric: 'HPS',
+            role: 'healer',
+            value: 96.3,
+            rankPercent: 96.3,
+            bossName: 'Horridon',
+            fightId: 4,
+          },
+        ],
       },
     });
     const embed = buildPublicRecapEmbed(summary);
@@ -1137,8 +1138,8 @@ describe('embed rendering', () => {
     const sectionValue = (label: string): string =>
       performanceField.split(`▸ __**${label}**__\n`)[1]?.split('\n\n▸ __**')[0] ?? '';
 
-    expect(sectionValue('Player Standouts').match(/Tankhem/g)).toHaveLength(1);
-    expect(sectionValue('Overall Parses').match(/Tankhem/g)).toHaveLength(1);
+    expect(sectionValue('Highest Parse').match(/Tankhem/g)).toHaveLength(1);
+    expect(sectionValue('Damage Parse Averages').match(/Tankhem/g)).toHaveLength(1);
   });
 });
 
@@ -1147,21 +1148,9 @@ describe('preview rendering', () => {
     const body = buildRecapPreviewBody(
       {
         ...makePreviewSummary(),
-        bestPlayerParses: [
-          {
-            playerName: 'Alyra',
-            parse: 99,
-            metricLabel: 'DPS',
-            amount: 250000,
-          },
-        ],
-        bestSingleBossParse: {
-          playerName: 'Alyra',
-          value: 99,
-          metric: 'DPS',
-          bossName: 'Megaera',
-          fightId: 1,
-        },
+        highestParses: [{ playerName: 'Alyra', value: 99, metric: 'DPS', bossName: 'Megaera' }],
+        topDamageAverageParses: [{ playerName: 'Alyra', value: 61 }],
+        topHealingAverageParses: [{ playerName: 'Emerald', value: 54 }],
       },
       'ABC123',
       'guild-1',
@@ -1177,9 +1166,10 @@ describe('preview rendering', () => {
     expect(description).toContain('Guild on Realm-US');
     expect(description).toContain('45 Min · 9 pulls · 01/01/1970');
     expect(description).toContain('**Top Line:**');
-    expect(description).toContain('Best boss parse: Alyra - 99.0 DPS on Megaera');
-    expect(description).not.toContain('Best parse on a boss');
-    expect(description).toContain('☠️ Deaths: 0 · 🛑 Kicks: 0 · ✨ Dispels: 0');
+    expect(description).toContain('Highest parse: Alyra · DPS parse: 99.0 on Megaera');
+    expect(description).toContain('Damage average: Alyra · average parse: 61');
+    expect(description).toContain('Healing average: Emerald · average parse: 54');
+    expect(description).toContain('☠️ Deaths: 0 · 🦵 Kicks: 0 · 🪄 Dispels: 0');
     expect(description).not.toContain('[object Object]');
   });
 

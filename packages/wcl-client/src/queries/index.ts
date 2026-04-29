@@ -140,6 +140,26 @@ const REPORT_RANKINGS_QUERY = `
   }
 `;
 
+const REPORT_RANKINGS_DPS_COMBINED_QUERY = `
+  query ReportRankingsDpsCombined($code: String!, $allowUnlisted: Boolean!) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        rankings(playerMetric: dps, timeframe: Today, compare: Rankings)
+      }
+    }
+  }
+`;
+
+const REPORT_RANKINGS_HPS_COMBINED_QUERY = `
+  query ReportRankingsHpsCombined($code: String!, $allowUnlisted: Boolean!) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        rankings(playerMetric: hps, timeframe: Today, compare: Rankings)
+      }
+    }
+  }
+`;
+
 const BOSS_RANKINGS_QUERY = `
   query BossRankings(
     $code: String!
@@ -241,6 +261,22 @@ export const createWclQueries = (execute: GraphQlExecutor) => ({
     }) => execute<BaseReportSummaryPayload>(BASE_REPORT_QUERY, variables),
     reportRankings: (variables: { code: string; allowUnlisted: boolean }) =>
         execute<ReportRankingsPayload>(REPORT_RANKINGS_QUERY, variables),
+    reportRankingsDpsCombined: (variables: {
+        code: string;
+        allowUnlisted: boolean;
+    }) =>
+        execute<ReportRankingsPayload>(
+            REPORT_RANKINGS_DPS_COMBINED_QUERY,
+            variables,
+        ),
+    reportRankingsHpsCombined: (variables: {
+        code: string;
+        allowUnlisted: boolean;
+    }) =>
+        execute<ReportRankingsPayload>(
+            REPORT_RANKINGS_HPS_COMBINED_QUERY,
+            variables,
+        ),
     bossRankings: (variables: {
         code: string;
         allowUnlisted: boolean;

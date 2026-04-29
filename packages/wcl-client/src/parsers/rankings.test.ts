@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
     parseBossRankingsPayload,
+    parseReportRankingsPayloadForRole,
     parseReportRankingsPayload,
 } from "./rankings.js";
 
@@ -131,5 +132,41 @@ describe("rankings parsers", () => {
         const entries = parseReportRankingsPayload("not-json", warn);
         expect(entries).toEqual([]);
         expect(warn).toHaveBeenCalled();
+    });
+
+    it("parses only requested role buckets for report-wide combined payloads", () => {
+        const payload = {
+            data: [
+                {
+                    fightID: 44,
+                    encounter: { name: "Tortos" },
+                    roles: {
+                        tanks: {
+                            characters: [
+                                { id: 10, name: "Tanky", rankPercent: 98.2, amount: 123456 },
+                            ],
+                        },
+                        healers: {
+                            characters: [
+                                { id: 11, name: "Healz", rankPercent: 90.1, amount: 654321 },
+                            ],
+                        },
+                        dps: {
+                            characters: [
+                                { id: 12, name: "Dpsy", rankPercent: 88.4, amount: 111111 },
+                            ],
+                        },
+                    },
+                },
+            ],
+        };
+
+        const dpsEntries = parseReportRankingsPayloadForRole(payload, "dps");
+        const healerEntries = parseReportRankingsPayloadForRole(payload, "healer");
+
+        expect(dpsEntries.map((entry) => entry.playerName)).toEqual(["Dpsy"]);
+        expect(dpsEntries[0]?.selectedMetric).toBe("DPS");
+        expect(healerEntries.map((entry) => entry.playerName)).toEqual(["Healz"]);
+        expect(healerEntries[0]?.selectedMetric).toBe("HPS");
     });
 });

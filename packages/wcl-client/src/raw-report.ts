@@ -19,6 +19,8 @@ export interface EnrichedRawReport {
   rateLimitData?: RateLimitDataSnapshot;
   skippedEnrichments?: string[];
   reportRankings?: unknown;
+  reportRankingsDpsCombined?: unknown;
+  reportRankingsHpsCombined?: unknown;
   playerDetails?: unknown;
   reportTables?: Partial<Record<TableDataType, unknown>>;
   encounterPhaseTimes?: unknown;

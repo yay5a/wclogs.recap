@@ -24,6 +24,7 @@ import {
   parseBossRankingsPayload,
   parsePlayerDetailsPayload,
   parseReportRankingsPayload,
+  parseReportRankingsPayloadForRole,
   parseTablePayloadDetailed,
   type ParsedTableEntry,
 } from './parsers/index.js';
@@ -509,6 +510,41 @@ export const normalizeEnrichedReport = (
       );
     },
   );
+  const killFightIds = new Set(killFights.map((fight) => fight.id));
+  const filterToKillFightRows = (rows: NormalizedLeaderboardEntry[]): NormalizedLeaderboardEntry[] =>
+    rows.filter((entry) => typeof entry.fightId === 'number' && killFightIds.has(entry.fightId));
+  const reportWideDpsRankings = filterToKillFightRows(
+    parseReportRankingsPayloadForRole(
+      enriched?.reportRankingsDpsCombined,
+      'dps',
+      (message, context) => {
+        logger.warn(
+          {
+            reportCode: parsed.reportCode,
+            section: 'report_rankings_dps_combined',
+            context,
+          },
+          message,
+        );
+      },
+    ),
+  );
+  const reportWideHpsRankings = filterToKillFightRows(
+    parseReportRankingsPayloadForRole(
+      enriched?.reportRankingsHpsCombined,
+      'healer',
+      (message, context) => {
+        logger.warn(
+          {
+            reportCode: parsed.reportCode,
+            section: 'report_rankings_hps_combined',
+            context,
+          },
+          message,
+        );
+      },
+    ),
+  );
 
   const encounterSummaries = parseEncounterSummariesFromRaw(enriched);
   const bossLeaderboards = encounterSummaries.flatMap((summary) => {
@@ -531,6 +567,8 @@ export const normalizeEnrichedReport = (
   });
   logTiming('parse rankings', rankingsParseStartedAt, {
     reportLeaderboards: reportLeaderboards.length,
+    reportWideDpsRankings: reportWideDpsRankings.length,
+    reportWideHpsRankings: reportWideHpsRankings.length,
     bossLeaderboards: bossLeaderboards.length,
     encounterSummaries: encounterSummaries.length,
   });
@@ -1000,6 +1038,10 @@ export const normalizeEnrichedReport = (
     leaderboards: [...reportLeaderboards, ...bossLeaderboards],
     bossPerformances,
     reportWideRecap,
+    reportWideRankings: {
+      dps: reportWideDpsRankings,
+      hps: reportWideHpsRankings,
+    },
   } as NormalizedReport;
 
   if (zoneName) {

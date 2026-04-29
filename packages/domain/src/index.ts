@@ -179,6 +179,10 @@ export interface NormalizedReport {
       interrupts?: number;
     };
   };
+  reportWideRankings?: {
+    dps: NormalizedLeaderboardEntry[];
+    hps: NormalizedLeaderboardEntry[];
+  };
 }
 
 export interface RecapSummary {
@@ -198,16 +202,6 @@ export interface RecapSummary {
   coachingShareability: CoachingShareability;
   recapPostMode: RecapPostMode;
   fastestPhaseTimes: Array<{ label: string; durationMs: number; name?: string }>;
-  bestPlayerParses: Array<{
-    playerName: string;
-    parse: number;
-    metricLabel: string;
-    metric?: string;
-    amount?: number;
-    className?: string;
-    specName?: string;
-    classSpecLabel?: string;
-  }>;
   topDamageTaken: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
   topHealers: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
   topDamageDone: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
@@ -224,30 +218,31 @@ export interface RecapSummary {
     battleRezzes?: number;
     kicks?: number;
   };
-  bestSingleBossParse?: {
-    playerName: string;
-    value: number;
-    bossName: string;
-    fightId: number;
-    metric: string;
-  };
-  bestAverageParse?: { playerName: string; value: number; metric: string };
   bestExecution?: { playerName: string; value: number };
   mostImprovedPlayer?: { playerName: string; delta: number };
-  topOverallParsers: Array<{
+  highestParses: Array<{
     playerName: string;
+    metric: 'DPS' | 'HPS';
     value: number;
-    metric: string;
+    bossName?: string;
+    fightId?: number;
+    className?: string;
+    specName?: string;
+    classSpecLabel?: string;
   }>;
-  topOverallDamageParsers: Array<{
+  topDamageAverageParses: Array<{
     playerName: string;
     value: number;
-    metric: 'DPS';
+    className?: string;
+    specName?: string;
+    classSpecLabel?: string;
   }>;
-  topOverallHealingParsers: Array<{
+  topHealingAverageParses: Array<{
     playerName: string;
     value: number;
-    metric: 'HPS';
+    className?: string;
+    specName?: string;
+    classSpecLabel?: string;
   }>;
   bossHighlights: Array<{ bossName: string; fightId: number; text: string }>;
   raidSuperlatives: Array<{ label: string; text: string }>;

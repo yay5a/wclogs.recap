@@ -12,54 +12,33 @@ const PERFORMANCE_NOTE =
   'Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.';
 const formatWarcraftLogsField = (reportLink: string): string =>
   `${reportLink}\n\n*${PERFORMANCE_NOTE}*`;
-
-type RecapMetric = 'DPS' | 'HPS' | 'DTPS';
-const toMetricLabel = (metricLabel?: string, metric?: string): RecapMetric | undefined => {
-  const candidate = metricLabel?.trim().toUpperCase() ?? metric?.trim().toUpperCase();
-  return candidate === 'DPS' || candidate === 'HPS' || candidate === 'DTPS' ? candidate : undefined;
-};
 const formatCompactNumber = (value: number): string =>
   new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 }).format(value);
 const formatRankPrefix = (index: number): string => `#${index + 1}`;
-const formatAmountFamilyLabel = (metric?: RecapMetric): string => {
-  if (metric === 'DPS') return 'damage done';
-  if (metric === 'HPS') return 'healing';
-  if (metric === 'DTPS') return 'damage taken';
-  return 'total';
-};
-const formatParseHighlightRow = (
-  entry: RecapSummary['bestPlayerParses'][number],
+const formatHighestParseRow = (
+  entry: RecapSummary['highestParses'][number],
   index: number,
-): string => {
-  const parseValue = Number.isInteger(entry.parse)
-    ? entry.parse.toFixed(0)
-    : entry.parse.toFixed(1);
-  const metricLabel = toMetricLabel(entry.metricLabel, entry.metric);
-  const amountSection =
-    typeof entry.amount === 'number'
-      ? ` · ${formatCompactNumber(entry.amount)} ${formatAmountFamilyLabel(metricLabel)}`
-      : '';
-  const classSpec =
-    entry.classSpecLabel ??
-    [entry.specName, entry.className].filter((value): value is string => Boolean(value)).join(' ');
-  const classSpecSection = classSpec ? ` · ${classSpec}` : '';
-  return `${formatRankPrefix(index)} **${entry.playerName}** · ${parseValue}${metricLabel ? ` ${metricLabel}` : ''} parse${amountSection}${classSpecSection}`;
-};
-const formatCompactParseRow = (
-  playerName: string,
-  value: number,
-  metric: string,
+): string =>
+  `${formatRankPrefix(index)} **${entry.playerName}** · ${entry.metric} parse: ${entry.value.toFixed(
+    1,
+  )}${entry.bossName ? ` on ${entry.bossName}` : ''}`;
+const formatAverageParseRow = (
+  entry: RecapSummary['topDamageAverageParses'][number],
   index: number,
-): string => `${formatRankPrefix(index)} **${playerName}** · ${value.toFixed(1)} ${metric} parse`;
-const formatPreviewRankingLine = (
-  label: string,
-  entry?: { playerName: string; value: number; metric: string; bossName?: string },
+): string => `${formatRankPrefix(index)} **${entry.playerName}** · average parse: ${entry.value}`;
+const formatPreviewHighestParseLine = (
+  entry?: RecapSummary['highestParses'][number],
 ): string | undefined =>
   entry
-    ? `${label}: ${entry.playerName} - ${entry.value.toFixed(1)} ${entry.metric}${
+    ? `Highest parse: ${entry.playerName} · ${entry.metric} parse: ${entry.value.toFixed(1)}${
         entry.bossName ? ` on ${entry.bossName}` : ''
       }`
     : undefined;
+const formatPreviewAverageParseLine = (
+  label: string,
+  entry?: RecapSummary['topDamageAverageParses'][number],
+): string | undefined =>
+  entry ? `${label}: ${entry.playerName} · average parse: ${entry.value}` : undefined;
 const formatPreviewTotalsLine = (model: RecapRenderModel): string | undefined => {
   const totals = [
     typeof model.outcome.totals.totalDeaths === 'number'
@@ -76,15 +55,6 @@ const formatPreviewTotalsLine = (model: RecapRenderModel): string | undefined =>
   return totals.length > 0 ? totals.join(' · ') : undefined;
 };
 
-const formatRankingLine = (
-  icon: string,
-  label: string,
-  playerName: string,
-  value: number,
-  metric: string,
-  bossName?: string,
-): string =>
-  `${icon} ${label}: **${playerName}** · ${value.toFixed(1)} ${metric} parse${bossName ? ` · ${bossName}` : ''}`;
 const formatTotalLine = (model: RecapRenderModel): string | undefined => {
   const totals = [
     typeof model.outcome.totals.totalDeaths === 'number'
@@ -178,8 +148,15 @@ export const buildRecapPreviewBodyFromModel = (
         `${model.outcome.killTimeLabel} · ${model.outcome.pullCount} pulls · ${model.outcome.reportDateLabel}`,
         '',
         '**Top Line:**',
-        formatPreviewRankingLine('Best boss parse', model.performance.bestSingleBossParse),
-        formatPreviewRankingLine('Best average parse', model.performance.bestAverageParse),
+        formatPreviewHighestParseLine(model.performance.highestParses[0]),
+        formatPreviewAverageParseLine(
+          'Damage average',
+          model.performance.topDamageAverageParses[0],
+        ),
+        formatPreviewAverageParseLine(
+          'Healing average',
+          model.performance.topHealingAverageParses[0],
+        ),
         formatPreviewTotalsLine(model),
       ]),
     },
@@ -217,27 +194,6 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
       ? `**Most improved:** ${model.performance.mostImprovedPlayer.playerName} · +${model.performance.mostImprovedPlayer.delta.toFixed(1)}`
       : undefined,
   ].filter((line): line is string => Boolean(line));
-  const rankingLines = [
-    model.performance.bestSingleBossParse
-      ? formatRankingLine(
-          '👹',
-          'Best boss parse',
-          model.performance.bestSingleBossParse.playerName,
-          model.performance.bestSingleBossParse.value,
-          model.performance.bestSingleBossParse.metric,
-          model.performance.bestSingleBossParse.bossName,
-        )
-      : undefined,
-    model.performance.bestAverageParse
-      ? formatRankingLine(
-          '🎖️',
-          'Best average parse',
-          model.performance.bestAverageParse.playerName,
-          model.performance.bestAverageParse.value,
-          model.performance.bestAverageParse.metric,
-        )
-      : undefined,
-  ].filter((line): line is string => Boolean(line));
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [
     {
       name: '🏁 Raid Snapshot',
@@ -257,78 +213,31 @@ export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
   const pushSection = (name: string, value: string): void => {
     if (value.length > 0) fields.push({ name, value: truncateFieldValue(value) });
   };
-  if (model.performance.bestSingleBossParse || model.performance.bestAverageParse) {
-    pushSection(
-      '⚡ Performance',
-      withDomainDivider(
-        joinSectionBlocks([
-          subsectionBlock('Signature Parses', rankingLines.join('\n')),
-          subsectionBlock(
-            'Player Standouts',
-            model.performance.bestPlayerParses
-              .map((entry, index) => formatParseHighlightRow(entry, index))
-              .join('\n'),
-          ),
-          subsectionBlock(
-            'Overall Parses',
-            model.performance.topOverallParsers
-              .map((entry, index) =>
-                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-              )
-              .join('\n'),
-          ),
-          subsectionBlock(
-            'Damage Parses',
-            model.performance.topOverallDamageParsers
-              .map((entry, index) =>
-                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-              )
-              .join('\n'),
-          ),
-          subsectionBlock(
-            'Healing Parses',
-            model.performance.topOverallHealingParsers
-              .map((entry, index) =>
-                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-              )
-              .join('\n'),
-          ),
-        ]),
-      ),
-    );
-  } else {
+  if (
+    model.performance.highestParses.length > 0 ||
+    model.performance.topDamageAverageParses.length > 0 ||
+    model.performance.topHealingAverageParses.length > 0
+  ) {
     pushSection(
       '⚡ Performance',
       withDomainDivider(
         joinSectionBlocks([
           subsectionBlock(
-            'Player Standouts',
-            model.performance.bestPlayerParses
-              .map((entry, index) => formatParseHighlightRow(entry, index))
+            'Highest Parse',
+            model.performance.highestParses
+              .map((entry, index) => formatHighestParseRow(entry, index))
               .join('\n'),
           ),
           subsectionBlock(
-            'Overall Parses',
-            model.performance.topOverallParsers
-              .map((entry, index) =>
-                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-              )
+            'Damage Parse Averages',
+            model.performance.topDamageAverageParses
+              .map((entry, index) => formatAverageParseRow(entry, index))
               .join('\n'),
           ),
           subsectionBlock(
-            'Damage Parses',
-            model.performance.topOverallDamageParsers
-              .map((entry, index) =>
-                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-              )
-              .join('\n'),
-          ),
-          subsectionBlock(
-            'Healing Parses',
-            model.performance.topOverallHealingParsers
-              .map((entry, index) =>
-                formatCompactParseRow(entry.playerName, entry.value, entry.metric, index),
-              )
+            'Healing Parse Averages',
+            model.performance.topHealingAverageParses
+              .map((entry, index) => formatAverageParseRow(entry, index))
               .join('\n'),
           ),
         ]),

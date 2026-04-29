@@ -340,6 +340,241 @@ describe("index contract", () => {
             expect(normalized.bossPerformances?.[0]?.bestParses?.[1]?.metric).toBe("DTPS");
         });
 
+        it("exposes report-wide DPS/HPS combined rankings with rankPercent and fight metadata", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Report-wide combined rankings",
+                                startTime: 100,
+                                endTime: 1000,
+                                fights: [
+                                    {
+                                        id: 4,
+                                        name: "Horridon",
+                                        startTime: 100,
+                                        endTime: 200,
+                                        kill: true,
+                                        encounterID: 51575,
+                                    },
+                                    {
+                                        id: 5,
+                                        name: "Megaera",
+                                        startTime: 210,
+                                        endTime: 300,
+                                        kill: false,
+                                        encounterID: 51578,
+                                    },
+                                ],
+                                masterData: { actors: [] },
+                            },
+                        },
+                    },
+                    reportRankingsDpsCombined: {
+                        data: [
+                            {
+                                fightID: 4,
+                                encounter: { name: "Horridon" },
+                                roles: {
+                                    tanks: {
+                                        characters: [
+                                            {
+                                                id: 10,
+                                                name: "Tankhem",
+                                                class: "DeathKnight",
+                                                spec: "Blood",
+                                                rankPercent: 95,
+                                                amount: 222_222,
+                                            },
+                                        ],
+                                    },
+                                    healers: {
+                                        characters: [
+                                            {
+                                                id: 11,
+                                                name: "Gilganne",
+                                                class: "Druid",
+                                                spec: "Restoration",
+                                                rankPercent: 64,
+                                                amount: 85_890,
+                                            },
+                                        ],
+                                    },
+                                    dps: {
+                                        characters: [
+                                            {
+                                                id: 1,
+                                                name: "Kaltsit",
+                                                class: "Shaman",
+                                                spec: "Elemental",
+                                                rankPercent: 90,
+                                                amount: 110_500_000,
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                            {
+                                fightID: 5,
+                                encounter: { name: "Megaera" },
+                                roles: {
+                                    tanks: { characters: [] },
+                                    healers: { characters: [] },
+                                    dps: {
+                                        characters: [
+                                            {
+                                                id: 3,
+                                                name: "WipeOnlyDps",
+                                                class: "Warrior",
+                                                spec: "Fury",
+                                                rankPercent: 99,
+                                                amount: 99_999_999,
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                    reportRankingsHpsCombined: {
+                        data: [
+                            {
+                                fightID: 4,
+                                encounter: { name: "Horridon" },
+                                roles: {
+                                    tanks: { characters: [] },
+                                    healers: {
+                                        characters: [
+                                            {
+                                                id: 2,
+                                                name: "Bustinsihder",
+                                                class: "Monk",
+                                                spec: "Mistweaver",
+                                                rankPercent: 89,
+                                                amount: 30_900_000,
+                                            },
+                                        ],
+                                    },
+                                    dps: {
+                                        characters: [
+                                            {
+                                                id: 12,
+                                                name: "ShouldNotAppearAsHps",
+                                                class: "Mage",
+                                                spec: "Arcane",
+                                                rankPercent: 97,
+                                                amount: 5_000,
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                    encounterSummaries: [],
+                },
+                parsed,
+            );
+
+            expect(normalized.reportWideRankings?.dps[0]).toMatchObject({
+                playerName: "Kaltsit",
+                rankPercent: 90,
+                fightId: 4,
+                bossName: "Horridon",
+                selectedMetric: "DPS",
+            });
+            expect(normalized.reportWideRankings?.hps[0]).toMatchObject({
+                playerName: "Bustinsihder",
+                rankPercent: 89,
+                fightId: 4,
+                bossName: "Horridon",
+                selectedMetric: "HPS",
+            });
+            expect(normalized.reportWideRankings?.dps).toHaveLength(1);
+            expect(normalized.reportWideRankings?.hps).toHaveLength(1);
+        });
+
+        it("drops report-wide combined ranking rows when no kill fights exist", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Wipes only",
+                                startTime: 100,
+                                endTime: 1000,
+                                fights: [
+                                    {
+                                        id: 4,
+                                        name: "Horridon",
+                                        startTime: 100,
+                                        endTime: 200,
+                                        kill: false,
+                                        encounterID: 51575,
+                                    },
+                                ],
+                                masterData: { actors: [] },
+                            },
+                        },
+                    },
+                    reportRankingsDpsCombined: {
+                        data: [
+                            {
+                                fightID: 4,
+                                encounter: { name: "Horridon" },
+                                roles: {
+                                    tanks: { characters: [] },
+                                    healers: { characters: [] },
+                                    dps: {
+                                        characters: [
+                                            {
+                                                id: 1,
+                                                name: "WipeDps",
+                                                class: "Warrior",
+                                                spec: "Fury",
+                                                rankPercent: 99,
+                                                amount: 999_999,
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                    reportRankingsHpsCombined: {
+                        data: [
+                            {
+                                fightID: 4,
+                                encounter: { name: "Horridon" },
+                                roles: {
+                                    tanks: { characters: [] },
+                                    healers: {
+                                        characters: [
+                                            {
+                                                id: 2,
+                                                name: "WipeHealer",
+                                                class: "Monk",
+                                                spec: "Mistweaver",
+                                                rankPercent: 95,
+                                                amount: 888_888,
+                                            },
+                                        ],
+                                    },
+                                    dps: { characters: [] },
+                                },
+                            },
+                        ],
+                    },
+                    encounterSummaries: [],
+                },
+                parsed,
+            );
+
+            expect(normalized.reportWideRankings?.dps).toEqual([]);
+            expect(normalized.reportWideRankings?.hps).toEqual([]);
+        });
+
         it("keeps backward compatibility for base payload only", () => {
             const normalized = normalizeReport(
                 {
@@ -879,7 +1114,7 @@ describe("index contract", () => {
                     sourceUrl: "https://www.warcraftlogs.com/reports/abc123xyz4567890",
                     gameFamily: "retail",
                     rawPayload: {
-                        rawPayloadVersion: 3,
+                        rawPayloadVersion: 4,
                         base: cachedBase,
                         encounterSummaries: [],
                     },
@@ -915,7 +1150,7 @@ describe("index contract", () => {
             const upsertArgs = store.upsert.mock.calls[0]?.[0] as
                 | { normalizedPayloadVersion?: number }
                 | undefined;
-            expect(upsertArgs?.normalizedPayloadVersion).toBe(3);
+            expect(upsertArgs?.normalizedPayloadVersion).toBe(4);
         });
 
         it("refetches old raw cache payloads without the current enrichment version", async () => {
@@ -938,7 +1173,7 @@ describe("index contract", () => {
                         leaderboards: [],
                         bossPerformances: [],
                     },
-                    normalizedPayloadVersion: 3,
+                    normalizedPayloadVersion: 4,
                     fetchedAt: new Date(),
                 }),
                 upsert: vi.fn().mockResolvedValue(undefined),
@@ -966,7 +1201,7 @@ describe("index contract", () => {
             const upsertArgs = store.upsert.mock.calls[0]?.[0] as
                 | { rawPayload?: { rawPayloadVersion?: number } }
                 | undefined;
-            expect(upsertArgs?.rawPayload?.rawPayloadVersion).toBe(3);
+            expect(upsertArgs?.rawPayload?.rawPayloadVersion).toBe(4);
         });
     });
 });

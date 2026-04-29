@@ -135,47 +135,6 @@ describe("buildRecapSummary report-wide output", () => {
                 { id: 12, name: "Gallywix", startTime: 0, endTime: 1, kill: false },
             ],
             players: [],
-            leaderboards: [
-                {
-                    scope: "report",
-                    playerName: "Alyra",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "DPS",
-                    value: 99.2,
-                },
-                {
-                    scope: "report",
-                    playerName: "Healz",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "HPS",
-                    value: 95.1,
-                },
-                {
-                    scope: "report",
-                    playerName: "Bulwark",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "DTPS",
-                    value: 93.3,
-                },
-                {
-                    scope: "boss",
-                    bossName: "One-Armed Bandit",
-                    fightId: 11,
-                    playerName: "Alyra",
-                    metric: "bestPercent",
-                    selectedMetric: "DPS",
-                    value: 99.2,
-                },
-                {
-                    scope: "boss",
-                    bossName: "Lei Shen",
-                    fightId: 12,
-                    playerName: "Emerald",
-                    metric: "bestPercent",
-                    selectedMetric: "HPS",
-                    value: 99.9,
-                },
-            ],
             reportWideRecap: {
                 topDamageDone: [
                     {
@@ -205,13 +164,6 @@ describe("buildRecapSummary report-wide output", () => {
             ],
         });
 
-        expect(summary.bestPlayerParses[0]).toMatchObject({
-            playerName: "Alyra",
-            parse: 99.2,
-            amount: 250000,
-            metricLabel: "DPS",
-            classSpecLabel: "Shadow Priest",
-        });
         expect(summary.topDamageDone).toEqual([
             { playerName: "Alyra", value: 250000, classSpecLabel: "Shadow Priest" },
         ]);
@@ -224,20 +176,9 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.totals.totalDeaths).toBe(12);
         expect(summary.totals.dispels).toBe(8);
         expect(summary.totals.kicks).toBe(6);
-        expect(summary.bestSingleBossParse?.playerName).toBe("Emerald");
-        expect(summary.bestSingleBossParse?.metric).toBe("HPS");
-        expect(summary.bestAverageParse?.playerName).toBe("Alyra");
-        expect(summary.topOverallParsers).toEqual([
-            { playerName: "Alyra", value: 99.2, metric: "DPS" },
-            { playerName: "Healz", value: 95.1, metric: "HPS" },
-            { playerName: "Bulwark", value: 93.3, metric: "DTPS" },
-        ]);
-        expect(summary.topOverallDamageParsers).toEqual([
-            { playerName: "Alyra", value: 99.2, metric: "DPS" },
-        ]);
-        expect(summary.topOverallHealingParsers).toEqual([
-            { playerName: "Healz", value: 95.1, metric: "HPS" },
-        ]);
+        expect(summary.highestParses).toEqual([]);
+        expect(summary.topDamageAverageParses).toEqual([]);
+        expect(summary.topHealingAverageParses).toEqual([]);
         expect(summary.bossHighlights.length).toBe(2);
         expect(summary.bossHighlights[0]?.text).not.toContain("Kill secured.");
         const firstBossParts = (summary.bossHighlights[0]?.text ?? "").split(" · ");
@@ -259,7 +200,6 @@ describe("buildRecapSummary report-wide output", () => {
             players: [],
         });
 
-        expect(summary.bestPlayerParses).toEqual([]);
         expect(summary.topDamageTaken).toEqual([]);
         expect(summary.topHealers).toEqual([]);
         expect(summary.topDamageDone).toEqual([]);
@@ -267,11 +207,206 @@ describe("buildRecapSummary report-wide output", () => {
         expect(summary.topInterrupts).toEqual([]);
         expect(summary.topDispels).toEqual([]);
         expect(summary.topSurvivability).toEqual([]);
-        expect(summary.topOverallHealingParsers).toEqual([]);
+        expect(summary.highestParses).toEqual([]);
+        expect(summary.topDamageAverageParses).toEqual([]);
+        expect(summary.topHealingAverageParses).toEqual([]);
         expect(summary.totals.totalDeaths).toBeUndefined();
         expect(summary.bestExecution).toBeUndefined();
         expect(summary.mostImprovedPlayer).toBeUndefined();
         expect(summary.totals.battleRezzes).toBeUndefined();
+    });
+
+    it("builds highest parse and DPS/HPS parse averages from report-wide combined rankings rankPercent", () => {
+        const summary = buildRecapSummary({
+            reportCode: "abc",
+            title: "Raid Night",
+            startTime: Date.UTC(2025, 0, 2),
+            endTime: Date.UTC(2025, 0, 2, 1),
+            gameFamily: "retail",
+            fights: [],
+            players: [],
+            reportWideRankings: {
+                dps: [
+                    {
+                        scope: "report",
+                        playerName: "Kaltsit",
+                        metric: "rankPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        rankPercent: 90,
+                        value: 90,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Kaltsit",
+                        metric: "rankPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        rankPercent: 32,
+                        value: 32,
+                        bossName: "Megaera",
+                        fightId: 8,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Jokerofpain",
+                        metric: "rankPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        rankPercent: 81,
+                        value: 81,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Jokerofpain",
+                        metric: "rankPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        rankPercent: 41,
+                        value: 41,
+                        bossName: "Megaera",
+                        fightId: 8,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Venomblàdez",
+                        metric: "rankPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        rankPercent: 57,
+                        value: 57,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Tankhem",
+                        metric: "rankPercent",
+                        selectedMetric: "DTPS",
+                        role: "tank",
+                        rankPercent: 99,
+                        value: 99,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "BracketOnlyDps",
+                        metric: "bracketPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        bracketPercent: 99,
+                        value: 99,
+                        bossName: "Horridon",
+                        fightId: 4,
+                        amount: 999999999,
+                    },
+                ],
+                hps: [
+                    {
+                        scope: "report",
+                        playerName: "Bustinsihder",
+                        metric: "rankPercent",
+                        selectedMetric: "HPS",
+                        role: "healer",
+                        rankPercent: 89,
+                        value: 89,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Bustinsihder",
+                        metric: "rankPercent",
+                        selectedMetric: "HPS",
+                        role: "healer",
+                        rankPercent: 51,
+                        value: 51,
+                        bossName: "Megaera",
+                        fightId: 8,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Emerald",
+                        metric: "rankPercent",
+                        selectedMetric: "HPS",
+                        role: "healer",
+                        rankPercent: 54,
+                        value: 54,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "DpsLeak",
+                        metric: "rankPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        rankPercent: 98,
+                        value: 98,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "BracketOnlyHps",
+                        metric: "bracketPercent",
+                        selectedMetric: "HPS",
+                        role: "healer",
+                        bracketPercent: 99,
+                        value: 99,
+                        bossName: "Horridon",
+                        fightId: 4,
+                        amount: 999999999,
+                    },
+                ],
+            },
+        });
+
+        expect(summary.highestParses).toEqual([
+            {
+                playerName: "Kaltsit",
+                metric: "DPS",
+                value: 90,
+                bossName: "Horridon",
+                fightId: 4,
+            },
+            {
+                playerName: "Bustinsihder",
+                metric: "HPS",
+                value: 89,
+                bossName: "Horridon",
+                fightId: 4,
+            },
+            {
+                playerName: "Jokerofpain",
+                metric: "DPS",
+                value: 81,
+                bossName: "Horridon",
+                fightId: 4,
+            },
+        ]);
+        expect(summary.topDamageAverageParses).toEqual([
+            { playerName: "Kaltsit", value: 61 },
+            { playerName: "Jokerofpain", value: 61 },
+            { playerName: "Venomblàdez", value: 57 },
+        ]);
+        expect(summary.topHealingAverageParses).toEqual([
+            { playerName: "Bustinsihder", value: 70 },
+            { playerName: "Emerald", value: 54 },
+        ]);
+        expect(summary.highestParses.map((entry) => entry.playerName)).not.toContain("Tankhem");
+        expect(summary.highestParses.map((entry) => entry.playerName)).not.toContain("DpsLeak");
+        expect(summary.highestParses.map((entry) => entry.playerName)).not.toContain(
+            "BracketOnlyDps",
+        );
+        expect(summary.highestParses.map((entry) => entry.playerName)).not.toContain(
+            "BracketOnlyHps",
+        );
     });
 
     it("dedupes repeated players in report-wide parse sections and keeps strongest row", () => {
@@ -283,69 +418,62 @@ describe("buildRecapSummary report-wide output", () => {
             gameFamily: "retail",
             fights: [],
             players: [],
-            leaderboards: [
-                {
-                    scope: "report",
-                    playerName: "Tankhem",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "DTPS",
-                    value: 96.4,
-                },
-                {
-                    scope: "report",
-                    playerName: "Tankhem",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "DTPS",
-                    value: 96.4,
-                    className: "Warrior",
-                    specName: "Protection",
-                },
-                {
-                    scope: "report",
-                    playerName: "Alyra",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "DPS",
-                    value: 95.7,
-                },
-            ],
-            reportWideRecap: {
-                topDamageDone: [{ playerName: "Alyra", value: 220000 }],
-                topDamageTaken: [{ playerName: "Tankhem", value: 333000 }],
-                topHealingDone: [],
-                totals: {},
+            reportWideRankings: {
+                dps: [
+                    {
+                        scope: "report",
+                        playerName: "Tankhem",
+                        metric: "rankPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        rankPercent: 80,
+                        value: 80,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Tankhem",
+                        metric: "rankPercent",
+                        selectedMetric: "DPS",
+                        role: "dps",
+                        rankPercent: 80,
+                        value: 80,
+                        bossName: "Horridon",
+                        fightId: 4,
+                        className: "DeathKnight",
+                        specName: "Blood",
+                    },
+                ],
+                hps: [],
             },
         });
 
-        expect(summary.bestPlayerParses).toEqual([
+        expect(summary.highestParses).toEqual([
             {
                 playerName: "Tankhem",
-                parse: 96.4,
-                metricLabel: "DTPS",
-                metric: "DTPS",
-                amount: 333000,
-                className: "Warrior",
-                specName: "Protection",
-                classSpecLabel: "Protection Warrior",
-            },
-            {
-                playerName: "Alyra",
-                parse: 95.7,
-                metricLabel: "DPS",
                 metric: "DPS",
-                amount: 220000,
+                value: 80,
+                bossName: "Horridon",
+                fightId: 4,
+                className: "DeathKnight",
+                specName: "Blood",
+                classSpecLabel: "Blood Death Knight",
             },
         ]);
-        expect(summary.topOverallParsers).toEqual([
-            { playerName: "Tankhem", value: 96.4, metric: "DTPS" },
-            { playerName: "Alyra", value: 95.7, metric: "DPS" },
+        expect(summary.topDamageAverageParses).toEqual([
+            {
+                playerName: "Tankhem",
+                value: 80,
+                className: "DeathKnight",
+                specName: "Blood",
+                classSpecLabel: "Blood Death Knight",
+            },
         ]);
-        expect(summary.topOverallDamageParsers).toEqual([
-            { playerName: "Alyra", value: 95.7, metric: "DPS" },
-        ]);
-        expect(summary.topOverallHealingParsers).toEqual([]);
+        expect(summary.topHealingAverageParses).toEqual([]);
     });
 
-    it("builds top overall healing parsers from report leaderboard HPS rows and dedupes players", () => {
+    it("builds top healing parse averages from HPS rankPercent rows and ignores throughput totals", () => {
         const summary = buildRecapSummary({
             reportCode: "abc",
             title: "Raid Night",
@@ -354,36 +482,44 @@ describe("buildRecapSummary report-wide output", () => {
             gameFamily: "retail",
             fights: [],
             players: [],
-            leaderboards: [
-                {
-                    scope: "report",
-                    playerName: "Emerald",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "HPS",
-                    value: 96,
-                },
-                {
-                    scope: "report",
-                    playerName: "Emerald",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "HPS",
-                    value: 94.2,
-                },
-                {
-                    scope: "report",
-                    playerName: "Pearl",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "HPS",
-                    value: 95.3,
-                },
-                {
-                    scope: "report",
-                    playerName: "Alyra",
-                    metric: "bestPerformanceAverage",
-                    selectedMetric: "DPS",
-                    value: 99.1,
-                },
-            ],
+            reportWideRankings: {
+                dps: [],
+                hps: [
+                    {
+                        scope: "report",
+                        playerName: "Emerald",
+                        metric: "rankPercent",
+                        selectedMetric: "HPS",
+                        role: "healer",
+                        rankPercent: 96,
+                        value: 96,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Emerald",
+                        metric: "rankPercent",
+                        selectedMetric: "HPS",
+                        role: "healer",
+                        rankPercent: 94.2,
+                        value: 94.2,
+                        bossName: "Megaera",
+                        fightId: 8,
+                    },
+                    {
+                        scope: "report",
+                        playerName: "Pearl",
+                        metric: "rankPercent",
+                        selectedMetric: "HPS",
+                        role: "healer",
+                        rankPercent: 95.3,
+                        value: 95.3,
+                        bossName: "Horridon",
+                        fightId: 4,
+                    },
+                ],
+            },
             reportWideRecap: {
                 topDamageDone: [],
                 topHealingDone: [{ playerName: "TotalsOnly", value: 689_900_000 }],
@@ -391,11 +527,16 @@ describe("buildRecapSummary report-wide output", () => {
             },
         });
 
-        expect(summary.topOverallHealingParsers).toEqual([
-            { playerName: "Emerald", value: 96, metric: "HPS" },
-            { playerName: "Pearl", value: 95.3, metric: "HPS" },
-        ]);
-        expect(summary.topOverallHealingParsers.map((entry) => entry.playerName)).not.toContain(
+        expect(summary.topHealingAverageParses).toHaveLength(2);
+        expect(summary.topHealingAverageParses).toContainEqual({
+            playerName: "Pearl",
+            value: 95,
+        });
+        expect(summary.topHealingAverageParses).toContainEqual({
+            playerName: "Emerald",
+            value: 95,
+        });
+        expect(summary.topHealingAverageParses.map((entry) => entry.playerName)).not.toContain(
             "TotalsOnly",
         );
     });

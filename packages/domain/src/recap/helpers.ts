@@ -1,6 +1,5 @@
 import type {
   NormalizedBossPerformance,
-  NormalizedLeaderboardEntry,
   RecapSummary,
 } from '../index.js';
 
@@ -163,31 +162,6 @@ export const dedupeRowsByPlayerStrongest = <
   }
   return [...strongestByPlayer.values()];
 };
-
-export type MetricLabel = 'DPS' | 'HPS' | 'DTPS';
-
-export const toMetricLabel = (value: string | undefined, role?: string): MetricLabel => {
-  const normalized = value?.trim().toUpperCase();
-  if (!normalized) return 'DPS';
-  if (normalized === 'DPS' || normalized === 'HPS' || normalized === 'DTPS') {
-    return normalized;
-  }
-  const normalizedRole = role?.trim().toLowerCase();
-  if (normalizedRole === 'healer') return 'HPS';
-  if (normalizedRole === 'tank') return 'DTPS';
-  return 'DPS';
-};
-
-export const resolveMetricLabelFromEntry = (
-  entry: Pick<NormalizedLeaderboardEntry, 'selectedMetric' | 'metric' | 'role'>,
-): MetricLabel =>
-  toMetricLabel(
-    entry.selectedMetric ??
-      (entry.metric === 'DPS' || entry.metric === 'HPS' || entry.metric === 'DTPS'
-        ? entry.metric
-        : undefined),
-    entry.role,
-  );
 
 export type SelectedBoss = NormalizedBossPerformance | undefined;
 

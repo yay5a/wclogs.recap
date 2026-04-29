@@ -15,12 +15,9 @@ export interface Outcome {
 export interface Performance {
     bestExecution?: RecapSummary["bestExecution"];
     mostImprovedPlayer?: RecapSummary["mostImprovedPlayer"];
-    bestSingleBossParse?: RecapSummary["bestSingleBossParse"];
-    bestAverageParse?: RecapSummary["bestAverageParse"];
-    bestPlayerParses: RecapSummary["bestPlayerParses"];
-    topOverallParsers: RecapSummary["topOverallParsers"];
-    topOverallDamageParsers: RecapSummary["topOverallDamageParsers"];
-    topOverallHealingParsers: RecapSummary["topOverallHealingParsers"];
+    highestParses: RecapSummary["highestParses"];
+    topDamageAverageParses: RecapSummary["topDamageAverageParses"];
+    topHealingAverageParses: RecapSummary["topHealingAverageParses"];
 }
 
 export interface Volume {
@@ -57,12 +54,9 @@ export const toRecapRenderModel = (summary: RecapSummary): RecapRenderModel => (
     performance: {
         bestExecution: summary.bestExecution,
         mostImprovedPlayer: summary.mostImprovedPlayer,
-        bestSingleBossParse: summary.bestSingleBossParse,
-        bestAverageParse: summary.bestAverageParse,
-        bestPlayerParses: summary.bestPlayerParses,
-        topOverallParsers: summary.topOverallParsers,
-        topOverallDamageParsers: summary.topOverallDamageParsers,
-        topOverallHealingParsers: summary.topOverallHealingParsers,
+        highestParses: summary.highestParses,
+        topDamageAverageParses: summary.topDamageAverageParses,
+        topHealingAverageParses: summary.topHealingAverageParses,
     },
     volume: {
         topDamageDone: summary.topDamageDone,

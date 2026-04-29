@@ -60,7 +60,9 @@ const isRecapSummary = (value: unknown): value is RecapSummary => {
         isVisibility &&
         isCoachingShareability &&
         isRecapPostMode &&
-        Array.isArray(raw.topOverallParsers) &&
+        Array.isArray(raw.highestParses) &&
+        Array.isArray(raw.topDamageAverageParses) &&
+        Array.isArray(raw.topHealingAverageParses) &&
         Array.isArray(raw.bossHighlights) &&
         Array.isArray(raw.raidSuperlatives) &&
         typeof raw.teamNote === "string"

@@ -180,6 +180,8 @@ export class ReportFetcher {
         }
 
         let reportRankingsRaw: unknown;
+        let reportRankingsDpsCombinedRaw: unknown;
+        let reportRankingsHpsCombinedRaw: unknown;
         const reportRankingsStartedAt = now();
         try {
             reportRankingsRaw = await this.queries.reportRankings({
@@ -191,9 +193,35 @@ export class ReportFetcher {
                 `Failed report rankings enrichment; continuing without report rankings (${error instanceof Error ? error.message : "unknown error"}).`,
             );
         }
+        try {
+            reportRankingsDpsCombinedRaw =
+                await this.queries.reportRankingsDpsCombined({
+                    code,
+                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                });
+        } catch (error) {
+            noteSkippedEnrichment(
+                `Failed report rankings DPS enrichment; continuing without report rankings DPS (${error instanceof Error ? error.message : "unknown error"}).`,
+            );
+        }
+        try {
+            reportRankingsHpsCombinedRaw =
+                await this.queries.reportRankingsHpsCombined({
+                    code,
+                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                });
+        } catch (error) {
+            noteSkippedEnrichment(
+                `Failed report rankings HPS enrichment; continuing without report rankings HPS (${error instanceof Error ? error.message : "unknown error"}).`,
+            );
+        }
         logTiming("fetch report rankings", reportRankingsStartedAt, {
-            requested: 1,
-            succeeded: reportRankingsRaw ? 1 : 0,
+            requested: 3,
+            succeeded: [
+                reportRankingsRaw,
+                reportRankingsDpsCombinedRaw,
+                reportRankingsHpsCombinedRaw,
+            ].filter(Boolean).length,
         });
         let playerDetailsRaw: unknown;
         let reportTablesRaw:
@@ -362,6 +390,12 @@ export class ReportFetcher {
             ...(rateLimitData ? { rateLimitData } : {}),
             ...(skippedEnrichments.length > 0 ? { skippedEnrichments } : {}),
             reportRankings: getReportNode(reportRankingsRaw)?.rankings,
+            reportRankingsDpsCombined: getReportNode(
+                reportRankingsDpsCombinedRaw,
+            )?.rankings,
+            reportRankingsHpsCombined: getReportNode(
+                reportRankingsHpsCombinedRaw,
+            )?.rankings,
             playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
             ...(reportTablesRaw ? { reportTables: reportTablesRaw } : {}),
             encounterSummaries,

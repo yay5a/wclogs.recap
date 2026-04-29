@@ -61,6 +61,37 @@ describe("wcl query layer", () => {
         expect(result.data?.reportData?.report?.rankings).toBe("raw-json");
     });
 
+    it("requests metric-specific report-wide combined rankings", async () => {
+        const calls: Array<{
+            query: string;
+            variables: Record<string, unknown>;
+        }> = [];
+        const execute = async <TPayload>(
+            query: string,
+            variables: Record<string, unknown>,
+        ): Promise<TPayload> => {
+            calls.push({ query, variables });
+            return { data: {} } as TPayload;
+        };
+        const queries = createWclQueries(execute);
+
+        await queries.reportRankingsDpsCombined({
+            code: "abc",
+            allowUnlisted: true,
+        });
+        await queries.reportRankingsHpsCombined({
+            code: "abc",
+            allowUnlisted: true,
+        });
+
+        expect(calls[0]?.query).toContain(
+            "rankings(playerMetric: dps, timeframe: Today, compare: Rankings)",
+        );
+        expect(calls[1]?.query).toContain(
+            "rankings(playerMetric: hps, timeframe: Today, compare: Rankings)",
+        );
+    });
+
     it("builds report-wide table calls as one filtered data type", async () => {
         const calls: Array<{
             query: string;

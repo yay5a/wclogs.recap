@@ -89,6 +89,8 @@ const collectRoleCharacters = (
     });
 };
 
+type RankingRole = "tank" | "healer" | "dps";
+
 const collectFightRows = (parsed: unknown): Record<string, unknown>[] => {
     const root = asObject(parsed);
     if (!root) return [];
@@ -245,6 +247,53 @@ export const parseReportRankingsPayload = (
     if (results.length === 0) {
         warn("rankings parser (report payload): no leaderboard entries detected", {
             payload: parsed,
+        });
+    }
+    return results;
+};
+
+export const parseReportRankingsPayloadForRole = (
+    payload: unknown,
+    role: RankingRole,
+    warn: DebugWarn = defaultDebugWarn,
+): NormalizedLeaderboardEntry[] => {
+    const parsed = parseUnknownJson(payload, warn, "report rankings");
+    const fightRows = collectFightRows(parsed);
+    if (fightRows.length === 0) {
+        warn("rankings parser (report payload by role): unrecognized payload shape", {
+            payload: parsed,
+            role,
+        });
+        return [];
+    }
+
+    const roleEntries = fightRows.flatMap((fightRow) =>
+        collectRoleCharacters(fightRow)
+            .filter((entry) => entry.role === role)
+            .map(({ role: entryRole, character }) => ({
+                ...character,
+                role: entryRole,
+                fightID:
+                    asNumber(character.fightID) ??
+                    asNumber(fightRow.fightID) ??
+                    asNumber(fightRow.fightId),
+                encounterName:
+                    asString(character.encounterName) ??
+                    asString(asObject(fightRow.encounter)?.name) ??
+                    asString(fightRow.encounter),
+            })),
+    );
+
+    const results: NormalizedLeaderboardEntry[] = [];
+    for (const candidate of roleEntries) {
+        const normalized = toLeaderboardEntry(candidate, "report", warn);
+        if (normalized) results.push(normalized);
+    }
+
+    if (results.length === 0) {
+        warn("rankings parser (report payload by role): no leaderboard entries detected", {
+            payload: parsed,
+            role,
         });
     }
     return results;
