@@ -1148,6 +1148,10 @@ describe('handleInteraction', () => {
     expect(body.content).toContain('Mode: character');
     expect(body.content).toContain('History: 3 prior reports');
     expect(body.content).toContain('Summary:');
+    expect(body.content).toContain(
+      'Alyra is above recent parse and damage baselines, while dispels are below recent baseline.',
+    );
+    expect(body.content).not.toContain('Alyra parse is above recent baseline.');
     expect(body.content).toContain('Performance:');
     expect(body.content).toContain('Execution:');
     expect(body.content).toContain('Context:');

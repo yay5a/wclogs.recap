@@ -28,6 +28,17 @@ const metricLabels: Record<BaselineMetricName, string> = {
 
 const performanceMetrics: BaselineMetricName[] = ['parse', 'damageTotal', 'healingTotal'];
 const executionMetrics: BaselineMetricName[] = ['deaths', 'interrupts', 'dispels'];
+const summaryPerformanceMetrics: BaselineMetricName[] = ['parse', 'damageTotal', 'healingTotal'];
+const summaryExecutionMetrics: BaselineMetricName[] = ['deaths', 'interrupts', 'dispels'];
+
+const summaryMetricLabels: Record<BaselineMetricName, { label: string; verb: 'is' | 'are' }> = {
+  parse: { label: 'parse', verb: 'is' },
+  damageTotal: { label: 'damage', verb: 'is' },
+  healingTotal: { label: 'healing', verb: 'is' },
+  deaths: { label: 'deaths', verb: 'are' },
+  interrupts: { label: 'interrupts', verb: 'are' },
+  dispels: { label: 'dispels', verb: 'are' },
+};
 
 export interface CompareBaselineResponseViewModel {
   characterName: string;
@@ -97,43 +108,95 @@ const buildMetricLines = (
     return metric ? [buildMetricLine(metricName, metric)] : [];
   });
 
-const summarySubject = (characterName: string, metricName: BaselineMetricName): string => {
-  switch (metricName) {
-    case 'parse':
-      return `${characterName} parse`;
-    case 'damageTotal':
-      return `${characterName} damage total`;
-    case 'healingTotal':
-      return `${characterName} healing total`;
-    case 'deaths':
-      return 'Deaths';
-    case 'interrupts':
-      return 'Interrupts';
-    case 'dispels':
-      return 'Dispels';
+const formatMetricList = (metricNames: readonly BaselineMetricName[]): string => {
+  const labels = metricNames.map((metricName) => summaryMetricLabels[metricName].label);
+  if (labels.length <= 1) return labels[0] ?? '';
+  if (labels.length === 2) return `${labels[0]} and ${labels[1]}`;
+  return `${labels.slice(0, -1).join(', ')}, and ${labels[labels.length - 1]}`;
+};
+
+const baselineNoun = (metricCount: number): string =>
+  metricCount === 1 ? 'baseline' : 'baselines';
+
+const selectSummaryMetrics = (
+  baseline: ComparisonBaseline,
+): Array<{ metricName: BaselineMetricName; metric: AvailableBaselineMetricComparison }> => {
+  const visibleByName = new Map<BaselineMetricName, AvailableBaselineMetricComparison>();
+
+  for (const metricName of [...summaryPerformanceMetrics, ...summaryExecutionMetrics]) {
+    const metric = getTrustedMetric(baseline, metricName);
+    if (metric) visibleByName.set(metricName, metric);
   }
+
+  const nonNearPerformance = summaryPerformanceMetrics
+    .filter((metricName) => {
+      const metric = visibleByName.get(metricName);
+      return metric !== undefined && metric.label !== 'near-baseline';
+    })
+    .slice(0, 2);
+  const nonNearExecution = summaryExecutionMetrics
+    .filter((metricName) => {
+      const metric = visibleByName.get(metricName);
+      return metric !== undefined && metric.label !== 'near-baseline';
+    })
+    .slice(0, 1);
+  const selectedNames = [...nonNearPerformance, ...nonNearExecution];
+
+  if (selectedNames.length === 0) {
+    selectedNames.push(
+      ...[...summaryPerformanceMetrics, ...summaryExecutionMetrics]
+        .filter((metricName) => visibleByName.has(metricName))
+        .slice(0, 2),
+    );
+  }
+
+  return selectedNames.flatMap((metricName) => {
+    const metric = visibleByName.get(metricName);
+    return metric ? [{ metricName, metric }] : [];
+  });
+};
+
+const buildSummaryClause = (
+  characterName: string,
+  label: AvailableBaselineMetricComparison['label'],
+  metricNames: readonly BaselineMetricName[],
+  isPrimaryClause: boolean,
+): string => {
+  const metricList = formatMetricList(metricNames);
+  const direction = formatSummaryLabel(label);
+
+  if (isPrimaryClause) {
+    return `${characterName} is ${direction} recent ${metricList} ${baselineNoun(metricNames.length)}`;
+  }
+
+  const onlyMetricName = metricNames[0];
+  const verb =
+    metricNames.length === 1 && onlyMetricName
+      ? summaryMetricLabels[onlyMetricName].verb
+      : 'are';
+  return `${metricList} ${verb} ${direction} recent ${baselineNoun(metricNames.length)}`;
 };
 
 const buildReadySummary = (
   characterName: string,
   baseline: ComparisonBaseline,
 ): string => {
-  const visibleMetrics = [...performanceMetrics, ...executionMetrics].flatMap((metricName) => {
-    const metric = getTrustedMetric(baseline, metricName);
-    return metric ? [{ metricName, metric }] : [];
-  });
+  const visibleMetrics = selectSummaryMetrics(baseline);
 
   if (visibleMetrics.length === 0) {
     return 'No trusted metric baseline is available yet.';
   }
 
-  return visibleMetrics
-    .slice(0, 2)
-    .map(
-      ({ metricName, metric }) =>
-        `${summarySubject(characterName, metricName)} is ${formatSummaryLabel(metric.label)} recent baseline.`,
-    )
-    .join(' ');
+  const groups = new Map<AvailableBaselineMetricComparison['label'], BaselineMetricName[]>();
+  for (const { metricName, metric } of visibleMetrics) {
+    groups.set(metric.label, [...(groups.get(metric.label) ?? []), metricName]);
+  }
+
+  const clauses = Array.from(groups.entries()).map(([label, metricNames], index) =>
+    buildSummaryClause(characterName, label, metricNames, index === 0),
+  );
+
+  return `${clauses[0]}${clauses.length > 1 ? `, while ${clauses.slice(1).join(', and ')}` : ''}.`;
 };
 
 const buildSummary = (
