@@ -3,6 +3,9 @@ import fastifyRawBody from 'fastify-raw-body';
 import fastifyCookie from '@fastify/cookie';
 import {
   connectMongo,
+  migrateRecapPreviewStateIndexes,
+  MongoAutoRecapDuplicateTrackingStore,
+  MongoAutoRecapPromptStateStore,
   MongoCharacterClaimStore,
   MongoComparisonHistoryStore,
   MongoGuildConfigStore,
@@ -65,6 +68,8 @@ const wclClient = new WclClient({
 
 const guildConfigStore = new MongoGuildConfigStore();
 const recapPreviewStateService = new MongoRecapPreviewStateStore();
+const autoRecapPromptStateService = new MongoAutoRecapPromptStateStore();
+const autoRecapDuplicateTrackingService = new MongoAutoRecapDuplicateTrackingStore();
 const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const characterClaimStore = new MongoCharacterClaimStore();
 const wclUserAuthStore = new MongoWclUserAuthStore();
@@ -87,6 +92,8 @@ await app.register(registerDiscordInteractionRoutes, {
   wclClient,
   guildConfigStore,
   recapPreviewStateService,
+  autoRecapPromptStateService,
+  autoRecapDuplicateTrackingService,
   comparisonHistoryStore,
   characterClaimStore,
   logger,
@@ -94,6 +101,7 @@ await app.register(registerDiscordInteractionRoutes, {
 
 const start = async () => {
   await connectMongo(env.MONGODB_URI);
+  await migrateRecapPreviewStateIndexes();
   await app.listen({ port: env.PORT, host: '0.0.0.0' });
   logger.info({ port: env.PORT }, 'web app started');
 };

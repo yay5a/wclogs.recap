@@ -10,6 +10,7 @@ import {
 } from "../commands/character-claims.js";
 import { handleCompareCommand } from "../commands/compare.js";
 import { handleConfigCommand } from "../commands/config.js";
+import { handleAutoRecapComponentInteraction } from "../commands/auto-recap.js";
 import {
     handleRecapComponentInteraction,
     processRecapInteraction,
@@ -96,6 +97,14 @@ export const handleInteraction = async (
     }
 
     if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
+        const autoRecapResponse = await handleAutoRecapComponentInteraction(
+            typedInteraction,
+            options,
+        );
+        if (autoRecapResponse) {
+            return autoRecapResponse;
+        }
+
         const recapResponse = await handleRecapComponentInteraction(
             typedInteraction,
             options,

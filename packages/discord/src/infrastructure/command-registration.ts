@@ -1,5 +1,5 @@
 import { createLogger } from "@wcl/shared";
-import { COMPARE_ACCESS_MODES, COMPARE_MODES, COMPARE_VISIBILITIES } from "@wcl/domain";
+import { AUTO_RECAP_MODES, COMPARE_ACCESS_MODES, COMPARE_MODES, COMPARE_VISIBILITIES } from "@wcl/domain";
 import { discordApiRequest, getDiscordApiBaseUrl } from "./discord-api.js";
 
 const logger = createLogger("discord");
@@ -7,8 +7,11 @@ const STRING_OPTION_TYPE = 3;
 const INTEGER_OPTION_TYPE = 4;
 const BOOLEAN_OPTION_TYPE = 5;
 const USER_OPTION_TYPE = 6;
+const CHANNEL_OPTION_TYPE = 7;
 const ROLE_OPTION_TYPE = 8;
 const NUMBER_OPTION_TYPE = 10;
+const GUILD_TEXT_CHANNEL_TYPE = 0;
+const GUILD_ANNOUNCEMENT_CHANNEL_TYPE = 5;
 const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 
 export interface DiscordCommandOptionChoice { name: string; value: string | number; }
@@ -19,6 +22,7 @@ export interface DiscordCommandOption {
     required?: boolean;
     choices?: DiscordCommandOptionChoice[];
     options?: DiscordCommandOption[];
+    channel_types?: number[];
 }
 export type ChatInputCommandDefinition = { type: 1; name: string; description: string; options?: DiscordCommandOption[]; integration_types?: number[]; contexts?: number[]; default_member_permissions?: string; nsfw?: boolean; };
 export type UserCommandDefinition = { type: 2; name: string; integration_types?: number[]; contexts?: number[]; default_member_permissions?: string; nsfw?: boolean; };
@@ -27,6 +31,7 @@ export type CommandDefinition = ChatInputCommandDefinition | UserCommandDefiniti
 
 const commandTypeLabel = (type: CommandDefinition["type"]): string => (type === 1 ? "CHAT_INPUT" : type === 2 ? "USER" : "MESSAGE");
 const compareModeChoices = COMPARE_MODES.map((mode) => ({ name: mode, value: mode }));
+const autoRecapModeChoices = AUTO_RECAP_MODES.map((mode) => ({ name: mode, value: mode }));
 const compareVisibilityChoices = COMPARE_VISIBILITIES.map((visibility) => ({ name: visibility, value: visibility }));
 const compareAccessModeChoices = COMPARE_ACCESS_MODES.map((mode) => ({ name: mode, value: mode }));
 const validateCommandNameUniqueness = (commands: CommandDefinition[]) => {
@@ -86,6 +91,8 @@ export const commandDefinitions: CommandDefinition[] = [
         { name: "compare_access_mode", description: "Who can view private comparison cards", type: STRING_OPTION_TYPE, required: false, choices: compareAccessModeChoices },
         { name: "compare_public_posting", description: "Enable explicit public compare posting safeguards", type: BOOLEAN_OPTION_TYPE, required: false },
         { name: "compare_officer_role", description: "Role authorized to view private compare cards", type: ROLE_OPTION_TYPE, required: false },
+        { name: "auto_recap_mode", description: "Passive WCL URL handling mode", type: STRING_OPTION_TYPE, required: false, choices: autoRecapModeChoices },
+        { name: "auto_recap_channel", description: "Toggle a channel for passive WCL URL detection", type: CHANNEL_OPTION_TYPE, required: false, channel_types: [GUILD_TEXT_CHANNEL_TYPE, GUILD_ANNOUNCEMENT_CHANNEL_TYPE] },
     ]},
     { name: "recap", description: "Generate a recap preview from a WCL report URL", type: 1, options: [{ name: "url", description: "WCL report URL", type: 3, required: true }] },
     { name: "compare", description: "Privately compare one character against recent stored history", type: 1, options: [

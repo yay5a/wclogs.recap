@@ -107,7 +107,7 @@ const persistComparisonSnapshotsForReport = async ({
   }
 };
 
-const getRecapFailureMessage = (error: unknown): string => {
+export const getRecapFailureMessage = (error: unknown): string => {
   const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
   if (errorMessage.includes('report code')) {
     return "I couldn't find a Warcraft Logs report code in that URL. Paste the full report link.";
@@ -119,6 +119,73 @@ const getRecapFailureMessage = (error: unknown): string => {
     return 'Warcraft Logs returned an unexpected payload for that report.';
   }
   return 'Could not build recap preview for that report. Please verify the URL and try again.';
+};
+
+export interface RecapArtifact {
+  report: NormalizedReport;
+  summary: ReturnType<typeof buildRecapSummary>;
+  previewBody: ReturnType<typeof buildRecapPreviewBody>;
+  publicEmbed: ReturnType<typeof buildPublicRecapEmbed>;
+  previewStateInputBase: Omit<SavePreviewStateInput, 'createdAt' | 'expiresAt'>;
+}
+
+export const buildRecapArtifact = async ({
+  guildId,
+  channelId,
+  createdByUserId,
+  interactionId,
+  options,
+  url,
+}: {
+  guildId: string;
+  channelId: string;
+  createdByUserId: string;
+  interactionId?: string;
+  options: HandleOptions;
+  url: string;
+}): Promise<RecapArtifact> => {
+  const guildConfigStart = Date.now();
+  const guildConfig = await options.guildConfigStore.getGuildConfig(guildId);
+  logRecapStep(interactionId, 'guild_config_load', guildConfigStart);
+
+  const reportFetchStart = Date.now();
+  const report = await options.wclClient.fetchAndNormalizeReport(url);
+  logRecapStep(interactionId, 'report_fetch_normalize', reportFetchStart);
+
+  const comparisonSnapshotStart = Date.now();
+  await persistComparisonSnapshotsForReport({
+    guildId,
+    ...(interactionId ? { interactionId } : {}),
+    report,
+    options,
+  });
+  logRecapStep(interactionId, 'comparison_snapshot_persist', comparisonSnapshotStart);
+
+  const previousLookupStart = Date.now();
+  const previousPlayers = options.wclClient.findPreviousRaidSummaries
+    ? await options.wclClient.findPreviousRaidSummaries(guildId, new Date(report.startTime))
+    : [];
+  logRecapStep(interactionId, 'previous_raid_summary_lookup', previousLookupStart);
+
+  const summaryBuildStart = Date.now();
+  const summary = buildRecapSummary(report, previousPlayers, { guildConfig });
+  logRecapStep(interactionId, 'summary_build', summaryBuildStart);
+
+  return {
+    report,
+    summary,
+    previewBody: buildRecapPreviewBody(summary, report.reportCode, guildId, channelId),
+    publicEmbed: buildPublicRecapEmbed(summary),
+    previewStateInputBase: {
+      guildId,
+      channelId,
+      reportCode: report.reportCode,
+      sourceUrl: url,
+      summaryPayload: summary,
+      createdByUserId,
+      ...(interactionId ? { interactionId } : {}),
+    },
+  };
 };
 
 export const processRecapInteraction = async (
@@ -148,44 +215,20 @@ export const processRecapInteraction = async (
   }
 
   try {
-    const guildConfigStart = Date.now();
-    const guildConfig = await options.guildConfigStore.getGuildConfig(guildId);
-    logRecapStep(interactionId, 'guild_config_load', guildConfigStart);
-
-    const reportFetchStart = Date.now();
-    const report = await options.wclClient.fetchAndNormalizeReport(url);
-    logRecapStep(interactionId, 'report_fetch_normalize', reportFetchStart);
-
-    const comparisonSnapshotStart = Date.now();
-    await persistComparisonSnapshotsForReport({
+    const artifact = await buildRecapArtifact({
       guildId,
+      channelId,
+      createdByUserId,
       ...(interactionId ? { interactionId } : {}),
-      report,
       options,
+      url,
     });
-    logRecapStep(interactionId, 'comparison_snapshot_persist', comparisonSnapshotStart);
-
-    const previousLookupStart = Date.now();
-    const previousPlayers = options.wclClient.findPreviousRaidSummaries
-      ? await options.wclClient.findPreviousRaidSummaries(guildId, new Date(report.startTime))
-      : [];
-    logRecapStep(interactionId, 'previous_raid_summary_lookup', previousLookupStart);
-
-    const summaryBuildStart = Date.now();
-    const summary = buildRecapSummary(report, previousPlayers, { guildConfig });
-    logRecapStep(interactionId, 'summary_build', summaryBuildStart);
 
     const createdAt = new Date();
     const previewStateInput: SavePreviewStateInput = {
-      guildId,
-      channelId,
-      reportCode: report.reportCode,
-      sourceUrl: url,
-      summaryPayload: summary,
-      createdByUserId,
+      ...artifact.previewStateInputBase,
       createdAt,
       expiresAt: new Date(createdAt.getTime() + previewStateTtlMs),
-      ...(interactionId ? { interactionId } : {}),
     };
     await options.recapPreviewStateService.savePreviewState(previewStateInput);
 
@@ -193,7 +236,7 @@ export const processRecapInteraction = async (
     await editOriginalInteractionResponse(
       applicationId,
       interactionToken,
-      buildRecapPreviewBody(summary, report.reportCode, guildId),
+      artifact.previewBody,
     );
     logRecapStep(interactionId, 'original_response_edit', editStart);
   } catch (error) {
@@ -218,19 +261,31 @@ export const handleRecapComponentInteraction = async (
   }
 
   const { action, reportCode, guildId } = parsedCustomId;
-
-  if (action == CANCEL_RECAP_ACTION) {
-    await options.recapPreviewStateService.deletePreviewState({ reportCode, guildId });
-    return { type: 4, data: { content: 'Preview was cancelled, nothing was posted.', flags: 64 } };
+  if (action !== POST_RECAP_ACTION && action !== CANCEL_RECAP_ACTION) {
+    return { type: 4, data: { content: 'Unsupported recap action.', flags: 64 } };
   }
 
-  if (action !== POST_RECAP_ACTION) {
-    return { type: 4, data: { content: 'Unsupported recap action.', flags: 64 } };
+  const channelId = parsedCustomId.channelId ?? interaction.channel_id;
+  if (!channelId) {
+    return {
+      type: 4,
+      data: {
+        content:
+          'This recap preview has already been posted or expired. Please run /recap with the URL again.',
+        flags: 64,
+      },
+    };
+  }
+
+  if (action == CANCEL_RECAP_ACTION) {
+    await options.recapPreviewStateService.deletePreviewState({ reportCode, guildId, channelId });
+    return { type: 4, data: { content: 'Preview was cancelled, nothing was posted.', flags: 64 } };
   }
 
   const previewState = await options.recapPreviewStateService.consumeValidPreviewState({
     reportCode,
     guildId,
+    channelId,
   });
   if (!previewState) {
     logger.info(

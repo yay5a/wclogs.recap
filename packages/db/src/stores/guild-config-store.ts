@@ -1,5 +1,6 @@
 import {
     defaultGuildConfigFor,
+    parseAutoRecapMode,
     parseCompareAccessMode,
     parseCompareMode,
 } from "@wcl/domain";
@@ -23,6 +24,8 @@ const parseRecapPostMode = (value: unknown): RecapPostMode =>
     value === "preview-only" ? "preview-only" : "preview-and-post";
 const parseCompareOfficerRoleIds = (value: unknown): string[] =>
     Array.isArray(value) ? value.filter((roleId): roleId is string => typeof roleId === "string") : [];
+const parseAutoRecapChannelIds = (value: unknown): string[] =>
+    Array.isArray(value) ? [...new Set(value.filter((channelId): channelId is string => typeof channelId === "string"))] : [];
 const parseBoolean = (value: unknown): boolean =>
     typeof value === "boolean" ? value : false;
 
@@ -41,6 +44,9 @@ const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
             raw.coachingShareabilityDefault,
         ),
         recapPostModeDefault: parseRecapPostMode(raw.recapPostModeDefault),
+        autoRecapMode:
+            parseAutoRecapMode(raw.autoRecapMode) ?? fallback.autoRecapMode,
+        autoRecapChannelIds: parseAutoRecapChannelIds(raw.autoRecapChannelIds),
         compareAccessMode:
             parseCompareAccessMode(raw.compareAccessMode) ?? fallback.compareAccessMode,
         compareOfficerRoleIds: parseCompareOfficerRoleIds(raw.compareOfficerRoleIds),

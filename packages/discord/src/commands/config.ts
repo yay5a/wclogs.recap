@@ -1,11 +1,14 @@
 import { InteractionResponseType } from "discord-interactions";
 import {
+    parseAutoRecapMode,
     hasDiscordPermission,
     parseCompareAccessMode,
     parseCompareMode,
+    type AutoRecapMode,
     type CompareAccessMode,
     type CompareMode,
     type GameFamily,
+    type GuildConfig,
 } from "@wcl/domain";
 import type { DiscordInteraction, HandleOptions } from "../types.js";
 
@@ -21,6 +24,8 @@ const getBooleanOption = (options: unknown, name: string): boolean | undefined =
     return typeof found?.value === "boolean" ? found.value : undefined;
 };
 
+const hasCommandOptions = (options: unknown): boolean => Array.isArray(options) && options.length > 0;
+
 const parseGameFamilyOption = (value: string | undefined): GameFamily | undefined =>
     value === "retail" || value === "mop_classic" ? value : undefined;
 
@@ -30,6 +35,51 @@ const canManageGuildConfig = (interaction: DiscordInteraction): boolean => {
         hasDiscordPermission(permissions, "administrator") ||
         hasDiscordPermission(permissions, "manage-guild")
     );
+};
+
+const getAutoRecapMode = (config: Partial<GuildConfig>): AutoRecapMode =>
+    config.autoRecapMode ?? "prompt";
+
+const getAutoRecapChannelIds = (config: Partial<GuildConfig>): string[] =>
+    Array.isArray(config.autoRecapChannelIds)
+        ? [...new Set(config.autoRecapChannelIds)]
+        : [];
+
+const buildConfigStatusResponse = (config: Partial<GuildConfig>): string => {
+    const mode = getAutoRecapMode(config);
+    const channelIds = getAutoRecapChannelIds(config);
+    const lines = [
+        "**wclogs.recap setup status**",
+        "",
+        `Auto recap: \`${mode}\``,
+    ];
+
+    if (channelIds.length === 0) {
+        lines.push(
+            "Auto recap channels: none configured",
+            "",
+            "**Next step:**",
+            "Add a raid-log channel: `/config auto_recap_channel:#raid-logs`",
+            "",
+            "**Required bot permissions in that channel:**",
+            "View Channel, Send Messages, Embed Links",
+            "",
+            "**Optional:**",
+            "Use `/recap <warcraftlogs-url>` anytime without auto recap.",
+        );
+        return lines.join("\n");
+    }
+
+    lines.push(
+        "Auto recap channels:",
+        "",
+        ...channelIds.map((channelId) => `* <#${channelId}>`),
+        "",
+        mode === "off"
+            ? "Passive detection is currently disabled. Configured channels are preserved."
+            : "Passive Warcraft Logs detection is active in the listed channels.",
+    );
+    return lines.join("\n");
 };
 
 const getCompareModeResponse = (compareMode: CompareMode): string => {
@@ -89,12 +139,35 @@ export const handleConfigCommand = async (
         interaction.data?.options,
         "compare_officer_role",
     );
+    const rawAutoRecapMode = getStringOption(
+        interaction.data?.options,
+        "auto_recap_mode",
+    );
+    const autoRecapChannelId = getStringOption(
+        interaction.data?.options,
+        "auto_recap_channel",
+    );
     const compareModeDefault =
         rawCompareMode === undefined ? undefined : parseCompareMode(rawCompareMode);
     const compareAccessMode =
         rawCompareAccessMode === undefined
             ? undefined
             : parseCompareAccessMode(rawCompareAccessMode);
+    const autoRecapMode =
+        rawAutoRecapMode === undefined
+            ? undefined
+            : parseAutoRecapMode(rawAutoRecapMode);
+
+    if (!hasCommandOptions(interaction.data?.options)) {
+        const config = await options.guildConfigStore.getGuildConfig(guildId);
+        return {
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content: buildConfigStatusResponse(config),
+                flags: 64,
+            },
+        };
+    }
 
     if (rawCompareMode !== undefined && !compareModeDefault) {
         return {
@@ -118,17 +191,38 @@ export const handleConfigCommand = async (
         };
     }
 
+    if (rawAutoRecapMode !== undefined && !autoRecapMode) {
+        return {
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: {
+                content:
+                    "Invalid auto_recap_mode. Choose off, prompt, auto_preview, or auto_post.",
+                flags: 64,
+            },
+        };
+    }
+
     const updateObject: Parameters<
         HandleOptions["guildConfigStore"]["saveGuildConfig"]
     >[1] = {};
+    const existingConfig = autoRecapChannelId
+        ? await options.guildConfigStore.getGuildConfig(guildId)
+        : undefined;
     const parsedGameFamily = parseGameFamilyOption(defaultGameFamily);
     if (parsedGameFamily) updateObject.defaultGameFamily = parsedGameFamily;
     if (compareModeDefault) updateObject.compareModeDefault = compareModeDefault;
     if (compareAccessMode) updateObject.compareAccessMode = compareAccessMode;
+    if (autoRecapMode) updateObject.autoRecapMode = autoRecapMode;
     if (comparePublicPostingEnabled !== undefined) {
         updateObject.comparePublicPostingEnabled = comparePublicPostingEnabled;
     }
     if (compareOfficerRoleId) updateObject.compareOfficerRoleIds = [compareOfficerRoleId];
+    if (autoRecapChannelId && existingConfig) {
+        const currentChannelIds = getAutoRecapChannelIds(existingConfig);
+        updateObject.autoRecapChannelIds = currentChannelIds.includes(autoRecapChannelId)
+            ? currentChannelIds.filter((channelId) => channelId !== autoRecapChannelId)
+            : [...currentChannelIds, autoRecapChannelId];
+    }
     const saved = await options.guildConfigStore.saveGuildConfig(guildId, updateObject);
     const responseLines: string[] = [];
     if (compareModeDefault || Object.keys(updateObject).length === 0) {
@@ -147,11 +241,22 @@ export const handleConfigCommand = async (
     if (compareOfficerRoleId) {
         responseLines.push("Compare officer role set. Members with that role can view private compare cards.");
     }
+    if (autoRecapMode) {
+        responseLines.push(`Auto recap mode set to ${autoRecapMode}.`);
+    }
+    if (autoRecapChannelId) {
+        const enabled = getAutoRecapChannelIds(saved).includes(autoRecapChannelId);
+        responseLines.push(
+            enabled
+                ? `Auto recap enabled in <#${autoRecapChannelId}>.`
+                : `Auto recap disabled in <#${autoRecapChannelId}>.`,
+        );
+    }
 
     return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-            content: responseLines.join("\n"),
+            content: [...responseLines, buildConfigStatusResponse(saved)].filter(Boolean).join("\n\n"),
             flags: 64,
         },
     };

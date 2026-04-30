@@ -30,6 +30,7 @@ export interface SaveRecapPreviewStateInput {
 export interface PreviewStateLookup {
     reportCode: string;
     guildId: string;
+    channelId: string;
 }
 
 const isRecapSummary = (value: unknown): value is RecapSummary => {
@@ -114,7 +115,7 @@ export class MongoRecapPreviewStateStore {
         input: SaveRecapPreviewStateInput,
     ): Promise<RecapPreviewStateRecord> {
         const saved = await RecapPreviewStateModel.findOneAndUpdate(
-            { guildId: input.guildId, reportCode: input.reportCode },
+            { guildId: input.guildId, channelId: input.channelId, reportCode: input.reportCode },
             {
                 $set: {
                     guildId: input.guildId,
@@ -149,6 +150,7 @@ export class MongoRecapPreviewStateStore {
         const found = await RecapPreviewStateModel.findOne({
             reportCode: lookup.reportCode,
             guildId: lookup.guildId,
+            channelId: lookup.channelId,
             expiresAt: { $gt: new Date() },
         }).lean();
         return toRecapPreviewStateRecord(found);
@@ -160,6 +162,7 @@ export class MongoRecapPreviewStateStore {
         const consumed = await RecapPreviewStateModel.findOneAndDelete({
             reportCode: lookup.reportCode,
             guildId: lookup.guildId,
+            channelId: lookup.channelId,
             expiresAt: { $gt: new Date() },
         }).lean();
         return toRecapPreviewStateRecord(consumed);
@@ -169,6 +172,7 @@ export class MongoRecapPreviewStateStore {
         await RecapPreviewStateModel.deleteOne({
             reportCode: lookup.reportCode,
             guildId: lookup.guildId,
+            channelId: lookup.channelId,
         });
     }
 }

@@ -1,6 +1,8 @@
 import type {
+    AutoRecapMode,
     CharacterClaimStatus,
     ComparisonSnapshotInput,
+    GameFamily,
     GuildConfigStore,
     PreviousRaidLookup,
 } from "@wcl/domain";
@@ -26,6 +28,7 @@ export interface SavePreviewStateInput {
 export interface PreviewStateLookup {
     reportCode: string;
     guildId: string;
+    channelId: string;
 }
 
 export type PreviewStateRecord = SavePreviewStateInput;
@@ -39,6 +42,92 @@ export interface RecapPreviewStateService {
         lookup: PreviewStateLookup,
     ): Promise<PreviewStateRecord | null>;
     deletePreviewState(lookup: PreviewStateLookup): Promise<void>;
+}
+
+export interface AutoRecapPromptStateRecord {
+    guildId: string;
+    channelId: string;
+    reportCode: string;
+    gameFamily: GameFamily;
+    sourceUrl: string;
+    sourceMessageId: string;
+    sourceAuthorId: string;
+    promptMessageId: string;
+    expiresAt: Date;
+}
+
+export interface AutoRecapPromptStateService {
+    savePromptState(input: AutoRecapPromptStateRecord): Promise<AutoRecapPromptStateRecord>;
+    getValidPromptState(sourceMessageId: string): Promise<AutoRecapPromptStateRecord | null>;
+    consumeValidPromptState(sourceMessageId: string): Promise<AutoRecapPromptStateRecord | null>;
+}
+
+export type AutoRecapDuplicateStatus =
+    | "processing"
+    | "prompted"
+    | "preview_posted"
+    | "final_posted"
+    | "ignored"
+    | "failed";
+
+export type AutoRecapLatestOutputKind =
+    | "prompt"
+    | "public_preview"
+    | "public_final_recap"
+    | "duplicate_confirmation"
+    | "public_failure";
+
+export interface AutoRecapDuplicateTrackingRecord {
+    guildId: string;
+    channelId: string;
+    reportCode: string;
+    gameFamily: GameFamily;
+    sourceUrl: string;
+    sourceMessageId: string;
+    sourceAuthorId: string;
+    mode: Exclude<AutoRecapMode, "off">;
+    status: AutoRecapDuplicateStatus;
+    latestOutputMessageId?: string;
+    latestOutputKind?: AutoRecapLatestOutputKind;
+    duplicateConfirmationMessageId?: string;
+    confirmationNonce?: string;
+    expiresAt: Date;
+}
+
+export interface AutoRecapDuplicateTrackingService {
+    claimPassiveDetection(input: {
+        guildId: string;
+        channelId: string;
+        reportCode: string;
+        gameFamily: GameFamily;
+        sourceUrl: string;
+        sourceMessageId: string;
+        sourceAuthorId: string;
+        mode: Exclude<AutoRecapMode, "off">;
+        expiresAt: Date;
+    }): Promise<
+        | { claimed: true; record: AutoRecapDuplicateTrackingRecord }
+        | { claimed: false; record: AutoRecapDuplicateTrackingRecord | null }
+    >;
+    getByConfirmationNonce?(
+        confirmationNonce: string,
+    ): Promise<AutoRecapDuplicateTrackingRecord | null>;
+    updateTracking(input: {
+        guildId: string;
+        channelId: string;
+        reportCode: string;
+        sourceUrl?: string;
+        gameFamily?: GameFamily;
+        sourceMessageId?: string;
+        sourceAuthorId?: string;
+        mode?: Exclude<AutoRecapMode, "off">;
+        status?: AutoRecapDuplicateStatus;
+        latestOutputMessageId?: string;
+        latestOutputKind?: AutoRecapLatestOutputKind;
+        duplicateConfirmationMessageId?: string;
+        confirmationNonce?: string;
+        expiresAt?: Date;
+    }): Promise<AutoRecapDuplicateTrackingRecord | null>;
 }
 
 export interface ComparisonHistoryStore {
@@ -121,6 +210,8 @@ export interface HandleOptions {
     recapPreviewStateService: RecapPreviewStateService;
     comparisonHistoryStore?: ComparisonHistoryStore;
     characterClaimStore?: CharacterClaimStore;
+    autoRecapPromptStateService?: AutoRecapPromptStateService;
+    autoRecapDuplicateTrackingService?: AutoRecapDuplicateTrackingService;
     previewStateTtlSeconds?: number;
     scheduleBackgroundTask?: (task: () => void) => void;
 }

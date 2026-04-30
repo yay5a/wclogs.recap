@@ -8,6 +8,8 @@ export * from './stores/character-claim-store.js';
 export * from './stores/comparison-history-store.js';
 export * from './stores/guild-config-store.js';
 export * from './stores/recap-preview-state-store.js';
+export * from './stores/auto-recap-prompt-state-store.js';
+export * from './stores/auto-recap-duplicate-tracking-store.js';
 export * from './services/trend-tracking-service.js';
 
 export const connectMongo = async (uri: string) => mongoose.connect(uri);
@@ -40,6 +42,15 @@ const guildSettingsSchema = new Schema(
       type: String,
       enum: ['preview-and-post', 'preview-only'],
       default: 'preview-and-post',
+    },
+    autoRecapMode: {
+      type: String,
+      enum: ['off', 'prompt', 'auto_preview', 'auto_post'],
+      default: 'prompt',
+    },
+    autoRecapChannelIds: {
+      type: [String],
+      default: [],
     },
     compareAccessMode: {
       type: String,
@@ -226,7 +237,65 @@ const recapPreviewStateSchema = new Schema(
 );
 recapPreviewStateSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 recapPreviewStateSchema.index({ interactionId: 1, messageId: 1 });
-recapPreviewStateSchema.index({ guildId: 1, reportCode: 1 }, { unique: true });
+recapPreviewStateSchema.index({ guildId: 1, channelId: 1, reportCode: 1 }, { unique: true });
+
+const autoRecapPromptStateSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    channelId: { type: String, required: true, index: true },
+    reportCode: { type: String, required: true, index: true },
+    gameFamily: {
+      type: String,
+      enum: ['retail', 'mop_classic'],
+      required: true,
+    },
+    sourceUrl: { type: String, required: true },
+    sourceMessageId: { type: String, required: true, unique: true },
+    sourceAuthorId: { type: String, required: true, index: true },
+    promptMessageId: { type: String, required: true, index: true },
+    expiresAt: { type: Date, required: true },
+  },
+  { timestamps: true },
+);
+autoRecapPromptStateSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+
+const autoRecapDuplicateTrackingSchema = new Schema(
+  {
+    guildId: { type: String, required: true, index: true },
+    channelId: { type: String, required: true, index: true },
+    reportCode: { type: String, required: true, index: true },
+    gameFamily: {
+      type: String,
+      enum: ['retail', 'mop_classic'],
+      required: true,
+    },
+    sourceUrl: { type: String, required: true },
+    sourceMessageId: { type: String, required: true, index: true },
+    sourceAuthorId: { type: String, required: true, index: true },
+    mode: {
+      type: String,
+      enum: ['prompt', 'auto_preview', 'auto_post'],
+      required: true,
+    },
+    status: {
+      type: String,
+      enum: ['processing', 'prompted', 'preview_posted', 'final_posted', 'ignored', 'failed'],
+      required: true,
+      default: 'processing',
+    },
+    latestOutputMessageId: { type: String },
+    latestOutputKind: {
+      type: String,
+      enum: ['prompt', 'public_preview', 'public_final_recap', 'duplicate_confirmation', 'public_failure'],
+    },
+    duplicateConfirmationMessageId: { type: String },
+    confirmationNonce: { type: String, index: true },
+    expiresAt: { type: Date, required: true },
+  },
+  { timestamps: true },
+);
+autoRecapDuplicateTrackingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+autoRecapDuplicateTrackingSchema.index({ guildId: 1, channelId: 1, reportCode: 1 }, { unique: true });
 
 export const GuildSettingsModel = mongoose.model('GuildSettings', guildSettingsSchema);
 export const PlayerProfileModel = mongoose.model('PlayerProfile', playerProfileSchema);
@@ -240,3 +309,30 @@ export const TrendSnapshotModel = mongoose.model('TrendSnapshot', trendSnapshotS
 export const JobModel = mongoose.model('Job', jobSchema);
 export const AuditLogModel = mongoose.model('AuditLog', auditLogSchema);
 export const RecapPreviewStateModel = mongoose.model('RecapPreviewState', recapPreviewStateSchema);
+export const AutoRecapPromptStateModel = mongoose.model('AutoRecapPromptState', autoRecapPromptStateSchema);
+export const AutoRecapDuplicateTrackingModel = mongoose.model('AutoRecapDuplicateTracking', autoRecapDuplicateTrackingSchema);
+
+export const migrateRecapPreviewStateIndexes = async (): Promise<void> => {
+  const oldUniqueKey = { guildId: 1, reportCode: 1 };
+  const indexes = await RecapPreviewStateModel.collection.indexes();
+  await Promise.all(
+    indexes
+      .filter((index) => {
+        const key = index.key as Record<string, unknown> | undefined;
+        return (
+          index.unique === true &&
+          key?.guildId === oldUniqueKey.guildId &&
+          key?.reportCode === oldUniqueKey.reportCode &&
+          !('channelId' in key)
+        );
+      })
+      .map(async (index) => {
+        if (!index.name) return;
+        await RecapPreviewStateModel.collection.dropIndex(index.name);
+      }),
+  );
+  await RecapPreviewStateModel.collection.createIndex(
+    { guildId: 1, channelId: 1, reportCode: 1 },
+    { unique: true },
+  );
+};

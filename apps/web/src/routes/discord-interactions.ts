@@ -1,6 +1,8 @@
 import { verifyKey } from "discord-interactions";
 import type { FastifyPluginAsync } from "fastify";
 import type {
+    MongoAutoRecapDuplicateTrackingStore,
+    MongoAutoRecapPromptStateStore,
     MongoCharacterClaimStore,
     MongoComparisonHistoryStore,
     MongoGuildConfigStore,
@@ -16,6 +18,8 @@ type DiscordInteractionRouteOptions = {
     wclClient: WclClient;
     guildConfigStore: MongoGuildConfigStore;
     recapPreviewStateService: MongoRecapPreviewStateStore;
+    autoRecapPromptStateService: MongoAutoRecapPromptStateStore;
+    autoRecapDuplicateTrackingService: MongoAutoRecapDuplicateTrackingStore;
     comparisonHistoryStore: MongoComparisonHistoryStore;
     characterClaimStore: MongoCharacterClaimStore;
     logger: ReturnType<typeof createLogger>;
@@ -73,6 +77,8 @@ export const registerDiscordInteractionRoutes: FastifyPluginAsync<
                     wclClient: options.wclClient,
                     guildConfigStore: options.guildConfigStore,
                     recapPreviewStateService: options.recapPreviewStateService,
+                    autoRecapPromptStateService: options.autoRecapPromptStateService,
+                    autoRecapDuplicateTrackingService: options.autoRecapDuplicateTrackingService,
                     comparisonHistoryStore: options.comparisonHistoryStore,
                     characterClaimStore: options.characterClaimStore,
                     previewStateTtlSeconds: options.env.PREVIEW_STATE_TTL_SECONDS,

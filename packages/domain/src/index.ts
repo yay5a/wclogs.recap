@@ -9,6 +9,12 @@ export type GameFamily = 'retail' | 'mop_classic';
 
 export type RecapPostMode = 'preview-and-post' | 'preview-only';
 
+export const AUTO_RECAP_MODES = ['off', 'prompt', 'auto_preview', 'auto_post'] as const;
+export type AutoRecapMode = (typeof AUTO_RECAP_MODES)[number];
+
+export const parseAutoRecapMode = (value: unknown): AutoRecapMode | undefined =>
+  AUTO_RECAP_MODES.includes(value as AutoRecapMode) ? (value as AutoRecapMode) : undefined;
+
 export interface GuildConfig {
   guildId: string;
   defaultGameFamily: GameFamily;
@@ -19,6 +25,8 @@ export interface GuildConfig {
   accountabilityVisibility: AccountabilityVisibility;
   coachingShareabilityDefault: CoachingShareability;
   recapPostModeDefault: RecapPostMode;
+  autoRecapMode: AutoRecapMode;
+  autoRecapChannelIds: string[];
 }
 
 export interface GuildConfigStore {
@@ -39,6 +47,8 @@ export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
   accountabilityVisibility: 'off',
   coachingShareabilityDefault: 'private',
   recapPostModeDefault: 'preview-and-post',
+  autoRecapMode: 'prompt',
+  autoRecapChannelIds: [],
 });
 
 export interface NormalizedPlayer {

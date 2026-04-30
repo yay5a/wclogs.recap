@@ -1,5 +1,21 @@
-import { JobModel, MongoTrendTrackingService, connectMongo } from "@wcl/db";
+import {
+    JobModel,
+    MongoAutoRecapDuplicateTrackingStore,
+    MongoAutoRecapPromptStateStore,
+    MongoComparisonHistoryStore,
+    MongoGuildConfigStore,
+    MongoRecapPreviewStateStore,
+    MongoTrendTrackingService,
+    ReportCacheModel,
+    connectMongo,
+    migrateRecapPreviewStateIndexes,
+} from "@wcl/db";
+import type { AutoRecapSendableChannel } from "@wcl/discord";
+import { handleAutoRecapMessageCreate } from "@wcl/discord";
 import { createLogger } from "@wcl/shared";
+import type { ReportCacheStore } from "@wcl/wcl-client";
+import { WclClient } from "@wcl/wcl-client";
+import { ChannelType, Client, Events, GatewayIntentBits, type Guild } from "discord.js";
 import { parseWorkerEnv } from "./config.js";
 import { loadEnvFile } from "node:process";
 import { existsSync } from "node:fs";
@@ -17,6 +33,7 @@ if (existsSync(envPath)) {
 
 const env = parseWorkerEnv(process.env);
 const logger = createLogger("worker");
+const SAFE_ALLOWED_MENTIONS = { parse: [] as string[] };
 
 export interface Queue {
     enqueue(type: string, payload: unknown, runAt?: Date): Promise<void>;
@@ -137,6 +154,151 @@ class MongoQueue implements Queue {
 
 const queue = new MongoQueue();
 const trendTrackingService = new MongoTrendTrackingService();
+const guildConfigStore = new MongoGuildConfigStore();
+const recapPreviewStateService = new MongoRecapPreviewStateStore();
+const autoRecapPromptStateService = new MongoAutoRecapPromptStateStore();
+const autoRecapDuplicateTrackingService = new MongoAutoRecapDuplicateTrackingStore();
+const comparisonHistoryStore = new MongoComparisonHistoryStore();
+
+const reportCacheStore: ReportCacheStore = {
+    async getByReportCode(reportCode: string) {
+        return ReportCacheModel.findOne({ reportCode }).lean();
+    },
+    async upsert(entry) {
+        await ReportCacheModel.findOneAndUpdate(
+            { reportCode: entry.reportCode },
+            entry,
+            { upsert: true },
+        );
+    },
+};
+
+const wclClient = new WclClient({
+    clientId: env.WCL_CLIENT_ID,
+    clientSecret: env.WCL_CLIENT_SECRET,
+    apiBaseUrl: env.WCL_API_BASE_URL,
+    reportCacheStore,
+});
+
+class InMemoryFailureThrottle {
+    private readonly entries = new Map<string, number>();
+
+    public shouldPostFailure(key: string, ttlMs: number): boolean {
+        const now = Date.now();
+        const existingExpiresAt = this.entries.get(key);
+        if (existingExpiresAt && existingExpiresAt > now) return false;
+        this.entries.set(key, now + ttlMs);
+        for (const [entryKey, expiresAt] of this.entries.entries()) {
+            if (expiresAt <= now) this.entries.delete(entryKey);
+        }
+        return true;
+    }
+}
+
+const failureThrottle = new InMemoryFailureThrottle();
+
+type DiscordSendableChannel = {
+    type?: ChannelType;
+    send(body: Record<string, unknown>): Promise<{ id: string }>;
+    isSendable?: () => boolean;
+};
+
+const isDiscordSendableTextChannel = (value: unknown): value is DiscordSendableChannel => {
+    if (!value || typeof value !== "object") return false;
+    const candidate = value as Partial<DiscordSendableChannel>;
+    const type = candidate.type;
+    const isTextType = type === ChannelType.GuildText || type === ChannelType.GuildAnnouncement;
+    const sendable =
+        typeof candidate.isSendable === "function" ? candidate.isSendable() : true;
+    return isTextType && sendable && typeof candidate.send === "function";
+};
+
+const toAutoRecapChannel = (channel: unknown): AutoRecapSendableChannel | null => {
+    if (!isDiscordSendableTextChannel(channel)) return null;
+    return {
+        send: async (body: Record<string, unknown>) => {
+            const sent = await channel.send(body);
+            return { id: sent.id };
+        },
+    };
+};
+
+const sendGuildCreateNotice = async (guild: Guild): Promise<void> => {
+    const content = [
+        "Thanks for adding **wclogs.recap**.",
+        "",
+        "Run `/config` to check setup status.",
+        "",
+        "To enable passive Warcraft Logs detection, run:",
+        "`/config auto_recap_channel:#raid-logs`",
+        "",
+        "You can also use `/recap <warcraftlogs-url>` anytime.",
+    ].join("\n");
+
+    const channel =
+        toAutoRecapChannel(guild.systemChannel) ??
+        toAutoRecapChannel(
+            guild.channels.cache.find((candidate) => isDiscordSendableTextChannel(candidate)),
+        );
+    if (!channel) {
+        logger.info({ guildId: guild.id }, "guildCreate setup notice skipped; no sendable text channel");
+        return;
+    }
+    try {
+        await channel.send({ content, allowed_mentions: SAFE_ALLOWED_MENTIONS });
+    } catch (error) {
+        logger.warn({ guildId: guild.id, error }, "guildCreate setup notice failed");
+    }
+};
+
+const startDiscordGateway = async (): Promise<Client> => {
+    logger.info(
+        {
+            intents: ["Guilds", "GuildMessages", "MessageContent"],
+        },
+        "starting Discord Gateway; MessageContent intent requested",
+    );
+    const client = new Client({
+        intents: [
+            GatewayIntentBits.Guilds,
+            GatewayIntentBits.GuildMessages,
+            GatewayIntentBits.MessageContent,
+        ],
+    });
+    client.on(Events.MessageCreate, (message) => {
+        void handleAutoRecapMessageCreate({
+            message: {
+                guildId: message.guildId,
+                channelId: message.channelId,
+                messageId: message.id,
+                authorId: message.author.id,
+                authorBot: message.author.bot,
+                content: message.content,
+            },
+            channel: toAutoRecapChannel(message.channel),
+            handleOptions: {
+                wclClient,
+                guildConfigStore,
+                recapPreviewStateService,
+                autoRecapPromptStateService,
+                autoRecapDuplicateTrackingService,
+                comparisonHistoryStore,
+            },
+            failureThrottle,
+        });
+    });
+    client.on(Events.GuildCreate, (guild) => {
+        void sendGuildCreateNotice(guild);
+    });
+    client.once(Events.ClientReady, (readyClient) => {
+        logger.info(
+            { userId: readyClient.user.id, guildCount: readyClient.guilds.cache.size },
+            "Discord Gateway ready",
+        );
+    });
+    await client.login(env.DISCORD_BOT_TOKEN);
+    return client;
+};
 
 type RecomputeTrendsPayload = {
     guildId: string;
@@ -192,6 +354,8 @@ const processNext = async (): Promise<void> => {
 
 const start = async () => {
     await connectMongo(env.MONGODB_URI);
+    await migrateRecapPreviewStateIndexes();
+    await startDiscordGateway();
     logger.info("worker started");
 
     // Serialized polling loop: next poll starts only after the previous unit of work completes.

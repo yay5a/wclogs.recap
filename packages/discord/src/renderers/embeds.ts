@@ -4,6 +4,7 @@ import type { RecapRenderModel } from './recap-domain.js';
 import { toRecapRenderModel } from './recap-domain.js';
 
 const RECAP_COMPONENT_PREFIX = 'recap:v1';
+const RECAP_COMPONENT_V2_PREFIX = 'recap:v2';
 const POST_RECAP_ACTION = 'post';
 const CANCEL_RECAP_ACTION = 'cancel';
 const EPHEMERAL_MESSAGE_FLAG = 64;
@@ -121,21 +122,27 @@ export const makeRecapComponentCustomId = (
   action: string,
   reportCode: string,
   guildId: string,
-): string => `${RECAP_COMPONENT_PREFIX}:${action}:${reportCode}:${guildId}`;
+  channelId: string,
+): string => `${RECAP_COMPONENT_V2_PREFIX}:${action}:${reportCode}:${guildId}:${channelId}`;
 
 export const parseRecapComponentCustomId = (
   customId: string,
-): { action: string; reportCode: string; guildId: string } | undefined => {
-  const [prefix, version, action, reportCode, guildId] = customId.split(':');
-  if (`${prefix}:${version}` !== RECAP_COMPONENT_PREFIX) return undefined;
+): { action: string; reportCode: string; guildId: string; channelId?: string } | undefined => {
+  const [prefix, version, action, reportCode, guildId, channelId] = customId.split(':');
+  const parsedPrefix = `${prefix}:${version}`;
+  if (parsedPrefix !== RECAP_COMPONENT_PREFIX && parsedPrefix !== RECAP_COMPONENT_V2_PREFIX) {
+    return undefined;
+  }
   if (!action || !reportCode || !guildId) return undefined;
-  return { action, reportCode, guildId };
+  if (parsedPrefix === RECAP_COMPONENT_V2_PREFIX && !channelId) return undefined;
+  return { action, reportCode, guildId, ...(channelId ? { channelId } : {}) };
 };
 
 export const buildRecapPreviewBodyFromModel = (
   model: RecapRenderModel,
   reportCode: string,
   guildId: string,
+  channelId: string,
 ) => ({
   flags: EPHEMERAL_MESSAGE_FLAG,
   content:
@@ -168,13 +175,13 @@ export const buildRecapPreviewBodyFromModel = (
         {
           type: MessageComponentTypes.BUTTON,
           style: 1,
-          custom_id: makeRecapComponentCustomId(POST_RECAP_ACTION, reportCode, guildId),
+          custom_id: makeRecapComponentCustomId(POST_RECAP_ACTION, reportCode, guildId, channelId),
           label: 'Post to Current Channel',
         },
         {
           type: MessageComponentTypes.BUTTON,
           style: 2,
-          custom_id: makeRecapComponentCustomId(CANCEL_RECAP_ACTION, reportCode, guildId),
+          custom_id: makeRecapComponentCustomId(CANCEL_RECAP_ACTION, reportCode, guildId, channelId),
           label: 'Cancel',
         },
       ],
@@ -182,8 +189,12 @@ export const buildRecapPreviewBodyFromModel = (
   ],
 });
 
-export const buildRecapPreviewBody = (summary: RecapSummary, reportCode: string, guildId: string) =>
-  buildRecapPreviewBodyFromModel(toRecapRenderModel(summary), reportCode, guildId);
+export const buildRecapPreviewBody = (
+  summary: RecapSummary,
+  reportCode: string,
+  guildId: string,
+  channelId: string,
+) => buildRecapPreviewBodyFromModel(toRecapRenderModel(summary), reportCode, guildId, channelId);
 
 export function buildPublicRecapEmbedFromModel(model: RecapRenderModel) {
   const standoutLines = [

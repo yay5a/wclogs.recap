@@ -10,10 +10,15 @@ import {
     COMPARISON_SNAPSHOT_HISTORY_PROJECTION,
     ComparisonSnapshotModel,
     GuildSettingsModel,
+    migrateRecapPreviewStateIndexes,
+    MongoAutoRecapDuplicateTrackingStore,
+    MongoAutoRecapPromptStateStore,
     MongoCharacterClaimStore,
     MongoComparisonHistoryStore,
     MongoGuildConfigStore,
     MongoRecapPreviewStateStore,
+    AutoRecapDuplicateTrackingModel,
+    AutoRecapPromptStateModel,
     RecapPreviewStateModel,
     MongoTrendTrackingService,
     PlayerRaidSummaryModel,
@@ -79,6 +84,8 @@ describe("MongoGuildConfigStore", () => {
         expect(config.compareOfficerRoleIds).toEqual([]);
         expect(config.comparePublicPostingEnabled).toBe(false);
         expect(config.accountabilityVisibility).toBe("off");
+        expect(config.autoRecapMode).toBe("prompt");
+        expect(config.autoRecapChannelIds).toEqual([]);
     });
 
     it("defaults compare mode when persisted config is missing compareModeDefault", async () => {
@@ -117,6 +124,8 @@ describe("MongoGuildConfigStore", () => {
                 compareAccessMode: "guild_open",
                 compareOfficerRoleIds: ["role-1", 42, "role-2"],
                 comparePublicPostingEnabled: "yes",
+                autoRecapMode: "always",
+                autoRecapChannelIds: ["channel-1", 42, "channel-1", "channel-2"],
             }),
         } as never);
 
@@ -126,6 +135,8 @@ describe("MongoGuildConfigStore", () => {
         expect(config.compareAccessMode).toBe(DEFAULT_COMPARE_ACCESS_MODE);
         expect(config.compareOfficerRoleIds).toEqual(["role-1", "role-2"]);
         expect(config.comparePublicPostingEnabled).toBe(false);
+        expect(config.autoRecapMode).toBe("prompt");
+        expect(config.autoRecapChannelIds).toEqual(["channel-1", "channel-2"]);
     });
 
     it("persists configured values via upsert", async () => {
@@ -139,6 +150,8 @@ describe("MongoGuildConfigStore", () => {
             compareAccessMode: "owner_opt_in_or_officer",
             compareOfficerRoleIds: ["role-1"],
             comparePublicPostingEnabled: true,
+            autoRecapMode: "auto_preview",
+            autoRecapChannelIds: ["channel-1"],
         });
         vi.spyOn(GuildSettingsModel, "findOneAndUpdate").mockReturnValue({
             lean,
@@ -154,6 +167,8 @@ describe("MongoGuildConfigStore", () => {
             compareAccessMode: "owner_opt_in_or_officer",
             compareOfficerRoleIds: ["role-1"],
             comparePublicPostingEnabled: true,
+            autoRecapMode: "auto_preview",
+            autoRecapChannelIds: ["channel-1"],
         });
 
         expect(saved.defaultGameFamily).toBe("mop_classic");
@@ -161,6 +176,8 @@ describe("MongoGuildConfigStore", () => {
         expect(saved.compareAccessMode).toBe("owner_opt_in_or_officer");
         expect(saved.compareOfficerRoleIds).toEqual(["role-1"]);
         expect(saved.comparePublicPostingEnabled).toBe(true);
+        expect(saved.autoRecapMode).toBe("auto_preview");
+        expect(saved.autoRecapChannelIds).toEqual(["channel-1"]);
         expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledOnce();
     });
 });
@@ -462,11 +479,13 @@ describe("MongoRecapPreviewStateStore", () => {
         await store.getValidPreviewState({
             reportCode: "ABC123",
             guildId: "guild-1",
+            channelId: "channel-1",
         });
 
         expect(RecapPreviewStateModel.findOne).toHaveBeenCalledWith({
             reportCode: "ABC123",
             guildId: "guild-1",
+            channelId: "channel-1",
             expiresAt: { $gt: now },
         });
     });
@@ -481,6 +500,7 @@ describe("MongoRecapPreviewStateStore", () => {
         const result = await store.getValidPreviewState({
             reportCode: "ABC123",
             guildId: "guild-1",
+            channelId: "channel-1",
         });
 
         expect(result).toBeNull();
@@ -498,11 +518,13 @@ describe("MongoRecapPreviewStateStore", () => {
         await store.deletePreviewState({
             reportCode: "ABC123",
             guildId: "guild-1",
+            channelId: "channel-1",
         });
 
         expect(deleteSpy).toHaveBeenCalledWith({
             reportCode: "ABC123",
             guildId: "guild-1",
+            channelId: "channel-1",
         });
     });
 
@@ -531,15 +553,253 @@ describe("MongoRecapPreviewStateStore", () => {
         await store.consumeValidPreviewState({
             reportCode: "ABC123",
             guildId: "guild-1",
+            channelId: "channel-1",
         });
 
         expect(consumeSpy).toHaveBeenCalledWith({
             reportCode: "ABC123",
             guildId: "guild-1",
+            channelId: "channel-1",
+            expiresAt: { $gt: now },
+        });
+    });
+
+    it("uses guildId, channelId, and reportCode as preview identity", async () => {
+        const now = new Date("2026-04-09T00:00:00.000Z");
+        const savedState = {
+            guildId: "guild-1",
+            channelId: "channel-2",
+            reportCode: "ABC123",
+            sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+            summaryPayload: makeRecapSummary(),
+            createdByUserId: "user-1",
+            createdAt: now,
+            expiresAt: new Date(now.getTime() + 60_000),
+        };
+        vi.spyOn(RecapPreviewStateModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(savedState),
+        } as never);
+
+        const store = new MongoRecapPreviewStateStore();
+        await store.savePreviewState(savedState);
+
+        expect(RecapPreviewStateModel.findOneAndUpdate).toHaveBeenCalledWith(
+            { guildId: "guild-1", channelId: "channel-2", reportCode: "ABC123" },
+            expect.any(Object),
+            expect.any(Object),
+        );
+    });
+
+    it("drops the old guildId and reportCode unique index during migration", async () => {
+        const indexesSpy = vi
+            .spyOn(RecapPreviewStateModel.collection, "indexes")
+            .mockResolvedValue([
+                { name: "_id_", key: { _id: 1 } },
+                {
+                    name: "guildId_1_reportCode_1",
+                    key: { guildId: 1, reportCode: 1 },
+                    unique: true,
+                },
+            ] as never);
+        const dropSpy = vi
+            .spyOn(RecapPreviewStateModel.collection, "dropIndex")
+            .mockResolvedValue({ ok: 1 } as never);
+        const createSpy = vi
+            .spyOn(RecapPreviewStateModel.collection, "createIndex")
+            .mockResolvedValue("guildId_1_channelId_1_reportCode_1" as never);
+
+        await migrateRecapPreviewStateIndexes();
+
+        expect(indexesSpy).toHaveBeenCalledOnce();
+        expect(dropSpy).toHaveBeenCalledWith("guildId_1_reportCode_1");
+        expect(createSpy).toHaveBeenCalledWith(
+            { guildId: 1, channelId: 1, reportCode: 1 },
+            { unique: true },
+        );
+    });
+});
+
+describe("MongoAutoRecapPromptStateStore", () => {
+    const promptState = {
+        guildId: "guild-1",
+        channelId: "channel-1",
+        reportCode: "ABC123",
+        gameFamily: "retail" as const,
+        sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+        sourceMessageId: "source-message-1",
+        sourceAuthorId: "user-1",
+        promptMessageId: "prompt-message-1",
+        expiresAt: new Date("2026-04-09T00:15:00.000Z"),
+    };
+
+    it("persists and retrieves valid prompt state by source message id", async () => {
+        const now = new Date("2026-04-09T00:00:00.000Z");
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        vi.spyOn(AutoRecapPromptStateModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(promptState),
+        } as never);
+        vi.spyOn(AutoRecapPromptStateModel, "findOne").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(promptState),
+        } as never);
+
+        const store = new MongoAutoRecapPromptStateStore();
+        await store.savePromptState(promptState);
+        const found = await store.getValidPromptState("source-message-1");
+
+        expect(found?.sourceMessageId).toBe("source-message-1");
+        expect(AutoRecapPromptStateModel.findOne).toHaveBeenCalledWith({
+            sourceMessageId: "source-message-1",
+            expiresAt: { $gt: now },
+        });
+    });
+
+    it("consumes valid prompt state atomically", async () => {
+        const now = new Date("2026-04-09T00:00:00.000Z");
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        const consumeSpy = vi
+            .spyOn(AutoRecapPromptStateModel, "findOneAndDelete")
+            .mockReturnValue({
+                lean: vi.fn().mockResolvedValue(promptState),
+            } as never);
+
+        const store = new MongoAutoRecapPromptStateStore();
+        await store.consumeValidPromptState("source-message-1");
+
+        expect(consumeSpy).toHaveBeenCalledWith({
+            sourceMessageId: "source-message-1",
+            expiresAt: { $gt: now },
+        });
+    });
+
+    it("treats prompt state past expiresAt as expired even before TTL cleanup", async () => {
+        vi.spyOn(AutoRecapPromptStateModel, "findOne").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(null),
+        } as never);
+
+        const store = new MongoAutoRecapPromptStateStore();
+        const found = await store.getValidPromptState("source-message-1");
+
+        expect(found).toBeNull();
+        expect(AutoRecapPromptStateModel.findOne).toHaveBeenCalledWith(
+            expect.objectContaining({ expiresAt: expect.any(Object) }),
+        );
+    });
+});
+
+describe("MongoAutoRecapDuplicateTrackingStore", () => {
+    const trackingInput = {
+        guildId: "guild-1",
+        channelId: "channel-1",
+        reportCode: "ABC123",
+        gameFamily: "retail" as const,
+        sourceUrl: "https://www.warcraftlogs.com/reports/ABC123",
+        sourceMessageId: "source-message-1",
+        sourceAuthorId: "user-1",
+        mode: "prompt" as const,
+        expiresAt: new Date("2026-04-09T00:15:00.000Z"),
+    };
+    const processingRecord = {
+        ...trackingInput,
+        status: "processing" as const,
+    };
+
+    it("supports an atomic passive detection claim", async () => {
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(null),
+        } as never);
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "create").mockResolvedValue({
+            toObject: () => processingRecord,
+        } as never);
+
+        const store = new MongoAutoRecapDuplicateTrackingStore();
+        const result = await store.claimPassiveDetection(trackingInput);
+
+        expect(result).toMatchObject({ claimed: true, record: processingRecord });
+        expect(AutoRecapDuplicateTrackingModel.create).toHaveBeenCalledWith(
+            expect.objectContaining({
+                guildId: "guild-1",
+                channelId: "channel-1",
+                reportCode: "ABC123",
+                status: "processing",
+            }),
+        );
+    });
+
+    it("returns the active duplicate record when the atomic claim loses a race", async () => {
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(null),
+        } as never);
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "create").mockRejectedValue({ code: 11000 });
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "findOne").mockReturnValue({
+            lean: vi.fn().mockResolvedValue({
+                ...trackingInput,
+                status: "prompted",
+                latestOutputMessageId: "prompt-message-1",
+                latestOutputKind: "prompt",
+            }),
+        } as never);
+
+        const store = new MongoAutoRecapDuplicateTrackingStore();
+        const result = await store.claimPassiveDetection(trackingInput);
+
+        expect(result).toMatchObject({
+            claimed: false,
+            record: {
+                status: "prompted",
+                latestOutputMessageId: "prompt-message-1",
+                latestOutputKind: "prompt",
+            },
+        });
+    });
+
+    it("stores latest output fields and enforces active expiry in lookups", async () => {
+        const now = new Date("2026-04-09T00:00:00.000Z");
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "findOneAndUpdate").mockReturnValue({
+            lean: vi.fn().mockResolvedValue({
+                ...trackingInput,
+                status: "preview_posted",
+                latestOutputMessageId: "preview-message-1",
+                latestOutputKind: "public_preview",
+            }),
+        } as never);
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "findOne").mockReturnValue({
+            lean: vi.fn().mockResolvedValue(null),
+        } as never);
+
+        const store = new MongoAutoRecapDuplicateTrackingStore();
+        const updated = await store.updateTracking({
+            guildId: "guild-1",
+            channelId: "channel-1",
+            reportCode: "ABC123",
+            status: "preview_posted",
+            latestOutputMessageId: "preview-message-1",
+            latestOutputKind: "public_preview",
+        });
+        const expired = await store.getActiveTracking({
+            guildId: "guild-1",
+            channelId: "channel-1",
+            reportCode: "ABC123",
+        });
+
+        expect(updated).toMatchObject({
+            status: "preview_posted",
+            latestOutputMessageId: "preview-message-1",
+            latestOutputKind: "public_preview",
+        });
+        expect(expired).toBeNull();
+        expect(AutoRecapDuplicateTrackingModel.findOne).toHaveBeenCalledWith({
+            guildId: "guild-1",
+            channelId: "channel-1",
+            reportCode: "ABC123",
             expiresAt: { $gt: now },
         });
     });
 });
+
 describe("MongoComparisonHistoryStore", () => {
     const reportStartedAt = new Date("2026-04-09T00:00:00.000Z");
     const before = new Date("2026-04-10T00:00:00.000Z");

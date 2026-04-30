@@ -7,6 +7,7 @@ export type {
     UserCommandDefinition,
 } from "./infrastructure/command-registration.js";
 
+export type { AutoRecapSendableChannel } from "./commands/auto-recap.js";
 export type { RecapPreviewStateService } from "./types.js";
 
 export {
@@ -19,4 +20,13 @@ export {
 } from "./infrastructure/command-registration.js";
 
 export { handleInteraction } from "./infrastructure/interaction-handler.js";
+export {
+    buildAutoRecapPromptBody,
+    extractFirstWarcraftLogsReportUrl,
+    handleAutoRecapMessageCreate,
+    makeAutoRecapDuplicateCustomId,
+    makeAutoRecapPromptIgnoreCustomId,
+    makeAutoRecapPromptPreviewCustomId,
+    parseAutoRecapComponentCustomId,
+} from "./commands/auto-recap.js";
 export { buildPublicRecapEmbed, buildRecapPreviewBody } from "./renderers/embeds.js";

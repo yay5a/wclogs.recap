@@ -15,6 +15,10 @@ import {
   commandDefinitions,
   DiscordCommandRegistrationError,
   handleInteraction,
+  handleAutoRecapMessageCreate,
+  makeAutoRecapDuplicateCustomId,
+  makeAutoRecapPromptIgnoreCustomId,
+  makeAutoRecapPromptPreviewCustomId,
   registerGlobalCommands,
   registerGuildCommands,
 } from './index.js';
@@ -174,7 +178,27 @@ describe('command payload builder', () => {
       'compare_access_mode',
       'compare_public_posting',
       'compare_officer_role',
+      'auto_recap_mode',
+      'auto_recap_channel',
     ]);
+    expect(configCommand.options).toContainEqual(
+      expect.objectContaining({
+        name: 'auto_recap_mode',
+        choices: [
+          { name: 'off', value: 'off' },
+          { name: 'prompt', value: 'prompt' },
+          { name: 'auto_preview', value: 'auto_preview' },
+          { name: 'auto_post', value: 'auto_post' },
+        ],
+      }),
+    );
+    expect(configCommand.options).toContainEqual(
+      expect.objectContaining({
+        name: 'auto_recap_channel',
+        type: 7,
+        channel_types: [0, 5],
+      }),
+    );
 
     const compareCommand = commandDefinitions.find((command) => command.name === 'compare');
     if (!compareCommand || !('options' in compareCommand)) {
@@ -539,9 +563,23 @@ describe('Discord HTTP contract behavior', () => {
 describe('handleInteraction', () => {
   const makeConfigOptions = (
     saveGuildConfig: GuildConfigStore['saveGuildConfig'],
+    existingConfig: Partial<Awaited<ReturnType<GuildConfigStore['getGuildConfig']>>> = {},
   ) => {
     const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn(),
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'character',
+        compareAccessMode: 'officer_only',
+        compareOfficerRoleIds: [],
+        comparePublicPostingEnabled: false,
+        accountabilityVisibility: 'off',
+        coachingShareabilityDefault: 'private',
+        recapPostModeDefault: 'preview-and-post',
+        autoRecapMode: 'prompt',
+        autoRecapChannelIds: [],
+        ...existingConfig,
+      }),
       saveGuildConfig,
     };
     const wclClient = {
@@ -568,6 +606,8 @@ describe('handleInteraction', () => {
       accountabilityVisibility: 'off',
       coachingShareabilityDefault: 'private',
       recapPostModeDefault: 'preview-and-post',
+      autoRecapMode: 'prompt',
+      autoRecapChannelIds: [],
     }),
     saveGuildConfig: vi.fn(),
   });
@@ -833,8 +873,11 @@ describe('handleInteraction', () => {
       defaultGameFamily: 'mop_classic',
       compareModeDefault: 'mixed',
     });
-    expect((response as { data?: { content?: string } }).data?.content).toBe(
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Default comparison mode set to mixed. Future comparisons will use mapped player history when available. Alts are not guessed automatically.',
+    );
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
+      '**wclogs.recap setup status**',
     );
     expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
   });
@@ -866,8 +909,11 @@ describe('handleInteraction', () => {
     expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
       compareModeDefault: 'character',
     });
-    expect((response as { data?: { content?: string } }).data?.content).toBe(
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Default comparison mode set to character. Future comparisons will match exact character history unless a command overrides it.',
+    );
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
+      'Auto recap: `prompt`',
     );
     expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
   });
@@ -898,7 +944,7 @@ describe('handleInteraction', () => {
     });
   });
 
-  it('uses the saved default response when compare_mode is omitted', async () => {
+  it('returns setup status without saving when config has no options', async () => {
     const saveGuildConfig = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
       defaultGameFamily: 'retail',
@@ -922,9 +968,12 @@ describe('handleInteraction', () => {
       options,
     );
 
-    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {});
-    expect((response as { data?: { content?: string } }).data?.content).toBe(
-      'Default comparison mode set to character. Future comparisons will match exact character history unless a command overrides it.',
+    expect(saveGuildConfig).not.toHaveBeenCalled();
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
+      '**wclogs.recap setup status**',
+    );
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
+      'Auto recap channels: none configured',
     );
   });
 
@@ -970,7 +1019,126 @@ describe('handleInteraction', () => {
     expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Public compare posting enabled.',
     );
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
+      '**wclogs.recap setup status**',
+    );
     expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
+  });
+
+  it('toggles auto recap channels and de-dupes channel ids', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      compareAccessMode: 'officer_only',
+      compareOfficerRoleIds: [],
+      comparePublicPostingEnabled: false,
+      accountabilityVisibility: 'off',
+      coachingShareabilityDefault: 'private',
+      recapPostModeDefault: 'preview-and-post',
+      autoRecapMode: 'prompt',
+      autoRecapChannelIds: ['channel-2'],
+    });
+    const options = makeConfigOptions(saveGuildConfig, {
+      autoRecapChannelIds: ['channel-1', 'channel-1', 'channel-2'],
+    });
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { permissions: '32' },
+        data: {
+          name: 'config',
+          options: [{ name: 'auto_recap_channel', value: 'channel-1' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
+      autoRecapChannelIds: ['channel-2'],
+    });
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
+      'Auto recap disabled in <#channel-1>.',
+    );
+  });
+
+  it('sets auto recap mode off while preserving configured channels', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      compareAccessMode: 'officer_only',
+      compareOfficerRoleIds: [],
+      comparePublicPostingEnabled: false,
+      accountabilityVisibility: 'off',
+      coachingShareabilityDefault: 'private',
+      recapPostModeDefault: 'preview-and-post',
+      autoRecapMode: 'off',
+      autoRecapChannelIds: ['channel-1'],
+    });
+    const options = makeConfigOptions(saveGuildConfig, {
+      autoRecapMode: 'prompt',
+      autoRecapChannelIds: ['channel-1'],
+    });
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { permissions: '32' },
+        data: {
+          name: 'config',
+          options: [{ name: 'auto_recap_mode', value: 'off' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
+      autoRecapMode: 'off',
+    });
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
+      'Passive detection is currently disabled. Configured channels are preserved.',
+    );
+  });
+
+  it('allows Manage Server users to enable auto_post through config', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      compareAccessMode: 'officer_only',
+      compareOfficerRoleIds: [],
+      comparePublicPostingEnabled: false,
+      accountabilityVisibility: 'off',
+      coachingShareabilityDefault: 'private',
+      recapPostModeDefault: 'preview-and-post',
+      autoRecapMode: 'auto_post',
+      autoRecapChannelIds: [],
+    });
+    const options = makeConfigOptions(saveGuildConfig);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { permissions: '32' },
+        data: {
+          name: 'config',
+          options: [{ name: 'auto_recap_mode', value: 'auto_post' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
+      autoRecapMode: 'auto_post',
+    });
+    expect((response as { data?: { content?: string } }).data?.content).toContain(
+      'Auto recap mode set to auto_post.',
+    );
   });
 
   it('rejects invalid compare access modes without saving config', async () => {
@@ -1909,7 +2077,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.MESSAGE_COMPONENT,
         guild_id: 'guild-1',
-        data: { custom_id: 'recap:v1:post:ABC123:guild-1' },
+        data: { custom_id: 'recap:v2:post:ABC123:guild-1:channel-1' },
       },
       {
         wclClient,
@@ -1918,14 +2086,15 @@ describe('handleInteraction', () => {
       },
     );
     expect(postButton?.label).toBe('Post to Current Channel');
-    expect(postButton?.custom_id).toBe('recap:v1:post:ABC123:guild-1');
+    expect(postButton?.custom_id).toBe('recap:v2:post:ABC123:guild-1:channel-1');
     expect(cancelButton?.label).toBe('Cancel');
-    expect(cancelButton?.custom_id).toBe('recap:v1:cancel:ABC123:guild-1');
+    expect(cancelButton?.custom_id).toBe('recap:v2:cancel:ABC123:guild-1:channel-1');
 
     expect((posted as { data?: { embeds?: unknown[] } }).data?.embeds?.length).toBe(1);
     expect(recapPreviewStateService.consumeValidPreviewState).toHaveBeenCalledWith({
       reportCode: 'ABC123',
       guildId: 'guild-1',
+      channelId: 'channel-1',
     });
   });
 
@@ -2219,6 +2388,588 @@ describe('handleInteraction', () => {
     expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
   });
 
+  it('handles expired auto recap prompt buttons without falling through as unsupported', async () => {
+    const autoRecapPromptStateService = {
+      savePromptState: vi.fn(),
+      getValidPromptState: vi.fn().mockResolvedValue(null),
+      consumeValidPromptState: vi.fn(),
+    };
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.MESSAGE_COMPONENT,
+        guild_id: 'guild-1',
+        data: { custom_id: makeAutoRecapPromptPreviewCustomId('source-message-1') },
+      },
+      {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn(),
+          findPreviousRaidSummaries: vi.fn(),
+        } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        autoRecapPromptStateService,
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: expect.stringContaining('auto recap prompt has expired'),
+        flags: 64,
+      },
+    });
+    expect((response as { data?: { content?: string } }).data?.content).not.toContain(
+      'temporarily unavailable',
+    );
+  });
+
+  it('reports missing auto recap prompt store as temporarily unavailable, not expired', async () => {
+    const response = await handleInteraction(
+      {
+        type: InteractionType.MESSAGE_COMPONENT,
+        id: 'interaction-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        data: { custom_id: makeAutoRecapPromptPreviewCustomId('source-message-1') },
+      },
+      {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn(),
+          findPreviousRaidSummaries: vi.fn(),
+        } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: expect.stringContaining('Auto recap is temporarily unavailable'),
+        flags: 64,
+      },
+    });
+    expect((response as { data?: { content?: string } }).data?.content).not.toContain('expired');
+  });
+
+  it('reports missing duplicate tracking store as temporarily unavailable, not expired', async () => {
+    const response = await handleInteraction(
+      {
+        type: InteractionType.MESSAGE_COMPONENT,
+        id: 'interaction-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        data: { custom_id: makeAutoRecapDuplicateCustomId('p', 'nonce-1') },
+      },
+      {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn(),
+          findPreviousRaidSummaries: vi.fn(),
+        } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: expect.stringContaining('Auto recap is temporarily unavailable'),
+        flags: 64,
+      },
+    });
+    expect((response as { data?: { content?: string } }).data?.content).not.toContain('expired');
+  });
+
+  it('uses duplicate tracking state from HandleOptions for ar:d confirmation actions', async () => {
+    const getByConfirmationNonce = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      reportCode: 'ABC123',
+      gameFamily: 'retail',
+      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+      sourceMessageId: 'source-message-1',
+      sourceAuthorId: 'user-1',
+      mode: 'prompt',
+      status: 'prompted',
+      confirmationNonce: 'nonce-1',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const updateTracking = vi.fn().mockResolvedValue(null);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.MESSAGE_COMPONENT,
+        id: 'interaction-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        data: { custom_id: makeAutoRecapDuplicateCustomId('i', 'nonce-1') },
+      },
+      {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn(),
+          findPreviousRaidSummaries: vi.fn(),
+        } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        autoRecapDuplicateTrackingService: {
+          claimPassiveDetection: vi.fn(),
+          getByConfirmationNonce,
+          updateTracking,
+        },
+      },
+    );
+
+    expect(getByConfirmationNonce).toHaveBeenCalledWith('nonce-1');
+    expect(updateTracking).toHaveBeenCalledWith({
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      reportCode: 'ABC123',
+      status: 'ignored',
+    });
+    expect(response).toMatchObject({
+      data: { content: 'Duplicate recap action ignored.', flags: 64 },
+    });
+  });
+
+  it('defers auto recap prompt preview ephemerally and edits with the preview', async () => {
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
+      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+    } as never;
+    const recapPreviewStateService = makeRecapPreviewStateService();
+    const promptState = {
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      reportCode: 'ABC123',
+      gameFamily: 'retail' as const,
+      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+      sourceMessageId: 'source-message-1',
+      sourceAuthorId: 'source-user-1',
+      promptMessageId: 'prompt-message-1',
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+    const autoRecapPromptStateService = {
+      savePromptState: vi.fn(),
+      getValidPromptState: vi.fn().mockResolvedValue(promptState),
+      consumeValidPromptState: vi.fn(),
+    };
+    const editFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    });
+    vi.stubGlobal('fetch', editFetch);
+    const scheduleBackgroundTask = vi.fn((task: () => void) => task());
+
+    const response = await handleInteraction(
+      {
+        id: 'interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        type: InteractionType.MESSAGE_COMPONENT,
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        member: { user: { id: 'clicker-1' } },
+        data: { custom_id: makeAutoRecapPromptPreviewCustomId('source-message-1') },
+      },
+      {
+        wclClient,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService,
+        autoRecapPromptStateService,
+        scheduleBackgroundTask,
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { flags: 64 },
+    });
+    expect(scheduleBackgroundTask).toHaveBeenCalledOnce();
+    await vi.waitFor(() => {
+      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledWith(
+        expect.objectContaining({
+          guildId: 'guild-1',
+          channelId: 'channel-1',
+          reportCode: 'ABC123',
+          createdByUserId: 'clicker-1',
+        }),
+      );
+      expect(editFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/webhooks/app-1/token-1/messages/@original'),
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
+    expect(parseEditedOriginalResponseBody(editFetch).flags).toBe(64);
+  });
+
+  it('records ignored auto recap prompts', async () => {
+    const promptState = {
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      reportCode: 'ABC123',
+      gameFamily: 'retail' as const,
+      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+      sourceMessageId: 'source-message-1',
+      sourceAuthorId: 'source-user-1',
+      promptMessageId: 'prompt-message-1',
+      expiresAt: new Date(Date.now() + 60_000),
+    };
+    const autoRecapPromptStateService = {
+      savePromptState: vi.fn(),
+      getValidPromptState: vi.fn(),
+      consumeValidPromptState: vi.fn().mockResolvedValue(promptState),
+    };
+    const autoRecapDuplicateTrackingService = {
+      claimPassiveDetection: vi.fn(),
+      updateTracking: vi.fn().mockResolvedValue(null),
+    };
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.MESSAGE_COMPONENT,
+        guild_id: 'guild-1',
+        data: { custom_id: makeAutoRecapPromptIgnoreCustomId('source-message-1') },
+      },
+      {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn(),
+          findPreviousRaidSummaries: vi.fn(),
+        } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        autoRecapPromptStateService,
+        autoRecapDuplicateTrackingService,
+      },
+    );
+
+    expect(response).toMatchObject({
+      data: { content: 'Auto recap prompt ignored.', flags: 64 },
+    });
+    expect(autoRecapDuplicateTrackingService.updateTracking).toHaveBeenCalledWith({
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      reportCode: 'ABC123',
+      status: 'ignored',
+    });
+  });
+
+  it('passively prompts for the first valid Warcraft Logs URL in an allowlisted channel', async () => {
+    const channel = {
+      send: vi.fn().mockResolvedValue({ id: 'prompt-message-1' }),
+    };
+    const autoRecapPromptStateService = {
+      savePromptState: vi.fn().mockResolvedValue(undefined),
+      getValidPromptState: vi.fn(),
+      consumeValidPromptState: vi.fn(),
+    };
+    const autoRecapDuplicateTrackingService = {
+      claimPassiveDetection: vi.fn().mockResolvedValue({
+        claimed: true,
+        record: {
+          guildId: 'guild-1',
+          channelId: 'channel-1',
+          reportCode: 'ABC123',
+          gameFamily: 'retail',
+          sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+          sourceMessageId: 'source-message-1',
+          sourceAuthorId: 'user-1',
+          mode: 'prompt',
+          status: 'processing',
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      }),
+      updateTracking: vi.fn().mockResolvedValue(null),
+    };
+
+    await handleAutoRecapMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-1',
+        authorId: 'user-1',
+        content:
+          'ignore this https://example.com/reports/NOPE and use <https://www.warcraftlogs.com/reports/ABC123).>',
+      },
+      channel,
+      handleOptions: {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn(),
+          findPreviousRaidSummaries: vi.fn(),
+        } as never,
+        guildConfigStore: {
+          getGuildConfig: vi.fn().mockResolvedValue({
+            guildId: 'guild-1',
+            defaultGameFamily: 'retail',
+            compareModeDefault: 'character',
+            compareAccessMode: 'officer_only',
+            compareOfficerRoleIds: [],
+            comparePublicPostingEnabled: false,
+            accountabilityVisibility: 'off',
+            coachingShareabilityDefault: 'private',
+            recapPostModeDefault: 'preview-and-post',
+            autoRecapMode: 'prompt',
+            autoRecapChannelIds: ['channel-1'],
+          }),
+          saveGuildConfig: vi.fn(),
+        },
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        autoRecapPromptStateService,
+        autoRecapDuplicateTrackingService,
+      },
+    });
+
+    expect(autoRecapDuplicateTrackingService.claimPassiveDetection).toHaveBeenCalledWith(
+      expect.objectContaining({
+        reportCode: 'ABC123',
+        sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+      }),
+    );
+    expect(channel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: 'Detected a Warcraft Logs report.\nGenerate a recap?',
+        allowed_mentions: { parse: [] },
+      }),
+    );
+    expect(autoRecapPromptStateService.savePromptState).toHaveBeenCalledWith(
+      expect.objectContaining({
+        sourceMessageId: 'source-message-1',
+        promptMessageId: 'prompt-message-1',
+      }),
+    );
+  });
+
+  it('ignores passive messages when content is empty or the channel is not allowlisted', async () => {
+    const getGuildConfig = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      compareAccessMode: 'officer_only',
+      compareOfficerRoleIds: [],
+      comparePublicPostingEnabled: false,
+      accountabilityVisibility: 'off',
+      coachingShareabilityDefault: 'private',
+      recapPostModeDefault: 'preview-and-post',
+      autoRecapMode: 'prompt',
+      autoRecapChannelIds: ['channel-2'],
+    });
+    const claimPassiveDetection = vi.fn();
+
+    await handleAutoRecapMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-1',
+        authorId: 'user-1',
+        content: '',
+      },
+      channel: { send: vi.fn() },
+      handleOptions: {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: { getGuildConfig, saveGuildConfig: vi.fn() },
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        autoRecapDuplicateTrackingService: {
+          claimPassiveDetection,
+          updateTracking: vi.fn(),
+        },
+      },
+    });
+    await handleAutoRecapMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-2',
+        authorId: 'user-1',
+        content: 'https://www.warcraftlogs.com/reports/ABC123',
+      },
+      channel: { send: vi.fn() },
+      handleOptions: {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: { getGuildConfig, saveGuildConfig: vi.fn() },
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        autoRecapDuplicateTrackingService: {
+          claimPassiveDetection,
+          updateTracking: vi.fn(),
+        },
+      },
+    });
+
+    expect(claimPassiveDetection).not.toHaveBeenCalled();
+  });
+
+  it('auto_preview posts a public preview with no flags and safe mentions', async () => {
+    const channel = { send: vi.fn().mockResolvedValue({ id: 'preview-message-1' }) };
+    const recapPreviewStateService = makeRecapPreviewStateService();
+    const autoRecapDuplicateTrackingService = {
+      claimPassiveDetection: vi.fn().mockResolvedValue({
+        claimed: true,
+        record: null,
+      }),
+      updateTracking: vi.fn().mockResolvedValue(null),
+    };
+
+    await handleAutoRecapMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-1',
+        authorId: 'user-1',
+        content: 'https://www.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions: {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
+          findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+        } as never,
+        guildConfigStore: {
+          getGuildConfig: vi.fn().mockResolvedValue({
+            guildId: 'guild-1',
+            defaultGameFamily: 'retail',
+            compareModeDefault: 'character',
+            compareAccessMode: 'officer_only',
+            compareOfficerRoleIds: [],
+            comparePublicPostingEnabled: false,
+            accountabilityVisibility: 'off',
+            coachingShareabilityDefault: 'private',
+            recapPostModeDefault: 'preview-and-post',
+            autoRecapMode: 'auto_preview',
+            autoRecapChannelIds: ['channel-1'],
+          }),
+          saveGuildConfig: vi.fn(),
+        },
+        recapPreviewStateService,
+        autoRecapDuplicateTrackingService,
+      },
+    });
+
+    const body = channel.send.mock.calls[0]?.[0] as { flags?: number; allowed_mentions?: unknown };
+    expect(body.flags).toBeUndefined();
+    expect(body.allowed_mentions).toEqual({ parse: [] });
+    expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
+    expect(autoRecapDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'preview_posted',
+        latestOutputMessageId: 'preview-message-1',
+        latestOutputKind: 'public_preview',
+      }),
+    );
+  });
+
+  it('does not repeat passive work when duplicate tracking reports an active record', async () => {
+    const channel = { send: vi.fn().mockResolvedValue({ id: 'duplicate-message-1' }) };
+    const autoRecapDuplicateTrackingService = {
+      claimPassiveDetection: vi.fn().mockResolvedValue({
+        claimed: false,
+        record: {
+          guildId: 'guild-1',
+          channelId: 'channel-1',
+          reportCode: 'ABC123',
+          gameFamily: 'retail',
+          sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+          sourceMessageId: 'source-message-1',
+          sourceAuthorId: 'user-1',
+          mode: 'prompt',
+          status: 'final_posted',
+          expiresAt: new Date(Date.now() + 60_000),
+        },
+      }),
+      updateTracking: vi.fn().mockResolvedValue(null),
+    };
+    const fetchAndNormalizeReport = vi.fn();
+
+    await handleAutoRecapMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-2',
+        authorId: 'user-2',
+        content: 'https://www.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions: {
+        wclClient: { fetchAndNormalizeReport } as never,
+        guildConfigStore: {
+          getGuildConfig: vi.fn().mockResolvedValue({
+            guildId: 'guild-1',
+            defaultGameFamily: 'retail',
+            compareModeDefault: 'character',
+            compareAccessMode: 'officer_only',
+            compareOfficerRoleIds: [],
+            comparePublicPostingEnabled: false,
+            accountabilityVisibility: 'off',
+            coachingShareabilityDefault: 'private',
+            recapPostModeDefault: 'preview-and-post',
+            autoRecapMode: 'prompt',
+            autoRecapChannelIds: ['channel-1'],
+          }),
+          saveGuildConfig: vi.fn(),
+        },
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        autoRecapDuplicateTrackingService,
+      },
+    });
+
+    expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
+    expect(channel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: 'A recap for this Warcraft Logs report was already posted here recently.',
+        allowed_mentions: { parse: [] },
+      }),
+    );
+  });
+
+  it('does not attempt a second public failure message when channel sending fails', async () => {
+    const channel = { send: vi.fn().mockRejectedValue(new Error('missing permissions')) };
+    const autoRecapDuplicateTrackingService = {
+      claimPassiveDetection: vi.fn().mockResolvedValue({ claimed: true, record: null }),
+      updateTracking: vi.fn().mockResolvedValue(null),
+    };
+
+    await handleAutoRecapMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-1',
+        authorId: 'user-1',
+        content: 'https://www.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions: {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: {
+          getGuildConfig: vi.fn().mockResolvedValue({
+            guildId: 'guild-1',
+            defaultGameFamily: 'retail',
+            compareModeDefault: 'character',
+            compareAccessMode: 'officer_only',
+            compareOfficerRoleIds: [],
+            comparePublicPostingEnabled: false,
+            accountabilityVisibility: 'off',
+            coachingShareabilityDefault: 'private',
+            recapPostModeDefault: 'preview-and-post',
+            autoRecapMode: 'prompt',
+            autoRecapChannelIds: ['channel-1'],
+          }),
+          saveGuildConfig: vi.fn(),
+        },
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        autoRecapPromptStateService: {
+          savePromptState: vi.fn(),
+          getValidPromptState: vi.fn(),
+          consumeValidPromptState: vi.fn(),
+        },
+        autoRecapDuplicateTrackingService,
+      },
+    });
+
+    expect(channel.send).toHaveBeenCalledTimes(1);
+    expect(autoRecapDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed' }),
+    );
+  });
+
   it.each([
     [
       new Error('WCL OAuth failed: 401'),
@@ -2379,7 +3130,7 @@ describe('handleInteraction', () => {
         id: 'post-interaction-1',
         type: InteractionType.MESSAGE_COMPONENT,
         guild_id: 'guild-1',
-        data: { custom_id: 'recap:v1:post:ABC123:guild-1' },
+        data: { custom_id: 'recap:v2:post:ABC123:guild-1:channel-1' },
       },
       {
         wclClient,
@@ -2393,7 +3144,7 @@ describe('handleInteraction', () => {
         id: 'post-interaction-2',
         type: InteractionType.MESSAGE_COMPONENT,
         guild_id: 'guild-1',
-        data: { custom_id: 'recap:v1:post:ABC123:guild-1' },
+        data: { custom_id: 'recap:v2:post:ABC123:guild-1:channel-1' },
       },
       {
         wclClient,
@@ -2414,10 +3165,12 @@ describe('handleInteraction', () => {
     expect(recapPreviewStateService.consumeValidPreviewState).toHaveBeenNthCalledWith(1, {
       reportCode: 'ABC123',
       guildId: 'guild-1',
+      channelId: 'channel-1',
     });
     expect(recapPreviewStateService.consumeValidPreviewState).toHaveBeenNthCalledWith(2, {
       reportCode: 'ABC123',
       guildId: 'guild-1',
+      channelId: 'channel-1',
     });
   });
 
@@ -2712,6 +3465,7 @@ describe('preview rendering', () => {
       },
       'ABC123',
       'guild-1',
+      'channel-1',
     );
 
     const description =
@@ -2739,6 +3493,7 @@ describe('preview rendering', () => {
       },
       'ABC123',
       'guild-1',
+      'channel-1',
     );
 
     const description =
@@ -2757,6 +3512,7 @@ describe('preview rendering', () => {
       },
       'ABC123',
       'guild-1',
+      'channel-1',
     );
 
     const description =
@@ -2772,6 +3528,7 @@ describe('preview rendering', () => {
       },
       'ABC123',
       'guild-1',
+      'channel-1',
     );
 
     type PreviewButton = {
@@ -2783,9 +3540,11 @@ describe('preview rendering', () => {
     const postButton = buttons.find((button) => button.custom_id?.includes(':post:'));
     const cancelButton = buttons.find((button) => button.custom_id?.includes(':cancel:'));
 
-    expect(postButton?.custom_id).toBe('recap:v1:post:ABC123:guild-1');
+    expect(postButton?.custom_id).toBe('recap:v2:post:ABC123:guild-1:channel-1');
+    expect((postButton?.custom_id?.length ?? 0) <= 100).toBe(true);
     expect(postButton?.label).toBe('Post to Current Channel');
-    expect(cancelButton?.custom_id).toBe('recap:v1:cancel:ABC123:guild-1');
+    expect(cancelButton?.custom_id).toBe('recap:v2:cancel:ABC123:guild-1:channel-1');
+    expect((cancelButton?.custom_id?.length ?? 0) <= 100).toBe(true);
     expect(cancelButton?.label).toBe('Cancel');
   });
 });
