@@ -166,6 +166,7 @@ describe('command payload builder', () => {
     if (!configCommand || !('options' in configCommand)) {
       throw new Error('Expected config command options');
     }
+    expect(configCommand.default_member_permissions).toBe('32');
     const optionNames = configCommand.options?.map((option) => option.name) ?? [];
     expect(optionNames).toEqual([
       'game_family',
@@ -202,6 +203,11 @@ describe('command payload builder', () => {
       },
     ]);
 
+    for (const command of commandDefinitions) {
+      if (command.name === 'config') continue;
+      expect(command.default_member_permissions).toBeUndefined();
+    }
+
     expect(commandDefinitions.find((command) => command.name === 'claim_character')).toMatchObject({
       type: 1,
       options: [
@@ -209,6 +215,21 @@ describe('command payload builder', () => {
         { name: 'realm', type: 3, required: true },
         { name: 'region', type: 3, required: true },
       ],
+    });
+  });
+
+  it('builds the registered config command payload with Manage Server permission', () => {
+    const configCommand = commandDefinitions.find((command) => command.name === 'config');
+    if (!configCommand) {
+      throw new Error('Expected config command');
+    }
+
+    const payload = buildDiscordCommandPayload(configCommand);
+
+    expect(payload).toMatchObject({
+      name: 'config',
+      type: 1,
+      default_member_permissions: '32',
     });
   });
 
@@ -755,7 +776,33 @@ describe('handleInteraction', () => {
     };
   };
 
-  it('saves mixed as the guild default comparison policy', async () => {
+  it('blocks config saves for members without Manage Server permission', async () => {
+    const saveGuildConfig = vi.fn();
+    const options = makeConfigOptions(saveGuildConfig);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { permissions: '0' },
+        data: {
+          name: 'config',
+          options: [{ name: 'compare_mode', value: 'mixed' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      data: {
+        content: 'This action requires Manage Server permission.',
+        flags: 64,
+      },
+    });
+  });
+
+  it('allows a member with Manage Server permission to save mixed as the guild default comparison policy', async () => {
     const saveGuildConfig = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
       defaultGameFamily: 'mop_classic',
@@ -770,6 +817,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.APPLICATION_COMMAND,
         guild_id: 'guild-1',
+        member: { permissions: '32' },
         data: {
           name: 'config',
           options: [
@@ -791,7 +839,7 @@ describe('handleInteraction', () => {
     expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
   });
 
-  it('saves character as the guild default comparison policy', async () => {
+  it('allows an administrator to save character as the guild default comparison policy', async () => {
     const saveGuildConfig = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
       defaultGameFamily: 'retail',
@@ -806,6 +854,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.APPLICATION_COMMAND,
         guild_id: 'guild-1',
+        member: { permissions: '8' },
         data: {
           name: 'config',
           options: [{ name: 'compare_mode', value: 'character' }],
@@ -831,6 +880,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.APPLICATION_COMMAND,
         guild_id: 'guild-1',
+        member: { permissions: '32' },
         data: {
           name: 'config',
           options: [{ name: 'compare_mode', value: 'alts' }],
@@ -863,6 +913,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.APPLICATION_COMMAND,
         guild_id: 'guild-1',
+        member: { permissions: '32' },
         data: {
           name: 'config',
           options: [],
@@ -895,6 +946,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.APPLICATION_COMMAND,
         guild_id: 'guild-1',
+        member: { permissions: '32' },
         data: {
           name: 'config',
           options: [
@@ -929,6 +981,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.APPLICATION_COMMAND,
         guild_id: 'guild-1',
+        member: { permissions: '32' },
         data: {
           name: 'config',
           options: [{ name: 'compare_access_mode', value: 'guild_open' }],

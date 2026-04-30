@@ -1,5 +1,6 @@
 import { InteractionResponseType } from "discord-interactions";
 import {
+    hasDiscordPermission,
     parseCompareAccessMode,
     parseCompareMode,
     type CompareAccessMode,
@@ -22,6 +23,14 @@ const getBooleanOption = (options: unknown, name: string): boolean | undefined =
 
 const parseGameFamilyOption = (value: string | undefined): GameFamily | undefined =>
     value === "retail" || value === "mop_classic" ? value : undefined;
+
+const canManageGuildConfig = (interaction: DiscordInteraction): boolean => {
+    const permissions = interaction.member?.permissions;
+    return (
+        hasDiscordPermission(permissions, "administrator") ||
+        hasDiscordPermission(permissions, "manage-guild")
+    );
+};
 
 const getCompareModeResponse = (compareMode: CompareMode): string => {
     if (compareMode === "mixed") {
@@ -50,6 +59,13 @@ export const handleConfigCommand = async (
         return {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: { content: "Guild context is required for /config.", flags: 64 },
+        };
+    }
+
+    if (!canManageGuildConfig(interaction)) {
+        return {
+            type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+            data: { content: "This action requires Manage Server permission.", flags: 64 },
         };
     }
 

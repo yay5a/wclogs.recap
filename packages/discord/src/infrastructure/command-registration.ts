@@ -80,7 +80,7 @@ export const buildDiscordCommandPayloads = (commands: CommandDefinition[]): Reco
 
 export const commandDefinitions: CommandDefinition[] = [
     { name: "health", description: "Check bot health", type: 1 },
-    { name: "config", description: "Configure guild recap behavior", type: 1, options: [
+    { name: "config", description: "Configure guild recap behavior", type: 1, default_member_permissions: "32", options: [
         { name: "game_family", description: "Default game family", type: 3, required: false, choices: [{ name: "retail", value: "retail" }, { name: "mop_classic", value: "mop_classic" }] },
         { name: "compare_mode", description: "Default compare mode", type: 3, required: false, choices: compareModeChoices },
         { name: "compare_access_mode", description: "Who can view private comparison cards", type: STRING_OPTION_TYPE, required: false, choices: compareAccessModeChoices },
