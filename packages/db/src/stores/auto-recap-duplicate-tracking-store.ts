@@ -145,10 +145,6 @@ export class MongoAutoRecapDuplicateTrackingStore {
         const claimUpdate = {
             ...input,
             status: "processing" as const,
-            latestOutputMessageId: undefined,
-            latestOutputKind: undefined,
-            duplicateConfirmationMessageId: undefined,
-            confirmationNonce: undefined,
         };
 
         const reclaimedExpired = await AutoRecapDuplicateTrackingModel.findOneAndUpdate(
@@ -158,7 +154,15 @@ export class MongoAutoRecapDuplicateTrackingStore {
                 reportCode: input.reportCode,
                 expiresAt: { $lte: now },
             },
-            { $set: claimUpdate },
+            {
+                $set: claimUpdate,
+                $unset: {
+                    latestOutputMessageId: "",
+                    latestOutputKind: "",
+                    duplicateConfirmationMessageId: "",
+                    confirmationNonce: "",
+                },
+            },
             { new: true },
         ).lean();
         const parsedReclaimed = toDuplicateTrackingRecord(reclaimedExpired);

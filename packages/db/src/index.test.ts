@@ -725,6 +725,14 @@ describe("MongoAutoRecapDuplicateTrackingStore", () => {
                 status: "processing",
             }),
         );
+        expect(AutoRecapDuplicateTrackingModel.create).toHaveBeenCalledWith(
+            expect.not.objectContaining({
+                latestOutputMessageId: expect.anything(),
+                latestOutputKind: expect.anything(),
+                duplicateConfirmationMessageId: expect.anything(),
+                confirmationNonce: expect.anything(),
+            }),
+        );
     });
 
     it("returns the active duplicate record when the atomic claim loses a race", async () => {
@@ -797,6 +805,100 @@ describe("MongoAutoRecapDuplicateTrackingStore", () => {
             reportCode: "ABC123",
             expiresAt: { $gt: now },
         });
+    });
+
+    it("clears stale confirmation and output fields when reclaiming expired tracking", async () => {
+        const now = new Date("2026-04-09T00:20:00.000Z");
+        vi.useFakeTimers();
+        vi.setSystemTime(now);
+        let storedRecord: Record<string, unknown> = {
+            ...trackingInput,
+            sourceMessageId: "old-source-message-1",
+            sourceAuthorId: "old-user-1",
+            status: "prompted",
+            latestOutputMessageId: "prompt-message-1",
+            latestOutputKind: "prompt",
+            duplicateConfirmationMessageId: "duplicate-message-1",
+            confirmationNonce: "old-nonce",
+            expiresAt: new Date("2026-04-09T00:19:00.000Z"),
+        };
+        const findOneAndUpdateSpy = vi
+            .spyOn(AutoRecapDuplicateTrackingModel, "findOneAndUpdate")
+            .mockImplementation((_query, update) => {
+                const mongoUpdate = update as {
+                    $set?: Record<string, unknown>;
+                    $unset?: Record<string, unknown>;
+                };
+                storedRecord = {
+                    ...storedRecord,
+                    ...(mongoUpdate.$set ?? {}),
+                };
+                for (const fieldName of Object.keys(mongoUpdate.$unset ?? {})) {
+                    delete storedRecord[fieldName];
+                }
+                return {
+                    lean: vi.fn().mockResolvedValue({ ...storedRecord }),
+                } as never;
+            });
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "create").mockRejectedValue(
+            new Error("create should not be called when reclaiming an expired record"),
+        );
+        vi.spyOn(AutoRecapDuplicateTrackingModel, "findOne").mockImplementation((query) => {
+            const rawQuery = query as Record<string, unknown>;
+            const expiresAtQuery = rawQuery.expiresAt as { $gt?: Date } | undefined;
+            const matchesNonce =
+                rawQuery.confirmationNonce === storedRecord.confirmationNonce &&
+                storedRecord.expiresAt instanceof Date &&
+                expiresAtQuery?.$gt instanceof Date &&
+                storedRecord.expiresAt > expiresAtQuery.$gt;
+            return {
+                lean: vi.fn().mockResolvedValue(matchesNonce ? { ...storedRecord } : null),
+            } as never;
+        });
+
+        const store = new MongoAutoRecapDuplicateTrackingStore();
+        const result = await store.claimPassiveDetection({
+            ...trackingInput,
+            sourceMessageId: "new-source-message-1",
+            sourceAuthorId: "new-user-1",
+            expiresAt: new Date("2026-04-09T00:35:00.000Z"),
+        });
+        const oldNonceResult = await store.getByConfirmationNonce("old-nonce");
+
+        expect(result).toMatchObject({
+            claimed: true,
+            record: {
+                sourceMessageId: "new-source-message-1",
+                sourceAuthorId: "new-user-1",
+                status: "processing",
+            },
+        });
+        expect(result.record).not.toHaveProperty("latestOutputMessageId");
+        expect(result.record).not.toHaveProperty("latestOutputKind");
+        expect(result.record).not.toHaveProperty("duplicateConfirmationMessageId");
+        expect(result.record).not.toHaveProperty("confirmationNonce");
+        expect(oldNonceResult).toBeNull();
+        expect(findOneAndUpdateSpy).toHaveBeenCalledWith(
+            expect.objectContaining({
+                guildId: "guild-1",
+                channelId: "channel-1",
+                reportCode: "ABC123",
+                expiresAt: { $lte: now },
+            }),
+            expect.objectContaining({
+                $set: expect.objectContaining({
+                    sourceMessageId: "new-source-message-1",
+                    status: "processing",
+                }),
+                $unset: {
+                    latestOutputMessageId: "",
+                    latestOutputKind: "",
+                    duplicateConfirmationMessageId: "",
+                    confirmationNonce: "",
+                },
+            }),
+            { new: true },
+        );
     });
 });
 
