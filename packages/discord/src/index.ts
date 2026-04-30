@@ -21,12 +21,9 @@ export {
 
 export { handleInteraction } from "./infrastructure/interaction-handler.js";
 export {
-    buildAutoRecapPromptBody,
-    extractFirstWarcraftLogsReportUrl,
     handleAutoRecapMessageCreate,
     makeAutoRecapDuplicateCustomId,
     makeAutoRecapPromptIgnoreCustomId,
     makeAutoRecapPromptPreviewCustomId,
-    parseAutoRecapComponentCustomId,
 } from "./commands/auto-recap.js";
 export { buildPublicRecapEmbed, buildRecapPreviewBody } from "./renderers/embeds.js";
