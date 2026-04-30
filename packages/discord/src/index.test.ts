@@ -642,22 +642,49 @@ describe('handleInteraction', () => {
     },
   });
 
-  const parseEditedOriginalResponseBody = (
+  const makeDiscordFetchResponse = ({
+    ok = true,
+    status = ok ? 200 : 500,
+    statusText = ok ? 'OK' : 'Internal Server Error',
+    body = JSON.stringify({ id: 'message-1', flags: 0 }),
+  }: {
+    ok?: boolean;
+    status?: number;
+    statusText?: string;
+    body?: string;
+  } = {}) => ({
+    ok,
+    status,
+    statusText,
+    headers: new Headers(),
+    text: vi.fn().mockResolvedValue(body),
+  });
+
+  const parseEditedOriginalResponseBodies = (
     editFetch: ReturnType<typeof vi.fn>,
-  ): { content?: string; flags?: number } => {
-    const patchCall = editFetch.mock.calls.find(
+  ): Array<{ content?: string; flags?: number }> => {
+    const patchCalls = editFetch.mock.calls.filter(
       ([url]) =>
         typeof url === 'string' &&
         url.includes('/webhooks/') &&
         url.includes('/messages/@original'),
     );
-    const body =
-      patchCall?.[1] &&
-      typeof patchCall[1] === 'object' &&
-      'body' in (patchCall[1] as Record<string, unknown>)
-        ? (patchCall[1] as { body: string }).body
-        : '{}';
-    return JSON.parse(body) as { content?: string; flags?: number };
+    return patchCalls.map((patchCall) => {
+      const body =
+        patchCall?.[1] &&
+        typeof patchCall[1] === 'object' &&
+        'body' in (patchCall[1] as Record<string, unknown>)
+          ? (patchCall[1] as { body: string }).body
+          : '{}';
+      return JSON.parse(body) as { content?: string; flags?: number };
+    });
+  };
+
+  const parseEditedOriginalResponseBody = (
+    editFetch: ReturnType<typeof vi.fn>,
+  ): { content?: string; flags?: number } => {
+    const bodies = parseEditedOriginalResponseBodies(editFetch);
+    return bodies.at(-1) ?? {};
   };
 
   const runDeferredCompare = async ({
@@ -685,10 +712,15 @@ describe('handleInteraction', () => {
       saveComparisonSnapshot: vi.fn(),
       findCharacterHistory: vi.fn().mockResolvedValue(history),
     };
-    const fetchMock = editFetch ?? vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn().mockResolvedValue('ok'),
-    });
+    const fetchMock =
+      editFetch ??
+      vi.fn((_url: string, init?: { method?: string }) => {
+        const body =
+          init?.method === 'POST'
+            ? JSON.stringify({ id: 'followup-message-1', flags: 0 })
+            : JSON.stringify({ id: 'original-message-1', flags: 64 });
+        return Promise.resolve(makeDiscordFetchResponse({ body }));
+      });
     vi.stubGlobal('fetch', fetchMock);
 
     const response = await handleInteraction(
@@ -708,10 +740,9 @@ describe('handleInteraction', () => {
     });
 
     await vi.waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        expect.stringContaining('/webhooks/'),
-        expect.objectContaining({ method: 'PATCH' }),
-      );
+      const editedBodies = parseEditedOriginalResponseBodies(fetchMock);
+      expect(editedBodies.length).toBeGreaterThan(0);
+      expect(editedBodies.at(-1)?.content).not.toBe('Posting comparison...');
     });
 
     return {
@@ -1380,10 +1411,13 @@ describe('handleInteraction', () => {
         init !== null &&
         (init as { method?: string }).method === 'POST',
     );
+    expect(postCall).toBeDefined();
+    if (!postCall) throw new Error('Expected public compare follow-up call');
     const publicBody = JSON.parse((postCall?.[1] as { body: string }).body) as {
       content?: string;
       flags?: number;
     };
+    const editedBodies = parseEditedOriginalResponseBodies(editFetch);
 
     expect(publicBody.content).toContain('Comparison: Alyra');
     expect(publicBody.content).toContain('Report: ABC123');
@@ -1392,8 +1426,84 @@ describe('handleInteraction', () => {
     expect(publicBody.content).toContain('Metric sample size:');
     expect(publicBody).not.toHaveProperty('flags');
     expect(publicBody.content).not.toMatch(/participantKey|playerProfileId/i);
+    expect(editedBodies.map((editedBody) => editedBody.content)).toEqual([
+      'Posting comparison...',
+      'Comparison posted to this channel.',
+    ]);
     expect(body).toMatchObject({
       content: 'Comparison posted to this channel.',
+      flags: 64,
+    });
+  });
+
+  it.each([
+    {
+      label: 'fails',
+      makeResponse: () => makeDiscordFetchResponse({
+        ok: false,
+        status: 502,
+        statusText: 'Bad Gateway',
+        body: '{"message":"upstream failed"}',
+      }),
+    },
+    {
+      label: 'returns no created message',
+      makeResponse: () => makeDiscordFetchResponse({
+        body: '{"flags":0}',
+      }),
+    },
+    {
+      label: 'returns an ephemeral message',
+      makeResponse: () => makeDiscordFetchResponse({
+        body: JSON.stringify({ id: 'original-message-1', flags: 64 }),
+      }),
+    },
+  ])('shows a private failure when public follow-up $label', async ({ makeResponse }) => {
+    const guildConfigStore: GuildConfigStore = {
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'character',
+        compareAccessMode: 'owner_or_officer',
+        compareOfficerRoleIds: [],
+        comparePublicPostingEnabled: true,
+        accountabilityVisibility: 'off',
+        coachingShareabilityDefault: 'private',
+        recapPostModeDefault: 'preview-and-post',
+      }),
+      saveGuildConfig: vi.fn(),
+    };
+    const characterClaimStore = makeCharacterClaimStore({
+      findApprovedClaimForUserCharacter: vi.fn().mockResolvedValue(makeApprovedClaim()),
+      findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([makeApprovedClaim()]),
+    });
+    const editFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeDiscordFetchResponse({
+          body: JSON.stringify({ id: 'original-message-1', flags: 64 }),
+        }),
+      )
+      .mockResolvedValueOnce(makeResponse())
+      .mockResolvedValueOnce(
+        makeDiscordFetchResponse({
+          body: JSON.stringify({ id: 'original-message-1', flags: 64 }),
+        }),
+      );
+
+    const { body } = await runDeferredCompare({
+      history: [makeHistorySnapshot()],
+      interaction: makeCompareInteraction('character', 'Alyra', {
+        visibility: 'public',
+        member: { user: { id: 'user-1' } },
+      }),
+      guildConfigStore,
+      characterClaimStore,
+      editFetch,
+    });
+
+    expect(body).toMatchObject({
+      content: 'Comparison was authorized, but public posting failed. Please try again.',
       flags: 64,
     });
   });

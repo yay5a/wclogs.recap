@@ -8,8 +8,17 @@ const logger = createLogger("discord");
 
 const delay = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
 const isObjectRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null;
+const parseDiscordResponseBody = (text: string): unknown => {
+    if (text.trim().length === 0) return null;
+    try {
+        return JSON.parse(text) as unknown;
+    } catch {
+        return text;
+    }
+};
 
 interface DiscordRateLimitMetadata { retryAfterMs: number; global: boolean | null; source: "header" | "body"; }
+export interface DiscordMessageResponse extends Record<string, unknown> { id: string; flags?: number; }
 const parseRetryAfterSeconds = (value: unknown): number | null => {
     if (typeof value === "number" && Number.isFinite(value) && value >= 0) return value;
     if (typeof value === "string") { const parsed = Number.parseFloat(value); if (Number.isFinite(parsed) && parsed >= 0) return parsed; }
@@ -77,10 +86,29 @@ export const safeEditOriginalInteractionResponse = async (applicationId: string,
     }
 };
 
-export const createFollowupInteractionResponse = async (applicationId: string, token: string, body: unknown): Promise<void> => {
+export const createFollowupInteractionResponse = async (applicationId: string, token: string, body: unknown): Promise<DiscordMessageResponse> => {
     const endpoint = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}`;
-    const response = await discordApiRequest({ endpoint, method: "POST", route: "/webhooks/{applicationId}/{token}", body });
-    if (!response.ok) throw new Error(`Failed to create followup interaction response: ${response.status} ${response.statusText} ${await response.text()}`);
+    const route = "/webhooks/{applicationId}/{token}";
+    const response = await discordApiRequest({ endpoint, method: "POST", route, body });
+    const responseText = await response.text();
+    const responseBody = parseDiscordResponseBody(responseText);
+    const messageId = isObjectRecord(responseBody) && typeof responseBody.id === "string" ? responseBody.id : null;
+    logger.info(
+        {
+            applicationId,
+            route,
+            status: response.status,
+            ok: response.ok,
+            messageId,
+            responseBody,
+        },
+        "discord followup interaction response",
+    );
+    if (!response.ok) throw new Error(`Failed to create followup interaction response: ${response.status} ${response.statusText} ${responseText}`);
+    if (!isObjectRecord(responseBody) || typeof responseBody.id !== "string") {
+        throw new Error(`Discord followup interaction response did not return a created message id: ${response.status} ${response.statusText} ${responseText}`);
+    }
+    return responseBody as DiscordMessageResponse;
 };
 
 export const safeCreateFollowupInteractionResponse = async (applicationId: string, token: string, body: unknown): Promise<void> => {

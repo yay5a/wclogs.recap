@@ -37,6 +37,10 @@ import {
 
 const logger = createLogger('discord');
 const EPHEMERAL_MESSAGE_FLAG = 64;
+const PUBLIC_COMPARE_POSTING_MESSAGE = 'Posting comparison...';
+const PUBLIC_COMPARE_POSTED_MESSAGE = 'Comparison posted to this channel.';
+const PUBLIC_COMPARE_POST_FAILED_MESSAGE =
+  'Comparison was authorized, but public posting failed. Please try again.';
 
 interface CompareCommandParams {
   reportUrl: string;
@@ -92,6 +96,9 @@ const resolveCurrentSnapshot = (
     snapshot,
   };
 };
+
+const hasEphemeralMessageFlag = (message: { flags?: unknown }): boolean =>
+  typeof message.flags === 'number' && (message.flags & EPHEMERAL_MESSAGE_FLAG) === EPHEMERAL_MESSAGE_FLAG;
 
 const respondWithAuthorizationDenial = async ({
   applicationId,
@@ -229,7 +236,6 @@ const processCompareInteraction = async (
         guildId,
         requesterDiscordUserId,
         targetCharacterName: player.name,
-        targetParticipantKey: identity.participantKey,
         reportCode: report.reportCode,
         mode: params.mode,
         requestedVisibility: params.visibility,
@@ -271,15 +277,32 @@ const processCompareInteraction = async (
 
     if (params.visibility === 'public') {
       try {
-        await createFollowupInteractionResponse(
+        await editOriginalInteractionResponse(
+          applicationId,
+          interactionToken,
+          buildCompareErrorBody(PUBLIC_COMPARE_POSTING_MESSAGE),
+        );
+        const publicMessage = await createFollowupInteractionResponse(
           applicationId,
           interactionToken,
           buildPublicCompareResponseBody(viewModel),
         );
+        if (hasEphemeralMessageFlag(publicMessage)) {
+          throw new Error(`Discord returned an ephemeral message for public compare follow-up: ${publicMessage.id}`);
+        }
+        logger.info(
+          {
+            interactionId: interaction.id,
+            guildId,
+            reportCode: report.reportCode,
+            publicMessageId: publicMessage.id,
+          },
+          'public compare posted',
+        );
         await safeEditOriginalInteractionResponse(
           applicationId,
           interactionToken,
-          buildCompareErrorBody('Comparison posted to this channel.'),
+          buildCompareErrorBody(PUBLIC_COMPARE_POSTED_MESSAGE),
         );
       } catch (error) {
         logger.error(
@@ -294,7 +317,7 @@ const processCompareInteraction = async (
         await safeEditOriginalInteractionResponse(
           applicationId,
           interactionToken,
-          buildCompareErrorBody('Comparison was authorized, but public posting failed. Please try again.'),
+          buildCompareErrorBody(PUBLIC_COMPARE_POST_FAILED_MESSAGE),
         );
       }
       return;
