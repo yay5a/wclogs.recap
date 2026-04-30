@@ -194,6 +194,17 @@ describe('command payload builder', () => {
     );
     expect(configCommand.options).toContainEqual(
       expect.objectContaining({
+        name: 'compare_access_mode',
+        choices: [
+          { name: 'officer_only', value: 'officer_only' },
+          { name: 'owner_or_officer', value: 'owner_or_officer' },
+          { name: 'owner_opt_in_or_officer', value: 'owner_opt_in_or_officer' },
+          { name: 'owner_only', value: 'owner_only' },
+        ],
+      }),
+    );
+    expect(configCommand.options).toContainEqual(
+      expect.objectContaining({
         name: 'auto_recap_channel',
         type: 7,
         channel_types: [0, 5],
@@ -673,6 +684,22 @@ describe('handleInteraction', () => {
     ...overrides,
   });
 
+  const makeUnrelatedApprovedClaim = (overrides: Record<string, unknown> = {}) =>
+    makeApprovedClaim({
+      discordUserId: 'peer-1',
+      participantKey: 'character:us:stormrage:bravo',
+      characterName: 'Bravo',
+      ...overrides,
+    });
+
+  const makeClaimedCompareStore = (
+    overrides: Parameters<typeof makeCharacterClaimStore>[0] = {},
+  ) =>
+    makeCharacterClaimStore({
+      listClaimsForUser: vi.fn().mockResolvedValue([makeApprovedClaim()]),
+      ...overrides,
+    });
+
   const makeCompareInteraction = (
     mode: string,
     character = 'Alyra',
@@ -754,7 +781,7 @@ describe('handleInteraction', () => {
     character = 'Alyra',
     interaction = makeCompareInteraction('character', character),
     guildConfigStore = makeGuildConfigStore(),
-    characterClaimStore = makeCharacterClaimStore(),
+    characterClaimStore = makeClaimedCompareStore(),
     editFetch,
   }: {
     report?: NormalizedReport;
@@ -982,7 +1009,7 @@ describe('handleInteraction', () => {
       guildId: 'guild-1',
       defaultGameFamily: 'retail',
       compareModeDefault: 'character',
-      compareAccessMode: 'owner_opt_in_or_officer',
+      compareAccessMode: 'owner_only',
       compareOfficerRoleIds: ['role-1'],
       comparePublicPostingEnabled: true,
       accountabilityVisibility: 'off',
@@ -999,7 +1026,7 @@ describe('handleInteraction', () => {
         data: {
           name: 'config',
           options: [
-            { name: 'compare_access_mode', value: 'owner_opt_in_or_officer' },
+            { name: 'compare_access_mode', value: 'owner_only' },
             { name: 'compare_public_posting', value: true },
             { name: 'compare_officer_role', value: 'role-1' },
           ],
@@ -1009,12 +1036,12 @@ describe('handleInteraction', () => {
     );
 
     expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
-      compareAccessMode: 'owner_opt_in_or_officer',
+      compareAccessMode: 'owner_only',
       comparePublicPostingEnabled: true,
       compareOfficerRoleIds: ['role-1'],
     });
     expect((response as { data?: { content?: string } }).data?.content).toContain(
-      'Compare access mode set to owner_opt_in_or_officer.',
+      'Compare access mode set to owner_only.',
     );
     expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Public compare posting enabled.',
@@ -1162,7 +1189,7 @@ describe('handleInteraction', () => {
     expect(response).toMatchObject({
       data: {
         content:
-          'Invalid compare_access_mode. Choose officer_only, owner_or_officer, or owner_opt_in_or_officer.',
+          'Invalid compare_access_mode. Choose officer_only, owner_or_officer, owner_opt_in_or_officer, owner_only.',
         flags: 64,
       },
     });
@@ -1458,11 +1485,32 @@ describe('handleInteraction', () => {
     expect(body.content).not.toMatch(/participantKey|playerProfileId/i);
   });
 
-  it('denies unauthorized peers before history lookup with privacy-safe wording', async () => {
+  it('blocks officers without any approved claims before history lookup', async () => {
+    const { body, comparisonHistoryStore } = await runDeferredCompare({
+      history: [makeHistorySnapshot()],
+      interaction: makeCompareInteraction('character', 'Alyra', {
+        member: { user: { id: 'officer-1' }, permissions: '32' },
+      }),
+      characterClaimStore: makeCharacterClaimStore(),
+    });
+
+    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
+    expect(body).toMatchObject({
+      content: 'You need an approved character claim before using /compare.',
+      flags: 64,
+    });
+  });
+
+  it('denies unauthorized claimed peers before history lookup with privacy-safe wording', async () => {
     const { body, comparisonHistoryStore } = await runDeferredCompare({
       history: [makeHistorySnapshot()],
       interaction: makeCompareInteraction('character', 'Alyra', {
         member: { user: { id: 'peer-1' } },
+      }),
+      characterClaimStore: makeClaimedCompareStore({
+        listClaimsForUser: vi.fn().mockResolvedValue([
+          makeUnrelatedApprovedClaim({ discordUserId: 'peer-1' }),
+        ]),
       }),
     });
 
@@ -1512,6 +1560,61 @@ describe('handleInteraction', () => {
     expect(body.content).toContain('Metric sample size:');
   });
 
+  it('allows only the approved target owner in owner-only compare mode', async () => {
+    const guildConfigStore: GuildConfigStore = {
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'character',
+        compareAccessMode: 'owner_only',
+        compareOfficerRoleIds: [],
+        comparePublicPostingEnabled: false,
+        accountabilityVisibility: 'off',
+        coachingShareabilityDefault: 'private',
+        recapPostModeDefault: 'preview-and-post',
+      }),
+      saveGuildConfig: vi.fn(),
+    };
+
+    const owner = await runDeferredCompare({
+      history: [
+        makeHistorySnapshot({ reportCode: 'OLD1' }),
+        makeHistorySnapshot({ reportCode: 'OLD2' }),
+        makeHistorySnapshot({ reportCode: 'OLD3' }),
+      ],
+      interaction: makeCompareInteraction('character', 'Alyra', {
+        member: { user: { id: 'user-1' } },
+      }),
+      guildConfigStore,
+      characterClaimStore: makeCharacterClaimStore({
+        findApprovedClaimForUserCharacter: vi.fn().mockResolvedValue(makeApprovedClaim()),
+        findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([makeApprovedClaim()]),
+      }),
+    });
+
+    const officer = await runDeferredCompare({
+      history: [makeHistorySnapshot()],
+      interaction: makeCompareInteraction('character', 'Alyra', {
+        member: { user: { id: 'officer-1' }, permissions: '32' },
+      }),
+      guildConfigStore,
+      characterClaimStore: makeClaimedCompareStore({
+        listClaimsForUser: vi.fn().mockResolvedValue([
+          makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' }),
+        ]),
+        findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([makeApprovedClaim()]),
+      }),
+    });
+
+    expect(owner.comparisonHistoryStore.findCharacterHistory).toHaveBeenCalledOnce();
+    expect(owner.body.content).toContain('Comparison: Alyra');
+    expect(officer.comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
+    expect(officer.body).toMatchObject({
+      content: 'This comparison is limited to the approved character owner.',
+      flags: 64,
+    });
+  });
+
   it('allows peer private compare only when guild mode and target opt-in permit it', async () => {
     const guildConfigStore: GuildConfigStore = {
       getGuildConfig: vi.fn().mockResolvedValue({
@@ -1528,6 +1631,9 @@ describe('handleInteraction', () => {
       saveGuildConfig: vi.fn(),
     };
     const characterClaimStore = makeCharacterClaimStore({
+      listClaimsForUser: vi.fn().mockResolvedValue([
+        makeUnrelatedApprovedClaim({ discordUserId: 'peer-1' }),
+      ]),
       findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
         makeApprovedClaim({
           discordUserId: 'owner-1',
@@ -1596,7 +1702,7 @@ describe('handleInteraction', () => {
         guildId: 'guild-1',
         defaultGameFamily: 'retail',
         compareModeDefault: 'character',
-        compareAccessMode: 'owner_or_officer',
+        compareAccessMode: 'owner_only',
         compareOfficerRoleIds: [],
         comparePublicPostingEnabled: true,
         accountabilityVisibility: 'off',
@@ -1753,6 +1859,9 @@ describe('handleInteraction', () => {
       }),
       guildConfigStore,
       characterClaimStore: makeCharacterClaimStore({
+        listClaimsForUser: vi.fn().mockResolvedValue([
+          makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' }),
+        ]),
         findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
           makeApprovedClaim({
             discordUserId: 'owner-1',
@@ -1799,6 +1908,9 @@ describe('handleInteraction', () => {
       guildConfigStore,
       editFetch: editFailureFetch,
       characterClaimStore: makeCharacterClaimStore({
+        listClaimsForUser: vi.fn().mockResolvedValue([
+          makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' }),
+        ]),
         findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
           makeApprovedClaim({
             discordUserId: 'owner-1',
@@ -1841,6 +1953,9 @@ describe('handleInteraction', () => {
       }),
       guildConfigStore,
       characterClaimStore: makeCharacterClaimStore({
+        listClaimsForUser: vi.fn().mockResolvedValue([
+          makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' }),
+        ]),
         findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
           makeApprovedClaim({
             discordUserId: 'owner-1',

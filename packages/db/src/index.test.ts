@@ -147,7 +147,7 @@ describe("MongoGuildConfigStore", () => {
             accountabilityVisibility: "shareable",
             coachingShareabilityDefault: "shareable",
             recapPostModeDefault: "preview-only",
-            compareAccessMode: "owner_opt_in_or_officer",
+            compareAccessMode: "owner_only",
             compareOfficerRoleIds: ["role-1"],
             comparePublicPostingEnabled: true,
             autoRecapMode: "auto_preview",
@@ -164,7 +164,7 @@ describe("MongoGuildConfigStore", () => {
             accountabilityVisibility: "shareable",
             coachingShareabilityDefault: "shareable",
             recapPostModeDefault: "preview-only",
-            compareAccessMode: "owner_opt_in_or_officer",
+            compareAccessMode: "owner_only",
             compareOfficerRoleIds: ["role-1"],
             comparePublicPostingEnabled: true,
             autoRecapMode: "auto_preview",
@@ -173,7 +173,7 @@ describe("MongoGuildConfigStore", () => {
 
         expect(saved.defaultGameFamily).toBe("mop_classic");
         expect(saved.compareModeDefault).toBe("mixed");
-        expect(saved.compareAccessMode).toBe("owner_opt_in_or_officer");
+        expect(saved.compareAccessMode).toBe("owner_only");
         expect(saved.compareOfficerRoleIds).toEqual(["role-1"]);
         expect(saved.comparePublicPostingEnabled).toBe(true);
         expect(saved.autoRecapMode).toBe("auto_preview");

@@ -208,17 +208,23 @@ const processCompareInteraction = async (
     }
 
     const guildConfig = await options.guildConfigStore.getGuildConfig(guildId);
-    const [requesterApprovedClaim, targetApprovedClaims] = await Promise.all([
+    const [requesterApprovedClaim, requesterClaims, targetApprovedClaims] = await Promise.all([
       options.characterClaimStore.findApprovedClaimForUserCharacter({
         guildId,
         discordUserId: requesterDiscordUserId,
         participantKey: identity.participantKey,
+      }),
+      options.characterClaimStore.listClaimsForUser({
+        guildId,
+        discordUserId: requesterDiscordUserId,
       }),
       options.characterClaimStore.findApprovedClaimsForParticipant({
         guildId,
         participantKey: identity.participantKey,
       }),
     ]);
+    const requesterHasAnyApprovedClaim =
+      Boolean(requesterApprovedClaim) || requesterClaims.some((claim) => claim.status === 'approved');
 
     const authorization = authorizeCompareRequest({
       requesterDiscordUserId,
@@ -227,6 +233,7 @@ const processCompareInteraction = async (
       targetParticipantKey: identity.participantKey,
       requestedVisibility: params.visibility,
       guildSettings: guildConfig,
+      requesterHasAnyApprovedClaim,
       requesterApprovedClaim,
       targetApprovedClaims,
     });

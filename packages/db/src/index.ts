@@ -54,7 +54,7 @@ const guildSettingsSchema = new Schema(
     },
     compareAccessMode: {
       type: String,
-      enum: ['officer_only', 'owner_or_officer', 'owner_opt_in_or_officer'],
+      enum: ['officer_only', 'owner_or_officer', 'owner_opt_in_or_officer', 'owner_only'],
       default: 'officer_only',
     },
     compareOfficerRoleIds: {

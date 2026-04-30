@@ -2,6 +2,7 @@ export const COMPARE_ACCESS_MODES = [
   'officer_only',
   'owner_or_officer',
   'owner_opt_in_or_officer',
+  'owner_only',
 ] as const;
 
 export type CompareAccessMode = (typeof COMPARE_ACCESS_MODES)[number];
@@ -48,6 +49,7 @@ export type CompareAuthorizationReason =
   | 'guild-open'
   | 'public-post-owner'
   | 'public-post-target-opted-in'
+  | 'owner-only'
   | 'not-authorized'
   | 'missing-approved-claim'
   | 'public-post-disabled'
@@ -76,6 +78,7 @@ export interface CompareAuthorizationInput extends CompareRequesterContext {
   targetParticipantKey: string;
   requestedVisibility: CompareVisibility;
   guildSettings: CompareAuthorizationGuildSettings;
+  requesterHasAnyApprovedClaim: boolean;
   requesterApprovedClaim?: CompareApprovedCharacterClaim | null;
   targetApprovedClaims?: readonly CompareApprovedCharacterClaim[];
 }
@@ -148,6 +151,7 @@ export const authorizeCompareRequest = ({
   targetParticipantKey,
   requestedVisibility,
   guildSettings,
+  requesterHasAnyApprovedClaim,
   requesterApprovedClaim,
   targetApprovedClaims = [],
 }: CompareAuthorizationInput): CompareAuthorizationDecision => {
@@ -163,22 +167,39 @@ export const authorizeCompareRequest = ({
     targetParticipantKey,
   );
 
+  if (!requesterHasAnyApprovedClaim) {
+    return {
+      allowed: false,
+      reason: 'missing-approved-claim',
+      requestedVisibility,
+      isOfficer,
+      isOwner,
+    };
+  }
+
   let privateReason: CompareAuthorizationReason | undefined;
-  if (isOfficer) {
-    privateReason = 'officer';
-  } else if (guildSettings.compareAccessMode !== 'officer_only' && isOwner) {
-    privateReason = 'owner';
-  } else if (
-    guildSettings.compareAccessMode === 'owner_opt_in_or_officer' &&
-    hasTargetPeerOptIn(targetApprovedClaims)
-  ) {
-    privateReason = 'target-opted-in';
+  switch (guildSettings.compareAccessMode) {
+    case 'owner_only':
+      if (isOwner) privateReason = 'owner';
+      break;
+    case 'officer_only':
+      if (isOfficer) privateReason = 'officer';
+      break;
+    case 'owner_or_officer':
+      if (isOwner) privateReason = 'owner';
+      else if (isOfficer) privateReason = 'officer';
+      break;
+    case 'owner_opt_in_or_officer':
+      if (isOwner) privateReason = 'owner';
+      else if (isOfficer) privateReason = 'officer';
+      else if (hasTargetPeerOptIn(targetApprovedClaims)) privateReason = 'target-opted-in';
+      break;
   }
 
   if (!privateReason) {
     return {
       allowed: false,
-      reason: requesterApprovedClaim ? 'not-authorized' : 'missing-approved-claim',
+      reason: guildSettings.compareAccessMode === 'owner_only' ? 'owner-only' : 'not-authorized',
       requestedVisibility,
       isOfficer,
       isOwner,
@@ -243,6 +264,12 @@ export const getCompareAuthorizationDenialMessage = (
   }
   if (decision.reason === 'target-public-post-not-enabled') {
     return 'This comparison can be viewed privately, but it cannot be posted publicly.';
+  }
+  if (decision.reason === 'missing-approved-claim') {
+    return 'You need an approved character claim before using /compare.';
+  }
+  if (decision.reason === 'owner-only') {
+    return 'This comparison is limited to the approved character owner.';
   }
   return 'This comparison is limited to the character owner or authorized raid roles.';
 };

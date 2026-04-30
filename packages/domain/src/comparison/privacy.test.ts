@@ -46,6 +46,7 @@ const authorize = (
     targetParticipantKey: participantKey,
     requestedVisibility: 'private',
     guildSettings: makeGuildSettings(),
+    requesterHasAnyApprovedClaim: false,
     requesterApprovedClaim: null,
     targetApprovedClaims: [ownerClaim],
     ...overrides,
@@ -64,6 +65,7 @@ describe('compare privacy contracts', () => {
 
   it('parses known access mode and visibility values only', () => {
     expect(parseCompareAccessMode('owner_or_officer')).toBe('owner_or_officer');
+    expect(parseCompareAccessMode('owner_only')).toBe('owner_only');
     expect(parseCompareAccessMode('everyone')).toBeUndefined();
     expect(parseCompareVisibility('public')).toBe('public');
     expect(parseCompareVisibility('channel')).toBeUndefined();
@@ -100,10 +102,22 @@ describe('compare officer detection', () => {
 });
 
 describe('compare authorization', () => {
-  it('allows officers to privately view any exact-character target', () => {
+  it('requires any approved claim before officer/admin privileges can authorize compare', () => {
     expect(authorize({
       requesterPermissions: '8',
       guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
+    })).toMatchObject({
+      allowed: false,
+      reason: 'missing-approved-claim',
+      isOfficer: true,
+    });
+  });
+
+  it('allows officers with an approved claim to privately view any exact-character target', () => {
+    expect(authorize({
+      requesterPermissions: '8',
+      guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
+      requesterHasAnyApprovedClaim: true,
     })).toMatchObject({
       allowed: true,
       reason: 'officer',
@@ -115,6 +129,7 @@ describe('compare authorization', () => {
     expect(authorize({
       requesterDiscordUserId: 'owner-1',
       requesterApprovedClaim: ownerClaim,
+      requesterHasAnyApprovedClaim: true,
       guildSettings: makeGuildSettings({ compareAccessMode: 'owner_or_officer' }),
     })).toMatchObject({
       allowed: true,
@@ -127,6 +142,7 @@ describe('compare authorization', () => {
     expect(authorize({
       requesterDiscordUserId: 'owner-1',
       requesterApprovedClaim: ownerClaim,
+      requesterHasAnyApprovedClaim: true,
       guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
     })).toMatchObject({
       allowed: false,
@@ -143,6 +159,20 @@ describe('compare authorization', () => {
       reason: 'missing-approved-claim',
     });
     expect(getCompareAuthorizationDenialMessage(decision)).toBe(
+      'You need an approved character claim before using /compare.',
+    );
+  });
+
+  it('denies claimed peers when the target has not opted in', () => {
+    const decision = authorize({
+      requesterHasAnyApprovedClaim: true,
+    });
+
+    expect(decision).toMatchObject({
+      allowed: false,
+      reason: 'not-authorized',
+    });
+    expect(getCompareAuthorizationDenialMessage(decision)).toBe(
       'This comparison is limited to the character owner or authorized raid roles.',
     );
   });
@@ -150,6 +180,7 @@ describe('compare authorization', () => {
   it('allows peers only when target opted in and guild mode allows it', () => {
     expect(authorize({
       guildSettings: makeGuildSettings({ compareAccessMode: 'owner_opt_in_or_officer' }),
+      requesterHasAnyApprovedClaim: true,
       targetApprovedClaims: [{ ...ownerClaim, peerCompareOptIn: true }],
     })).toMatchObject({
       allowed: true,
@@ -161,6 +192,7 @@ describe('compare authorization', () => {
     const decision = authorize({
       requesterDiscordUserId: 'owner-1',
       requesterApprovedClaim: ownerClaim,
+      requesterHasAnyApprovedClaim: true,
       requestedVisibility: 'public',
       guildSettings: makeGuildSettings({
         compareAccessMode: 'owner_or_officer',
@@ -181,6 +213,7 @@ describe('compare authorization', () => {
     expect(authorize({
       requesterDiscordUserId: 'owner-1',
       requesterApprovedClaim: ownerClaim,
+      requesterHasAnyApprovedClaim: true,
       requestedVisibility: 'public',
       guildSettings: makeGuildSettings({
         compareAccessMode: 'owner_or_officer',
@@ -196,6 +229,7 @@ describe('compare authorization', () => {
     const denied = authorize({
       requesterDiscordUserId: 'officer-1',
       requesterPermissions: '8',
+      requesterHasAnyApprovedClaim: true,
       requestedVisibility: 'public',
       guildSettings: makeGuildSettings({
         compareAccessMode: 'officer_only',
@@ -206,6 +240,7 @@ describe('compare authorization', () => {
     const allowed = authorize({
       requesterDiscordUserId: 'officer-1',
       requesterPermissions: '8',
+      requesterHasAnyApprovedClaim: true,
       requestedVisibility: 'public',
       guildSettings: makeGuildSettings({
         compareAccessMode: 'officer_only',
@@ -227,13 +262,52 @@ describe('compare authorization', () => {
     });
   });
 
+  it('allows only the target owner in owner-only mode', () => {
+    const owner = authorize({
+      requesterDiscordUserId: 'owner-1',
+      requesterApprovedClaim: ownerClaim,
+      requesterHasAnyApprovedClaim: true,
+      guildSettings: makeGuildSettings({ compareAccessMode: 'owner_only' }),
+    });
+    const officer = authorize({
+      requesterDiscordUserId: 'officer-1',
+      requesterPermissions: '8',
+      requesterHasAnyApprovedClaim: true,
+      guildSettings: makeGuildSettings({ compareAccessMode: 'owner_only' }),
+    });
+    const optedInPeer = authorize({
+      requesterHasAnyApprovedClaim: true,
+      guildSettings: makeGuildSettings({ compareAccessMode: 'owner_only' }),
+      targetApprovedClaims: [{ ...ownerClaim, peerCompareOptIn: true }],
+    });
+
+    expect(owner).toMatchObject({
+      allowed: true,
+      reason: 'owner',
+    });
+    expect(officer).toMatchObject({
+      allowed: false,
+      reason: 'owner-only',
+      isOfficer: true,
+    });
+    expect(optedInPeer).toMatchObject({
+      allowed: false,
+      reason: 'owner-only',
+    });
+    expect(getCompareAuthorizationDenialMessage(officer)).toBe(
+      'This comparison is limited to the approved character owner.',
+    );
+  });
+
   it('keeps denial messages privacy-safe', () => {
     const deniedPeer = authorize({
+      requesterHasAnyApprovedClaim: true,
       targetApprovedClaims: [{ ...ownerClaim, peerCompareOptIn: false, publicPostOptIn: false }],
     });
     const deniedPublic = authorize({
       requesterDiscordUserId: 'officer-1',
       requesterPermissions: '8',
+      requesterHasAnyApprovedClaim: true,
       requestedVisibility: 'public' as CompareVisibility,
       guildSettings: makeGuildSettings({
         compareAccessMode: 'officer_only',

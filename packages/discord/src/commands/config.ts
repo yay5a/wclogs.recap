@@ -1,5 +1,6 @@
 import { InteractionResponseType } from "discord-interactions";
 import {
+    COMPARE_ACCESS_MODES,
     parseAutoRecapMode,
     hasDiscordPermission,
     parseCompareAccessMode,
@@ -97,6 +98,8 @@ const getCompareAccessModeResponse = (compareAccessMode: CompareAccessMode): str
             return "Compare access mode set to owner_or_officer. Approved character owners and authorized raid roles can view private comparison cards.";
         case "owner_opt_in_or_officer":
             return "Compare access mode set to owner_opt_in_or_officer. Approved owners, authorized raid roles, and opted-in targets can be viewed privately.";
+        case "owner_only":
+            return "Compare access mode set to owner_only. Only approved character owners can view their own private comparison cards.";
     }
 };
 
@@ -185,7 +188,7 @@ export const handleConfigCommand = async (
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
                 content:
-                    "Invalid compare_access_mode. Choose officer_only, owner_or_officer, or owner_opt_in_or_officer.",
+                    `Invalid compare_access_mode. Choose ${COMPARE_ACCESS_MODES.join(", ")}.`,
                 flags: 64,
             },
         };
