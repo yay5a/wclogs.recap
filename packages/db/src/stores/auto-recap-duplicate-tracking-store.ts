@@ -33,7 +33,7 @@ export interface AutoRecapDuplicateTrackingRecord {
     expiresAt: Date;
 }
 
-export type ClaimAutoRecapDuplicateInput = Omit<
+type ClaimAutoRecapDuplicateInput = Omit<
     AutoRecapDuplicateTrackingRecord,
     | "status"
     | "latestOutputMessageId"
@@ -42,7 +42,7 @@ export type ClaimAutoRecapDuplicateInput = Omit<
     | "confirmationNonce"
 >;
 
-export type UpdateAutoRecapDuplicateInput = Pick<
+type UpdateAutoRecapDuplicateInput = Pick<
     AutoRecapDuplicateTrackingRecord,
     "guildId" | "channelId" | "reportCode"
 > &

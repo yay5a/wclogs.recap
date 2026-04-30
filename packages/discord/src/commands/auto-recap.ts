@@ -39,7 +39,7 @@ type AutoRecapComponent =
     | { action: "duplicate_post"; confirmationNonce: string }
     | { action: "duplicate_ignore"; confirmationNonce: string };
 
-export interface AutoRecapInboundMessage {
+interface AutoRecapInboundMessage {
     guildId?: string | null;
     channelId: string;
     messageId: string;
@@ -52,11 +52,11 @@ export interface AutoRecapSendableChannel {
     send(body: Record<string, unknown>): Promise<{ id: string }>;
 }
 
-export interface AutoRecapFailureThrottle {
+interface AutoRecapFailureThrottle {
     shouldPostFailure(key: string, ttlMs: number): boolean;
 }
 
-export interface AutoRecapMessageCreateOptions {
+interface AutoRecapMessageCreateOptions {
     message: AutoRecapInboundMessage;
     channel: AutoRecapSendableChannel | null;
     handleOptions: HandleOptions;
@@ -156,9 +156,10 @@ export const buildAutoRecapPromptBody = (sourceMessageId: string) => ({
     ],
 });
 
-const stripEphemeralFlag = <TBody extends Record<string, unknown>>(body: TBody): TBody => {
-    const { flags: _flags, ...rest } = body;
-    return rest as TBody;
+const stripEphemeralFlag = <TBody extends Record<string, unknown>>(body: TBody): Omit<TBody, "flags"> => {
+    const publicBody: Record<string, unknown> = { ...body };
+    delete publicBody.flags;
+    return publicBody as Omit<TBody, "flags">;
 };
 
 const toPublicPreviewBody = (previewBody: Record<string, unknown>): Record<string, unknown> => ({

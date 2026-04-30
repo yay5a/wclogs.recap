@@ -12,19 +12,22 @@ const validEnv = {
 
 describe("parseWorkerEnv", () => {
     it("fails clearly when DISCORD_BOT_TOKEN is missing", () => {
-        const { DISCORD_BOT_TOKEN: _token, ...env } = validEnv;
+        const env: Partial<typeof validEnv> = { ...validEnv };
+        delete env.DISCORD_BOT_TOKEN;
 
         expect(() => parseWorkerEnv(env)).toThrow(/DISCORD_BOT_TOKEN/);
     });
 
     it("fails clearly when required Warcraft Logs settings are missing", () => {
-        const { WCL_CLIENT_ID: _clientId, ...env } = validEnv;
+        const env: Partial<typeof validEnv> = { ...validEnv };
+        delete env.WCL_CLIENT_ID;
 
         expect(() => parseWorkerEnv(env)).toThrow(/WCL_CLIENT_ID/);
     });
 
     it("fails clearly when WCL_CLIENT_SECRET is missing", () => {
-        const { WCL_CLIENT_SECRET: _clientSecret, ...env } = validEnv;
+        const env: Partial<typeof validEnv> = { ...validEnv };
+        delete env.WCL_CLIENT_SECRET;
 
         expect(() => parseWorkerEnv(env)).toThrow(/WCL_CLIENT_SECRET/);
     });

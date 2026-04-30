@@ -13,7 +13,7 @@ export interface AutoRecapPromptStateRecord {
     expiresAt: Date;
 }
 
-export type SaveAutoRecapPromptStateInput = AutoRecapPromptStateRecord;
+type SaveAutoRecapPromptStateInput = AutoRecapPromptStateRecord;
 
 const isGameFamily = (value: unknown): value is GameFamily =>
     value === "retail" || value === "mop_classic";

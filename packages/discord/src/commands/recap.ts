@@ -121,7 +121,7 @@ export const getRecapFailureMessage = (error: unknown): string => {
   return 'Could not build recap preview for that report. Please verify the URL and try again.';
 };
 
-export interface RecapArtifact {
+interface RecapArtifact {
   report: NormalizedReport;
   summary: ReturnType<typeof buildRecapSummary>;
   previewBody: ReturnType<typeof buildRecapPreviewBody>;

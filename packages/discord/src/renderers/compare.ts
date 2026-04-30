@@ -297,8 +297,8 @@ export const buildCompareResponseBody = ({
 export const buildPublicCompareResponseBody = (
   viewModel: CompareBaselineResponseViewModel,
 ): { content: string } => {
-  const { flags: _flags, ...body } = buildCompareResponseBody(viewModel);
-  return body;
+  const body = buildCompareResponseBody(viewModel);
+  return { content: body.content };
 };
 
 export const buildCompareErrorBody = (content: string): { content: string; flags: number } => ({
