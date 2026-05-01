@@ -231,6 +231,73 @@ describe("index contract", () => {
             );
         });
 
+        it("normalizes probe-style role bucket playerDetails identity fields", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Raid",
+                                startTime: 100,
+                                endTime: 200,
+                                fights: [],
+                                masterData: {
+                                    actors: [
+                                        {
+                                            id: 6,
+                                            name: "Tankhem",
+                                            subType: "DeathKnight",
+                                            server: "Galakras",
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    playerDetails: {
+                        data: {
+                            playerDetails: {
+                                tanks: [
+                                    {
+                                        name: "Tankhem",
+                                        id: 6,
+                                        guid: 99427887,
+                                        type: "DeathKnight",
+                                        server: "Galakras",
+                                        region: "US",
+                                        specs: [{ spec: "Blood", count: 26 }],
+                                    },
+                                ],
+                            },
+                        },
+                    },
+                },
+                parsed,
+            );
+
+            expect(normalized.players[0]).toMatchObject({
+                id: "6",
+                actorId: 6,
+                warcraftLogsActorId: 6,
+                warcraftLogsGuid: 99427887,
+                name: "Tankhem",
+                realm: "Galakras",
+                server: "Galakras",
+                region: "US",
+                className: "DeathKnight",
+                role: "tank",
+            });
+
+            const extraction = extractComparisonSnapshots({
+                guildId: "guild-1",
+                report: normalized,
+            });
+            expect(extraction.issues).toEqual([]);
+            expect(extraction.snapshots[0]?.participantKey).toBe(
+                "character:us:galakras:tankhem",
+            );
+        });
+
         it("falls back to report guild server region when playerDetails is empty", () => {
             const normalized = normalizeEnrichedReport(
                 {
@@ -287,6 +354,83 @@ describe("index contract", () => {
                 "character:us:stormrage:yaysa",
             );
             expect(extraction.snapshots[0]).not.toHaveProperty("playerProfileId");
+        });
+
+        it("falls back to rankings guild server region when playerDetails and base guild are empty", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Raid",
+                                startTime: 100,
+                                endTime: 200,
+                                fights: [],
+                                masterData: {
+                                    actors: [
+                                        {
+                                            id: 1,
+                                            name: "Yaysa",
+                                            subType: "Rogue",
+                                            server: "Galakras",
+                                        },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    playerDetails: {
+                        data: { playerDetails: [] },
+                    },
+                    reportRankings: {
+                        data: [
+                            {
+                                guild: {
+                                    server: {
+                                        name: "Galakras",
+                                        region: "US",
+                                    },
+                                },
+                                roles: {
+                                    dps: {
+                                        characters: [
+                                            {
+                                                id: 100880586,
+                                                name: "Yaysa",
+                                                server: {
+                                                    name: "Galakras",
+                                                    region: "US",
+                                                },
+                                                class: "Rogue",
+                                                spec: "Assassination",
+                                                rankPercent: 42,
+                                            },
+                                        ],
+                                    },
+                                },
+                            },
+                        ],
+                    },
+                },
+                parsed,
+            );
+
+            expect(normalized.players[0]).toMatchObject({
+                id: "1",
+                actorId: 1,
+                name: "Yaysa",
+                realm: "Galakras",
+                region: "US",
+            });
+
+            const extraction = extractComparisonSnapshots({
+                guildId: "guild-1",
+                report: normalized,
+            });
+            expect(extraction.issues).toEqual([]);
+            expect(extraction.snapshots[0]?.participantKey).toBe(
+                "character:us:galakras:yaysa",
+            );
         });
 
         it("prefers playerDetails region over report guild server region", () => {

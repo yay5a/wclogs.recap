@@ -92,6 +92,41 @@ describe("wcl query layer", () => {
         );
     });
 
+    it("requests probe-style report-wide player details", async () => {
+        const calls: Array<{
+            query: string;
+            variables: Record<string, unknown>;
+        }> = [];
+        const execute = async <TPayload>(
+            query: string,
+            variables: Record<string, unknown>,
+        ): Promise<TPayload> => {
+            calls.push({ query, variables });
+            return { data: {} } as TPayload;
+        };
+        const queries = createWclQueries(execute);
+
+        await queries.playerDetails({
+            code: "abc",
+            allowUnlisted: true,
+            fightIDs: [1, 2, 3],
+            killType: "Encounters",
+            includeCombatantInfo: false,
+        });
+
+        expect(calls[0]?.query).toContain("fightIDs: $fightIDs");
+        expect(calls[0]?.query).toContain("killType: $killType");
+        expect(calls[0]?.query).toContain("includeCombatantInfo: $includeCombatantInfo");
+        expect(calls[0]?.query).toContain("translate: false");
+        expect(calls[0]?.variables).toEqual({
+            code: "abc",
+            allowUnlisted: true,
+            fightIDs: [1, 2, 3],
+            killType: "Encounters",
+            includeCombatantInfo: false,
+        });
+    });
+
     it("builds report-wide table calls as one filtered data type", async () => {
         const calls: Array<{
             query: string;

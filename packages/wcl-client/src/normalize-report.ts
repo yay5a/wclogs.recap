@@ -180,6 +180,86 @@ const getReportRealm = (report: Record<string, unknown>): string | undefined => 
   return asString(server?.name);
 };
 
+const parseJsonObject = (value: unknown): Record<string, unknown> | undefined => {
+  if (typeof value !== 'string') return asObject(value);
+
+  try {
+    return asObject(JSON.parse(value));
+  } catch {
+    return undefined;
+  }
+};
+
+const getRegionValue = (value: unknown): string | undefined => {
+  const region = asObject(value);
+  return (
+    asString(region?.compactName) ??
+    asString(region?.name) ??
+    asString(region?.code) ??
+    asString(value)
+  );
+};
+
+const getServerRegion = (server: unknown): string | undefined =>
+  getRegionValue(asObject(server)?.region);
+
+const getRankingsReportRegion = (payloads: unknown[]): string | undefined => {
+  for (const payload of payloads) {
+    const root = parseJsonObject(payload);
+    const rows = root && Array.isArray(root.data) ? root.data : [];
+    for (const value of rows) {
+      const row = asObject(value);
+      const region = getServerRegion(asObject(row?.guild)?.server);
+      if (region) return region;
+    }
+  }
+
+  return undefined;
+};
+
+const buildRankingsIdentityByName = (
+  payloads: unknown[],
+): Map<string, { region?: string; server?: string }> => {
+  const byName = new Map<string, { region?: string; server?: string }>();
+
+  for (const payload of payloads) {
+    const root = parseJsonObject(payload);
+    const rows = root && Array.isArray(root.data) ? root.data : [];
+
+    for (const value of rows) {
+      const row = asObject(value);
+      const roles = asObject(row?.roles);
+      if (!roles) continue;
+
+      for (const key of ['tanks', 'healers', 'dps']) {
+        const bucket = asObject(roles[key]);
+        const characters = Array.isArray(bucket?.characters) ? bucket.characters : [];
+
+        for (const characterValue of characters) {
+          const character = asObject(characterValue);
+          const name = asString(character?.name);
+          if (!name) continue;
+
+          const server = asObject(character?.server);
+          const serverName = asString(server?.name);
+          const region = getServerRegion(server);
+          if (!serverName && !region) continue;
+
+          const nameKey = normalizeName(name);
+          const existing = byName.get(nameKey) ?? {};
+          byName.set(nameKey, {
+            ...(serverName && !existing.server ? { server: serverName } : {}),
+            ...(region && !existing.region ? { region } : {}),
+            ...existing,
+          });
+        }
+      }
+    }
+  }
+
+  return byName;
+};
+
 const parseEncounterPhases = (
   report: Record<string, unknown>,
 ): Map<number, EncounterPhaseRow[]> => {
@@ -595,6 +675,14 @@ export const normalizeEnrichedReport = (
   const playerDetails = parsePlayerDetailsPayload(enriched?.playerDetails);
   const detailByName = new Map(playerDetails.map((entry) => [normalizeName(entry.name), entry]));
   const reportRegion = getReportRegion(report);
+  const rankingsPayloads = [
+    enriched?.reportRankings ?? report.rankings,
+    enriched?.reportRankingsDpsCombined,
+    enriched?.reportRankingsHpsCombined,
+    ...encounterSummaries.map((summary) => summary.rankings),
+  ];
+  const rankingsReportRegion = getRankingsReportRegion(rankingsPayloads);
+  const rankingsIdentityByName = buildRankingsIdentityByName(rankingsPayloads);
   const reportRealm = getReportRealm(report);
 
   const leaderboardIndex = indexLeaderboardByActorAndName([
@@ -615,6 +703,7 @@ export const normalizeEnrichedReport = (
 
     const actorId = asNumber(actor.id);
     const detail = detailByName.get(normalizeName(name));
+    const rankingsIdentity = rankingsIdentityByName.get(normalizeName(name));
     const leaderboardMatches =
       (typeof actorId === 'number' ? leaderboardIndex.byActorId.get(actorId) : undefined) ??
       leaderboardIndex.byName.get(normalizeName(name)) ??
@@ -631,7 +720,7 @@ export const normalizeEnrichedReport = (
     }
 
     const className = asString(actor.subType) ?? detail?.className;
-    const realm = asString(actor.server) ?? reportRealm;
+    const realm = asString(actor.server) ?? detail?.server ?? rankingsIdentity?.server ?? reportRealm;
 
     if (typeof detail?.warcraftLogsActorId === 'number') {
       player.warcraftLogsActorId = detail.warcraftLogsActorId;
@@ -644,6 +733,10 @@ export const normalizeEnrichedReport = (
       player.region = detail.region;
     } else if (reportRegion) {
       player.region = reportRegion;
+    } else if (rankingsIdentity?.region) {
+      player.region = rankingsIdentity.region;
+    } else if (rankingsReportRegion) {
+      player.region = rankingsReportRegion;
     }
     if (className) player.className = className;
     if (realm) player.realm = realm;
@@ -664,6 +757,7 @@ export const normalizeEnrichedReport = (
     playerDetails: playerDetails.length,
     players: players.length,
     reportRegionPresent: reportRegion ? 1 : 0,
+    rankingsReportRegionPresent: rankingsReportRegion ? 1 : 0,
     reportRealmPresent: reportRealm ? 1 : 0,
   });
 

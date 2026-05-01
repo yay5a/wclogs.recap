@@ -2,6 +2,7 @@ import {
     KILL_TYPES,
     REPORT_RECAP_TABLE_DATA_TYPES,
     REPORT_TABLE_DATA_TYPES,
+    type KillType,
     type TableDataType,
 } from "../schema-enums.js";
 
@@ -178,15 +179,17 @@ const PLAYER_DETAILS_QUERY = `
   query PlayerDetails(
     $code: String!
     $allowUnlisted: Boolean!
-    $startTime: Float!
-    $endTime: Float!
+    $fightIDs: [Int]
+    $killType: KillType
+    $includeCombatantInfo: Boolean!
   ) {
     reportData {
       report(code: $code, allowUnlisted: $allowUnlisted) {
         playerDetails(
-          includeCombatantInfo: true
-          startTime: $startTime
-          endTime: $endTime
+          fightIDs: $fightIDs
+          killType: $killType
+          includeCombatantInfo: $includeCombatantInfo
+          translate: false
         )
       }
     }
@@ -285,8 +288,9 @@ export const createWclQueries = (execute: GraphQlExecutor) => ({
     playerDetails: (variables: {
         code: string;
         allowUnlisted: boolean;
-        startTime: number;
-        endTime: number;
+        fightIDs?: number[];
+        killType?: KillType;
+        includeCombatantInfo: boolean;
     }) => execute<PlayerDetailsPayload>(PLAYER_DETAILS_QUERY, variables),
     table: (variables: {
         code: string;

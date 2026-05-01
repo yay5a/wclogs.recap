@@ -6,7 +6,6 @@ import {
     pickEncounterSummaryFight,
 } from "@wcl/domain";
 import { createLogger } from "@wcl/shared";
-import { asNumber } from "./parsers/index.js";
 import {
     createWclQueries,
     REPORT_WIDE_KILL_TABLE_FILTERS,
@@ -40,6 +39,18 @@ const getKillEncounterFightIds = (
     return parseFightSummaries(report).flatMap((fight) => {
         const encounterID = getBossEncounterId(fight);
         if (typeof encounterID !== "number" || !fight.kill) return [];
+        return [fight.id];
+    });
+};
+
+const getCompletedEncounterFightIds = (
+    report: Record<string, unknown> | undefined,
+): number[] => {
+    if (!report) return [];
+
+    return parseFightSummaries(report).flatMap((fight) => {
+        const encounterID = getBossEncounterId(fight);
+        if (typeof encounterID !== "number" || fight.inProgress) return [];
         return [fight.id];
     });
 };
@@ -227,19 +238,16 @@ export class ReportFetcher {
         let reportTablesRaw:
             | Partial<Record<TableDataType, unknown>>
             | undefined;
-        const reportStartTime = asNumber(baseReport?.startTime);
-        const reportEndTime = asNumber(baseReport?.endTime);
         const playerDetailsStartedAt = now();
-        if (
-            typeof reportStartTime === "number" &&
-            typeof reportEndTime === "number"
-        ) {
+        const playerDetailsFightIds = getCompletedEncounterFightIds(baseReport);
+        if (playerDetailsFightIds.length > 0) {
             try {
                 playerDetailsRaw = await this.queries.playerDetails({
                     code,
                     allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
-                    startTime: reportStartTime,
-                    endTime: reportEndTime,
+                    fightIDs: playerDetailsFightIds,
+                    killType: "Encounters",
+                    includeCombatantInfo: false,
                 });
             } catch (error) {
                 noteSkippedEnrichment(
@@ -248,16 +256,13 @@ export class ReportFetcher {
             }
         } else {
             noteSkippedEnrichment(
-                "Skipped playerDetails enrichment due to missing report start/end time bounds.",
+                "Skipped playerDetails enrichment due to missing completed encounter fight IDs.",
             );
         }
         logTiming("fetch player details", playerDetailsStartedAt, {
-            requested:
-                typeof reportStartTime === "number" &&
-                typeof reportEndTime === "number"
-                    ? 1
-                    : 0,
+            requested: playerDetailsFightIds.length > 0 ? 1 : 0,
             succeeded: playerDetailsRaw ? 1 : 0,
+            fightIds: playerDetailsFightIds.length,
         });
         const reportWideTablesStartedAt = now();
         const reportWideKillFightIds = getKillEncounterFightIds(baseReport);
