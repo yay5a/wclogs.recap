@@ -41,6 +41,13 @@ describe("logger redaction", () => {
         testLogger.info({
             env: { DASHBOARD_ADMIN_SECRET: "admin-env-secret" },
             body: { adminSecret: "submitted-secret" },
+            nested: {
+                login: { adminSecret: "two-level-admin-secret" },
+                cookies: { wcl_dashboard: "two-level-dashboard-cookie" },
+            },
+            req: {
+                headers: { cookie: "req-cookie" },
+            },
             request: {
                 body: { adminSecret: "nested-secret" },
                 headers: { cookie: "wcl_dashboard=request-cookie" },
@@ -63,7 +70,10 @@ describe("logger redaction", () => {
         const output = chunks.join("");
         expect(output).not.toContain("admin-env-secret");
         expect(output).not.toContain("submitted-secret");
+        expect(output).not.toContain("two-level-admin-secret");
+        expect(output).not.toContain("two-level-dashboard-cookie");
         expect(output).not.toContain("nested-secret");
+        expect(output).not.toContain("req-cookie");
         expect(output).not.toContain("request-cookie");
         expect(output).not.toContain("request-cookie-object");
         expect(output).not.toContain("root-cookie-object");

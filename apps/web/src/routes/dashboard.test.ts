@@ -112,6 +112,19 @@ const firstSetCookie = (response: { headers: Record<string, unknown> }): string 
     return raw.split(";")[0] ?? raw;
 };
 
+const firstSetCookieHeader = (response: { headers: Record<string, unknown> }): string => {
+    const header = response.headers["set-cookie"];
+    const raw = Array.isArray(header) ? header[0] : header;
+    if (typeof raw !== "string") throw new Error("missing set-cookie");
+    return raw;
+};
+
+const signedCookieValueFrom = (cookiePair: string): string => {
+    const value = cookiePair.split("=").slice(1).join("=");
+    if (!value) throw new Error("missing cookie value");
+    return decodeURIComponent(value);
+};
+
 describe("dashboard auth", () => {
     afterEach(() => {
         vi.restoreAllMocks();
@@ -121,6 +134,39 @@ describe("dashboard auth", () => {
     it("compares secrets through fixed-length hashes", () => {
         expect(compareDashboardAdminSecret("admin-secret", "admin-secret")).toBe(true);
         expect(compareDashboardAdminSecret("short", "a much longer secret")).toBe(false);
+    });
+
+    it("intentionally exempts login from the dashboard mutation header", async () => {
+        const { store } = makeStore();
+        const app = await makeApp(makeEnv(), store);
+
+        const accepted = await app.inject({
+            method: "POST",
+            url: "/api/dashboard/login",
+            payload: { adminSecret: "admin-secret" },
+        });
+
+        expect(accepted.statusCode).toBe(200);
+        expect(accepted.json()).toEqual({ ok: true });
+
+        await app.close();
+    });
+
+    it("keeps login harmless and header-exempt when auth is disabled", async () => {
+        const { store } = makeStore();
+        const app = await makeApp(makeEnv({ DASHBOARD_AUTH_DISABLED: true }), store);
+
+        const response = await app.inject({
+            method: "POST",
+            url: "/api/dashboard/login",
+            payload: {},
+        });
+
+        expect(response.statusCode).toBe(200);
+        expect(response.json()).toEqual({ ok: true });
+        expect(response.headers["set-cookie"]).toBeUndefined();
+
+        await app.close();
     });
 
     it("rejects wrong login secrets and accepts correct secrets with a signed HttpOnly cookie", async () => {
@@ -141,10 +187,56 @@ describe("dashboard auth", () => {
         });
 
         expect(accepted.statusCode).toBe(200);
-        const setCookie = String(accepted.headers["set-cookie"]);
+        const setCookie = firstSetCookieHeader(accepted);
         expect(setCookie).toContain(`${DASHBOARD_COOKIE_NAME}=`);
         expect(setCookie).toContain("HttpOnly");
         expect(setCookie).toContain("Path=/api/dashboard");
+
+        await app.close();
+    });
+
+    it("sets dashboard cookie attributes and signed server-checkable value", async () => {
+        const env = makeEnv();
+        const { store } = makeStore();
+        const app = await makeApp(env, store);
+
+        const beforeLogin = Date.now();
+        const login = await app.inject({
+            method: "POST",
+            url: "/api/dashboard/login",
+            payload: { adminSecret: "admin-secret" },
+        });
+        const afterLogin = Date.now();
+
+        const setCookie = firstSetCookieHeader(login);
+        expect(setCookie).toContain("HttpOnly");
+        expect(setCookie).toContain("SameSite=Strict");
+        expect(setCookie).toContain("Max-Age=3600");
+        expect(setCookie).toContain("Path=/api/dashboard");
+
+        const unsigned = app.unsignCookie(signedCookieValueFrom(firstSetCookie(login)));
+        expect(unsigned.valid).toBe(true);
+        expect(unsigned.value).toMatch(/^dashboard:v1:\d+$/);
+        expect(unsigned.value).not.toContain(env.DASHBOARD_ADMIN_SECRET);
+
+        const expiresAtMs = Number(unsigned.value?.split(":")[2]);
+        expect(expiresAtMs).toBeGreaterThanOrEqual(beforeLogin + 60 * 60 * 1000);
+        expect(expiresAtMs).toBeLessThanOrEqual(afterLogin + 60 * 60 * 1000);
+
+        await app.close();
+    });
+
+    it("sets Secure on dashboard cookies in production", async () => {
+        const { store } = makeStore();
+        const app = await makeApp(makeEnv({ NODE_ENV: "production" }), store);
+
+        const login = await app.inject({
+            method: "POST",
+            url: "/api/dashboard/login",
+            payload: { adminSecret: "admin-secret" },
+        });
+
+        expect(firstSetCookieHeader(login)).toContain("Secure");
 
         await app.close();
     });
@@ -192,33 +284,56 @@ describe("dashboard auth", () => {
         await app.close();
     });
 
-    it("keeps mutation header enforcement even when auth is disabled", async () => {
+    it("keeps mutation header enforcement on state-changing routes even when auth is disabled", async () => {
+        const existing = defaultGuildConfigFor(guildId);
         const { store } = makeStore();
         const app = await makeApp(
             makeEnv({ DASHBOARD_AUTH_DISABLED: true }),
             store,
         );
+        store.getExistingGuildConfig.mockResolvedValue(existing);
+        store.saveExistingGuildConfig.mockResolvedValue(existing);
+        store.addOfficerToExistingGuild.mockResolvedValue(existing);
+        store.removeOfficerFromExistingGuild.mockResolvedValue(existing);
 
         expect((await app.inject("/api/dashboard/session")).statusCode).toBe(200);
-        expect(
-            (
-                await app.inject({
-                    method: "POST",
-                    url: "/api/dashboard/guilds",
-                    payload: { guildId },
-                })
-            ).statusCode,
-        ).toBe(400);
-        expect(
-            (
-                await app.inject({
-                    method: "POST",
-                    url: "/api/dashboard/guilds",
-                    headers: { "x-dashboard-request": "1" },
-                    payload: { guildId },
-                })
-            ).statusCode,
-        ).toBe(200);
+
+        const missingHeaderRequests = [
+            app.inject({
+                method: "POST",
+                url: "/api/dashboard/logout",
+            }),
+            app.inject({
+                method: "POST",
+                url: "/api/dashboard/guilds",
+                payload: { guildId },
+            }),
+            app.inject({
+                method: "PATCH",
+                url: `/api/dashboard/guilds/${guildId}/config`,
+                payload: { compareModeDefault: "mixed" },
+            }),
+            app.inject({
+                method: "POST",
+                url: `/api/dashboard/guilds/${guildId}/officers/${discordUserId}`,
+            }),
+            app.inject({
+                method: "DELETE",
+                url: `/api/dashboard/guilds/${guildId}/officers/${discordUserId}`,
+            }),
+        ];
+        const missingHeaderResponses = await Promise.all(missingHeaderRequests);
+        for (const response of missingHeaderResponses) {
+            expect(response.statusCode).toBe(400);
+        }
+
+        const accepted = await app.inject({
+            method: "POST",
+            url: "/api/dashboard/guilds",
+            headers: { "x-dashboard-request": "1" },
+            payload: { guildId },
+        });
+        expect(accepted.statusCode).toBe(200);
 
         await app.close();
     });
@@ -295,21 +410,45 @@ describe("dashboard guild routes", () => {
         await app.close();
     });
 
-    it("never creates guild configs from officer mutations", async () => {
+    it("never creates guild configs from config or officer mutations against unknown guilds", async () => {
+        const { configs, store } = makeStore();
+        const app = await makeApp(makeEnv({ DASHBOARD_AUTH_DISABLED: true }), store);
+
+        const patchUnknownGuild = await app.inject({
+            method: "PATCH",
+            url: `/api/dashboard/guilds/${otherGuildId}/config`,
+            headers: { "x-dashboard-request": "1" },
+            payload: { compareModeDefault: "mixed" },
+        });
+        expect(patchUnknownGuild.statusCode).toBe(404);
+        expect(configs.has(otherGuildId)).toBe(false);
+
+        const addUnknownGuildOfficer = await app.inject({
+            method: "POST",
+            url: `/api/dashboard/guilds/${otherGuildId}/officers/${discordUserId}`,
+            headers: { "x-dashboard-request": "1" },
+        });
+        expect(addUnknownGuildOfficer.statusCode).toBe(404);
+        expect(configs.has(otherGuildId)).toBe(false);
+
+        const deleteUnknownGuildOfficer = await app.inject({
+            method: "DELETE",
+            url: `/api/dashboard/guilds/${otherGuildId}/officers/${discordUserId}`,
+            headers: { "x-dashboard-request": "1" },
+        });
+        expect(deleteUnknownGuildOfficer.statusCode).toBe(404);
+        expect(configs.has(otherGuildId)).toBe(false);
+
+        await app.close();
+    });
+
+    it("removes officers idempotently only within existing guild configs", async () => {
         const existing = {
             ...defaultGuildConfigFor(guildId),
             compareOfficerUserIds: [discordUserId],
         };
         const { store, configs } = makeStore([existing]);
         const app = await makeApp(makeEnv({ DASHBOARD_AUTH_DISABLED: true }), store);
-
-        const unknownGuild = await app.inject({
-            method: "DELETE",
-            url: `/api/dashboard/guilds/${otherGuildId}/officers/${discordUserId}`,
-            headers: { "x-dashboard-request": "1" },
-        });
-        expect(unknownGuild.statusCode).toBe(404);
-        expect(configs.has(otherGuildId)).toBe(false);
 
         const removed = await app.inject({
             method: "DELETE",
@@ -326,6 +465,7 @@ describe("dashboard guild routes", () => {
         });
         expect(absent.statusCode).toBe(200);
         expect(absent.json<{ config: GuildConfig }>().config.compareOfficerUserIds).toEqual([]);
+        expect(configs.has(otherGuildId)).toBe(false);
 
         await app.close();
     });

@@ -308,6 +308,8 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
     const authPreHandler = requireDashboardAuth(options.env);
     const mutationPreHandlers = [authPreHandler, requireDashboardMutationHeader];
 
+    // Login is the unauthenticated session-establishment endpoint, so it is
+    // intentionally exempt from the dashboard mutation header.
     app.post("/api/dashboard/login", async (request, reply) => {
         if (options.env.DASHBOARD_AUTH_DISABLED) {
             return reply.send({ ok: true });

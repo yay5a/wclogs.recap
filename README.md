@@ -232,6 +232,11 @@ Dashboard notes:
 
 - `DASHBOARD_ADMIN_SECRET` authenticates dashboard login requests only.
 - `COOKIE_SECRET` signs dashboard session cookies; rotating it invalidates existing dashboard sessions.
+- `POST /api/dashboard/login` is intentionally exempt from `X-Dashboard-Request: 1`
+  because it is the unauthenticated session-establishment endpoint.
+- Authenticated dashboard mutations require `X-Dashboard-Request: 1`, including
+  logout, guild onboarding, config patching, and officer add/remove routes. This
+  remains true when `DASHBOARD_AUTH_DISABLED=true` in development or test.
 - Production refuses to start without `DASHBOARD_ADMIN_SECRET`.
 - Production refuses to start with `DASHBOARD_AUTH_DISABLED=true`.
 - Development requires `DASHBOARD_ADMIN_SECRET` unless `DASHBOARD_AUTH_DISABLED=true`.
