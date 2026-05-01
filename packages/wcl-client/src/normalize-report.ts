@@ -165,7 +165,19 @@ const buildRealmLabel = (report: Record<string, unknown>): string | undefined =>
 const getReportRegion = (report: Record<string, unknown>): string | undefined => {
   const guild = asObject(report.guild);
   const server = asObject(guild?.server);
-  return asString(asObject(server?.region)?.compactName);
+  const regionNode = server?.region;
+  return (
+    asString(asObject(regionNode)?.compactName) ??
+    asString(asObject(regionNode)?.name) ??
+    asString(asObject(regionNode)?.code) ??
+    asString(regionNode)
+  );
+};
+
+const getReportRealm = (report: Record<string, unknown>): string | undefined => {
+  const guild = asObject(report.guild);
+  const server = asObject(guild?.server);
+  return asString(server?.name);
 };
 
 const parseEncounterPhases = (
@@ -583,6 +595,7 @@ export const normalizeEnrichedReport = (
   const playerDetails = parsePlayerDetailsPayload(enriched?.playerDetails);
   const detailByName = new Map(playerDetails.map((entry) => [normalizeName(entry.name), entry]));
   const reportRegion = getReportRegion(report);
+  const reportRealm = getReportRealm(report);
 
   const leaderboardIndex = indexLeaderboardByActorAndName([
     ...reportLeaderboards,
@@ -618,7 +631,7 @@ export const normalizeEnrichedReport = (
     }
 
     const className = asString(actor.subType) ?? detail?.className;
-    const realm = asString(actor.server);
+    const realm = asString(actor.server) ?? reportRealm;
 
     if (typeof detail?.warcraftLogsActorId === 'number') {
       player.warcraftLogsActorId = detail.warcraftLogsActorId;
@@ -650,6 +663,8 @@ export const normalizeEnrichedReport = (
   logTiming('parse players/playerDetails join', parsePlayersStartedAt, {
     playerDetails: playerDetails.length,
     players: players.length,
+    reportRegionPresent: reportRegion ? 1 : 0,
+    reportRealmPresent: reportRealm ? 1 : 0,
   });
 
   const playerByName = new Map(players.map((player) => [player.nameKey, player]));

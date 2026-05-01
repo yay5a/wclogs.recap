@@ -195,6 +195,9 @@ export const extractComparisonSnapshots = ({
         reason: identity.reason,
       };
       setIfString(issue as unknown as Record<string, unknown>, 'characterName', player.name);
+      setIfString(issue as unknown as Record<string, unknown>, 'realm', player.realm);
+      setIfString(issue as unknown as Record<string, unknown>, 'server', player.server);
+      setIfString(issue as unknown as Record<string, unknown>, 'region', player.region);
       setIfFinite(
         issue as unknown as Record<string, unknown>,
         'warcraftLogsActorId',
