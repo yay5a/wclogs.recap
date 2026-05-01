@@ -1,5 +1,5 @@
 import { InteractionResponseType } from "discord-interactions";
-import { COMPARE_ACCESS_MODES, parseAutoRecapMode, parseCompareAccessMode, parseCompareMode, type AutoRecapMode, type CompareAccessMode, type CompareMode, type GameFamily, type GuildConfig } from "@wcl/domain";
+import { COMPARE_ACCESS_MODES, parseAutoRecapMode, parseCompareAccessMode, parseCompareMode, parseGameFamily, type AutoRecapMode, type CompareAccessMode, type CompareMode, type GameFamily, type GuildConfig } from "@wcl/domain";
 import type { DiscordInteraction, HandleOptions } from "../types.js";
 import { canManageGuildConfig } from "./permissions.js";
 
@@ -17,7 +17,8 @@ const getBooleanOption = (options: unknown, name: string): boolean | undefined =
 
 const hasCommandOptions = (options: unknown): boolean => Array.isArray(options) && options.length > 0;
 
-const parseGameFamilyOption = (value: string | undefined): GameFamily | undefined => (value === "retail" || value === "mop_classic" ? value : undefined);
+const parseGameFamilyOption = (value: string | undefined): GameFamily | undefined =>
+    parseGameFamily(value);
 
 const getAutoRecapMode = (config: Partial<GuildConfig>): AutoRecapMode => config.autoRecapMode ?? "prompt";
 

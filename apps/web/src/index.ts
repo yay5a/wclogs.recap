@@ -1,6 +1,3 @@
-import Fastify from 'fastify';
-import fastifyRawBody from 'fastify-raw-body';
-import fastifyCookie from '@fastify/cookie';
 import {
   connectMongo,
   migrateRecapPreviewStateIndexes,
@@ -19,10 +16,8 @@ import { loadEnvFile } from 'node:process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { dirname, resolve } from 'node:path';
+import { createWebApp } from './app.js';
 import { parseWebEnv } from './config.js';
-import { registerWclAuthRoutes } from './auth/routes.js';
-import { registerRecapRoutes } from './routes/recap.js';
-import { registerDiscordInteractionRoutes } from './routes/discord-interactions.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -35,7 +30,6 @@ if (existsSync(envPath)) {
 
 const env = parseWebEnv(process.env);
 const logger = createLogger('web');
-const app = Fastify({ logger: false });
 
 const reportCacheStore: ReportCacheStore = {
   async getByReportCode(reportCode: string) {
@@ -47,17 +41,6 @@ const reportCacheStore: ReportCacheStore = {
     });
   },
 };
-
-await app.register(fastifyRawBody, {
-  field: 'rawBody',
-  global: false,
-  encoding: 'utf8',
-  runFirst: true,
-});
-
-await app.register(fastifyCookie, {
-  secret: env.COOKIE_SECRET,
-});
 
 const wclClient = new WclClient({
   clientId: env.WCL_CLIENT_ID,
@@ -74,29 +57,30 @@ const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const characterClaimStore = new MongoCharacterClaimStore();
 const wclUserAuthStore = new MongoWclUserAuthStore();
 
-app.get('/health', async () => ({ status: 'ok' }));
+const dashboardAssetRootCandidates = [
+  resolve(__dirname, '../../../../client'),
+  resolve(__dirname, '../dist/client'),
+] as const;
+const dashboardAssetRoot =
+  dashboardAssetRootCandidates.find((candidate) => existsSync(resolve(candidate, 'index.html'))) ??
+  dashboardAssetRootCandidates[0];
 
-await app.register(registerWclAuthRoutes, {
+const app = await createWebApp({
   env,
   logger,
-  wclUserAuthStore,
-});
-
-await app.register(registerRecapRoutes, {
-  wclClient,
-  logger,
-});
-
-await app.register(registerDiscordInteractionRoutes, {
-  env,
   wclClient,
   guildConfigStore,
+  dashboardGuildConfigStore: guildConfigStore,
   recapPreviewStateService,
   autoRecapPromptStateService,
   autoRecapDuplicateTrackingService,
   comparisonHistoryStore,
   characterClaimStore,
-  logger,
+  wclUserAuthStore,
+  dashboardStatic: {
+    enabled: existsSync(resolve(dashboardAssetRoot, 'index.html')),
+    assetRoot: dashboardAssetRoot,
+  },
 });
 
 const start = async () => {

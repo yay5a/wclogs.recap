@@ -25,6 +25,7 @@ const env: WebEnv = {
     WCL_API_BASE_URL: "https://www.warcraftlogs.com/api/v2/client",
     WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
     COOKIE_SECRET: "cookie-secret",
+    DASHBOARD_AUTH_DISABLED: false,
     PREVIEW_STATE_TTL_SECONDS: 900,
 };
 

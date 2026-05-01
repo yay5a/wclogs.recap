@@ -2,7 +2,11 @@ import type { AccountabilityVisibility, CoachingShareability } from '@wcl/contra
 import { DEFAULT_COMPARE_MODE, type CompareMode } from './comparison/compare-mode.js';
 import { DEFAULT_COMPARE_ACCESS_MODE, type CompareAccessMode } from './comparison/privacy.js';
 
-export type GameFamily = 'retail' | 'mop_classic';
+export const GAME_FAMILIES = ['retail', 'mop_classic'] as const;
+export type GameFamily = (typeof GAME_FAMILIES)[number];
+
+export const parseGameFamily = (value: unknown): GameFamily | undefined =>
+  GAME_FAMILIES.includes(value as GameFamily) ? (value as GameFamily) : undefined;
 
 export type RecapPostMode = 'preview-and-post' | 'preview-only';
 

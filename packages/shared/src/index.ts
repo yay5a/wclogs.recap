@@ -1,19 +1,45 @@
 import pino, { type LoggerOptions } from "pino";
 import { z } from "zod";
 
-const baseLoggerOptions: LoggerOptions = {
+export const loggerRedactionPaths = [
+    "headers.authorization",
+    "req.headers.authorization",
+    "env.DISCORD_BOT_TOKEN",
+    "env.WCL_CLIENT_SECRET",
+    "env.MONGODB_URI",
+    "env.DASHBOARD_ADMIN_SECRET",
+    "DASHBOARD_ADMIN_SECRET",
+    "adminSecret",
+    "*.adminSecret",
+    "body.adminSecret",
+    "req.body.adminSecret",
+    "request.body.adminSecret",
+    "headers.cookie",
+    "req.headers.cookie",
+    "request.headers.cookie",
+    "cookies",
+    "*.cookies",
+    "req.cookies",
+    "request.cookies",
+    "wcl_dashboard",
+    "*.wcl_dashboard",
+    "cookies.wcl_dashboard",
+    "req.cookies.wcl_dashboard",
+    "request.cookies.wcl_dashboard",
+    "[\"set-cookie\"]",
+    "headers[\"set-cookie\"]",
+    "reply.headers[\"set-cookie\"]",
+    "res.headers[\"set-cookie\"]",
+    "response.headers[\"set-cookie\"]",
+    "token",
+    "*.token",
+    "*.secret",
+    "*.password",
+] as const;
+
+export const baseLoggerOptions: LoggerOptions = {
     redact: {
-        paths: [
-            "headers.authorization",
-            "req.headers.authorization",
-            "env.DISCORD_BOT_TOKEN",
-            "env.WCL_CLIENT_SECRET",
-            "env.MONGODB_URI",
-            "token",
-            "*.token",
-            "*.secret",
-            "*.password",
-        ],
+        paths: [...loggerRedactionPaths],
         censor: "[REDACTED]",
     },
 };

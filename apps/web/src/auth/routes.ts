@@ -1,14 +1,27 @@
 import crypto from "node:crypto";
 import type { FastifyPluginAsync } from "fastify";
-import type { MongoWclUserAuthStore } from "@wcl/db";
+import type { UpsertWclUserAuthInput } from "@wcl/db";
 import type { createLogger } from "@wcl/shared";
 import type { WebEnv } from "../config.js";
 import { exchangeAuthorizationCode } from "./wcl-oauth.js";
 
+export type WclUserAuthStore = {
+    get(): Promise<{
+        provider?: string;
+        accessToken?: string;
+        refreshToken?: string;
+        tokenType?: string;
+        scope?: string;
+        expiresAt?: Date;
+        updatedAt?: Date;
+    } | null>;
+    upsert(entry: UpsertWclUserAuthInput): Promise<void>;
+};
+
 type WclAuthRouteOptions = {
     env: WebEnv;
     logger: ReturnType<typeof createLogger>;
-    wclUserAuthStore: MongoWclUserAuthStore;
+    wclUserAuthStore: WclUserAuthStore;
 };
 
 export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = async (

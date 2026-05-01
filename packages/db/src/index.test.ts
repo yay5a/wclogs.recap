@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   DEFAULT_COMPARE_ACCESS_MODE,
   DEFAULT_COMPARE_MODE,
+  defaultGuildConfigFor,
   historyLimit,
   type RecapSummary,
 } from '@wcl/domain';
@@ -231,6 +232,135 @@ describe('MongoGuildConfigStore', () => {
         upsert: true,
         new: true,
         setDefaultsOnInsert: true,
+      },
+    );
+  });
+
+  it('lists dashboard guild config summaries without exposing officer IDs', async () => {
+    const updatedAt = new Date('2026-04-20T00:00:00.000Z');
+    vi.spyOn(GuildSettingsModel, 'find').mockReturnValue({
+      lean: vi.fn().mockResolvedValue([
+        {
+          guildId: '223456789012345678',
+          compareOfficerUserIds: ['user-1', 'user-2'],
+          autoRecapChannelIds: ['channel-1'],
+          updatedAt,
+        },
+        {
+          guildId: '123456789012345678',
+          defaultGameFamily: 'mop_classic',
+        },
+      ]),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    const summaries = await store.listGuildConfigSummaries();
+
+    expect(summaries).toEqual([
+      expect.objectContaining({
+        guildId: '123456789012345678',
+        defaultGameFamily: 'mop_classic',
+        compareOfficerUserCount: 0,
+        autoRecapChannelCount: 0,
+      }),
+      expect.objectContaining({
+        guildId: '223456789012345678',
+        compareOfficerUserCount: 2,
+        autoRecapChannelCount: 1,
+        updatedAt: updatedAt.toISOString(),
+      }),
+    ]);
+    expect(summaries[1]).not.toHaveProperty('compareOfficerUserIds');
+  });
+
+  it('returns null for missing existing dashboard guild config reads', async () => {
+    vi.spyOn(GuildSettingsModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue(null),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    await expect(store.getExistingGuildConfig('guild-1')).resolves.toBeNull();
+  });
+
+  it('creates default dashboard guild config explicitly and idempotently', async () => {
+    vi.spyOn(GuildSettingsModel, 'findOneAndUpdate').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+      }),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    const config = await store.createDefaultGuildConfig('guild-1');
+
+    expect(config.guildId).toBe('guild-1');
+    expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { guildId: 'guild-1' },
+      {
+        $setOnInsert: defaultGuildConfigFor('guild-1'),
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      },
+    );
+  });
+
+  it('updates only existing dashboard guild configs', async () => {
+    vi.spyOn(GuildSettingsModel, 'findOneAndUpdate').mockReturnValue({
+      lean: vi.fn().mockResolvedValue(null),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    await expect(
+      store.saveExistingGuildConfig('guild-1', { compareModeDefault: 'mixed' }),
+    ).resolves.toBeNull();
+
+    expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { guildId: 'guild-1' },
+      {
+        $set: {
+          compareModeDefault: 'mixed',
+        },
+      },
+      {
+        new: true,
+      },
+    );
+  });
+
+  it('adds and removes dashboard officers only on existing guild configs', async () => {
+    const findOneAndUpdate = vi.spyOn(GuildSettingsModel, 'findOneAndUpdate').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        compareOfficerUserIds: ['user-1'],
+      }),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    await expect(store.addOfficerToExistingGuild('guild-1', ' user-1 ')).resolves.toMatchObject({
+      compareOfficerUserIds: ['user-1'],
+    });
+    expect(findOneAndUpdate).toHaveBeenLastCalledWith(
+      { guildId: 'guild-1' },
+      {
+        $addToSet: { compareOfficerUserIds: 'user-1' },
+      },
+      {
+        new: true,
+      },
+    );
+
+    await expect(store.removeOfficerFromExistingGuild('guild-1', 'user-1')).resolves.toMatchObject({
+      compareOfficerUserIds: ['user-1'],
+    });
+    expect(findOneAndUpdate).toHaveBeenLastCalledWith(
+      { guildId: 'guild-1' },
+      {
+        $pull: { compareOfficerUserIds: 'user-1' },
+      },
+      {
+        new: true,
       },
     );
   });

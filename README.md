@@ -215,7 +215,8 @@ Required for `apps/web`:
 | `WCL_CLIENT_ID`          | Warcraft Logs OAuth client ID.                                      |
 | `WCL_CLIENT_SECRET`      | Warcraft Logs OAuth client secret.                                  |
 | `WCL_REDIRECT_URI`       | Callback URL for WCL user OAuth routes.                             |
-| `COOKIE_SECRET`          | Secret for signed cookies used by OAuth state handling.             |
+| `COOKIE_SECRET`          | Secret for signed cookies used by OAuth state and dashboard sessions. |
+| `DASHBOARD_ADMIN_SECRET` | Shared admin secret for dashboard login in production.               |
 
 Optional web variables:
 
@@ -225,6 +226,17 @@ Optional web variables:
 | `PORT`                      | `3000`                                       | HTTP port for the Fastify web service.                |
 | `WCL_API_BASE_URL`          | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint.                             |
 | `PREVIEW_STATE_TTL_SECONDS` | `900`                                        | TTL for Discord recap preview state.                  |
+| `DASHBOARD_AUTH_DISABLED`   | unset                                        | Development/test-only dashboard auth bypass. Only `true` and `false` are valid values. |
+
+Dashboard notes:
+
+- `DASHBOARD_ADMIN_SECRET` authenticates dashboard login requests only.
+- `COOKIE_SECRET` signs dashboard session cookies; rotating it invalidates existing dashboard sessions.
+- Production refuses to start without `DASHBOARD_ADMIN_SECRET`.
+- Production refuses to start with `DASHBOARD_AUTH_DISABLED=true`.
+- Development requires `DASHBOARD_ADMIN_SECRET` unless `DASHBOARD_AUTH_DISABLED=true`.
+- Test does not require `DASHBOARD_ADMIN_SECRET`.
+- Do not use `1`, `yes`, `on`, or empty strings for `DASHBOARD_AUTH_DISABLED`; invalid values are rejected.
 
 Required for `apps/worker`:
 

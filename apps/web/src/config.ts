@@ -1,5 +1,10 @@
 import { trimmed, z } from "@wcl/shared";
 
+const dashboardAuthDisabled = z
+    .union([z.literal("true"), z.literal("false")])
+    .optional()
+    .transform((value) => value === "true");
+
 const webEnvSchema = z.object({
     NODE_ENV: z
         .enum(["development", "test", "production"])
@@ -25,7 +30,40 @@ const webEnvSchema = z.object({
         .default("https://www.warcraftlogs.com/api/v2/client"),
     WCL_REDIRECT_URI: trimmed().url(),
     COOKIE_SECRET: trimmed().min(1, "COOKIE_SECRET is required"),
+    DASHBOARD_ADMIN_SECRET: trimmed()
+        .min(1, "DASHBOARD_ADMIN_SECRET must not be empty")
+        .optional(),
+    DASHBOARD_AUTH_DISABLED: dashboardAuthDisabled,
     PREVIEW_STATE_TTL_SECONDS: z.coerce.number().int().positive().default(900),
+}).superRefine((env, context) => {
+    if (env.NODE_ENV === "production" && env.DASHBOARD_AUTH_DISABLED) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["DASHBOARD_AUTH_DISABLED"],
+            message: "DASHBOARD_AUTH_DISABLED=true is not allowed in production",
+        });
+    }
+
+    if (env.NODE_ENV === "production" && !env.DASHBOARD_ADMIN_SECRET) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["DASHBOARD_ADMIN_SECRET"],
+            message: "DASHBOARD_ADMIN_SECRET is required in production",
+        });
+    }
+
+    if (
+        env.NODE_ENV === "development" &&
+        !env.DASHBOARD_AUTH_DISABLED &&
+        !env.DASHBOARD_ADMIN_SECRET
+    ) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["DASHBOARD_ADMIN_SECRET"],
+            message:
+                "DASHBOARD_ADMIN_SECRET is required in development unless DASHBOARD_AUTH_DISABLED=true",
+        });
+    }
 });
 
 export type WebEnv = z.infer<typeof webEnvSchema>;

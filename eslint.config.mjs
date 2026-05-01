@@ -9,7 +9,7 @@ export default defineConfig(
     tseslint.configs.recommended,
     prettier,
     {
-        files: ["**/*.ts"],
+        files: ["**/*.{ts,tsx}"],
         ignores: ["**/dist/**", "**/node_modules/**"],
         languageOptions: {
             parserOptions: {
@@ -35,6 +35,12 @@ export default defineConfig(
             "@typescript-eslint/no-unsafe-call": "warn",
             "@typescript-eslint/no-unsafe-return": "warn",
             "@typescript-eslint/no-unsafe-argument": "warn",
+        },
+    },
+    {
+        files: ["apps/web/client/**/*.{ts,tsx}"],
+        rules: {
+            "no-undef": "off",
         },
     },
     {

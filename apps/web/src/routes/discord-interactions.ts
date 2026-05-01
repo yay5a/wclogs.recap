@@ -1,13 +1,13 @@
 import { verifyKey } from "discord-interactions";
 import type { FastifyPluginAsync } from "fastify";
 import type {
-    MongoAutoRecapDuplicateTrackingStore,
-    MongoAutoRecapPromptStateStore,
-    MongoCharacterClaimStore,
-    MongoComparisonHistoryStore,
-    MongoGuildConfigStore,
-    MongoRecapPreviewStateStore,
-} from "@wcl/db";
+    AutoRecapDuplicateTrackingService,
+    AutoRecapPromptStateService,
+    CharacterClaimStore,
+    ComparisonHistoryStore,
+    RecapPreviewStateService,
+} from "@wcl/discord";
+import type { GuildConfigStore } from "@wcl/domain";
 import { handleInteraction } from "@wcl/discord";
 import type { createLogger } from "@wcl/shared";
 import type { WclClient } from "@wcl/wcl-client";
@@ -16,12 +16,12 @@ import type { WebEnv } from "../config.js";
 type DiscordInteractionRouteOptions = {
     env: WebEnv;
     wclClient: WclClient;
-    guildConfigStore: MongoGuildConfigStore;
-    recapPreviewStateService: MongoRecapPreviewStateStore;
-    autoRecapPromptStateService: MongoAutoRecapPromptStateStore;
-    autoRecapDuplicateTrackingService: MongoAutoRecapDuplicateTrackingStore;
-    comparisonHistoryStore: MongoComparisonHistoryStore;
-    characterClaimStore: MongoCharacterClaimStore;
+    guildConfigStore: GuildConfigStore;
+    recapPreviewStateService: RecapPreviewStateService;
+    autoRecapPromptStateService: AutoRecapPromptStateService;
+    autoRecapDuplicateTrackingService: AutoRecapDuplicateTrackingService;
+    comparisonHistoryStore: ComparisonHistoryStore;
+    characterClaimStore: CharacterClaimStore;
     logger: ReturnType<typeof createLogger>;
 };
 

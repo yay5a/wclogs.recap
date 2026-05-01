@@ -1,0 +1,277 @@
+:root {
+    color: #1f2933;
+    background: #eef2f5;
+    font-family:
+        Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+}
+
+button,
+input,
+select,
+textarea {
+    font: inherit;
+}
+
+button {
+    min-height: 38px;
+    border: 0;
+    border-radius: 6px;
+    background: #256f6c;
+    color: #ffffff;
+    padding: 0 14px;
+    cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+    background: #1f5f5c;
+}
+
+button:disabled {
+    cursor: not-allowed;
+    opacity: 0.58;
+}
+
+button.secondary {
+    border: 1px solid #c7d2d9;
+    background: #ffffff;
+    color: #2d3b45;
+}
+
+input,
+select,
+textarea {
+    width: 100%;
+    border: 1px solid #c7d2d9;
+    border-radius: 6px;
+    background: #ffffff;
+    color: #1f2933;
+    padding: 9px 10px;
+}
+
+textarea {
+    resize: vertical;
+}
+
+label {
+    display: grid;
+    gap: 6px;
+    color: #43525f;
+    font-size: 0.88rem;
+    font-weight: 600;
+}
+
+h1,
+h2,
+h3,
+p {
+    margin: 0;
+}
+
+.login-shell,
+.app-shell {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    padding: 24px;
+}
+
+.login-panel,
+.status-panel,
+.officer-panel,
+.config-grid {
+    border: 1px solid #d5dee5;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.login-panel {
+    width: min(100%, 390px);
+    display: grid;
+    gap: 18px;
+    padding: 24px;
+}
+
+.eyebrow {
+    color: #657786;
+    font-size: 0.76rem;
+    font-weight: 700;
+    letter-spacing: 0;
+    text-transform: uppercase;
+}
+
+.dashboard-shell {
+    min-height: 100vh;
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) 1fr;
+}
+
+.sidebar {
+    min-height: 100vh;
+    display: grid;
+    grid-template-rows: auto auto 1fr auto;
+    gap: 18px;
+    border-right: 1px solid #d5dee5;
+    background: #f9fbfc;
+    padding: 22px;
+}
+
+.brand {
+    display: grid;
+    gap: 4px;
+}
+
+.create-guild {
+    display: grid;
+    gap: 10px;
+}
+
+.guild-list {
+    display: grid;
+    align-content: start;
+    gap: 8px;
+    overflow: auto;
+}
+
+.guild-list button {
+    height: auto;
+    display: grid;
+    gap: 3px;
+    border: 1px solid #d5dee5;
+    background: #ffffff;
+    color: #1f2933;
+    padding: 10px;
+    text-align: left;
+}
+
+.guild-list button.selected {
+    border-color: #256f6c;
+    background: #e7f3f1;
+}
+
+.guild-list small {
+    color: #657786;
+}
+
+.workspace {
+    min-width: 0;
+    display: grid;
+    align-content: start;
+    gap: 18px;
+    padding: 24px;
+}
+
+.guild-header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.guild-header time {
+    color: #657786;
+    font-size: 0.86rem;
+}
+
+.config-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(220px, 1fr));
+    gap: 16px;
+    padding: 18px;
+}
+
+.wide {
+    grid-column: 1 / -1;
+}
+
+.checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.checkbox-row input {
+    width: 18px;
+    height: 18px;
+}
+
+.officer-panel {
+    display: grid;
+    gap: 14px;
+    padding: 18px;
+}
+
+.officer-form {
+    display: grid;
+    grid-template-columns: minmax(180px, 1fr) auto;
+    gap: 10px;
+}
+
+.officer-list {
+    display: grid;
+    gap: 8px;
+}
+
+.officer-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    border: 1px solid #d5dee5;
+    border-radius: 6px;
+    padding: 9px 10px;
+}
+
+.empty {
+    color: #657786;
+}
+
+.message {
+    border-radius: 6px;
+    padding: 10px 12px;
+}
+
+.message.error {
+    border: 1px solid #e0a0a0;
+    background: #fff1f1;
+    color: #8b2d2d;
+}
+
+.message.success {
+    border: 1px solid #96cbbf;
+    background: #eefaf7;
+    color: #1f5f5c;
+}
+
+.status-panel {
+    padding: 24px;
+    color: #657786;
+}
+
+@media (max-width: 780px) {
+    .dashboard-shell {
+        grid-template-columns: 1fr;
+    }
+
+    .sidebar {
+        min-height: auto;
+        border-right: 0;
+        border-bottom: 1px solid #d5dee5;
+    }
+
+    .config-grid,
+    .officer-form {
+        grid-template-columns: 1fr;
+    }
+}

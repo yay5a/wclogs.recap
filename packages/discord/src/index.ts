@@ -8,7 +8,14 @@ export type {
 } from "./infrastructure/command-registration.js";
 
 export type { AutoRecapSendableChannel } from "./commands/auto-recap.js";
-export type { RecapPreviewStateService } from "./types.js";
+export type {
+    AutoRecapDuplicateTrackingService,
+    AutoRecapPromptStateService,
+    CharacterClaimStore,
+    ComparisonHistoryStore,
+    HandleOptions,
+    RecapPreviewStateService,
+} from "./types.js";
 
 export {
     buildDiscordCommandPayload,
