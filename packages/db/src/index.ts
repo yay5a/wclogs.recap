@@ -57,7 +57,7 @@ const guildSettingsSchema = new Schema(
       enum: ['officer_only', 'owner_or_officer', 'owner_opt_in_or_officer', 'owner_only'],
       default: 'officer_only',
     },
-    compareOfficerRoleIds: {
+    compareOfficerUserIds: {
       type: [String],
       default: [],
     },
@@ -65,8 +65,6 @@ const guildSettingsSchema = new Schema(
       type: Boolean,
       default: false,
     },
-
-    officersRoleIds: [{ type: String }],
   },
   { timestamps: true },
 );
@@ -286,7 +284,13 @@ const autoRecapDuplicateTrackingSchema = new Schema(
     latestOutputMessageId: { type: String },
     latestOutputKind: {
       type: String,
-      enum: ['prompt', 'public_preview', 'public_final_recap', 'duplicate_confirmation', 'public_failure'],
+      enum: [
+        'prompt',
+        'public_preview',
+        'public_final_recap',
+        'duplicate_confirmation',
+        'public_failure',
+      ],
     },
     duplicateConfirmationMessageId: { type: String },
     confirmationNonce: { type: String, index: true },
@@ -295,7 +299,10 @@ const autoRecapDuplicateTrackingSchema = new Schema(
   { timestamps: true },
 );
 autoRecapDuplicateTrackingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-autoRecapDuplicateTrackingSchema.index({ guildId: 1, channelId: 1, reportCode: 1 }, { unique: true });
+autoRecapDuplicateTrackingSchema.index(
+  { guildId: 1, channelId: 1, reportCode: 1 },
+  { unique: true },
+);
 
 export const GuildSettingsModel = mongoose.model('GuildSettings', guildSettingsSchema);
 export const PlayerProfileModel = mongoose.model('PlayerProfile', playerProfileSchema);
@@ -309,8 +316,14 @@ export const TrendSnapshotModel = mongoose.model('TrendSnapshot', trendSnapshotS
 export const JobModel = mongoose.model('Job', jobSchema);
 export const AuditLogModel = mongoose.model('AuditLog', auditLogSchema);
 export const RecapPreviewStateModel = mongoose.model('RecapPreviewState', recapPreviewStateSchema);
-export const AutoRecapPromptStateModel = mongoose.model('AutoRecapPromptState', autoRecapPromptStateSchema);
-export const AutoRecapDuplicateTrackingModel = mongoose.model('AutoRecapDuplicateTracking', autoRecapDuplicateTrackingSchema);
+export const AutoRecapPromptStateModel = mongoose.model(
+  'AutoRecapPromptState',
+  autoRecapPromptStateSchema,
+);
+export const AutoRecapDuplicateTrackingModel = mongoose.model(
+  'AutoRecapDuplicateTracking',
+  autoRecapDuplicateTrackingSchema,
+);
 
 export const migrateRecapPreviewStateIndexes = async (): Promise<void> => {
   const oldUniqueKey = { guildId: 1, reportCode: 1 };

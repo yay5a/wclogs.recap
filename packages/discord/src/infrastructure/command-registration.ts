@@ -8,13 +8,15 @@ const INTEGER_OPTION_TYPE = 4;
 const BOOLEAN_OPTION_TYPE = 5;
 const USER_OPTION_TYPE = 6;
 const CHANNEL_OPTION_TYPE = 7;
-const ROLE_OPTION_TYPE = 8;
 const NUMBER_OPTION_TYPE = 10;
 const GUILD_TEXT_CHANNEL_TYPE = 0;
 const GUILD_ANNOUNCEMENT_CHANNEL_TYPE = 5;
 const slashCommandNameRegex = /^[\p{Ll}\p{N}_-]{1,32}$/u;
 
-export interface DiscordCommandOptionChoice { name: string; value: string | number; }
+export interface DiscordCommandOptionChoice {
+    name: string;
+    value: string | number;
+}
 export interface DiscordCommandOption {
     type: number;
     name: string;
@@ -24,15 +26,41 @@ export interface DiscordCommandOption {
     options?: DiscordCommandOption[];
     channel_types?: number[];
 }
-export type ChatInputCommandDefinition = { type: 1; name: string; description: string; options?: DiscordCommandOption[]; integration_types?: number[]; contexts?: number[]; default_member_permissions?: string; nsfw?: boolean; };
-export type UserCommandDefinition = { type: 2; name: string; integration_types?: number[]; contexts?: number[]; default_member_permissions?: string; nsfw?: boolean; };
-export type MessageCommandDefinition = { type: 3; name: string; integration_types?: number[]; contexts?: number[]; default_member_permissions?: string; nsfw?: boolean; };
+export type ChatInputCommandDefinition = {
+    type: 1;
+    name: string;
+    description: string;
+    options?: DiscordCommandOption[];
+    integration_types?: number[];
+    contexts?: number[];
+    default_member_permissions?: string;
+    nsfw?: boolean;
+};
+export type UserCommandDefinition = {
+    type: 2;
+    name: string;
+    integration_types?: number[];
+    contexts?: number[];
+    default_member_permissions?: string;
+    nsfw?: boolean;
+};
+export type MessageCommandDefinition = {
+    type: 3;
+    name: string;
+    integration_types?: number[];
+    contexts?: number[];
+    default_member_permissions?: string;
+    nsfw?: boolean;
+};
 export type CommandDefinition = ChatInputCommandDefinition | UserCommandDefinition | MessageCommandDefinition;
 
 const commandTypeLabel = (type: CommandDefinition["type"]): string => (type === 1 ? "CHAT_INPUT" : type === 2 ? "USER" : "MESSAGE");
 const compareModeChoices = COMPARE_MODES.map((mode) => ({ name: mode, value: mode }));
 const autoRecapModeChoices = AUTO_RECAP_MODES.map((mode) => ({ name: mode, value: mode }));
-const compareVisibilityChoices = COMPARE_VISIBILITIES.map((visibility) => ({ name: visibility, value: visibility }));
+const compareVisibilityChoices = COMPARE_VISIBILITIES.map((visibility) => ({
+    name: visibility,
+    value: visibility,
+}));
 const compareAccessModeChoices = COMPARE_ACCESS_MODES.map((mode) => ({ name: mode, value: mode }));
 const validateCommandNameUniqueness = (commands: CommandDefinition[]) => {
     const seen = new Set<string>();
@@ -58,7 +86,11 @@ const validateAndNormalizeOptions = (commandName: string, options: DiscordComman
         if (!option.name) throw new Error(`Command validation failed for '${commandName}' at '${optionPath}': option name is required.`);
         if (seenNames.has(option.name)) throw new Error(`Command validation failed for '${commandName}' at '${optionPath}': duplicate option name '${option.name}'.`);
         seenNames.add(option.name);
-        if (option.required === true) { if (foundOptional) throw new Error(`Command validation failed for '${commandName}' at '${optionPath}': required options must appear before optional options.`); } else { foundOptional = true; }
+        if (option.required === true) {
+            if (foundOptional) throw new Error(`Command validation failed for '${commandName}' at '${optionPath}': required options must appear before optional options.`);
+        } else {
+            foundOptional = true;
+        }
         validateOptionChoices(commandName, option, optionPath);
         if (Array.isArray(option.options) && option.options.length > 0) option.options = validateAndNormalizeOptions(commandName, option.options, `${optionPath}.options`);
     }
@@ -78,58 +110,269 @@ const validateCommandDefinition = (command: CommandDefinition): void => {
 
 export const buildDiscordCommandPayload = (command: CommandDefinition): Record<string, unknown> => {
     validateCommandDefinition(command);
-    const basePayload = { name: command.name, type: command.type, integration_types: command.integration_types, contexts: command.contexts, default_member_permissions: command.default_member_permissions, nsfw: command.nsfw };
-    return command.type === 1 ? { ...basePayload, description: command.description, ...(command.options ? { options: command.options } : {}) } : basePayload;
+    const basePayload = {
+        name: command.name,
+        type: command.type,
+        integration_types: command.integration_types,
+        contexts: command.contexts,
+        default_member_permissions: command.default_member_permissions,
+        nsfw: command.nsfw,
+    };
+    return command.type === 1
+        ? {
+              ...basePayload,
+              description: command.description,
+              ...(command.options ? { options: command.options } : {}),
+          }
+        : basePayload;
 };
-export const buildDiscordCommandPayloads = (commands: CommandDefinition[]): Record<string, unknown>[] => { validateCommandNameUniqueness(commands); return commands.map(buildDiscordCommandPayload); };
+export const buildDiscordCommandPayloads = (commands: CommandDefinition[]): Record<string, unknown>[] => {
+    validateCommandNameUniqueness(commands);
+    return commands.map(buildDiscordCommandPayload);
+};
 
 export const commandDefinitions: CommandDefinition[] = [
     { name: "health", description: "Check bot health", type: 1 },
-    { name: "config", description: "Configure guild recap behavior", type: 1, default_member_permissions: "32", options: [
-        { name: "game_family", description: "Default game family", type: 3, required: false, choices: [{ name: "retail", value: "retail" }, { name: "mop_classic", value: "mop_classic" }] },
-        { name: "compare_mode", description: "Default compare mode", type: 3, required: false, choices: compareModeChoices },
-        { name: "compare_access_mode", description: "Who can view private comparison cards", type: STRING_OPTION_TYPE, required: false, choices: compareAccessModeChoices },
-        { name: "compare_public_posting", description: "Enable explicit public compare posting safeguards", type: BOOLEAN_OPTION_TYPE, required: false },
-        { name: "compare_officer_role", description: "Role authorized to view private compare cards", type: ROLE_OPTION_TYPE, required: false },
-        { name: "auto_recap_mode", description: "Passive WCL URL handling mode", type: STRING_OPTION_TYPE, required: false, choices: autoRecapModeChoices },
-        { name: "auto_recap_channel", description: "Toggle a channel for passive WCL URL detection", type: CHANNEL_OPTION_TYPE, required: false, channel_types: [GUILD_TEXT_CHANNEL_TYPE, GUILD_ANNOUNCEMENT_CHANNEL_TYPE] },
-    ]},
-    { name: "recap", description: "Generate a recap preview from a WCL report URL", type: 1, options: [{ name: "url", description: "WCL report URL", type: 3, required: true }] },
-    { name: "compare", description: "Privately compare one character against recent stored history", type: 1, options: [
-        { name: "report", description: "WCL report URL", type: 3, required: true },
-        { name: "character", description: "Character name in the report", type: 3, required: true },
-        { name: "mode", description: "Comparison mode", type: 3, required: true, choices: compareModeChoices },
-        { name: "visibility", description: "Where to show the comparison", type: STRING_OPTION_TYPE, required: false, choices: compareVisibilityChoices },
-    ] },
-    { name: "claim_character", description: "Request officer approval for one character claim", type: 1, options: [
-        { name: "character", description: "Character name", type: STRING_OPTION_TYPE, required: true },
-        { name: "realm", description: "Character realm/server", type: STRING_OPTION_TYPE, required: true },
-        { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
-    ] },
-    { name: "approve_character", description: "Approve a member character claim", type: 1, options: [
-        { name: "user", description: "Discord user who owns the character", type: USER_OPTION_TYPE, required: true },
-        { name: "character", description: "Character name", type: STRING_OPTION_TYPE, required: true },
-        { name: "realm", description: "Character realm/server", type: STRING_OPTION_TYPE, required: true },
-        { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
-    ] },
-    { name: "reject_character", description: "Reject a pending character claim", type: 1, options: [
-        { name: "user", description: "Discord user who requested the character", type: USER_OPTION_TYPE, required: true },
-        { name: "character", description: "Character name", type: STRING_OPTION_TYPE, required: true },
-        { name: "realm", description: "Character realm/server", type: STRING_OPTION_TYPE, required: true },
-        { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
-    ] },
+    {
+        name: "config",
+        description: "Configure guild recap behavior",
+        type: 1,
+        default_member_permissions: "32",
+        options: [
+            {
+                name: "game_family",
+                description: "Default game family",
+                type: 3,
+                required: false,
+                choices: [
+                    { name: "retail", value: "retail" },
+                    { name: "mop_classic", value: "mop_classic" },
+                ],
+            },
+            {
+                name: "compare_mode",
+                description: "Default compare mode",
+                type: 3,
+                required: false,
+                choices: compareModeChoices,
+            },
+            {
+                name: "compare_access_mode",
+                description: "Who can view private comparison cards",
+                type: STRING_OPTION_TYPE,
+                required: false,
+                choices: compareAccessModeChoices,
+            },
+            {
+                name: "compare_public_posting",
+                description: "Enable explicit public compare posting safeguards",
+                type: BOOLEAN_OPTION_TYPE,
+                required: false,
+            },
+            {
+                name: "auto_recap_mode",
+                description: "Passive WCL URL handling mode",
+                type: STRING_OPTION_TYPE,
+                required: false,
+                choices: autoRecapModeChoices,
+            },
+            {
+                name: "auto_recap_channel",
+                description: "Toggle a channel for passive WCL URL detection",
+                type: CHANNEL_OPTION_TYPE,
+                required: false,
+                channel_types: [GUILD_TEXT_CHANNEL_TYPE, GUILD_ANNOUNCEMENT_CHANNEL_TYPE],
+            },
+        ],
+    },
+    {
+        name: "add_officer",
+        description: "Add an explicit officer user",
+        type: 1,
+        default_member_permissions: "32",
+        options: [
+            {
+                name: "user",
+                description: "Discord user to authorize as an officer",
+                type: USER_OPTION_TYPE,
+                required: true,
+            },
+        ],
+    },
+    {
+        name: "remove_officer",
+        description: "Remove an explicit officer user",
+        type: 1,
+        default_member_permissions: "32",
+        options: [
+            {
+                name: "user",
+                description: "Discord user to remove from officer authorization",
+                type: USER_OPTION_TYPE,
+                required: true,
+            },
+        ],
+    },
+    { name: "list_officers", description: "List explicit officer users", type: 1 },
+    {
+        name: "recap",
+        description: "Generate a recap preview from a WCL report URL",
+        type: 1,
+        options: [{ name: "url", description: "WCL report URL", type: 3, required: true }],
+    },
+    {
+        name: "compare",
+        description: "Privately compare one character against recent stored history",
+        type: 1,
+        options: [
+            { name: "report", description: "WCL report URL", type: 3, required: true },
+            { name: "character", description: "Character name in the report", type: 3, required: true },
+            {
+                name: "mode",
+                description: "Comparison mode",
+                type: 3,
+                required: true,
+                choices: compareModeChoices,
+            },
+            {
+                name: "visibility",
+                description: "Where to show the comparison",
+                type: STRING_OPTION_TYPE,
+                required: false,
+                choices: compareVisibilityChoices,
+            },
+        ],
+    },
+    {
+        name: "claim_character",
+        description: "Request officer approval for one character claim",
+        type: 1,
+        options: [
+            {
+                name: "character",
+                description: "Character name",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+            {
+                name: "realm",
+                description: "Character realm/server",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+            { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
+        ],
+    },
+    {
+        name: "approve_character",
+        description: "Approve a member character claim",
+        type: 1,
+        options: [
+            {
+                name: "user",
+                description: "Discord user who owns the character",
+                type: USER_OPTION_TYPE,
+                required: true,
+            },
+            {
+                name: "character",
+                description: "Character name",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+            {
+                name: "realm",
+                description: "Character realm/server",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+            { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
+        ],
+    },
+    {
+        name: "reject_character",
+        description: "Reject a pending character claim",
+        type: 1,
+        options: [
+            {
+                name: "user",
+                description: "Discord user who requested the character",
+                type: USER_OPTION_TYPE,
+                required: true,
+            },
+            {
+                name: "character",
+                description: "Character name",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+            {
+                name: "realm",
+                description: "Character realm/server",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+            { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
+        ],
+    },
     { name: "my_characters", description: "List your character claims", type: 1 },
-    { name: "compare_privacy", description: "Update comparison privacy for an approved character claim", type: 1, options: [
-        { name: "character", description: "Character name", type: STRING_OPTION_TYPE, required: true },
-        { name: "realm", description: "Character realm/server", type: STRING_OPTION_TYPE, required: true },
-        { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
-        { name: "peer_compare", description: "Allow or deny guild peer private comparisons", type: STRING_OPTION_TYPE, required: true, choices: [{ name: "private", value: "private" }, { name: "allow_guild", value: "allow_guild" }] },
-        { name: "public_post", description: "Allow or deny public posting safeguards for this character", type: STRING_OPTION_TYPE, required: true, choices: [{ name: "deny", value: "deny" }, { name: "allow", value: "allow" }] },
-    ] },
+    {
+        name: "compare_privacy",
+        description: "Update comparison privacy for an approved character claim",
+        type: 1,
+        options: [
+            {
+                name: "character",
+                description: "Character name",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+            {
+                name: "realm",
+                description: "Character realm/server",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+            { name: "region", description: "Character region", type: STRING_OPTION_TYPE, required: true },
+            {
+                name: "peer_compare",
+                description: "Allow or deny guild peer private comparisons",
+                type: STRING_OPTION_TYPE,
+                required: true,
+                choices: [
+                    { name: "private", value: "private" },
+                    { name: "allow_guild", value: "allow_guild" },
+                ],
+            },
+            {
+                name: "public_post",
+                description: "Allow or deny public posting safeguards for this character",
+                type: STRING_OPTION_TYPE,
+                required: true,
+                choices: [
+                    { name: "deny", value: "deny" },
+                    { name: "allow", value: "allow" },
+                ],
+            },
+        ],
+    },
 ];
 
 export class DiscordCommandRegistrationError extends Error {
-    constructor(message: string, readonly details: { status: number; statusText: string; responseBody: string; targetScope: "global" | "guild"; payloadSnippet: string; remediation?: string; }) { super(message); this.name = "DiscordCommandRegistrationError"; }
+    constructor(
+        message: string,
+        readonly details: {
+            status: number;
+            statusText: string;
+            responseBody: string;
+            targetScope: "global" | "guild";
+            payloadSnippet: string;
+            remediation?: string;
+        },
+    ) {
+        super(message);
+        this.name = "DiscordCommandRegistrationError";
+    }
 }
 
 const getRegistrationRemediation = (status: number): string | undefined => {
@@ -139,13 +382,40 @@ const getRegistrationRemediation = (status: number): string | undefined => {
 
 const registerCommandSet = async (appId: string, botToken: string, targetScope: "global" | "guild", endpoint: string, guildId?: string): Promise<void> => {
     const payload = buildDiscordCommandPayloads(commandDefinitions);
-    logger.info({ guildId: guildId ?? null, payloadCount: payload.length, commands: payload.map((command) => ({ name: command.name, type: command.type })) }, "registering Discord commands");
-    const response = await discordApiRequest({ endpoint, method: "PUT", route: targetScope === "global" ? "/applications/{applicationId}/commands" : "/applications/{applicationId}/guilds/{guildId}/commands", botToken, body: payload });
+    logger.info(
+        {
+            guildId: guildId ?? null,
+            payloadCount: payload.length,
+            commands: payload.map((command) => ({ name: command.name, type: command.type })),
+        },
+        "registering Discord commands",
+    );
+    const response = await discordApiRequest({
+        endpoint,
+        method: "PUT",
+        route: targetScope === "global" ? "/applications/{applicationId}/commands" : "/applications/{applicationId}/guilds/{guildId}/commands",
+        botToken,
+        body: payload,
+    });
     const text = await response.text();
     if (!response.ok) {
-        const payloadSnippet = JSON.stringify(payload.map(({ name, type, description, options }) => ({ name, type, ...(description ? { description } : {}), ...(options ? { options } : {}) }))).slice(0, 2000);
+        const payloadSnippet = JSON.stringify(
+            payload.map(({ name, type, description, options }) => ({
+                name,
+                type,
+                ...(description ? { description } : {}),
+                ...(options ? { options } : {}),
+            })),
+        ).slice(0, 2000);
         const remediation = getRegistrationRemediation(response.status);
-        const details = { status: response.status, statusText: response.statusText, responseBody: text, targetScope, payloadSnippet, ...(remediation ? { remediation } : {}) };
+        const details = {
+            status: response.status,
+            statusText: response.statusText,
+            responseBody: text,
+            targetScope,
+            payloadSnippet,
+            ...(remediation ? { remediation } : {}),
+        };
         throw new DiscordCommandRegistrationError(`Discord command registration failed (${targetScope}): ${response.status} ${response.statusText}`, details);
     }
 };

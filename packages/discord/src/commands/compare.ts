@@ -29,11 +29,7 @@ import {
   buildCompareResponseBody,
   buildMixedCompareUnavailableBody,
 } from '../renderers/compare.js';
-import {
-  getRequesterDiscordUserId,
-  getRequesterPermissions,
-  getRequesterRoleIds,
-} from './character-claims.js';
+import { getRequesterDiscordUserId, getRequesterPermissions } from './character-claims.js';
 
 const logger = createLogger('discord');
 const EPHEMERAL_MESSAGE_FLAG = 64;
@@ -52,7 +48,8 @@ interface CompareCommandParams {
 const getStringOption = (options: unknown, name: string): string | undefined => {
   if (!Array.isArray(options)) return undefined;
   const found = options.find(
-    (option) => typeof option === 'object' && option !== null && (option as { name?: unknown }).name === name,
+    (option) =>
+      typeof option === 'object' && option !== null && (option as { name?: unknown }).name === name,
   ) as { value?: unknown } | undefined;
   return typeof found?.value === 'string' ? found.value : undefined;
 };
@@ -98,7 +95,8 @@ const resolveCurrentSnapshot = (
 };
 
 const hasEphemeralMessageFlag = (message: { flags?: unknown }): boolean =>
-  typeof message.flags === 'number' && (message.flags & EPHEMERAL_MESSAGE_FLAG) === EPHEMERAL_MESSAGE_FLAG;
+  typeof message.flags === 'number' &&
+  (message.flags & EPHEMERAL_MESSAGE_FLAG) === EPHEMERAL_MESSAGE_FLAG;
 
 const respondWithAuthorizationDenial = async ({
   applicationId,
@@ -157,7 +155,9 @@ const processCompareInteraction = async (
       await safeEditOriginalInteractionResponse(
         applicationId,
         interactionToken,
-        buildCompareErrorBody(`Character not found in the current report: ${params.characterName}.`),
+        buildCompareErrorBody(
+          `Character not found in the current report: ${params.characterName}.`,
+        ),
       );
       return;
     }
@@ -224,11 +224,11 @@ const processCompareInteraction = async (
       }),
     ]);
     const requesterHasAnyApprovedClaim =
-      Boolean(requesterApprovedClaim) || requesterClaims.some((claim) => claim.status === 'approved');
+      Boolean(requesterApprovedClaim) ||
+      requesterClaims.some((claim) => claim.status === 'approved');
 
     const authorization = authorizeCompareRequest({
       requesterDiscordUserId,
-      requesterRoleIds: getRequesterRoleIds(interaction),
       requesterPermissions: getRequesterPermissions(interaction),
       targetParticipantKey: identity.participantKey,
       requestedVisibility: params.visibility,
@@ -295,7 +295,9 @@ const processCompareInteraction = async (
           buildPublicCompareResponseBody(viewModel),
         );
         if (hasEphemeralMessageFlag(publicMessage)) {
-          throw new Error(`Discord returned an ephemeral message for public compare follow-up: ${publicMessage.id}`);
+          throw new Error(
+            `Discord returned an ephemeral message for public compare follow-up: ${publicMessage.id}`,
+          );
         }
         logger.info(
           {
@@ -347,7 +349,9 @@ const processCompareInteraction = async (
     await safeEditOriginalInteractionResponse(
       applicationId,
       interactionToken,
-      buildCompareErrorBody('Could not build comparison for that report. Please verify the URL and try again.'),
+      buildCompareErrorBody(
+        'Could not build comparison for that report. Please verify the URL and try again.',
+      ),
     );
   }
 };
@@ -370,7 +374,9 @@ export const handleCompareCommand = (
   const mode = parseCompareMode(rawMode);
   const rawVisibility = getStringOption(interaction.data?.options, 'visibility');
   const visibility =
-    rawVisibility === undefined ? DEFAULT_COMPARE_VISIBILITY : parseCompareVisibility(rawVisibility);
+    rawVisibility === undefined
+      ? DEFAULT_COMPARE_VISIBILITY
+      : parseCompareVisibility(rawVisibility);
 
   if (!reportUrl) {
     return {
@@ -422,7 +428,12 @@ export const handleCompareCommand = (
   }
 
   const backgroundTask = () => {
-    void processCompareInteraction(interaction, options, { reportUrl, characterName, mode, visibility });
+    void processCompareInteraction(interaction, options, {
+      reportUrl,
+      characterName,
+      mode,
+      visibility,
+    });
   };
   if (options.scheduleBackgroundTask) {
     options.scheduleBackgroundTask(backgroundTask);

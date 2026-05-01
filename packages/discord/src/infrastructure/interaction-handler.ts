@@ -1,28 +1,17 @@
 import { InteractionResponseType, InteractionType } from "discord-interactions";
 import { createLogger } from "@wcl/shared";
 import type { HandleOptions } from "../types.js";
-import {
-    handleApproveCharacterCommand,
-    handleClaimCharacterCommand,
-    handleComparePrivacyCommand,
-    handleMyCharactersCommand,
-    handleRejectCharacterCommand,
-} from "../commands/character-claims.js";
+import { handleApproveCharacterCommand, handleClaimCharacterCommand, handleComparePrivacyCommand, handleMyCharactersCommand, handleRejectCharacterCommand } from "../commands/character-claims.js";
 import { handleCompareCommand } from "../commands/compare.js";
 import { handleConfigCommand } from "../commands/config.js";
+import { handleAddOfficerCommand, handleListOfficersCommand, handleRemoveOfficerCommand } from "../commands/officer-management.js";
 import { handleAutoRecapComponentInteraction } from "../commands/auto-recap.js";
-import {
-    handleRecapComponentInteraction,
-    processRecapInteraction,
-} from "../commands/recap.js";
+import { handleRecapComponentInteraction, processRecapInteraction } from "../commands/recap.js";
 
 const logger = createLogger("discord");
 const EPHEMERAL_MESSAGE_FLAG = 64;
 
-export const handleInteraction = async (
-    interaction: unknown,
-    options: HandleOptions,
-): Promise<unknown> => {
+export const handleInteraction = async (interaction: unknown, options: HandleOptions): Promise<unknown> => {
     const typedInteraction = interaction as import("../types.js").DiscordInteraction;
 
     if (typedInteraction.type === InteractionType.PING) {
@@ -39,6 +28,18 @@ export const handleInteraction = async (
 
         if (typedInteraction.data?.name === "config") {
             return handleConfigCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "add_officer") {
+            return handleAddOfficerCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "remove_officer") {
+            return handleRemoveOfficerCommand(typedInteraction, options);
+        }
+
+        if (typedInteraction.data?.name === "list_officers") {
+            return handleListOfficersCommand(typedInteraction, options);
         }
 
         if (typedInteraction.data?.name === "compare") {
@@ -67,10 +68,7 @@ export const handleInteraction = async (
 
         if (typedInteraction.data?.name === "recap") {
             const url = getStringCommandOption(typedInteraction.data.options, "url");
-            logger.info(
-                { interactionId: typedInteraction.id, rawUrl: url ?? null },
-                "recap url received",
-            );
+            logger.info({ interactionId: typedInteraction.id, rawUrl: url ?? null }, "recap url received");
             if (!url || typeof url !== "string") {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -97,18 +95,12 @@ export const handleInteraction = async (
     }
 
     if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
-        const autoRecapResponse = await handleAutoRecapComponentInteraction(
-            typedInteraction,
-            options,
-        );
+        const autoRecapResponse = await handleAutoRecapComponentInteraction(typedInteraction, options);
         if (autoRecapResponse) {
             return autoRecapResponse;
         }
 
-        const recapResponse = await handleRecapComponentInteraction(
-            typedInteraction,
-            options,
-        );
+        const recapResponse = await handleRecapComponentInteraction(typedInteraction, options);
         if (recapResponse) {
             return recapResponse;
         }
@@ -122,8 +114,6 @@ export const handleInteraction = async (
 
 const getStringCommandOption = (options: unknown, name: string): string | undefined => {
     if (!Array.isArray(options)) return undefined;
-    const found = options.find(
-        (option) => typeof option === "object" && option !== null && (option as { name?: unknown }).name === name,
-    ) as { value?: unknown } | undefined;
+    const found = options.find((option) => typeof option === "object" && option !== null && (option as { name?: unknown }).name === name) as { value?: unknown } | undefined;
     return typeof found?.value === "string" ? found.value : undefined;
 };

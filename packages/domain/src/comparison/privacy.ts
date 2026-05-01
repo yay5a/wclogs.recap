@@ -10,8 +10,7 @@ export type CompareAccessMode = (typeof COMPARE_ACCESS_MODES)[number];
 export const DEFAULT_COMPARE_ACCESS_MODE: CompareAccessMode = 'officer_only';
 
 export const isCompareAccessMode = (value: unknown): value is CompareAccessMode =>
-  typeof value === 'string' &&
-  (COMPARE_ACCESS_MODES as readonly string[]).includes(value);
+  typeof value === 'string' && (COMPARE_ACCESS_MODES as readonly string[]).includes(value);
 
 export const parseCompareAccessMode = (value: unknown): CompareAccessMode | undefined =>
   isCompareAccessMode(value) ? value : undefined;
@@ -23,24 +22,17 @@ export type CompareVisibility = (typeof COMPARE_VISIBILITIES)[number];
 export const DEFAULT_COMPARE_VISIBILITY: CompareVisibility = 'private';
 
 export const isCompareVisibility = (value: unknown): value is CompareVisibility =>
-  typeof value === 'string' &&
-  (COMPARE_VISIBILITIES as readonly string[]).includes(value);
+  typeof value === 'string' && (COMPARE_VISIBILITIES as readonly string[]).includes(value);
 
 export const parseCompareVisibility = (value: unknown): CompareVisibility | undefined =>
   isCompareVisibility(value) ? value : undefined;
 
-export const CHARACTER_CLAIM_STATUSES = [
-  'pending',
-  'approved',
-  'rejected',
-  'revoked',
-] as const;
+export const CHARACTER_CLAIM_STATUSES = ['pending', 'approved', 'rejected', 'revoked'] as const;
 
 export type CharacterClaimStatus = (typeof CHARACTER_CLAIM_STATUSES)[number];
 
 export const isCharacterClaimStatus = (value: unknown): value is CharacterClaimStatus =>
-  typeof value === 'string' &&
-  (CHARACTER_CLAIM_STATUSES as readonly string[]).includes(value);
+  typeof value === 'string' && (CHARACTER_CLAIM_STATUSES as readonly string[]).includes(value);
 
 export type CompareAuthorizationReason =
   | 'officer'
@@ -57,13 +49,12 @@ export type CompareAuthorizationReason =
 
 export interface CompareAuthorizationGuildSettings {
   compareAccessMode: CompareAccessMode;
-  compareOfficerRoleIds: readonly string[];
+  compareOfficerUserIds: readonly string[];
   comparePublicPostingEnabled: boolean;
 }
 
 export interface CompareRequesterContext {
   requesterDiscordUserId: string;
-  requesterRoleIds?: readonly string[];
   requesterPermissions?: string | number | bigint | null | undefined;
 }
 
@@ -117,17 +108,16 @@ export const hasDiscordPermission = (
 };
 
 export const isCompareOfficer = ({
-  requesterRoleIds = [],
+  requesterDiscordUserId,
   requesterPermissions,
   guildSettings,
 }: CompareRequesterContext & {
-  guildSettings: Pick<CompareAuthorizationGuildSettings, 'compareOfficerRoleIds'>;
+  guildSettings: Pick<CompareAuthorizationGuildSettings, 'compareOfficerUserIds'>;
 }): boolean => {
   if (hasDiscordPermission(requesterPermissions, 'administrator')) return true;
   if (hasDiscordPermission(requesterPermissions, 'manage-guild')) return true;
 
-  const requesterRoles = new Set(requesterRoleIds);
-  return guildSettings.compareOfficerRoleIds.some((roleId) => requesterRoles.has(roleId));
+  return (guildSettings.compareOfficerUserIds ?? []).includes(requesterDiscordUserId);
 };
 
 const isApprovedClaimForRequester = (
@@ -135,8 +125,7 @@ const isApprovedClaimForRequester = (
   requesterDiscordUserId: string,
   targetParticipantKey: string,
 ): boolean =>
-  claim?.discordUserId === requesterDiscordUserId &&
-  claim.participantKey === targetParticipantKey;
+  claim?.discordUserId === requesterDiscordUserId && claim.participantKey === targetParticipantKey;
 
 const hasTargetPeerOptIn = (claims: readonly CompareApprovedCharacterClaim[]): boolean =>
   claims.some((claim) => claim.peerCompareOptIn);
@@ -146,7 +135,6 @@ const hasTargetPublicPostOptIn = (claims: readonly CompareApprovedCharacterClaim
 
 export const authorizeCompareRequest = ({
   requesterDiscordUserId,
-  requesterRoleIds = [],
   requesterPermissions,
   targetParticipantKey,
   requestedVisibility,
@@ -157,7 +145,6 @@ export const authorizeCompareRequest = ({
 }: CompareAuthorizationInput): CompareAuthorizationDecision => {
   const isOfficer = isCompareOfficer({
     requesterDiscordUserId,
-    requesterRoleIds,
     requesterPermissions,
     guildSettings,
   });
@@ -271,5 +258,5 @@ export const getCompareAuthorizationDenialMessage = (
   if (decision.reason === 'owner-only') {
     return 'This comparison is limited to the approved character owner.';
   }
-  return 'This comparison is limited to the character owner or authorized raid roles.';
+  return 'This comparison is limited to the character owner or authorized officers.';
 };

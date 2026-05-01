@@ -1,9 +1,6 @@
 import type { AccountabilityVisibility, CoachingShareability } from '@wcl/contracts';
 import { DEFAULT_COMPARE_MODE, type CompareMode } from './comparison/compare-mode.js';
-import {
-  DEFAULT_COMPARE_ACCESS_MODE,
-  type CompareAccessMode,
-} from './comparison/privacy.js';
+import { DEFAULT_COMPARE_ACCESS_MODE, type CompareAccessMode } from './comparison/privacy.js';
 
 export type GameFamily = 'retail' | 'mop_classic';
 
@@ -20,7 +17,7 @@ export interface GuildConfig {
   defaultGameFamily: GameFamily;
   compareModeDefault: CompareMode;
   compareAccessMode: CompareAccessMode;
-  compareOfficerRoleIds: string[];
+  compareOfficerUserIds: string[];
   comparePublicPostingEnabled: boolean;
   accountabilityVisibility: AccountabilityVisibility;
   coachingShareabilityDefault: CoachingShareability;
@@ -35,6 +32,8 @@ export interface GuildConfigStore {
     guildId: string,
     update: Partial<Omit<GuildConfig, 'guildId'>>,
   ): Promise<GuildConfig>;
+  addCompareOfficerUser?(guildId: string, discordUserId: string): Promise<GuildConfig>;
+  removeCompareOfficerUser?(guildId: string, discordUserId: string): Promise<GuildConfig>;
 }
 
 export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
@@ -42,7 +41,7 @@ export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
   defaultGameFamily: 'retail',
   compareModeDefault: DEFAULT_COMPARE_MODE,
   compareAccessMode: DEFAULT_COMPARE_ACCESS_MODE,
-  compareOfficerRoleIds: [],
+  compareOfficerUserIds: [],
   comparePublicPostingEnabled: false,
   accountabilityVisibility: 'off',
   coachingShareabilityDefault: 'private',
@@ -282,9 +281,7 @@ export interface BuildRecapSummaryOptions {
   guildConfig?: GuildConfig;
 }
 
-export {
-  buildComparisonBaseline,
-} from './comparison/baseline.js';
+export { buildComparisonBaseline } from './comparison/baseline.js';
 export type {
   AvailableBaselineMetricComparison,
   BaselineMetricComparison,

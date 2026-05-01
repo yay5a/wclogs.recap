@@ -2,6 +2,7 @@ import { describe, expect, it, vi, afterEach } from 'vitest';
 import { InteractionResponseType, InteractionType } from 'discord-interactions';
 import type {
   ComparisonSnapshotInput,
+  GuildConfig,
   GuildConfigStore,
   NormalizedPlayer,
   NormalizedReport,
@@ -158,6 +159,9 @@ describe('command payload builder', () => {
     expect(commandDefinitions.map((command) => command.name)).toEqual([
       'health',
       'config',
+      'add_officer',
+      'remove_officer',
+      'list_officers',
       'recap',
       'compare',
       'claim_character',
@@ -177,7 +181,6 @@ describe('command payload builder', () => {
       'compare_mode',
       'compare_access_mode',
       'compare_public_posting',
-      'compare_officer_role',
       'auto_recap_mode',
       'auto_recap_channel',
     ]);
@@ -211,6 +214,24 @@ describe('command payload builder', () => {
       }),
     );
 
+    expect(commandDefinitions.find((command) => command.name === 'add_officer')).toMatchObject({
+      type: 1,
+      default_member_permissions: '32',
+      options: [{ name: 'user', type: 6, required: true }],
+    });
+    expect(commandDefinitions.find((command) => command.name === 'remove_officer')).toMatchObject({
+      type: 1,
+      default_member_permissions: '32',
+      options: [{ name: 'user', type: 6, required: true }],
+    });
+    const listOfficersCommand = commandDefinitions.find(
+      (command) => command.name === 'list_officers',
+    );
+    expect(listOfficersCommand).toMatchObject({
+      type: 1,
+    });
+    expect(listOfficersCommand?.default_member_permissions).toBeUndefined();
+
     const compareCommand = commandDefinitions.find((command) => command.name === 'compare');
     if (!compareCommand || !('options' in compareCommand)) {
       throw new Error('Expected compare command options');
@@ -239,7 +260,7 @@ describe('command payload builder', () => {
     ]);
 
     for (const command of commandDefinitions) {
-      if (command.name === 'config') continue;
+      if (['config', 'add_officer', 'remove_officer'].includes(command.name)) continue;
       expect(command.default_member_permissions).toBeUndefined();
     }
 
@@ -572,25 +593,27 @@ describe('Discord HTTP contract behavior', () => {
 });
 
 describe('handleInteraction', () => {
+  const makeGuildConfig = (overrides: Partial<GuildConfig> = {}): GuildConfig => ({
+    guildId: 'guild-1',
+    defaultGameFamily: 'retail',
+    compareModeDefault: 'character',
+    compareAccessMode: 'officer_only',
+    compareOfficerUserIds: [],
+    comparePublicPostingEnabled: false,
+    accountabilityVisibility: 'off',
+    coachingShareabilityDefault: 'private',
+    recapPostModeDefault: 'preview-and-post',
+    autoRecapMode: 'prompt',
+    autoRecapChannelIds: [],
+    ...overrides,
+  });
+
   const makeConfigOptions = (
     saveGuildConfig: GuildConfigStore['saveGuildConfig'],
     existingConfig: Partial<Awaited<ReturnType<GuildConfigStore['getGuildConfig']>>> = {},
   ) => {
     const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'character',
-        compareAccessMode: 'officer_only',
-        compareOfficerRoleIds: [],
-        comparePublicPostingEnabled: false,
-        accountabilityVisibility: 'off',
-        coachingShareabilityDefault: 'private',
-        recapPostModeDefault: 'preview-and-post',
-        autoRecapMode: 'prompt',
-        autoRecapChannelIds: [],
-        ...existingConfig,
-      }),
+      getGuildConfig: vi.fn().mockResolvedValue(makeGuildConfig(existingConfig)),
       saveGuildConfig,
     };
     const wclClient = {
@@ -606,20 +629,8 @@ describe('handleInteraction', () => {
     return { wclClient, guildConfigStore, recapPreviewStateService };
   };
 
-  const makeGuildConfigStore = (): GuildConfigStore => ({
-    getGuildConfig: vi.fn().mockResolvedValue({
-      guildId: 'guild-1',
-      defaultGameFamily: 'retail',
-      compareModeDefault: 'character',
-      compareAccessMode: 'officer_only',
-      compareOfficerRoleIds: [],
-      comparePublicPostingEnabled: false,
-      accountabilityVisibility: 'off',
-      coachingShareabilityDefault: 'private',
-      recapPostModeDefault: 'preview-and-post',
-      autoRecapMode: 'prompt',
-      autoRecapChannelIds: [],
-    }),
+  const makeGuildConfigStore = (overrides: Partial<GuildConfig> = {}): GuildConfigStore => ({
+    getGuildConfig: vi.fn().mockResolvedValue(makeGuildConfig(overrides)),
     saveGuildConfig: vi.fn(),
   });
 
@@ -692,9 +703,7 @@ describe('handleInteraction', () => {
       ...overrides,
     });
 
-  const makeClaimedCompareStore = (
-    overrides: Parameters<typeof makeCharacterClaimStore>[0] = {},
-  ) =>
+  const makeClaimedCompareStore = (overrides: Parameters<typeof makeCharacterClaimStore>[0] = {}) =>
     makeCharacterClaimStore({
       listClaimsForUser: vi.fn().mockResolvedValue([makeApprovedClaim()]),
       ...overrides,
@@ -811,16 +820,13 @@ describe('handleInteraction', () => {
       });
     vi.stubGlobal('fetch', fetchMock);
 
-    const response = await handleInteraction(
-      interaction,
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        comparisonHistoryStore,
-        characterClaimStore,
-      },
-    );
+    const response = await handleInteraction(interaction, {
+      wclClient,
+      guildConfigStore,
+      recapPreviewStateService: makeRecapPreviewStateService(),
+      comparisonHistoryStore,
+      characterClaimStore,
+    });
 
     expect(response).toMatchObject({
       type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
@@ -1004,13 +1010,13 @@ describe('handleInteraction', () => {
     );
   });
 
-  it('saves compare access mode, public posting, and officer role config', async () => {
+  it('saves compare access mode and public posting config', async () => {
     const saveGuildConfig = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
       defaultGameFamily: 'retail',
       compareModeDefault: 'character',
       compareAccessMode: 'owner_only',
-      compareOfficerRoleIds: ['role-1'],
+      compareOfficerUserIds: [],
       comparePublicPostingEnabled: true,
       accountabilityVisibility: 'off',
       coachingShareabilityDefault: 'private',
@@ -1028,7 +1034,6 @@ describe('handleInteraction', () => {
           options: [
             { name: 'compare_access_mode', value: 'owner_only' },
             { name: 'compare_public_posting', value: true },
-            { name: 'compare_officer_role', value: 'role-1' },
           ],
         },
       },
@@ -1038,7 +1043,6 @@ describe('handleInteraction', () => {
     expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
       compareAccessMode: 'owner_only',
       comparePublicPostingEnabled: true,
-      compareOfficerRoleIds: ['role-1'],
     });
     expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Compare access mode set to owner_only.',
@@ -1058,7 +1062,6 @@ describe('handleInteraction', () => {
       defaultGameFamily: 'retail',
       compareModeDefault: 'character',
       compareAccessMode: 'officer_only',
-      compareOfficerRoleIds: [],
       comparePublicPostingEnabled: false,
       accountabilityVisibility: 'off',
       coachingShareabilityDefault: 'private',
@@ -1097,7 +1100,6 @@ describe('handleInteraction', () => {
       defaultGameFamily: 'retail',
       compareModeDefault: 'character',
       compareAccessMode: 'officer_only',
-      compareOfficerRoleIds: [],
       comparePublicPostingEnabled: false,
       accountabilityVisibility: 'off',
       coachingShareabilityDefault: 'private',
@@ -1137,7 +1139,6 @@ describe('handleInteraction', () => {
       defaultGameFamily: 'retail',
       compareModeDefault: 'character',
       compareAccessMode: 'officer_only',
-      compareOfficerRoleIds: [],
       comparePublicPostingEnabled: false,
       accountabilityVisibility: 'off',
       coachingShareabilityDefault: 'private',
@@ -1195,6 +1196,263 @@ describe('handleInteraction', () => {
     });
   });
 
+  it('blocks non-admins from adding officers', async () => {
+    const saveGuildConfig = vi.fn();
+    const options = makeConfigOptions(saveGuildConfig);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' }, permissions: '0' },
+        data: {
+          name: 'add_officer',
+          options: [{ name: 'user', value: 'officer-1' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      data: { content: 'This action requires Manage Server permission.', flags: 64 },
+    });
+  });
+
+  it('allows Manage Server users to add officers', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue(
+      makeGuildConfig({
+        compareOfficerUserIds: ['officer-1'],
+      }),
+    );
+    const options = makeConfigOptions(saveGuildConfig);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'manager-1' }, permissions: '32' },
+        data: {
+          name: 'add_officer',
+          options: [{ name: 'user', value: 'officer-1' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
+      compareOfficerUserIds: ['officer-1'],
+    });
+    expect(response).toMatchObject({
+      data: { content: 'Officer added: <@officer-1>.', flags: 64 },
+    });
+  });
+
+  it('allows administrators to add officers', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue(
+      makeGuildConfig({
+        compareOfficerUserIds: ['officer-1'],
+      }),
+    );
+    const options = makeConfigOptions(saveGuildConfig);
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'admin-1' }, permissions: '8' },
+        data: {
+          name: 'add_officer',
+          options: [{ name: 'user', value: 'officer-1' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
+      compareOfficerUserIds: ['officer-1'],
+    });
+    expect(response).toMatchObject({
+      data: { content: 'Officer added: <@officer-1>.', flags: 64 },
+    });
+  });
+
+  it('keeps adding officers idempotent', async () => {
+    const saveGuildConfig = vi.fn();
+    const options = makeConfigOptions(saveGuildConfig, {
+      compareOfficerUserIds: ['officer-1'],
+    });
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'manager-1' }, permissions: '32' },
+        data: {
+          name: 'add_officer',
+          options: [{ name: 'user', value: 'officer-1' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      data: { content: 'Officer added: <@officer-1>.', flags: 64 },
+    });
+  });
+
+  it('blocks non-admins from removing officers', async () => {
+    const saveGuildConfig = vi.fn();
+    const options = makeConfigOptions(saveGuildConfig, {
+      compareOfficerUserIds: ['officer-1'],
+    });
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' }, permissions: '0' },
+        data: {
+          name: 'remove_officer',
+          options: [{ name: 'user', value: 'officer-1' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      data: { content: 'This action requires Manage Server permission.', flags: 64 },
+    });
+  });
+
+  it('allows Manage Server users to remove officers', async () => {
+    const saveGuildConfig = vi.fn().mockResolvedValue(
+      makeGuildConfig({
+        compareOfficerUserIds: ['officer-2'],
+      }),
+    );
+    const options = makeConfigOptions(saveGuildConfig, {
+      compareOfficerUserIds: ['officer-1', 'officer-2'],
+    });
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'manager-1' }, permissions: '32' },
+        data: {
+          name: 'remove_officer',
+          options: [{ name: 'user', value: 'officer-1' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
+      compareOfficerUserIds: ['officer-2'],
+    });
+    expect(response).toMatchObject({
+      data: { content: 'Officer removed: <@officer-1>.', flags: 64 },
+    });
+  });
+
+  it('returns a safe response when removing a user who is not an officer', async () => {
+    const saveGuildConfig = vi.fn();
+    const options = makeConfigOptions(saveGuildConfig, {
+      compareOfficerUserIds: ['officer-2'],
+    });
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'manager-1' }, permissions: '32' },
+        data: {
+          name: 'remove_officer',
+          options: [{ name: 'user', value: 'officer-1' }],
+        },
+      },
+      options,
+    );
+
+    expect(saveGuildConfig).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      data: {
+        content: '<@officer-1> was not configured as an officer.',
+        flags: 64,
+      },
+    });
+  });
+
+  it('lets configured officers list officers', async () => {
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'officer-1' }, permissions: '0' },
+        data: { name: 'list_officers' },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore({
+          compareOfficerUserIds: ['officer-1', 'officer-2'],
+        }),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+      },
+    );
+
+    expect(response).toMatchObject({
+      data: {
+        content: 'Configured officers:\n<@officer-1>\n<@officer-2>',
+        flags: 64,
+      },
+    });
+  });
+
+  it('blocks ordinary users from listing officers', async () => {
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' }, permissions: '0' },
+        data: { name: 'list_officers' },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore({
+          compareOfficerUserIds: ['officer-1'],
+        }),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+      },
+    );
+
+    expect(response).toMatchObject({
+      data: { content: 'This action is limited to authorized officers.', flags: 64 },
+    });
+  });
+
+  it('returns an empty officer list message', async () => {
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'manager-1' }, permissions: '32' },
+        data: { name: 'list_officers' },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+      },
+    );
+
+    expect(response).toMatchObject({
+      data: { content: 'No explicit officers are configured.', flags: 64 },
+    });
+  });
+
   it('lets a member request an exact character claim', async () => {
     const characterClaimStore = makeCharacterClaimStore();
 
@@ -1231,7 +1489,7 @@ describe('handleInteraction', () => {
     expect(response).toMatchObject({
       data: {
         content:
-          'Character claim requested. An authorized raid role must approve it before comparisons are available.',
+          'Character claim requested. An authorized officer must approve it before comparisons are available.',
         flags: 64,
       },
     });
@@ -1265,7 +1523,7 @@ describe('handleInteraction', () => {
     expect(blockedStore.approveCharacterClaim).not.toHaveBeenCalled();
     expect(blocked).toMatchObject({
       data: {
-        content: 'This action is limited to authorized raid roles.',
+        content: 'This action is limited to authorized officers.',
         flags: 64,
       },
     });
@@ -1310,6 +1568,130 @@ describe('handleInteraction', () => {
     });
   });
 
+  it('authorizes claim approvals by explicit officer user IDs instead of broad roles', async () => {
+    const broadRoleStore = makeCharacterClaimStore();
+    const broadRole = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-2' }, roles: ['role-1'], permissions: '0' },
+        data: {
+          name: 'approve_character',
+          options: [
+            { name: 'user', value: 'user-1' },
+            { name: 'character', value: 'Alyra' },
+            { name: 'realm', value: 'Stormrage' },
+            { name: 'region', value: 'US' },
+          ],
+        },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore({
+          compareOfficerUserIds: [],
+        }),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        characterClaimStore: broadRoleStore,
+      },
+    );
+
+    expect(broadRoleStore.approveCharacterClaim).not.toHaveBeenCalled();
+    expect(broadRole).toMatchObject({
+      data: {
+        content: 'This action is limited to authorized officers.',
+        flags: 64,
+      },
+    });
+
+    const explicitOfficerStore = makeCharacterClaimStore();
+    const explicitOfficer = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'officer-1' }, permissions: '0' },
+        data: {
+          name: 'approve_character',
+          options: [
+            { name: 'user', value: 'user-1' },
+            { name: 'character', value: 'Alyra' },
+            { name: 'realm', value: 'Stormrage' },
+            { name: 'region', value: 'US' },
+          ],
+        },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore({
+          compareOfficerUserIds: ['officer-1'],
+        }),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        characterClaimStore: explicitOfficerStore,
+      },
+    );
+
+    expect(explicitOfficerStore.approveCharacterClaim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: 'guild-1',
+        discordUserId: 'user-1',
+        participantKey: 'character:us:stormrage:alyra',
+        reviewedByDiscordUserId: 'officer-1',
+      }),
+    );
+    expect(explicitOfficer).toMatchObject({
+      data: {
+        content: 'Character claim approved for the exact character identity.',
+        flags: 64,
+      },
+    });
+  });
+
+  it('authorizes claim rejection by explicit officer user IDs', async () => {
+    const characterClaimStore = makeCharacterClaimStore({
+      rejectCharacterClaim: vi.fn().mockResolvedValue(
+        makeApprovedClaim({
+          status: 'rejected',
+        }),
+      ),
+    });
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'officer-1' }, permissions: '0' },
+        data: {
+          name: 'reject_character',
+          options: [
+            { name: 'user', value: 'user-1' },
+            { name: 'character', value: 'Alyra' },
+            { name: 'realm', value: 'Stormrage' },
+            { name: 'region', value: 'US' },
+          ],
+        },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore({
+          compareOfficerUserIds: ['officer-1'],
+        }),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        characterClaimStore,
+      },
+    );
+
+    expect(characterClaimStore.rejectCharacterClaim).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: 'guild-1',
+        discordUserId: 'user-1',
+        participantKey: 'character:us:stormrage:alyra',
+        reviewedByDiscordUserId: 'officer-1',
+      }),
+    );
+    expect(response).toMatchObject({
+      data: { content: 'Character claim rejected.', flags: 64 },
+    });
+  });
+
   it('lists requester claims without exposing participantKey', async () => {
     const characterClaimStore = makeCharacterClaimStore({
       listClaimsForUser: vi.fn().mockResolvedValue([
@@ -1345,10 +1727,12 @@ describe('handleInteraction', () => {
 
   it('lets approved owners update compare privacy', async () => {
     const characterClaimStore = makeCharacterClaimStore({
-      updateClaimPrivacy: vi.fn().mockResolvedValue(makeApprovedClaim({
-        peerCompareOptIn: true,
-        publicPostOptIn: true,
-      })),
+      updateClaimPrivacy: vi.fn().mockResolvedValue(
+        makeApprovedClaim({
+          peerCompareOptIn: true,
+          publicPostOptIn: true,
+        }),
+      ),
     });
 
     const response = await handleInteraction(
@@ -1501,6 +1885,32 @@ describe('handleInteraction', () => {
     });
   });
 
+  it('allows configured officer users with an approved claim to compare in officer-only mode', async () => {
+    const { body, comparisonHistoryStore } = await runDeferredCompare({
+      history: [
+        makeHistorySnapshot({ reportCode: 'OLD1' }),
+        makeHistorySnapshot({ reportCode: 'OLD2' }),
+        makeHistorySnapshot({ reportCode: 'OLD3' }),
+      ],
+      interaction: makeCompareInteraction('character', 'Alyra', {
+        member: { user: { id: 'officer-1' }, permissions: '0' },
+      }),
+      guildConfigStore: makeGuildConfigStore({
+        compareAccessMode: 'officer_only',
+        compareOfficerUserIds: ['officer-1'],
+      }),
+      characterClaimStore: makeClaimedCompareStore({
+        listClaimsForUser: vi
+          .fn()
+          .mockResolvedValue([makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' })]),
+        findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([makeApprovedClaim()]),
+      }),
+    });
+
+    expect(comparisonHistoryStore.findCharacterHistory).toHaveBeenCalledOnce();
+    expect(body.content).toContain('Comparison: Alyra');
+  });
+
   it('denies unauthorized claimed peers before history lookup with privacy-safe wording', async () => {
     const { body, comparisonHistoryStore } = await runDeferredCompare({
       history: [makeHistorySnapshot()],
@@ -1508,15 +1918,15 @@ describe('handleInteraction', () => {
         member: { user: { id: 'peer-1' } },
       }),
       characterClaimStore: makeClaimedCompareStore({
-        listClaimsForUser: vi.fn().mockResolvedValue([
-          makeUnrelatedApprovedClaim({ discordUserId: 'peer-1' }),
-        ]),
+        listClaimsForUser: vi
+          .fn()
+          .mockResolvedValue([makeUnrelatedApprovedClaim({ discordUserId: 'peer-1' })]),
       }),
     });
 
     expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
     expect(body).toMatchObject({
-      content: 'This comparison is limited to the character owner or authorized raid roles.',
+      content: 'This comparison is limited to the character owner or authorized officers.',
       flags: 64,
     });
     expect(body.content).not.toMatch(/opted out|privacy setting|target denied/i);
@@ -1529,7 +1939,6 @@ describe('handleInteraction', () => {
         defaultGameFamily: 'retail',
         compareModeDefault: 'character',
         compareAccessMode: 'owner_or_officer',
-        compareOfficerRoleIds: [],
         comparePublicPostingEnabled: false,
         accountabilityVisibility: 'off',
         coachingShareabilityDefault: 'private',
@@ -1567,7 +1976,6 @@ describe('handleInteraction', () => {
         defaultGameFamily: 'retail',
         compareModeDefault: 'character',
         compareAccessMode: 'owner_only',
-        compareOfficerRoleIds: [],
         comparePublicPostingEnabled: false,
         accountabilityVisibility: 'off',
         coachingShareabilityDefault: 'private',
@@ -1599,9 +2007,9 @@ describe('handleInteraction', () => {
       }),
       guildConfigStore,
       characterClaimStore: makeClaimedCompareStore({
-        listClaimsForUser: vi.fn().mockResolvedValue([
-          makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' }),
-        ]),
+        listClaimsForUser: vi
+          .fn()
+          .mockResolvedValue([makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' })]),
         findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([makeApprovedClaim()]),
       }),
     });
@@ -1622,7 +2030,6 @@ describe('handleInteraction', () => {
         defaultGameFamily: 'retail',
         compareModeDefault: 'character',
         compareAccessMode: 'owner_opt_in_or_officer',
-        compareOfficerRoleIds: [],
         comparePublicPostingEnabled: false,
         accountabilityVisibility: 'off',
         coachingShareabilityDefault: 'private',
@@ -1631,9 +2038,9 @@ describe('handleInteraction', () => {
       saveGuildConfig: vi.fn(),
     };
     const characterClaimStore = makeCharacterClaimStore({
-      listClaimsForUser: vi.fn().mockResolvedValue([
-        makeUnrelatedApprovedClaim({ discordUserId: 'peer-1' }),
-      ]),
+      listClaimsForUser: vi
+        .fn()
+        .mockResolvedValue([makeUnrelatedApprovedClaim({ discordUserId: 'peer-1' })]),
       findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
         makeApprovedClaim({
           discordUserId: 'owner-1',
@@ -1666,7 +2073,6 @@ describe('handleInteraction', () => {
         defaultGameFamily: 'retail',
         compareModeDefault: 'character',
         compareAccessMode: 'owner_or_officer',
-        compareOfficerRoleIds: [],
         comparePublicPostingEnabled: false,
         accountabilityVisibility: 'off',
         coachingShareabilityDefault: 'private',
@@ -1703,7 +2109,6 @@ describe('handleInteraction', () => {
         defaultGameFamily: 'retail',
         compareModeDefault: 'character',
         compareAccessMode: 'owner_only',
-        compareOfficerRoleIds: [],
         comparePublicPostingEnabled: true,
         accountabilityVisibility: 'off',
         coachingShareabilityDefault: 'private',
@@ -1766,24 +2171,27 @@ describe('handleInteraction', () => {
   it.each([
     {
       label: 'fails',
-      makeResponse: () => makeDiscordFetchResponse({
-        ok: false,
-        status: 502,
-        statusText: 'Bad Gateway',
-        body: '{"message":"upstream failed"}',
-      }),
+      makeResponse: () =>
+        makeDiscordFetchResponse({
+          ok: false,
+          status: 502,
+          statusText: 'Bad Gateway',
+          body: '{"message":"upstream failed"}',
+        }),
     },
     {
       label: 'returns no created message',
-      makeResponse: () => makeDiscordFetchResponse({
-        body: '{"flags":0}',
-      }),
+      makeResponse: () =>
+        makeDiscordFetchResponse({
+          body: '{"flags":0}',
+        }),
     },
     {
       label: 'returns an ephemeral message',
-      makeResponse: () => makeDiscordFetchResponse({
-        body: JSON.stringify({ id: 'original-message-1', flags: 64 }),
-      }),
+      makeResponse: () =>
+        makeDiscordFetchResponse({
+          body: JSON.stringify({ id: 'original-message-1', flags: 64 }),
+        }),
     },
   ])('shows a private failure when public follow-up $label', async ({ makeResponse }) => {
     const guildConfigStore: GuildConfigStore = {
@@ -1792,7 +2200,6 @@ describe('handleInteraction', () => {
         defaultGameFamily: 'retail',
         compareModeDefault: 'character',
         compareAccessMode: 'owner_or_officer',
-        compareOfficerRoleIds: [],
         comparePublicPostingEnabled: true,
         accountabilityVisibility: 'off',
         coachingShareabilityDefault: 'private',
@@ -1842,7 +2249,6 @@ describe('handleInteraction', () => {
         defaultGameFamily: 'retail',
         compareModeDefault: 'character',
         compareAccessMode: 'officer_only',
-        compareOfficerRoleIds: [],
         comparePublicPostingEnabled: true,
         accountabilityVisibility: 'off',
         coachingShareabilityDefault: 'private',
@@ -1859,9 +2265,9 @@ describe('handleInteraction', () => {
       }),
       guildConfigStore,
       characterClaimStore: makeCharacterClaimStore({
-        listClaimsForUser: vi.fn().mockResolvedValue([
-          makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' }),
-        ]),
+        listClaimsForUser: vi
+          .fn()
+          .mockResolvedValue([makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' })]),
         findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
           makeApprovedClaim({
             discordUserId: 'owner-1',
@@ -1908,9 +2314,9 @@ describe('handleInteraction', () => {
       guildConfigStore,
       editFetch: editFailureFetch,
       characterClaimStore: makeCharacterClaimStore({
-        listClaimsForUser: vi.fn().mockResolvedValue([
-          makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' }),
-        ]),
+        listClaimsForUser: vi
+          .fn()
+          .mockResolvedValue([makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' })]),
         findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
           makeApprovedClaim({
             discordUserId: 'owner-1',
@@ -1953,9 +2359,9 @@ describe('handleInteraction', () => {
       }),
       guildConfigStore,
       characterClaimStore: makeCharacterClaimStore({
-        listClaimsForUser: vi.fn().mockResolvedValue([
-          makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' }),
-        ]),
+        listClaimsForUser: vi
+          .fn()
+          .mockResolvedValue([makeUnrelatedApprovedClaim({ discordUserId: 'officer-1' })]),
         findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([
           makeApprovedClaim({
             discordUserId: 'owner-1',
@@ -1992,15 +2398,12 @@ describe('handleInteraction', () => {
       findCharacterHistory: vi.fn(),
     };
 
-    const response = await handleInteraction(
-      makeCompareInteraction('alts'),
-      {
-        wclClient,
-        guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        comparisonHistoryStore,
-      },
-    );
+    const response = await handleInteraction(makeCompareInteraction('alts'), {
+      wclClient,
+      guildConfigStore: makeGuildConfigStore(),
+      recapPreviewStateService: makeRecapPreviewStateService(),
+      comparisonHistoryStore,
+    });
 
     expect(response).toMatchObject({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -2009,7 +2412,9 @@ describe('handleInteraction', () => {
         flags: 64,
       },
     });
-    expect((wclClient as { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }).fetchAndNormalizeReport).not.toHaveBeenCalled();
+    expect(
+      (wclClient as { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }).fetchAndNormalizeReport,
+    ).not.toHaveBeenCalled();
     expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
   });
 
@@ -2041,7 +2446,9 @@ describe('handleInteraction', () => {
         flags: 64,
       },
     });
-    expect((wclClient as { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }).fetchAndNormalizeReport).not.toHaveBeenCalled();
+    expect(
+      (wclClient as { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }).fetchAndNormalizeReport,
+    ).not.toHaveBeenCalled();
     expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
   });
 
@@ -2055,15 +2462,12 @@ describe('handleInteraction', () => {
       findCharacterHistory: vi.fn(),
     };
 
-    const response = await handleInteraction(
-      makeCompareInteraction('mixed'),
-      {
-        wclClient,
-        guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        comparisonHistoryStore,
-      },
-    );
+    const response = await handleInteraction(makeCompareInteraction('mixed'), {
+      wclClient,
+      guildConfigStore: makeGuildConfigStore(),
+      recapPreviewStateService: makeRecapPreviewStateService(),
+      comparisonHistoryStore,
+    });
 
     expect(response).toMatchObject({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -2073,7 +2477,9 @@ describe('handleInteraction', () => {
         flags: 64,
       },
     });
-    expect((wclClient as { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }).fetchAndNormalizeReport).not.toHaveBeenCalled();
+    expect(
+      (wclClient as { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }).fetchAndNormalizeReport,
+    ).not.toHaveBeenCalled();
     expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
   });
 
@@ -2819,7 +3225,6 @@ describe('handleInteraction', () => {
             defaultGameFamily: 'retail',
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
-            compareOfficerRoleIds: [],
             comparePublicPostingEnabled: false,
             accountabilityVisibility: 'off',
             coachingShareabilityDefault: 'private',
@@ -2861,7 +3266,6 @@ describe('handleInteraction', () => {
       defaultGameFamily: 'retail',
       compareModeDefault: 'character',
       compareAccessMode: 'officer_only',
-      compareOfficerRoleIds: [],
       comparePublicPostingEnabled: false,
       accountabilityVisibility: 'off',
       coachingShareabilityDefault: 'private',
@@ -2944,7 +3348,6 @@ describe('handleInteraction', () => {
             defaultGameFamily: 'retail',
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
-            compareOfficerRoleIds: [],
             comparePublicPostingEnabled: false,
             accountabilityVisibility: 'off',
             coachingShareabilityDefault: 'private',
@@ -3011,7 +3414,6 @@ describe('handleInteraction', () => {
             defaultGameFamily: 'retail',
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
-            compareOfficerRoleIds: [],
             comparePublicPostingEnabled: false,
             accountabilityVisibility: 'off',
             coachingShareabilityDefault: 'private',
@@ -3059,7 +3461,6 @@ describe('handleInteraction', () => {
             defaultGameFamily: 'retail',
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
-            compareOfficerRoleIds: [],
             comparePublicPostingEnabled: false,
             accountabilityVisibility: 'off',
             coachingShareabilityDefault: 'private',
@@ -3401,8 +3802,7 @@ describe('embed rendering', () => {
       '🔗 Warcraft Logs',
     ]);
     const outcome = embed.fields.find((field) => field.name === '🏁 Raid Snapshot')?.value ?? '';
-    const performance =
-      embed.fields.find((field) => field.name === '⚡ Performance')?.value ?? '';
+    const performance = embed.fields.find((field) => field.name === '⚡ Performance')?.value ?? '';
     const output = embed.fields.find((field) => field.name === '🎛️ Output & Intake')?.value ?? '';
     const execution =
       embed.fields.find((field) => field.name === '🎯 Utility & Execution')?.value ?? '';
@@ -3459,7 +3859,9 @@ describe('embed rendering', () => {
     expect(outcome).toContain('  • **One-Armed Bandit** · Kill secured.');
     expect(output).toContain('▸ __**Damage Done**__\n  #1 **Alyra** · 250K · Shadow Priest');
     expect(output).toContain('▸ __**Healing Done**__\n  #1 **Healz** · 67.9K · Mistweaver Monk');
-    expect(output).toContain('▸ __**Damage Taken**__\n  #1 **Bulwark** · 120K · Protection Warrior');
+    expect(output).toContain(
+      '▸ __**Damage Taken**__\n  #1 **Bulwark** · 120K · Protection Warrior',
+    );
     expect(output.endsWith(`\n\n${domainDivider}`)).toBe(true);
     expect(output).not.toMatch(/^\s+\d+\./m);
     expect(output).not.toContain('Shadow Priest,');

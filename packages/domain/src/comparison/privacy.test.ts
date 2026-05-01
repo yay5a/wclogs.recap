@@ -19,12 +19,12 @@ const participantKey = 'character:us:stormrage:alyra';
 const makeGuildSettings = (
   overrides: Partial<{
     compareAccessMode: CompareAccessMode;
-    compareOfficerRoleIds: string[];
+    compareOfficerUserIds: string[];
     comparePublicPostingEnabled: boolean;
   }> = {},
 ) => ({
   compareAccessMode: 'owner_or_officer' as const,
-  compareOfficerRoleIds: [],
+  compareOfficerUserIds: [],
   comparePublicPostingEnabled: false,
   ...overrides,
 });
@@ -36,12 +36,9 @@ const ownerClaim: CompareApprovedCharacterClaim = {
   publicPostOptIn: false,
 };
 
-const authorize = (
-  overrides: Partial<Parameters<typeof authorizeCompareRequest>[0]> = {},
-) =>
+const authorize = (overrides: Partial<Parameters<typeof authorizeCompareRequest>[0]> = {}) =>
   authorizeCompareRequest({
     requesterDiscordUserId: 'peer-1',
-    requesterRoleIds: [],
     requesterPermissions: '0',
     targetParticipantKey: participantKey,
     requestedVisibility: 'private',
@@ -58,7 +55,7 @@ describe('compare privacy contracts', () => {
     expect(DEFAULT_COMPARE_VISIBILITY).toBe('private');
     expect(defaultGuildConfigFor('guild-1')).toMatchObject({
       compareAccessMode: 'officer_only',
-      compareOfficerRoleIds: [],
+      compareOfficerUserIds: [],
       comparePublicPostingEnabled: false,
     });
   });
@@ -75,38 +72,67 @@ describe('compare privacy contracts', () => {
 describe('compare officer detection', () => {
   it('accepts Administrator permission', () => {
     expect(hasDiscordPermission('8', 'administrator')).toBe(true);
-    expect(isCompareOfficer({
-      requesterDiscordUserId: 'user-1',
-      requesterPermissions: '8',
-      guildSettings: makeGuildSettings(),
-    })).toBe(true);
+    expect(
+      isCompareOfficer({
+        requesterDiscordUserId: 'user-1',
+        requesterPermissions: '8',
+        guildSettings: makeGuildSettings(),
+      }),
+    ).toBe(true);
   });
 
   it('accepts Manage Guild permission', () => {
     expect(hasDiscordPermission('32', 'manage-guild')).toBe(true);
-    expect(isCompareOfficer({
-      requesterDiscordUserId: 'user-1',
-      requesterPermissions: '32',
-      guildSettings: makeGuildSettings(),
-    })).toBe(true);
+    expect(
+      isCompareOfficer({
+        requesterDiscordUserId: 'user-1',
+        requesterPermissions: '32',
+        guildSettings: makeGuildSettings(),
+      }),
+    ).toBe(true);
   });
 
-  it('accepts configured compare officer roles', () => {
-    expect(isCompareOfficer({
-      requesterDiscordUserId: 'user-1',
-      requesterRoleIds: ['role-2'],
-      requesterPermissions: '0',
-      guildSettings: makeGuildSettings({ compareOfficerRoleIds: ['role-1', 'role-2'] }),
-    })).toBe(true);
+  it('accepts configured compare officer users', () => {
+    expect(
+      isCompareOfficer({
+        requesterDiscordUserId: 'officer-1',
+        requesterPermissions: '0',
+        guildSettings: makeGuildSettings({ compareOfficerUserIds: ['officer-1', 'officer-2'] }),
+      }),
+    ).toBe(true);
+  });
+
+  it('rejects unlisted users without Discord permissions', () => {
+    expect(
+      isCompareOfficer({
+        requesterDiscordUserId: 'user-1',
+        requesterPermissions: '0',
+        guildSettings: makeGuildSettings({ compareOfficerUserIds: ['officer-1'] }),
+      }),
+    ).toBe(false);
+  });
+
+  it('does not accept unlisted users as officer authorization', () => {
+    expect(
+      isCompareOfficer({
+        requesterDiscordUserId: 'user-1',
+        requesterPermissions: '0',
+        guildSettings: makeGuildSettings({
+          compareOfficerUserIds: [],
+        }),
+      }),
+    ).toBe(false);
   });
 });
 
 describe('compare authorization', () => {
   it('requires any approved claim before officer/admin privileges can authorize compare', () => {
-    expect(authorize({
-      requesterPermissions: '8',
-      guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
-    })).toMatchObject({
+    expect(
+      authorize({
+        requesterPermissions: '8',
+        guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
+      }),
+    ).toMatchObject({
       allowed: false,
       reason: 'missing-approved-claim',
       isOfficer: true,
@@ -114,11 +140,13 @@ describe('compare authorization', () => {
   });
 
   it('allows officers with an approved claim to privately view any exact-character target', () => {
-    expect(authorize({
-      requesterPermissions: '8',
-      guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
-      requesterHasAnyApprovedClaim: true,
-    })).toMatchObject({
+    expect(
+      authorize({
+        requesterPermissions: '8',
+        guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
+        requesterHasAnyApprovedClaim: true,
+      }),
+    ).toMatchObject({
       allowed: true,
       reason: 'officer',
       isOfficer: true,
@@ -126,12 +154,14 @@ describe('compare authorization', () => {
   });
 
   it('allows approved owners when guild mode permits owners', () => {
-    expect(authorize({
-      requesterDiscordUserId: 'owner-1',
-      requesterApprovedClaim: ownerClaim,
-      requesterHasAnyApprovedClaim: true,
-      guildSettings: makeGuildSettings({ compareAccessMode: 'owner_or_officer' }),
-    })).toMatchObject({
+    expect(
+      authorize({
+        requesterDiscordUserId: 'owner-1',
+        requesterApprovedClaim: ownerClaim,
+        requesterHasAnyApprovedClaim: true,
+        guildSettings: makeGuildSettings({ compareAccessMode: 'owner_or_officer' }),
+      }),
+    ).toMatchObject({
       allowed: true,
       reason: 'owner',
       isOwner: true,
@@ -139,12 +169,14 @@ describe('compare authorization', () => {
   });
 
   it('denies owners when guild mode is officer-only', () => {
-    expect(authorize({
-      requesterDiscordUserId: 'owner-1',
-      requesterApprovedClaim: ownerClaim,
-      requesterHasAnyApprovedClaim: true,
-      guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
-    })).toMatchObject({
+    expect(
+      authorize({
+        requesterDiscordUserId: 'owner-1',
+        requesterApprovedClaim: ownerClaim,
+        requesterHasAnyApprovedClaim: true,
+        guildSettings: makeGuildSettings({ compareAccessMode: 'officer_only' }),
+      }),
+    ).toMatchObject({
       allowed: false,
       reason: 'not-authorized',
       isOwner: true,
@@ -173,16 +205,18 @@ describe('compare authorization', () => {
       reason: 'not-authorized',
     });
     expect(getCompareAuthorizationDenialMessage(decision)).toBe(
-      'This comparison is limited to the character owner or authorized raid roles.',
+      'This comparison is limited to the character owner or authorized officers.',
     );
   });
 
   it('allows peers only when target opted in and guild mode allows it', () => {
-    expect(authorize({
-      guildSettings: makeGuildSettings({ compareAccessMode: 'owner_opt_in_or_officer' }),
-      requesterHasAnyApprovedClaim: true,
-      targetApprovedClaims: [{ ...ownerClaim, peerCompareOptIn: true }],
-    })).toMatchObject({
+    expect(
+      authorize({
+        guildSettings: makeGuildSettings({ compareAccessMode: 'owner_opt_in_or_officer' }),
+        requesterHasAnyApprovedClaim: true,
+        targetApprovedClaims: [{ ...ownerClaim, peerCompareOptIn: true }],
+      }),
+    ).toMatchObject({
       allowed: true,
       reason: 'target-opted-in',
     });
@@ -210,16 +244,18 @@ describe('compare authorization', () => {
   });
 
   it('allows owners to publicly post own comparison when guild posting is enabled', () => {
-    expect(authorize({
-      requesterDiscordUserId: 'owner-1',
-      requesterApprovedClaim: ownerClaim,
-      requesterHasAnyApprovedClaim: true,
-      requestedVisibility: 'public',
-      guildSettings: makeGuildSettings({
-        compareAccessMode: 'owner_or_officer',
-        comparePublicPostingEnabled: true,
+    expect(
+      authorize({
+        requesterDiscordUserId: 'owner-1',
+        requesterApprovedClaim: ownerClaim,
+        requesterHasAnyApprovedClaim: true,
+        requestedVisibility: 'public',
+        guildSettings: makeGuildSettings({
+          compareAccessMode: 'owner_or_officer',
+          comparePublicPostingEnabled: true,
+        }),
       }),
-    })).toMatchObject({
+    ).toMatchObject({
       allowed: true,
       reason: 'public-post-owner',
     });
@@ -317,6 +353,8 @@ describe('compare authorization', () => {
     });
 
     expect(getCompareAuthorizationDenialMessage(deniedPeer)).not.toMatch(/opted|privacy setting/i);
-    expect(getCompareAuthorizationDenialMessage(deniedPublic)).not.toMatch(/opted|privacy setting/i);
+    expect(getCompareAuthorizationDenialMessage(deniedPublic)).not.toMatch(
+      /opted|privacy setting/i,
+    );
   });
 });
