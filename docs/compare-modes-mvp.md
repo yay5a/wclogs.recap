@@ -24,7 +24,19 @@ The bot treats calculation and access as separate questions:
 - Can the character comparison be calculated from exact character identity and stored snapshots?
 - Is the requester allowed to view or publicly post the targeted comparison card?
 
-Private view access defaults to `officer_only` for beta safety. Officers are users with Administrator, Manage Guild, or a configured compare officer role. Servers may relax private view access to approved character owners or opted-in target peers through guild config.
+Private view access defaults to `officer_only` for beta safety. Officers are users with Administrator, Manage Guild, or an explicit configured officer user ID. Servers may relax private view access to approved character owners or opted-in target peers through guild config.
+
+Guild administrators manage explicit officers with:
+
+- `/add_officer user:<user>`
+- `/remove_officer user:<user>`
+- `/list_officers`
+
+After deployment, Discord commands must be re-registered:
+
+```bash
+pnpm --filter @wcl/web register:discord-commands
+```
 
 Public posting is disabled by default. When enabled, public posting still requires explicit `visibility:public` and target safeguards:
 
@@ -36,8 +48,8 @@ Public posting is disabled by default. When enabled, public posting still requir
 Character ownership is exact-character and officer-approved:
 
 - `/claim_character character:<name> realm:<realm> region:<region>` creates a pending claim for the requester.
-- `/approve_character user:<user> character:<name> realm:<realm> region:<region>` approves a claim for an authorized raid role.
-- `/reject_character user:<user> character:<name> realm:<realm> region:<region>` rejects a pending claim for an authorized raid role.
+- `/approve_character user:<user> character:<name> realm:<realm> region:<region>` approves a claim for an authorized officer.
+- `/reject_character user:<user> character:<name> realm:<realm> region:<region>` rejects a pending claim for an authorized officer.
 - `/my_characters` lists the requester's claims privately.
 - `/compare_privacy character:<name> realm:<realm> region:<region> peer_compare:<private|allow_guild> public_post:<deny|allow>` updates privacy for an approved owner claim.
 

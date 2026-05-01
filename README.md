@@ -28,7 +28,7 @@ Known beta limitations:
 - `/compare` is private by default and requires exact-character identity plus authorization. Regular raiders cannot freely compare every character in the server.
 - Mixed comparisons still require explicit player-character mapping and are not available yet. Alts are not guessed automatically.
 - Public compare posting is disabled by default and requires explicit server and target safeguards when enabled.
- 
+
 ## Beta Testing
 
 WCLogs Recap is currently in beta. The app is being tested in a dedicated Discord server before it is treated as stable for wider use.
@@ -47,11 +47,18 @@ Please focus on the current user-facing Discord flow:
 
 Comparison testing is limited to the private-first MVP:
 
+- Guild administrators can add explicit officer users with `/add_officer user:<user>`, remove them with `/remove_officer user:<user>`, and review them privately with `/list_officers`.
 - `/claim_character` requests officer-approved ownership for an exact character identity.
-- `/approve_character` and `/reject_character` are limited to authorized raid roles.
+- `/approve_character` and `/reject_character` are limited to Discord administrators, Manage Server users, and configured officer users.
 - `/compare report:<url> character:<name> mode:character` returns a private comparison only when the requester is authorized.
 - `/compare ... visibility:public` is explicit and must pass public-post safeguards; it is not the default.
 - `/compare ... mode:mixed` currently explains that explicit mapping is required and does not infer alts.
+
+After deploying command changes, re-register Discord commands:
+
+```bash
+pnpm --filter @wcl/web register:discord-commands
+```
 
 Useful things to check:
 
@@ -290,14 +297,14 @@ The checked-in Compose file includes deployment-specific public URLs. Adjust `WC
 
 ## HTTP Routes
 
-| Route                        | Purpose                                                               |
-| ---------------------------- | --------------------------------------------------------------------- |
-| `GET /health`                | Basic health check returning `{ "status": "ok" }`.                    |
+| Route                        | Purpose                                                        |
+| ---------------------------- | -------------------------------------------------------------- |
+| `GET /health`                | Basic health check returning `{ "status": "ok" }`.             |
 | `POST /api/recap`            | Fetch and normalize a recap payload from a report code or URL. |
-| `POST /discord/interactions` | Discord interaction webhook endpoint.                                 |
-| `GET /api/auth/wcl/status`   | Inspect stored WCL user OAuth state.                                  |
-| `GET /api/auth/wcl/login`    | Start WCL user OAuth.                                                 |
-| `GET /api/auth/wcl/callback` | Complete WCL user OAuth.                                              |
+| `POST /discord/interactions` | Discord interaction webhook endpoint.                          |
+| `GET /api/auth/wcl/status`   | Inspect stored WCL user OAuth state.                           |
+| `GET /api/auth/wcl/login`    | Start WCL user OAuth.                                          |
+| `GET /api/auth/wcl/callback` | Complete WCL user OAuth.                                       |
 
 ## Verification
 
