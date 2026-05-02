@@ -1,319 +1,84 @@
 import crypto from "node:crypto";
-import type { FastifyPluginAsync, FastifyReply, FastifyRequest } from "fastify";
+import type { FastifyPluginAsync } from "fastify";
+import { recordActivity } from "./dashboard/activity.js";
 import {
-    parseAutoRecapMode,
-    parseCompareAccessMode,
-    parseCompareMode,
-    parseGameFamily,
-    type AutoRecapMode,
-    type CompareAccessMode,
-    type CompareMode,
-    type GameFamily,
-    type GuildConfig,
-    type GuildConfigStore,
-} from "@wcl/domain";
-import type { WebEnv } from "../config.js";
+    compareDashboardAdminSecret,
+    consumeOAuthState,
+    createDiscordSession,
+    dashboardAuthContext,
+    deleteDiscordSessionFromCookie,
+    exchangeDiscordCode,
+    fetchDiscordBearerJson,
+    parseDiscordUser,
+    parseOAuthGuild,
+    publicAuthContext,
+    requireDashboardAuth,
+    requireDashboardMutationSafety,
+    setDashboardCookie,
+    storeOAuthState,
+    clearDiscordSessionsForGuild,
+} from "./dashboard/auth.js";
+import {
+    actorDiscordUserId,
+    actorFromSession,
+    getEffectiveCapabilities,
+    requireAdminSecret,
+    requireGuildCapability,
+    requireRequestAuthContext,
+} from "./dashboard/capabilities.js";
+import { allowedRevokeReasons, notifyClaimRevoked } from "./dashboard/claims.js";
+import { defaultDirectoryResolver, getClaimsForDirectory } from "./dashboard/directory.js";
+import {
+    getRequestBody,
+    getStringParam,
+    isValidClaimId,
+    parseConfigPatchBody,
+    parseGuildCreateBody,
+    readGuildAndUserIdsFromParams,
+    readGuildIdFromParams,
+    sendError,
+    serializeActivity,
+    serializeClaim,
+} from "./dashboard/dto.js";
+import { defaultOnboardingState, onboardingUserKey } from "./dashboard/onboarding.js";
+import {
+    ADMIN_CAPABILITIES,
+    DASHBOARD_COOKIE_NAME,
+    DASHBOARD_COOKIE_PATH,
+    DASHBOARD_OAUTH_STATE_COOKIE_NAME,
+    DASHBOARD_OAUTH_STATE_TTL_MS,
+    DASHBOARD_SESSION_TTL_MS,
+    ONBOARDING_VERSION,
+    type DashboardAuthedRequest,
+    type DashboardGuildConfigSummary,
+    type DashboardOAuthGuild,
+    type DashboardOnboardingState,
+    type DashboardRouteOptions,
+} from "./dashboard/types.js";
 
-export const DASHBOARD_COOKIE_NAME = "wcl_dashboard";
-export const DASHBOARD_SESSION_TTL_MS = 60 * 60 * 1000;
-
-const DASHBOARD_COOKIE_PATH = "/api/dashboard";
-const DISCORD_SNOWFLAKE_RE = /^\d{17,20}$/;
-const DASHBOARD_REQUEST_HEADER = "x-dashboard-request";
-
-export type DashboardAuthContext =
-    | { kind: "admin-secret" }
-    | {
-          kind: "discord";
-          discordUserId: string;
-          guildIds: string[];
-          permissionsByGuildId: Record<string, string>;
-      };
-
-export type DashboardGuildConfigSummary = {
-    guildId: string;
-    compareModeDefault: CompareMode;
-    compareAccessMode: CompareAccessMode;
-    comparePublicPostingEnabled: boolean;
-    autoRecapMode: AutoRecapMode;
-    defaultGameFamily: GameFamily;
-    compareOfficerUserCount: number;
-    autoRecapChannelCount: number;
-    updatedAt?: string;
-};
-
-type DashboardConfigPatch = Partial<
-    Pick<
-        GuildConfig,
-        | "compareModeDefault"
-        | "compareAccessMode"
-        | "comparePublicPostingEnabled"
-        | "autoRecapMode"
-        | "autoRecapChannelIds"
-        | "defaultGameFamily"
-    >
->;
-
-export interface DashboardGuildConfigStore extends GuildConfigStore {
-    listGuildConfigSummaries(): Promise<DashboardGuildConfigSummary[]>;
-    getExistingGuildConfig(guildId: string): Promise<GuildConfig | null>;
-    createDefaultGuildConfig(guildId: string): Promise<GuildConfig>;
-    saveExistingGuildConfig(
-        guildId: string,
-        update: DashboardConfigPatch,
-    ): Promise<GuildConfig | null>;
-    addOfficerToExistingGuild(
-        guildId: string,
-        discordUserId: string,
-    ): Promise<GuildConfig | null>;
-    removeOfficerFromExistingGuild(
-        guildId: string,
-        discordUserId: string,
-    ): Promise<GuildConfig | null>;
-}
-
-type DashboardRouteOptions = {
-    env: WebEnv;
-    guildConfigStore: DashboardGuildConfigStore;
-};
-
-type DashboardAuthedRequest = FastifyRequest & {
-    dashboardAuth?: DashboardAuthContext;
-};
-
-const dashboardAuthContext: DashboardAuthContext = { kind: "admin-secret" };
-
-export const compareDashboardAdminSecret = (
-    submittedSecret: string,
-    expectedSecret: string,
-): boolean => {
-    const submittedHash = crypto.createHash("sha256").update(submittedSecret).digest();
-    const expectedHash = crypto.createHash("sha256").update(expectedSecret).digest();
-    return crypto.timingSafeEqual(submittedHash, expectedHash);
-};
-
-const sendError = (reply: FastifyReply, statusCode: number, error: string) =>
-    reply.code(statusCode).send({ error });
-
-const getRequestBody = (request: FastifyRequest): Record<string, unknown> | undefined =>
-    typeof request.body === "object" && request.body !== null
-        ? (request.body as Record<string, unknown>)
-        : undefined;
-
-const isValidSnowflake = (value: string): boolean => DISCORD_SNOWFLAKE_RE.test(value);
-
-const getSnowflakeParam = (
-    request: FastifyRequest,
-    name: string,
-): string | undefined => {
-    const params =
-        typeof request.params === "object" && request.params !== null
-            ? (request.params as Record<string, unknown>)
-            : {};
-    const value = params[name];
-    return typeof value === "string" && isValidSnowflake(value) ? value : undefined;
-};
-
-const parseSessionCookie = (request: FastifyRequest): DashboardAuthContext | null => {
-    const rawCookie = request.cookies[DASHBOARD_COOKIE_NAME];
-    if (!rawCookie) return null;
-
-    const unsigned = request.unsignCookie(rawCookie);
-    if (!unsigned.valid || typeof unsigned.value !== "string") return null;
-
-    const parts = unsigned.value.split(":");
-    if (parts.length !== 3 || parts[0] !== "dashboard" || parts[1] !== "v1") {
-        return null;
-    }
-
-    const expiresAtMs = Number(parts[2]);
-    if (!Number.isSafeInteger(expiresAtMs) || Date.now() > expiresAtMs) {
-        return null;
-    }
-
-    return dashboardAuthContext;
-};
-
-const requireDashboardAuth =
-    (env: WebEnv) => async (request: DashboardAuthedRequest, reply: FastifyReply) => {
-        if (env.DASHBOARD_AUTH_DISABLED) {
-            request.dashboardAuth = dashboardAuthContext;
-            return;
-        }
-
-        const auth = parseSessionCookie(request);
-        if (!auth) {
-            return sendError(reply, 401, "unauthorized");
-        }
-        request.dashboardAuth = auth;
-    };
-
-const requireDashboardMutationHeader = async (
-    request: FastifyRequest,
-    reply: FastifyReply,
-) => {
-    if (request.headers[DASHBOARD_REQUEST_HEADER] !== "1") {
-        return sendError(reply, 400, "missing_dashboard_request_header");
-    }
-};
-
-const readGuildIdFromParams = (
-    request: FastifyRequest,
-    reply: FastifyReply,
-): string | undefined => {
-    const guildId = getSnowflakeParam(request, "guildId");
-    if (!guildId) {
-        sendError(reply, 400, "invalid_guild_id");
-        return undefined;
-    }
-    return guildId;
-};
-
-const readGuildAndUserIdsFromParams = (
-    request: FastifyRequest,
-    reply: FastifyReply,
-): { guildId: string; discordUserId: string } | undefined => {
-    const guildId = getSnowflakeParam(request, "guildId");
-    if (!guildId) {
-        sendError(reply, 400, "invalid_guild_id");
-        return undefined;
-    }
-
-    const discordUserId = getSnowflakeParam(request, "discordUserId");
-    if (!discordUserId) {
-        sendError(reply, 400, "invalid_discord_user_id");
-        return undefined;
-    }
-
-    return { guildId, discordUserId };
-};
-
-const parseGuildCreateBody = (
-    request: FastifyRequest,
-    reply: FastifyReply,
-): { guildId: string } | undefined => {
-    const body = getRequestBody(request);
-    const guildId = typeof body?.guildId === "string" ? body.guildId.trim() : "";
-    if (!isValidSnowflake(guildId)) {
-        sendError(reply, 400, "invalid_guild_id");
-        return undefined;
-    }
-    return { guildId };
-};
-
-const parseAutoRecapChannelIds = (
-    value: unknown,
-): string[] | "invalid" => {
-    if (!Array.isArray(value)) return "invalid";
-
-    const deduped: string[] = [];
-    for (const rawEntry of value) {
-        if (typeof rawEntry !== "string") return "invalid";
-        const channelId = rawEntry.trim();
-        if (!isValidSnowflake(channelId)) return "invalid";
-        if (!deduped.includes(channelId)) deduped.push(channelId);
-    }
-    return deduped;
-};
-
-const parseConfigPatchBody = (
-    request: FastifyRequest,
-    reply: FastifyReply,
-): DashboardConfigPatch | undefined => {
-    const body = getRequestBody(request);
-    if (!body || Array.isArray(body)) {
-        sendError(reply, 400, "invalid_request_body");
-        return undefined;
-    }
-
-    const allowedFields = new Set([
-        "compareModeDefault",
-        "compareAccessMode",
-        "comparePublicPostingEnabled",
-        "autoRecapMode",
-        "autoRecapChannelIds",
-        "defaultGameFamily",
-    ]);
-    for (const field of Object.keys(body)) {
-        if (!allowedFields.has(field)) {
-            sendError(reply, 400, "unknown_field");
-            return undefined;
-        }
-    }
-
-    const update: DashboardConfigPatch = {};
-    if ("compareModeDefault" in body && body.compareModeDefault !== undefined) {
-        const parsed = parseCompareMode(body.compareModeDefault);
-        if (!parsed) {
-            sendError(reply, 400, "invalid_compare_mode_default");
-            return undefined;
-        }
-        update.compareModeDefault = parsed;
-    }
-
-    if ("compareAccessMode" in body && body.compareAccessMode !== undefined) {
-        const parsed = parseCompareAccessMode(body.compareAccessMode);
-        if (!parsed) {
-            sendError(reply, 400, "invalid_compare_access_mode");
-            return undefined;
-        }
-        update.compareAccessMode = parsed;
-    }
-
-    if (
-        "comparePublicPostingEnabled" in body &&
-        body.comparePublicPostingEnabled !== undefined
-    ) {
-        if (typeof body.comparePublicPostingEnabled !== "boolean") {
-            sendError(reply, 400, "invalid_compare_public_posting_enabled");
-            return undefined;
-        }
-        update.comparePublicPostingEnabled = body.comparePublicPostingEnabled;
-    }
-
-    if ("autoRecapMode" in body && body.autoRecapMode !== undefined) {
-        const parsed = parseAutoRecapMode(body.autoRecapMode);
-        if (!parsed) {
-            sendError(reply, 400, "invalid_auto_recap_mode");
-            return undefined;
-        }
-        update.autoRecapMode = parsed;
-    }
-
-    if ("autoRecapChannelIds" in body && body.autoRecapChannelIds !== undefined) {
-        const parsed = parseAutoRecapChannelIds(body.autoRecapChannelIds);
-        if (parsed === "invalid") {
-            sendError(reply, 400, "invalid_auto_recap_channel_ids");
-            return undefined;
-        }
-        update.autoRecapChannelIds = parsed;
-    }
-
-    if ("defaultGameFamily" in body && body.defaultGameFamily !== undefined) {
-        const parsed = parseGameFamily(body.defaultGameFamily);
-        if (!parsed) {
-            sendError(reply, 400, "invalid_default_game_family");
-            return undefined;
-        }
-        update.defaultGameFamily = parsed;
-    }
-
-    return update;
-};
+export { compareDashboardAdminSecret, DASHBOARD_COOKIE_NAME };
+export type {
+    DashboardActivityRecord,
+    DashboardActivityStore,
+    DashboardAuthContext,
+    DashboardCapability,
+    DashboardCharacterClaimStore,
+    DashboardDirectory,
+    DashboardGuildConfigStore,
+    DashboardGuildConfigSummary,
+    DashboardOnboardingStore,
+} from "./dashboard/types.js";
 
 export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> = async (
     app,
     options,
 ) => {
     const authPreHandler = requireDashboardAuth(options.env);
-    const mutationPreHandlers = [authPreHandler, requireDashboardMutationHeader];
+    const mutationPreHandlers = [authPreHandler, requireDashboardMutationSafety];
+    const resolveDirectory = options.directoryResolver ?? defaultDirectoryResolver(options.env);
 
-    // Login is the unauthenticated session-establishment endpoint, so it is
-    // intentionally exempt from the dashboard mutation header.
     app.post("/api/dashboard/login", async (request, reply) => {
-        if (options.env.DASHBOARD_AUTH_DISABLED) {
-            return reply.send({ ok: true });
-        }
+        if (options.env.DASHBOARD_AUTH_DISABLED) return reply.send({ ok: true });
 
         const body = getRequestBody(request);
         const submittedSecret =
@@ -328,21 +93,90 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
         }
 
         const expiresAtMs = Date.now() + DASHBOARD_SESSION_TTL_MS;
-        reply.setCookie(DASHBOARD_COOKIE_NAME, `dashboard:v1:${expiresAtMs}`, {
+        setDashboardCookie(reply, options.env, `dashboard:v1:${expiresAtMs}`);
+        return reply.send({ ok: true });
+    });
+
+    app.get("/api/dashboard/discord/login", async (_request, reply) => {
+        if (!options.env.DISCORD_CLIENT_SECRET || !options.env.DISCORD_OAUTH_REDIRECT_URI) {
+            return sendError(reply, 503, "discord_login_not_configured");
+        }
+
+        const state = crypto.randomBytes(24).toString("base64url");
+        storeOAuthState(state);
+        reply.setCookie(DASHBOARD_OAUTH_STATE_COOKIE_NAME, state, {
             httpOnly: true,
             signed: true,
-            sameSite: "strict",
+            sameSite: "lax",
             secure: options.env.NODE_ENV === "production",
-            path: DASHBOARD_COOKIE_PATH,
-            maxAge: DASHBOARD_SESSION_TTL_MS / 1000,
+            path: "/api/dashboard/discord/callback",
+            maxAge: DASHBOARD_OAUTH_STATE_TTL_MS / 1000,
         });
-        return reply.send({ ok: true });
+
+        const authorizeUrl = new URL("https://discord.com/oauth2/authorize");
+        authorizeUrl.searchParams.set("response_type", "code");
+        authorizeUrl.searchParams.set("client_id", options.env.DISCORD_APPLICATION_ID);
+        authorizeUrl.searchParams.set("scope", "identify guilds");
+        authorizeUrl.searchParams.set("redirect_uri", options.env.DISCORD_OAUTH_REDIRECT_URI);
+        authorizeUrl.searchParams.set("state", state);
+        return reply.redirect(authorizeUrl.toString());
+    });
+
+    app.get("/api/dashboard/discord/callback", async (request, reply) => {
+        const query =
+            typeof request.query === "object" && request.query !== null
+                ? (request.query as Record<string, unknown>)
+                : {};
+        const code = typeof query.code === "string" ? query.code : "";
+        const state = typeof query.state === "string" ? query.state : "";
+        const rawStateCookie = request.cookies[DASHBOARD_OAUTH_STATE_COOKIE_NAME];
+        const unsignedState = rawStateCookie ? request.unsignCookie(rawStateCookie) : null;
+        reply.clearCookie(DASHBOARD_OAUTH_STATE_COOKIE_NAME, {
+            path: "/api/dashboard/discord/callback",
+        });
+
+        if (!code || !state || !unsignedState?.valid || unsignedState.value !== state) {
+            return sendError(reply, 400, "invalid_oauth_state");
+        }
+
+        if (!consumeOAuthState(state)) {
+            return sendError(reply, 400, "invalid_oauth_state");
+        }
+
+        const accessToken = await exchangeDiscordCode(options.env, code);
+        if (!accessToken) return sendError(reply, 401, "discord_oauth_failed");
+
+        const [rawUser, rawGuilds] = await Promise.all([
+            fetchDiscordBearerJson("/users/@me", accessToken),
+            fetchDiscordBearerJson("/users/@me/guilds", accessToken),
+        ]);
+        const user = parseDiscordUser(rawUser);
+        if (!user || !Array.isArray(rawGuilds)) {
+            return sendError(reply, 401, "discord_oauth_failed");
+        }
+
+        const oauthGuildsById: Record<string, DashboardOAuthGuild> = {};
+        for (const rawGuild of rawGuilds) {
+            const guild = parseOAuthGuild(rawGuild);
+            if (guild) oauthGuildsById[guild.id] = guild;
+        }
+
+        const { sessionId, sessionExpiresAtMs } = createDiscordSession({
+            kind: "discord",
+            discordUserId: user.id,
+            username: user.username,
+            displayName: user.displayName,
+            oauthGuildsById,
+        });
+        setDashboardCookie(reply, options.env, `dashboard:v2:${sessionId}:${sessionExpiresAtMs}`);
+        return reply.redirect("/dashboard");
     });
 
     app.post(
         "/api/dashboard/logout",
         { preHandler: mutationPreHandlers },
-        async (_request, reply) => {
+        async (request: DashboardAuthedRequest, reply) => {
+            deleteDiscordSessionFromCookie(request);
             reply.clearCookie(DASHBOARD_COOKIE_NAME, { path: DASHBOARD_COOKIE_PATH });
             return reply.send({ ok: true });
         },
@@ -354,21 +188,52 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
         async (request: DashboardAuthedRequest, reply) =>
             reply.send({
                 authenticated: true,
-                auth: request.dashboardAuth ?? dashboardAuthContext,
+                auth: publicAuthContext(request.dashboardAuth ?? dashboardAuthContext),
             }),
     );
 
     app.get(
         "/api/dashboard/guilds",
         { preHandler: authPreHandler },
-        async (_request, reply) =>
-            reply.send({ guilds: await options.guildConfigStore.listGuildConfigSummaries() }),
+        async (request: DashboardAuthedRequest, reply) => {
+            const auth = request.dashboardAuth ?? dashboardAuthContext;
+            if (auth.kind === "admin-secret") {
+                const summaries = await options.guildConfigStore.listGuildConfigSummaries();
+                return reply.send({
+                    guilds: summaries.map((summary) => ({
+                        ...summary,
+                        capabilities: ADMIN_CAPABILITIES,
+                    })),
+                });
+            }
+
+            const allowedGuildIds = Object.keys(auth.oauthGuildsById);
+            const summaries = await options.guildConfigStore.listGuildConfigSummariesForGuilds(
+                allowedGuildIds,
+            );
+            const visible: DashboardGuildConfigSummary[] = [];
+            for (const summary of summaries) {
+                const oauthGuild = auth.oauthGuildsById[summary.guildId];
+                if (!oauthGuild) continue;
+                const config = await options.guildConfigStore.getExistingGuildConfig(summary.guildId);
+                if (!config) continue;
+                const capabilities = getEffectiveCapabilities(auth, summary.guildId, config);
+                if (capabilities.length === 0) continue;
+                visible.push({
+                    ...summary,
+                    guildName: oauthGuild.name,
+                    capabilities,
+                });
+            }
+            return reply.send({ guilds: visible });
+        },
     );
 
     app.post(
         "/api/dashboard/guilds",
         { preHandler: mutationPreHandlers },
-        async (request, reply) => {
+        async (request: DashboardAuthedRequest, reply) => {
+            if (!requireAdminSecret(request, reply)) return reply;
             const parsed = parseGuildCreateBody(request, reply);
             if (!parsed) return reply;
             const config = await options.guildConfigStore.createDefaultGuildConfig(parsed.guildId);
@@ -379,11 +244,17 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
     app.get(
         "/api/dashboard/guilds/:guildId/config",
         { preHandler: authPreHandler },
-        async (request, reply) => {
+        async (request: DashboardAuthedRequest, reply) => {
             const guildId = readGuildIdFromParams(request, reply);
             if (!guildId) return reply;
-            const config = await options.guildConfigStore.getExistingGuildConfig(guildId);
-            if (!config) return sendError(reply, 404, "guild_config_not_found");
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "settings:view",
+            );
+            if (!config) return reply;
             return reply.send({ config });
         },
     );
@@ -391,17 +262,27 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
     app.patch(
         "/api/dashboard/guilds/:guildId/config",
         { preHandler: mutationPreHandlers },
-        async (request, reply) => {
+        async (request: DashboardAuthedRequest, reply) => {
             const guildId = readGuildIdFromParams(request, reply);
             if (!guildId) return reply;
+            const existingConfig = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "settings:edit",
+            );
+            if (!existingConfig) return reply;
             const update = parseConfigPatchBody(request, reply);
             if (!update) return reply;
 
-            const config = await options.guildConfigStore.saveExistingGuildConfig(
-                guildId,
-                update,
-            );
+            const config = await options.guildConfigStore.saveExistingGuildConfig(guildId, update);
             if (!config) return sendError(reply, 404, "guild_config_not_found");
+            await recordActivity(options.activityStore, {
+                guildId,
+                actor: actorFromSession(requireRequestAuthContext(request)),
+                kind: "config_updated",
+            });
             return reply.send({ config });
         },
     );
@@ -409,14 +290,28 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
     app.post(
         "/api/dashboard/guilds/:guildId/officers/:discordUserId",
         { preHandler: mutationPreHandlers },
-        async (request, reply) => {
+        async (request: DashboardAuthedRequest, reply) => {
             const params = readGuildAndUserIdsFromParams(request, reply);
             if (!params) return reply;
+            const existingConfig = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                params.guildId,
+                "officers:manage",
+            );
+            if (!existingConfig) return reply;
             const config = await options.guildConfigStore.addOfficerToExistingGuild(
                 params.guildId,
                 params.discordUserId,
             );
             if (!config) return sendError(reply, 404, "guild_config_not_found");
+            await recordActivity(options.activityStore, {
+                guildId: params.guildId,
+                actor: actorFromSession(requireRequestAuthContext(request)),
+                kind: "officer_added",
+                targetDiscordUserId: params.discordUserId,
+            });
             return reply.send({ config });
         },
     );
@@ -424,15 +319,303 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
     app.delete(
         "/api/dashboard/guilds/:guildId/officers/:discordUserId",
         { preHandler: mutationPreHandlers },
-        async (request, reply) => {
+        async (request: DashboardAuthedRequest, reply) => {
             const params = readGuildAndUserIdsFromParams(request, reply);
             if (!params) return reply;
+            const existingConfig = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                params.guildId,
+                "officers:manage",
+            );
+            if (!existingConfig) return reply;
             const config = await options.guildConfigStore.removeOfficerFromExistingGuild(
                 params.guildId,
                 params.discordUserId,
             );
             if (!config) return sendError(reply, 404, "guild_config_not_found");
+            await recordActivity(options.activityStore, {
+                guildId: params.guildId,
+                actor: actorFromSession(requireRequestAuthContext(request)),
+                kind: "officer_removed",
+                targetDiscordUserId: params.discordUserId,
+            });
             return reply.send({ config });
+        },
+    );
+
+    app.delete(
+        "/api/dashboard/guilds/:guildId",
+        { preHandler: mutationPreHandlers },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            if (!guildId) return reply;
+            const existingConfig = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "guild:delete",
+            );
+            if (!existingConfig) return reply;
+            const deleted = options.guildConfigStore.deconfigureExistingGuild
+                ? await options.guildConfigStore.deconfigureExistingGuild(guildId)
+                : false;
+            if (!deleted) return sendError(reply, 404, "guild_config_not_found");
+            clearDiscordSessionsForGuild(guildId);
+            await Promise.all([
+                options.activityStore?.archiveGuildActivity?.(guildId),
+                options.onboardingStore?.archiveGuildOnboarding?.(guildId),
+            ]);
+            return reply.send({ ok: true });
+        },
+    );
+
+    app.get(
+        "/api/dashboard/guilds/:guildId/claims",
+        { preHandler: authPreHandler },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            if (!guildId) return reply;
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "claims:view",
+            );
+            if (!config) return reply;
+            const status =
+                typeof (request.query as { status?: unknown } | null)?.status === "string"
+                    ? (request.query as { status: string }).status
+                    : "pending";
+            if (status !== "pending" && status !== "approved" && status !== "revoked") {
+                return sendError(reply, 400, "invalid_claim_status");
+            }
+            if (!options.characterClaimStore) return reply.send({ claims: [] });
+            const claims = await options.characterClaimStore.listClaimsByStatus({
+                guildId,
+                status,
+            });
+            return reply.send({ claims: claims.map(serializeClaim) });
+        },
+    );
+
+    app.post(
+        "/api/dashboard/guilds/:guildId/claims/:claimId/approve",
+        { preHandler: mutationPreHandlers },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            const claimId = getStringParam(request, "claimId");
+            if (!guildId) return reply;
+            if (!claimId || !isValidClaimId(claimId)) return sendError(reply, 400, "invalid_claim_id");
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "claims:approve",
+            );
+            if (!config) return reply;
+            if (!options.characterClaimStore) return sendError(reply, 501, "claims_unavailable");
+            const claim = await options.characterClaimStore.approveClaimById({
+                guildId,
+                claimId,
+                reviewedByDiscordUserId: actorDiscordUserId(request.dashboardAuth),
+            });
+            if (!claim) return sendError(reply, 404, "claim_not_found");
+            await recordActivity(options.activityStore, {
+                guildId,
+                actor: actorFromSession(requireRequestAuthContext(request)),
+                kind: "claim_approved",
+                characterLabel: `${claim.characterName} - ${claim.realm}-${claim.region}`,
+                targetDiscordUserId: claim.discordUserId,
+            });
+            return reply.send({ claim: serializeClaim(claim) });
+        },
+    );
+
+    app.post(
+        "/api/dashboard/guilds/:guildId/claims/:claimId/reject",
+        { preHandler: mutationPreHandlers },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            const claimId = getStringParam(request, "claimId");
+            if (!guildId) return reply;
+            if (!claimId || !isValidClaimId(claimId)) return sendError(reply, 400, "invalid_claim_id");
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "claims:reject",
+            );
+            if (!config) return reply;
+            if (!options.characterClaimStore) return sendError(reply, 501, "claims_unavailable");
+            const claim = await options.characterClaimStore.rejectClaimById({
+                guildId,
+                claimId,
+                reviewedByDiscordUserId: actorDiscordUserId(request.dashboardAuth),
+            });
+            if (!claim) return sendError(reply, 404, "claim_not_found");
+            await recordActivity(options.activityStore, {
+                guildId,
+                actor: actorFromSession(requireRequestAuthContext(request)),
+                kind: "claim_rejected",
+                characterLabel: `${claim.characterName} - ${claim.realm}-${claim.region}`,
+                targetDiscordUserId: claim.discordUserId,
+            });
+            return reply.send({ claim: serializeClaim(claim) });
+        },
+    );
+
+    app.post(
+        "/api/dashboard/guilds/:guildId/claims/:claimId/revoke",
+        { preHandler: mutationPreHandlers },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            const claimId = getStringParam(request, "claimId");
+            if (!guildId) return reply;
+            if (!claimId || !isValidClaimId(claimId)) return sendError(reply, 400, "invalid_claim_id");
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "claims:revoke",
+            );
+            if (!config) return reply;
+            const body = getRequestBody(request);
+            const revokeReason =
+                typeof body?.revokeReason === "string" ? body.revokeReason.trim() : undefined;
+            if (revokeReason && !allowedRevokeReasons.has(revokeReason)) {
+                return sendError(reply, 400, "invalid_revoke_reason");
+            }
+            if (!options.characterClaimStore) return sendError(reply, 501, "claims_unavailable");
+            const claim = await options.characterClaimStore.revokeClaimById({
+                guildId,
+                claimId,
+                revokedByDiscordUserId: actorDiscordUserId(request.dashboardAuth),
+                ...(revokeReason ? { revokeReason } : {}),
+            });
+            if (!claim) return sendError(reply, 404, "claim_not_found");
+            await recordActivity(options.activityStore, {
+                guildId,
+                actor: actorFromSession(requireRequestAuthContext(request)),
+                kind: "claim_revoked",
+                characterLabel: `${claim.characterName} - ${claim.realm}-${claim.region}`,
+                targetDiscordUserId: claim.discordUserId,
+            });
+            const notified = await notifyClaimRevoked(options.env, claim);
+            return reply.send({ claim: serializeClaim(claim), notified });
+        },
+    );
+
+    app.get(
+        "/api/dashboard/guilds/:guildId/activity",
+        { preHandler: authPreHandler },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            if (!guildId) return reply;
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "activity:view",
+            );
+            if (!config) return reply;
+            const activity = options.activityStore
+                ? await options.activityStore.listActivity({ guildId, limit: 50 })
+                : [];
+            return reply.send({ activity: activity.map(serializeActivity) });
+        },
+    );
+
+    app.get(
+        "/api/dashboard/guilds/:guildId/directory",
+        { preHandler: authPreHandler },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            if (!guildId) return reply;
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "directory:view",
+            );
+            if (!config) return reply;
+            const [claims, activity] = await Promise.all([
+                getClaimsForDirectory(options.characterClaimStore, guildId),
+                options.activityStore?.listActivity({ guildId, limit: 100 }) ?? [],
+            ]);
+            return reply.send({
+                directory: await resolveDirectory({ guildId, config, claims, activity }),
+            });
+        },
+    );
+
+    app.get(
+        "/api/dashboard/guilds/:guildId/onboarding",
+        { preHandler: authPreHandler },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            if (!guildId) return reply;
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "settings:view",
+            );
+            if (!config) return reply;
+            const auth = request.dashboardAuth ?? dashboardAuthContext;
+            const userKey = onboardingUserKey(auth);
+            const state = options.onboardingStore
+                ? await options.onboardingStore.getOnboardingState({
+                      userKey,
+                      guildId,
+                      onboardingVersion: ONBOARDING_VERSION,
+                  })
+                : defaultOnboardingState(userKey, guildId);
+            return reply.send({ onboarding: state });
+        },
+    );
+
+    app.patch(
+        "/api/dashboard/guilds/:guildId/onboarding",
+        { preHandler: mutationPreHandlers },
+        async (request: DashboardAuthedRequest, reply) => {
+            const guildId = readGuildIdFromParams(request, reply);
+            if (!guildId) return reply;
+            const config = await requireGuildCapability(
+                request,
+                reply,
+                options,
+                guildId,
+                "settings:view",
+            );
+            if (!config) return reply;
+            const body = getRequestBody(request);
+            const seenSteps = Array.isArray(body?.seenSteps)
+                ? body.seenSteps.filter((step): step is string => typeof step === "string")
+                : [];
+            const dismissed = body?.dismissed === true;
+            const auth = request.dashboardAuth ?? dashboardAuthContext;
+            const userKey = onboardingUserKey(auth);
+            const state: DashboardOnboardingState = {
+                userKey,
+                guildId,
+                seenSteps: [...new Set(seenSteps)],
+                onboardingVersion: ONBOARDING_VERSION,
+                ...(dismissed ? { dismissedAt: new Date() } : {}),
+            };
+            const saved = options.onboardingStore
+                ? await options.onboardingStore.saveOnboardingState(state)
+                : state;
+            return reply.send({ onboarding: saved });
         },
     );
 };

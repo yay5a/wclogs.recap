@@ -599,6 +599,7 @@ describe('handleInteraction', () => {
     compareModeDefault: 'character',
     compareAccessMode: 'officer_only',
     compareOfficerUserIds: [],
+    dashboardOfficerAccessEnabled: false,
     comparePublicPostingEnabled: false,
     accountabilityVisibility: 'off',
     coachingShareabilityDefault: 'private',
@@ -672,7 +673,7 @@ describe('handleInteraction', () => {
     }> = {},
   ) => ({
     requestCharacterClaim: vi.fn().mockResolvedValue(undefined),
-    approveCharacterClaim: vi.fn().mockResolvedValue(undefined),
+    approveCharacterClaim: vi.fn().mockResolvedValue(null),
     rejectCharacterClaim: vi.fn().mockResolvedValue(undefined),
     findApprovedClaimForUserCharacter: vi.fn().mockResolvedValue(null),
     findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([]),
@@ -792,6 +793,7 @@ describe('handleInteraction', () => {
     guildConfigStore = makeGuildConfigStore(),
     characterClaimStore = makeClaimedCompareStore(),
     editFetch,
+    botActivityStore,
   }: {
     report?: NormalizedReport;
     history: ComparisonSnapshotInput[];
@@ -800,6 +802,7 @@ describe('handleInteraction', () => {
     guildConfigStore?: GuildConfigStore;
     characterClaimStore?: ReturnType<typeof makeCharacterClaimStore>;
     editFetch?: ReturnType<typeof vi.fn>;
+    botActivityStore?: { recordActivity: ReturnType<typeof vi.fn> };
   }) => {
     const wclClient = {
       fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
@@ -826,6 +829,7 @@ describe('handleInteraction', () => {
       recapPreviewStateService: makeRecapPreviewStateService(),
       comparisonHistoryStore,
       characterClaimStore,
+      botActivityStore,
     });
 
     expect(response).toMatchObject({
@@ -1455,6 +1459,7 @@ describe('handleInteraction', () => {
 
   it('lets a member request an exact character claim', async () => {
     const characterClaimStore = makeCharacterClaimStore();
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
 
     const response = await handleInteraction(
       {
@@ -1475,6 +1480,7 @@ describe('handleInteraction', () => {
         guildConfigStore: makeGuildConfigStore(),
         recapPreviewStateService: makeRecapPreviewStateService(),
         characterClaimStore,
+        botActivityStore,
       },
     );
 
@@ -1486,6 +1492,54 @@ describe('handleInteraction', () => {
       realm: 'Stormrage',
       region: 'US',
     });
+    expect(botActivityStore.recordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: 'guild-1',
+        actor: { kind: 'discord', discordUserId: 'user-1' },
+        kind: 'claim_requested',
+        characterLabel: 'Alyra - Stormrage-US',
+        targetDiscordUserId: 'user-1',
+      }),
+    );
+    expect(response).toMatchObject({
+      data: {
+        content:
+          'Character claim requested. An authorized officer must approve it before comparisons are available.',
+        flags: 64,
+      },
+    });
+  });
+
+  it('keeps claim request success separate from dashboard activity failures', async () => {
+    const characterClaimStore = makeCharacterClaimStore();
+    const botActivityStore = { recordActivity: vi.fn().mockRejectedValue(new Error('activity down')) };
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        id: 'claim-interaction-1',
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' } },
+        data: {
+          name: 'claim_character',
+          options: [
+            { name: 'character', value: 'Alyra' },
+            { name: 'realm', value: 'Stormrage' },
+            { name: 'region', value: 'US' },
+          ],
+        },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        characterClaimStore,
+        botActivityStore,
+      },
+    );
+
+    expect(characterClaimStore.requestCharacterClaim).toHaveBeenCalledOnce();
+    expect(botActivityStore.recordActivity).toHaveBeenCalledOnce();
     expect(response).toMatchObject({
       data: {
         content:
@@ -1528,7 +1582,10 @@ describe('handleInteraction', () => {
       },
     });
 
-    const approvedStore = makeCharacterClaimStore();
+    const approvedStore = makeCharacterClaimStore({
+      approveCharacterClaim: vi.fn().mockResolvedValue(makeApprovedClaim()),
+    });
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
     const approved = await handleInteraction(
       {
         type: InteractionType.APPLICATION_COMMAND,
@@ -1549,6 +1606,7 @@ describe('handleInteraction', () => {
         guildConfigStore: makeGuildConfigStore(),
         recapPreviewStateService: makeRecapPreviewStateService(),
         characterClaimStore: approvedStore,
+        botActivityStore,
       },
     );
 
@@ -1560,9 +1618,57 @@ describe('handleInteraction', () => {
         reviewedByDiscordUserId: 'officer-1',
       }),
     );
+    expect(botActivityStore.recordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: 'guild-1',
+        actor: { kind: 'discord', discordUserId: 'officer-1' },
+        kind: 'claim_approved',
+        characterLabel: 'Alyra - Stormrage-US',
+        targetDiscordUserId: 'user-1',
+      }),
+    );
     expect(approved).toMatchObject({
       data: {
         content: 'Character claim approved for the exact character identity.',
+        flags: 64,
+      },
+    });
+  });
+
+  it('does not approve or log activity when no pending claim exists', async () => {
+    const characterClaimStore = makeCharacterClaimStore({
+      approveCharacterClaim: vi.fn().mockResolvedValue(null),
+    });
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'officer-1' }, permissions: '32' },
+        data: {
+          name: 'approve_character',
+          options: [
+            { name: 'user', value: 'user-1' },
+            { name: 'character', value: 'Alyra' },
+            { name: 'realm', value: 'Stormrage' },
+            { name: 'region', value: 'US' },
+          ],
+        },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService: makeRecapPreviewStateService(),
+        characterClaimStore,
+        botActivityStore,
+      },
+    );
+
+    expect(characterClaimStore.approveCharacterClaim).toHaveBeenCalledOnce();
+    expect(botActivityStore.recordActivity).not.toHaveBeenCalled();
+    expect(response).toMatchObject({
+      data: {
+        content: 'No pending character claim was found for that exact character identity.',
         flags: 64,
       },
     });
@@ -1603,7 +1709,9 @@ describe('handleInteraction', () => {
       },
     });
 
-    const explicitOfficerStore = makeCharacterClaimStore();
+    const explicitOfficerStore = makeCharacterClaimStore({
+      approveCharacterClaim: vi.fn().mockResolvedValue(makeApprovedClaim()),
+    });
     const explicitOfficer = await handleInteraction(
       {
         type: InteractionType.APPLICATION_COMMAND,
@@ -1653,6 +1761,7 @@ describe('handleInteraction', () => {
         }),
       ),
     });
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
 
     const response = await handleInteraction(
       {
@@ -1676,6 +1785,7 @@ describe('handleInteraction', () => {
         }),
         recapPreviewStateService: makeRecapPreviewStateService(),
         characterClaimStore,
+        botActivityStore,
       },
     );
 
@@ -1685,6 +1795,15 @@ describe('handleInteraction', () => {
         discordUserId: 'user-1',
         participantKey: 'character:us:stormrage:alyra',
         reviewedByDiscordUserId: 'officer-1',
+      }),
+    );
+    expect(botActivityStore.recordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: 'guild-1',
+        actor: { kind: 'discord', discordUserId: 'officer-1' },
+        kind: 'claim_rejected',
+        characterLabel: 'Alyra - Stormrage-US',
+        targetDiscordUserId: 'user-1',
       }),
     );
     expect(response).toMatchObject({
@@ -2120,6 +2239,7 @@ describe('handleInteraction', () => {
       findApprovedClaimForUserCharacter: vi.fn().mockResolvedValue(makeApprovedClaim()),
       findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([makeApprovedClaim()]),
     });
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
 
     const { body, editFetch } = await runDeferredCompare({
       history: [
@@ -2133,6 +2253,7 @@ describe('handleInteraction', () => {
       }),
       guildConfigStore,
       characterClaimStore,
+      botActivityStore,
     });
 
     const postCall = editFetch.mock.calls.find(
@@ -2162,6 +2283,53 @@ describe('handleInteraction', () => {
       'Posting comparison...',
       'Comparison posted to this channel.',
     ]);
+    expect(botActivityStore.recordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        actor: { kind: 'discord', discordUserId: 'user-1' },
+        kind: 'public_comparison_posted',
+        reportCode: 'ABC123',
+      }),
+    );
+    expect(body).toMatchObject({
+      content: 'Comparison posted to this channel.',
+      flags: 64,
+    });
+  });
+
+  it('keeps public compare success when activity recording fails', async () => {
+    const guildConfigStore: GuildConfigStore = {
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'character',
+        compareAccessMode: 'owner_only',
+        comparePublicPostingEnabled: true,
+        accountabilityVisibility: 'off',
+        coachingShareabilityDefault: 'private',
+        recapPostModeDefault: 'preview-and-post',
+      }),
+      saveGuildConfig: vi.fn(),
+    };
+    const characterClaimStore = makeCharacterClaimStore({
+      findApprovedClaimForUserCharacter: vi.fn().mockResolvedValue(makeApprovedClaim()),
+      findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([makeApprovedClaim()]),
+    });
+    const botActivityStore = { recordActivity: vi.fn().mockRejectedValue(new Error('activity down')) };
+
+    const { body } = await runDeferredCompare({
+      history: [makeHistorySnapshot()],
+      interaction: makeCompareInteraction('character', 'Alyra', {
+        visibility: 'public',
+        member: { user: { id: 'user-1' } },
+      }),
+      guildConfigStore,
+      characterClaimStore,
+      botActivityStore,
+    });
+
+    expect(botActivityStore.recordActivity).toHaveBeenCalledOnce();
     expect(body).toMatchObject({
       content: 'Comparison posted to this channel.',
       flags: 64,
@@ -2238,6 +2406,55 @@ describe('handleInteraction', () => {
 
     expect(body).toMatchObject({
       content: 'Comparison was authorized, but public posting failed. Please try again.',
+      flags: 64,
+    });
+  });
+
+  it('does not record private compare activity when the Discord edit fails', async () => {
+    const guildConfigStore: GuildConfigStore = {
+      getGuildConfig: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        compareModeDefault: 'character',
+        compareAccessMode: 'owner_or_officer',
+        comparePublicPostingEnabled: false,
+        accountabilityVisibility: 'off',
+        coachingShareabilityDefault: 'private',
+        recapPostModeDefault: 'preview-and-post',
+      }),
+      saveGuildConfig: vi.fn(),
+    };
+    const characterClaimStore = makeCharacterClaimStore({
+      findApprovedClaimForUserCharacter: vi.fn().mockResolvedValue(makeApprovedClaim()),
+      findApprovedClaimsForParticipant: vi.fn().mockResolvedValue([makeApprovedClaim()]),
+    });
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
+    const editFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeDiscordFetchResponse({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          body: 'unknown interaction',
+        }),
+      )
+      .mockResolvedValueOnce(makeDiscordFetchResponse());
+
+    const { body } = await runDeferredCompare({
+      history: [makeHistorySnapshot()],
+      interaction: makeCompareInteraction('character', 'Alyra', {
+        member: { user: { id: 'user-1' } },
+      }),
+      guildConfigStore,
+      characterClaimStore,
+      editFetch,
+      botActivityStore,
+    });
+
+    expect(botActivityStore.recordActivity).not.toHaveBeenCalled();
+    expect(body).toMatchObject({
+      content: 'Could not build comparison for that report. Please verify the URL and try again.',
       flags: 64,
     });
   });
@@ -3054,6 +3271,75 @@ describe('handleInteraction', () => {
     });
   });
 
+  it('does not record duplicate auto recap preview activity when the Discord edit fails', async () => {
+    const getByConfirmationNonce = vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+      reportCode: 'ABC123',
+      gameFamily: 'retail',
+      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+      sourceMessageId: 'source-message-1',
+      sourceAuthorId: 'user-1',
+      mode: 'prompt',
+      status: 'prompted',
+      confirmationNonce: 'nonce-1',
+      expiresAt: new Date(Date.now() + 60_000),
+    });
+    const editFetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeDiscordFetchResponse({
+          ok: false,
+          status: 404,
+          statusText: 'Not Found',
+          body: 'unknown interaction',
+        }),
+      )
+      .mockResolvedValueOnce(makeDiscordFetchResponse());
+    vi.stubGlobal('fetch', editFetch);
+    const scheduleBackgroundTask = vi.fn((task: () => void) => task());
+    const recapPreviewStateService = makeRecapPreviewStateService();
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.MESSAGE_COMPONENT,
+        id: 'interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        member: { user: { id: 'clicker-1' } },
+        data: { custom_id: makeAutoRecapDuplicateCustomId('p', 'nonce-1') },
+      },
+      {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
+          findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+        } as never,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService,
+        autoRecapDuplicateTrackingService: {
+          claimPassiveDetection: vi.fn(),
+          getByConfirmationNonce,
+          updateTracking: vi.fn().mockResolvedValue(null),
+        },
+        scheduleBackgroundTask,
+        botActivityStore,
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { flags: 64 },
+    });
+    await vi.waitFor(() => {
+      expect(editFetch).toHaveBeenCalledTimes(2);
+    });
+    expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
+    expect(botActivityStore.recordActivity).not.toHaveBeenCalled();
+  });
+
   it('defers auto recap prompt preview ephemerally and edits with the preview', async () => {
     const wclClient = {
       fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
@@ -3082,6 +3368,7 @@ describe('handleInteraction', () => {
     });
     vi.stubGlobal('fetch', editFetch);
     const scheduleBackgroundTask = vi.fn((task: () => void) => task());
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
 
     const response = await handleInteraction(
       {
@@ -3100,6 +3387,7 @@ describe('handleInteraction', () => {
         recapPreviewStateService,
         autoRecapPromptStateService,
         scheduleBackgroundTask,
+        botActivityStore,
       },
     );
 
@@ -3123,6 +3411,16 @@ describe('handleInteraction', () => {
       );
     });
     expect(parseEditedOriginalResponseBody(editFetch).flags).toBe(64);
+    expect(botActivityStore.recordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        actor: { kind: 'discord', discordUserId: 'clicker-1' },
+        kind: 'recap_preview_created',
+        reportCode: 'ABC123',
+        sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+      }),
+    );
   });
 
   it('records ignored auto recap prompts', async () => {
@@ -3375,6 +3673,81 @@ describe('handleInteraction', () => {
     );
   });
 
+  it('keys passive auto recap activity by source message so distinct messages stay distinct', async () => {
+    const channel = {
+      send: vi
+        .fn()
+        .mockResolvedValueOnce({ id: 'preview-message-1' })
+        .mockResolvedValueOnce({ id: 'preview-message-2' }),
+    };
+    const autoRecapDuplicateTrackingService = {
+      claimPassiveDetection: vi.fn().mockResolvedValue({ claimed: true, record: null }),
+      updateTracking: vi.fn().mockResolvedValue(null),
+    };
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
+    const handleOptions = {
+      wclClient: {
+        fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
+        findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+      } as never,
+      guildConfigStore: {
+        getGuildConfig: vi.fn().mockResolvedValue({
+          guildId: 'guild-1',
+          defaultGameFamily: 'retail',
+          compareModeDefault: 'character',
+          compareAccessMode: 'officer_only',
+          comparePublicPostingEnabled: false,
+          accountabilityVisibility: 'off',
+          coachingShareabilityDefault: 'private',
+          recapPostModeDefault: 'preview-and-post',
+          autoRecapMode: 'auto_preview',
+          autoRecapChannelIds: ['channel-1'],
+        }),
+        saveGuildConfig: vi.fn(),
+      },
+      recapPreviewStateService: makeRecapPreviewStateService(),
+      autoRecapDuplicateTrackingService,
+      botActivityStore,
+    };
+
+    await handleAutoRecapMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-1',
+        authorId: 'user-1',
+        content: 'https://www.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions,
+    });
+    await handleAutoRecapMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-2',
+        authorId: 'user-1',
+        content: 'https://www.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions,
+    });
+
+    expect(botActivityStore.recordActivity).toHaveBeenCalledTimes(2);
+    expect(botActivityStore.recordActivity).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        idempotencyKey: 'auto_recap_preview:guild-1:channel-1:ABC123:source-message-1',
+      }),
+    );
+    expect(botActivityStore.recordActivity).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        idempotencyKey: 'auto_recap_preview:guild-1:channel-1:ABC123:source-message-2',
+      }),
+    );
+  });
+
   it('does not repeat passive work when duplicate tracking reports an active record', async () => {
     const channel = { send: vi.fn().mockResolvedValue({ id: 'duplicate-message-1' }) };
     const autoRecapDuplicateTrackingService = {
@@ -3484,6 +3857,63 @@ describe('handleInteraction', () => {
     expect(autoRecapDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed' }),
     );
+  });
+
+  it('keeps recap preview success when activity recording fails', async () => {
+    const wclClient = {
+      fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
+      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+    } as never;
+    const recapPreviewStateService = makeRecapPreviewStateService();
+    const editFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    });
+    vi.stubGlobal('fetch', editFetch);
+    const scheduleBackgroundTask = vi.fn((task: () => void) => task());
+    const botActivityStore = { recordActivity: vi.fn().mockRejectedValue(new Error('activity down')) };
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        id: 'recap-interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        member: { user: { id: 'user-1' } },
+        data: {
+          name: 'recap',
+          options: [
+            {
+              name: 'url',
+              value: 'https://www.warcraftlogs.com/reports/ABC123',
+            },
+          ],
+        },
+      },
+      {
+        wclClient,
+        guildConfigStore: makeGuildConfigStore(),
+        recapPreviewStateService,
+        scheduleBackgroundTask,
+        botActivityStore,
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { flags: 64 },
+    });
+    await vi.waitFor(() => {
+      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
+      expect(editFetch).toHaveBeenCalledWith(
+        expect.stringContaining('/webhooks/app-1/token-1/messages/@original'),
+        expect.objectContaining({ method: 'PATCH' }),
+      );
+    });
+    expect(botActivityStore.recordActivity).toHaveBeenCalledOnce();
+    expect(editFetch).toHaveBeenCalledTimes(1);
   });
 
   it.each([

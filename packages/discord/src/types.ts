@@ -1,5 +1,6 @@
 import type {
     AutoRecapMode,
+    BotActivityStore,
     CharacterClaimStatus,
     ComparisonSnapshotInput,
     GameFamily,
@@ -141,6 +142,7 @@ export interface ComparisonHistoryStore {
 }
 
 export interface CharacterClaimRecord {
+    claimId: string;
     guildId: string;
     discordUserId: string;
     participantKey: string;
@@ -153,6 +155,9 @@ export interface CharacterClaimRecord {
     requestedAt: Date;
     reviewedAt?: Date;
     reviewedByDiscordUserId?: string;
+    revokedAt?: Date;
+    revokedByDiscordUserId?: string;
+    revokeReason?: string;
 }
 
 export interface CharacterClaimStore {
@@ -172,7 +177,7 @@ export interface CharacterClaimStore {
         region: string;
         realm: string;
         reviewedByDiscordUserId: string;
-    }): Promise<CharacterClaimRecord>;
+    }): Promise<CharacterClaimRecord | null>;
     rejectCharacterClaim(input: {
         guildId: string;
         discordUserId: string;
@@ -202,6 +207,26 @@ export interface CharacterClaimStore {
         guildId: string;
         discordUserId: string;
     }): Promise<CharacterClaimRecord[]>;
+    listClaimsByStatus?(input: {
+        guildId: string;
+        status: CharacterClaimStatus;
+    }): Promise<CharacterClaimRecord[]>;
+    approveClaimById?(input: {
+        guildId: string;
+        claimId: string;
+        reviewedByDiscordUserId?: string | undefined;
+    }): Promise<CharacterClaimRecord | null>;
+    rejectClaimById?(input: {
+        guildId: string;
+        claimId: string;
+        reviewedByDiscordUserId?: string | undefined;
+    }): Promise<CharacterClaimRecord | null>;
+    revokeClaimById?(input: {
+        guildId: string;
+        claimId: string;
+        revokedByDiscordUserId?: string | undefined;
+        revokeReason?: string | undefined;
+    }): Promise<CharacterClaimRecord | null>;
 }
 
 export interface HandleOptions {
@@ -210,6 +235,7 @@ export interface HandleOptions {
     recapPreviewStateService: RecapPreviewStateService;
     comparisonHistoryStore?: ComparisonHistoryStore;
     characterClaimStore?: CharacterClaimStore;
+    botActivityStore?: BotActivityStore | undefined;
     autoRecapPromptStateService?: AutoRecapPromptStateService;
     autoRecapDuplicateTrackingService?: AutoRecapDuplicateTrackingService;
     previewStateTtlSeconds?: number;

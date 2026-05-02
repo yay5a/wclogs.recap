@@ -3,11 +3,13 @@ import {
     MongoAutoRecapDuplicateTrackingStore,
     MongoAutoRecapPromptStateStore,
     MongoComparisonHistoryStore,
+    MongoDashboardActivityStore,
     MongoGuildConfigStore,
     MongoRecapPreviewStateStore,
     MongoTrendTrackingService,
     ReportCacheModel,
     connectMongo,
+    migrateCharacterClaimIdentityFields,
     migrateRecapPreviewStateIndexes,
 } from "@wcl/db";
 import type { AutoRecapSendableChannel } from "@wcl/discord";
@@ -159,6 +161,7 @@ const recapPreviewStateService = new MongoRecapPreviewStateStore();
 const autoRecapPromptStateService = new MongoAutoRecapPromptStateStore();
 const autoRecapDuplicateTrackingService = new MongoAutoRecapDuplicateTrackingStore();
 const comparisonHistoryStore = new MongoComparisonHistoryStore();
+const dashboardActivityStore = new MongoDashboardActivityStore();
 
 const reportCacheStore: ReportCacheStore = {
     async getByReportCode(reportCode: string) {
@@ -283,6 +286,7 @@ const startDiscordGateway = async (): Promise<Client> => {
                 autoRecapPromptStateService,
                 autoRecapDuplicateTrackingService,
                 comparisonHistoryStore,
+                botActivityStore: dashboardActivityStore,
             },
             failureThrottle,
         });
@@ -354,6 +358,7 @@ const processNext = async (): Promise<void> => {
 
 const start = async () => {
     await connectMongo(env.MONGODB_URI);
+    await migrateCharacterClaimIdentityFields();
     await migrateRecapPreviewStateIndexes();
     await startDiscordGateway();
     logger.info("worker started");

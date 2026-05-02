@@ -30,6 +30,10 @@ const parseStringArray = (value: unknown): string[] =>
     : [];
 const parseAutoRecapChannelIds = (value: unknown): string[] => parseStringArray(value);
 const parseBoolean = (value: unknown): boolean => (typeof value === 'boolean' ? value : false);
+const activeGuildFilter = (guildId: string) => ({
+  guildId,
+  $or: [{ dashboardDeconfiguredAt: { $exists: false } }, { dashboardDeconfiguredAt: null }],
+});
 
 const normalizeDiscordUserId = (discordUserId: string): string => {
   const normalized = discordUserId.trim();
@@ -53,6 +57,7 @@ const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
     autoRecapChannelIds: parseAutoRecapChannelIds(raw.autoRecapChannelIds),
     compareAccessMode: parseCompareAccessMode(raw.compareAccessMode) ?? fallback.compareAccessMode,
     compareOfficerUserIds: parseStringArray(raw.compareOfficerUserIds),
+    dashboardOfficerAccessEnabled: parseBoolean(raw.dashboardOfficerAccessEnabled),
     comparePublicPostingEnabled: parseBoolean(raw.comparePublicPostingEnabled),
   };
 };
@@ -64,6 +69,7 @@ type DashboardGuildConfigSummaryShape = {
   comparePublicPostingEnabled: boolean;
   autoRecapMode: AutoRecapMode;
   defaultGameFamily: GameFamily;
+  dashboardOfficerAccessEnabled: boolean;
   compareOfficerUserCount: number;
   autoRecapChannelCount: number;
   updatedAt?: string;
@@ -79,6 +85,7 @@ const toSummary = (doc: Record<string, unknown>): DashboardGuildConfigSummarySha
     comparePublicPostingEnabled: config.comparePublicPostingEnabled,
     autoRecapMode: config.autoRecapMode,
     defaultGameFamily: config.defaultGameFamily,
+    dashboardOfficerAccessEnabled: config.dashboardOfficerAccessEnabled,
     compareOfficerUserCount: config.compareOfficerUserIds.length,
     autoRecapChannelCount: config.autoRecapChannelIds.length,
   };
@@ -90,12 +97,30 @@ const toSummary = (doc: Record<string, unknown>): DashboardGuildConfigSummarySha
 
 export class MongoGuildConfigStore implements GuildConfigStore {
   public async getGuildConfig(guildId: string): Promise<GuildConfig> {
-    const existing = await GuildSettingsModel.findOne({ guildId }).lean();
+    const existing = await GuildSettingsModel.findOne(activeGuildFilter(guildId)).lean();
     return toGuildConfig(guildId, existing);
   }
 
   public async listGuildConfigSummaries(): Promise<DashboardGuildConfigSummaryShape[]> {
-    const docs = await GuildSettingsModel.find({}).lean();
+    const docs = await GuildSettingsModel.find({
+      $or: [{ dashboardDeconfiguredAt: { $exists: false } }, { dashboardDeconfiguredAt: null }],
+    }).lean();
+    return docs
+      .map((doc) => toSummary(doc as Record<string, unknown>))
+      .filter((summary): summary is DashboardGuildConfigSummaryShape => summary !== null)
+      .sort((left, right) => left.guildId.localeCompare(right.guildId));
+  }
+
+  public async listGuildConfigSummariesForGuilds(
+    guildIds: string[],
+  ): Promise<DashboardGuildConfigSummaryShape[]> {
+    const allowedGuildIds = [...new Set(guildIds.map((guildId) => guildId.trim()).filter(Boolean))];
+    if (allowedGuildIds.length === 0) return [];
+
+    const docs = await GuildSettingsModel.find({
+      guildId: { $in: allowedGuildIds },
+      $or: [{ dashboardDeconfiguredAt: { $exists: false } }, { dashboardDeconfiguredAt: null }],
+    }).lean();
     return docs
       .map((doc) => toSummary(doc as Record<string, unknown>))
       .filter((summary): summary is DashboardGuildConfigSummaryShape => summary !== null)
@@ -103,7 +128,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
   }
 
   public async getExistingGuildConfig(guildId: string): Promise<GuildConfig | null> {
-    const existing = await GuildSettingsModel.findOne({ guildId }).lean();
+    const existing = await GuildSettingsModel.findOne(activeGuildFilter(guildId)).lean();
     return existing ? toGuildConfig(guildId, existing) : null;
   }
 
@@ -112,6 +137,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
       { guildId },
       {
         $setOnInsert: defaultGuildConfigFor(guildId),
+        $unset: { dashboardDeconfiguredAt: '' },
       },
       {
         upsert: true,
@@ -132,11 +158,12 @@ export class MongoGuildConfigStore implements GuildConfigStore {
     }
 
     const saved = await GuildSettingsModel.findOneAndUpdate(
-      { guildId },
+      activeGuildFilter(guildId),
       {
         $set: {
           ...update,
         },
+        $unset: { dashboardDeconfiguredAt: '' },
       },
       {
         new: true,
@@ -156,6 +183,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
         $set: {
           ...update,
         },
+        $unset: { dashboardDeconfiguredAt: '' },
       },
       {
         upsert: true,
@@ -174,6 +202,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
       {
         $setOnInsert: { guildId },
         $addToSet: { compareOfficerUserIds: normalizedDiscordUserId },
+        $unset: { dashboardDeconfiguredAt: '' },
       },
       {
         upsert: true,
@@ -191,7 +220,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
   ): Promise<GuildConfig | null> {
     const normalizedDiscordUserId = normalizeDiscordUserId(discordUserId);
     const saved = await GuildSettingsModel.findOneAndUpdate(
-      { guildId },
+      activeGuildFilter(guildId),
       {
         $addToSet: { compareOfficerUserIds: normalizedDiscordUserId },
       },
@@ -213,6 +242,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
       {
         $setOnInsert: { guildId },
         $pull: { compareOfficerUserIds: normalizedDiscordUserId },
+        $unset: { dashboardDeconfiguredAt: '' },
       },
       {
         upsert: true,
@@ -230,7 +260,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
   ): Promise<GuildConfig | null> {
     const normalizedDiscordUserId = normalizeDiscordUserId(discordUserId);
     const saved = await GuildSettingsModel.findOneAndUpdate(
-      { guildId },
+      activeGuildFilter(guildId),
       {
         $pull: { compareOfficerUserIds: normalizedDiscordUserId },
       },
@@ -240,5 +270,18 @@ export class MongoGuildConfigStore implements GuildConfigStore {
     ).lean();
 
     return saved ? toGuildConfig(guildId, saved) : null;
+  }
+
+  public async deconfigureExistingGuild(
+    guildId: string,
+    deconfiguredAt = new Date(),
+  ): Promise<boolean> {
+    const saved = await GuildSettingsModel.findOneAndUpdate(
+      activeGuildFilter(guildId),
+      { $set: { dashboardDeconfiguredAt: deconfiguredAt } },
+      { new: true },
+    ).lean();
+
+    return Boolean(saved);
   }
 }

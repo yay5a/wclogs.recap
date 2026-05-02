@@ -30,6 +30,7 @@ import {
   buildMixedCompareUnavailableBody,
 } from '../renderers/compare.js';
 import { getRequesterDiscordUserId, getRequesterPermissions } from './character-claims.js';
+import { recordDashboardActivityAfterSuccess } from './dashboard-activity.js';
 
 const logger = createLogger('discord');
 const EPHEMERAL_MESSAGE_FLAG = 64;
@@ -308,6 +309,18 @@ const processCompareInteraction = async (
           },
           'public compare posted',
         );
+        await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+          guildId,
+          channelId: interaction.channel_id,
+          sourceMessageId: interaction.id,
+          actor: { kind: 'discord', discordUserId: requesterDiscordUserId },
+          kind: 'public_comparison_posted',
+          reportCode: report.reportCode,
+          sourceUrl: params.reportUrl,
+          targetDiscordUserId: targetApprovedClaims[0]?.discordUserId,
+          idempotencyKey: interaction.id ? `public_compare:${interaction.id}` : undefined,
+          createdAt: new Date(),
+        });
         await safeEditOriginalInteractionResponse(
           applicationId,
           interactionToken,
@@ -332,11 +345,23 @@ const processCompareInteraction = async (
       return;
     }
 
-    await safeEditOriginalInteractionResponse(
+    await editOriginalInteractionResponse(
       applicationId,
       interactionToken,
       buildCompareResponseBody(viewModel),
     );
+    await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+      guildId,
+      channelId: interaction.channel_id,
+      sourceMessageId: interaction.id,
+      actor: { kind: 'discord', discordUserId: requesterDiscordUserId },
+      kind: 'private_comparison_rendered',
+      reportCode: report.reportCode,
+      sourceUrl: params.reportUrl,
+      targetDiscordUserId: targetApprovedClaims[0]?.discordUserId,
+      idempotencyKey: interaction.id ? `private_compare:${interaction.id}` : undefined,
+      createdAt: new Date(),
+    });
   } catch (error) {
     logger.error(
       {

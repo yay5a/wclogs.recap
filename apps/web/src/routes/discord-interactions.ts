@@ -7,7 +7,7 @@ import type {
     ComparisonHistoryStore,
     RecapPreviewStateService,
 } from "@wcl/discord";
-import type { GuildConfigStore } from "@wcl/domain";
+import type { BotActivityStore, GuildConfigStore } from "@wcl/domain";
 import { handleInteraction } from "@wcl/discord";
 import type { createLogger } from "@wcl/shared";
 import type { WclClient } from "@wcl/wcl-client";
@@ -22,6 +22,7 @@ type DiscordInteractionRouteOptions = {
     autoRecapDuplicateTrackingService: AutoRecapDuplicateTrackingService;
     comparisonHistoryStore: ComparisonHistoryStore;
     characterClaimStore: CharacterClaimStore;
+    botActivityStore?: BotActivityStore | undefined;
     logger: ReturnType<typeof createLogger>;
 };
 
@@ -81,6 +82,7 @@ export const registerDiscordInteractionRoutes: FastifyPluginAsync<
                     autoRecapDuplicateTrackingService: options.autoRecapDuplicateTrackingService,
                     comparisonHistoryStore: options.comparisonHistoryStore,
                     characterClaimStore: options.characterClaimStore,
+                    botActivityStore: options.botActivityStore,
                     previewStateTtlSeconds: options.env.PREVIEW_STATE_TTL_SECONDS,
                     scheduleBackgroundTask: (task) => {
                         backgroundTasks.push(task);

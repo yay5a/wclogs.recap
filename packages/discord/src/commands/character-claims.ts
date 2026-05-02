@@ -1,6 +1,7 @@
 import { InteractionResponseType } from 'discord-interactions';
 import { isCompareOfficer, resolveCharacterComparisonIdentity } from '@wcl/domain';
 import type { DiscordInteraction, HandleOptions } from '../types.js';
+import { recordDashboardActivityAfterSuccess } from './dashboard-activity.js';
 
 const EPHEMERAL_MESSAGE_FLAG = 64;
 
@@ -122,6 +123,9 @@ const formatClaimLine = (claim: {
 }): string =>
   `${claim.characterName} - ${claim.realm}-${claim.region}: ${claim.status} (peer compare: ${claim.peerCompareOptIn ? 'allow' : 'private'}, public post: ${claim.publicPostOptIn ? 'allow' : 'deny'})`;
 
+const characterLabel = (character: { characterName: string; realm: string; region: string }) =>
+  `${character.characterName} - ${character.realm}-${character.region}`;
+
 export const handleClaimCharacterCommand = async (
   interaction: DiscordInteraction,
   options: HandleOptions,
@@ -142,6 +146,17 @@ export const handleClaimCharacterCommand = async (
       characterName: character.characterName,
       realm: character.realm,
       region: character.region,
+    });
+    await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+      guildId: context.guildId,
+      actor: { kind: 'discord', discordUserId: context.requesterDiscordUserId },
+      kind: 'claim_requested',
+      characterLabel: characterLabel(character),
+      targetDiscordUserId: context.requesterDiscordUserId,
+      idempotencyKey: interaction.id
+        ? `claim_requested:${interaction.id}`
+        : `claim_requested:${context.guildId}:${context.requesterDiscordUserId}:${character.participantKey}:${Date.now()}`,
+      createdAt: new Date(),
     });
   } catch {
     return ephemeral('An active claim already exists for that exact character identity.');
@@ -171,7 +186,7 @@ export const handleApproveCharacterCommand = async (
   const character = requireExactCharacterInput(interaction);
   if ('error' in character) return ephemeral(character.error);
 
-  await options.characterClaimStore?.approveCharacterClaim({
+  const approved = await options.characterClaimStore?.approveCharacterClaim({
     guildId: context.guildId,
     discordUserId: targetDiscordUserId,
     participantKey: character.participantKey,
@@ -180,8 +195,25 @@ export const handleApproveCharacterCommand = async (
     region: character.region,
     reviewedByDiscordUserId: context.requesterDiscordUserId,
   });
+  if (approved) {
+    await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+      guildId: context.guildId,
+      actor: { kind: 'discord', discordUserId: context.requesterDiscordUserId },
+      kind: 'claim_approved',
+      characterLabel: characterLabel(character),
+      targetDiscordUserId,
+      idempotencyKey: interaction.id
+        ? `claim_approved:${interaction.id}`
+        : `claim_approved:${context.guildId}:${targetDiscordUserId}:${character.participantKey}:${Date.now()}`,
+      createdAt: new Date(),
+    });
+  }
 
-  return ephemeral('Character claim approved for the exact character identity.');
+  return ephemeral(
+    approved
+      ? 'Character claim approved for the exact character identity.'
+      : 'No pending character claim was found for that exact character identity.',
+  );
 };
 
 export const handleRejectCharacterCommand = async (
@@ -212,6 +244,19 @@ export const handleRejectCharacterCommand = async (
     region: character.region,
     reviewedByDiscordUserId: context.requesterDiscordUserId,
   });
+  if (rejected) {
+    await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+      guildId: context.guildId,
+      actor: { kind: 'discord', discordUserId: context.requesterDiscordUserId },
+      kind: 'claim_rejected',
+      characterLabel: characterLabel(character),
+      targetDiscordUserId,
+      idempotencyKey: interaction.id
+        ? `claim_rejected:${interaction.id}`
+        : `claim_rejected:${context.guildId}:${targetDiscordUserId}:${character.participantKey}:${Date.now()}`,
+      createdAt: new Date(),
+    });
+  }
 
   return ephemeral(
     rejected

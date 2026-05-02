@@ -11,6 +11,7 @@ import {
   COMPARISON_SNAPSHOT_HISTORY_PROJECTION,
   ComparisonSnapshotModel,
   GuildSettingsModel,
+  migrateCharacterClaimIdentityFields,
   migrateRecapPreviewStateIndexes,
   MongoAutoRecapDuplicateTrackingStore,
   MongoAutoRecapPromptStateStore,
@@ -196,11 +197,12 @@ describe('MongoGuildConfigStore', () => {
 
     expect(saved.compareOfficerUserIds).toEqual(['user-1']);
     expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledWith(
-      { guildId: 'guild-1' },
-      {
+      expect.objectContaining({ guildId: 'guild-1' }),
+      expect.objectContaining({
         $setOnInsert: { guildId: 'guild-1' },
         $addToSet: { compareOfficerUserIds: 'user-1' },
-      },
+        $unset: { dashboardDeconfiguredAt: '' },
+      }),
       {
         upsert: true,
         new: true,
@@ -224,10 +226,11 @@ describe('MongoGuildConfigStore', () => {
     expect(saved.compareOfficerUserIds).toEqual([]);
     expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledWith(
       { guildId: 'guild-1' },
-      {
+      expect.objectContaining({
         $setOnInsert: { guildId: 'guild-1' },
         $pull: { compareOfficerUserIds: 'user-1' },
-      },
+        $unset: { dashboardDeconfiguredAt: '' },
+      }),
       {
         upsert: true,
         new: true,
@@ -273,6 +276,44 @@ describe('MongoGuildConfigStore', () => {
     expect(summaries[1]).not.toHaveProperty('compareOfficerUserIds');
   });
 
+  it('lists dashboard guild config summaries for an explicit guild allow-list', async () => {
+    const find = vi.spyOn(GuildSettingsModel, 'find').mockReturnValue({
+      lean: vi.fn().mockResolvedValue([
+        {
+          guildId: '223456789012345678',
+          compareOfficerUserIds: ['user-1'],
+        },
+      ]),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    const summaries = await store.listGuildConfigSummariesForGuilds([
+      '223456789012345678',
+      '223456789012345678',
+      '  ',
+    ]);
+
+    expect(summaries).toEqual([
+      expect.objectContaining({
+        guildId: '223456789012345678',
+        compareOfficerUserCount: 1,
+      }),
+    ]);
+    expect(find).toHaveBeenCalledWith({
+      guildId: { $in: ['223456789012345678'] },
+      $or: [{ dashboardDeconfiguredAt: { $exists: false } }, { dashboardDeconfiguredAt: null }],
+    });
+  });
+
+  it('returns no dashboard guild summaries for an empty allow-list without querying', async () => {
+    const find = vi.spyOn(GuildSettingsModel, 'find');
+
+    const store = new MongoGuildConfigStore();
+    await expect(store.listGuildConfigSummariesForGuilds([])).resolves.toEqual([]);
+
+    expect(find).not.toHaveBeenCalled();
+  });
+
   it('returns null for missing existing dashboard guild config reads', async () => {
     vi.spyOn(GuildSettingsModel, 'findOne').mockReturnValue({
       lean: vi.fn().mockResolvedValue(null),
@@ -297,6 +338,7 @@ describe('MongoGuildConfigStore', () => {
       { guildId: 'guild-1' },
       {
         $setOnInsert: defaultGuildConfigFor('guild-1'),
+        $unset: { dashboardDeconfiguredAt: '' },
       },
       {
         upsert: true,
@@ -317,11 +359,12 @@ describe('MongoGuildConfigStore', () => {
     ).resolves.toBeNull();
 
     expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledWith(
-      { guildId: 'guild-1' },
+      expect.objectContaining({ guildId: 'guild-1' }),
       {
         $set: {
           compareModeDefault: 'mixed',
         },
+        $unset: { dashboardDeconfiguredAt: '' },
       },
       {
         new: true,
@@ -342,7 +385,7 @@ describe('MongoGuildConfigStore', () => {
       compareOfficerUserIds: ['user-1'],
     });
     expect(findOneAndUpdate).toHaveBeenLastCalledWith(
-      { guildId: 'guild-1' },
+      expect.objectContaining({ guildId: 'guild-1' }),
       {
         $addToSet: { compareOfficerUserIds: 'user-1' },
       },
@@ -355,7 +398,10 @@ describe('MongoGuildConfigStore', () => {
       compareOfficerUserIds: ['user-1'],
     });
     expect(findOneAndUpdate).toHaveBeenLastCalledWith(
-      { guildId: 'guild-1' },
+      {
+        guildId: 'guild-1',
+        $or: [{ dashboardDeconfiguredAt: { $exists: false } }, { dashboardDeconfiguredAt: null }],
+      },
       {
         $pull: { compareOfficerUserIds: 'user-1' },
       },
@@ -392,14 +438,17 @@ describe('MongoCharacterClaimStore', () => {
     } as never);
   };
 
-  it('defines exact claim identity and lookup indexes without display identity fields', () => {
+  it('defines active character uniqueness and lookup indexes without display identity fields', () => {
     const indexes = CharacterClaimModel.schema.indexes();
-    const hasUniqueIdentity = indexes.some(
+    const hasActiveCharacterUniqueness = indexes.some(
       ([fields, options]) =>
         fields.guildId === 1 &&
-        fields.discordUserId === 1 &&
-        fields.participantKey === 1 &&
-        options.unique === true,
+        fields.region === 1 &&
+        fields.normalizedRealm === 1 &&
+        fields.normalizedCharacterName === 1 &&
+        options.unique === true &&
+        JSON.stringify(options.partialFilterExpression) ===
+          JSON.stringify({ status: { $in: ['pending', 'approved'] } }),
     );
     const hasTargetLookup = indexes.some(
       ([fields]) => fields.guildId === 1 && fields.participantKey === 1 && fields.status === 1,
@@ -408,11 +457,106 @@ describe('MongoCharacterClaimStore', () => {
       ([fields]) => fields.guildId === 1 && fields.discordUserId === 1 && fields.status === 1,
     );
 
-    expect(hasUniqueIdentity).toBe(true);
+    expect(hasActiveCharacterUniqueness).toBe(true);
     expect(hasTargetLookup).toBe(true);
     expect(hasUserLookup).toBe(true);
     expect(CharacterClaimModel.schema.path('displayName')).toBeUndefined();
     expect(CharacterClaimModel.schema.path('playerProfileId')).toBeUndefined();
+  });
+
+  it('backfills claim identity fields before creating active claim indexes', async () => {
+    const documentId = { toString: () => 'doc-1' };
+    vi.spyOn(CharacterClaimModel, 'find').mockReturnValue({
+      lean: vi.fn().mockResolvedValue([
+        {
+          _id: documentId,
+          characterName: ' Alyra ',
+          realm: ' Stormrage ',
+          region: ' us ',
+        },
+      ]),
+    } as never);
+    const bulkWrite = vi.spyOn(CharacterClaimModel, 'bulkWrite').mockResolvedValue({} as never);
+    vi.spyOn(CharacterClaimModel.collection, 'aggregate').mockReturnValue({
+      toArray: vi.fn().mockResolvedValue([]),
+    } as never);
+    vi.spyOn(CharacterClaimModel.collection, 'indexes').mockResolvedValue([
+      { name: '_id_', key: { _id: 1 } },
+      {
+        name: 'guildId_1_discordUserId_1_participantKey_1',
+        key: { guildId: 1, discordUserId: 1, participantKey: 1 },
+        unique: true,
+      },
+    ] as never);
+    const dropIndex = vi
+      .spyOn(CharacterClaimModel.collection, 'dropIndex')
+      .mockResolvedValue({ ok: 1 } as never);
+    const createIndex = vi
+      .spyOn(CharacterClaimModel.collection, 'createIndex')
+      .mockResolvedValue('created-index' as never);
+
+    const result = await migrateCharacterClaimIdentityFields();
+
+    expect(bulkWrite).toHaveBeenCalledWith(
+      [
+        {
+          updateOne: {
+            filter: { _id: documentId },
+            update: {
+              $set: expect.objectContaining({
+                claimId: expect.any(String),
+                region: 'US',
+                normalizedRealm: 'stormrage',
+                normalizedCharacterName: 'alyra',
+              }),
+            },
+          },
+        },
+      ],
+      { ordered: false },
+    );
+    expect(dropIndex).toHaveBeenCalledWith('guildId_1_discordUserId_1_participantKey_1');
+    expect(createIndex).toHaveBeenCalledWith({ claimId: 1 }, { unique: true });
+    expect(createIndex).toHaveBeenCalledWith(
+      { guildId: 1, region: 1, normalizedRealm: 1, normalizedCharacterName: 1 },
+      {
+        unique: true,
+        partialFilterExpression: { status: { $in: ['pending', 'approved'] } },
+      },
+    );
+    expect(result).toEqual({
+      backfilledCount: 1,
+      droppedLegacyIndexNames: ['guildId_1_discordUserId_1_participantKey_1'],
+    });
+  });
+
+  it('fails before creating active claim indexes when duplicate active claims exist', async () => {
+    vi.spyOn(CharacterClaimModel, 'find').mockReturnValue({
+      lean: vi.fn().mockResolvedValue([]),
+    } as never);
+    vi.spyOn(CharacterClaimModel.collection, 'aggregate').mockReturnValue({
+      toArray: vi.fn().mockResolvedValue([
+        {
+          _id: {
+            guildId: 'guild-1',
+            region: 'US',
+            normalizedRealm: 'stormrage',
+            normalizedCharacterName: 'alyra',
+          },
+          count: 2,
+          claimIds: ['claim-1', 'claim-2'],
+        },
+      ]),
+    } as never);
+    const indexes = vi.spyOn(CharacterClaimModel.collection, 'indexes');
+    const createIndex = vi.spyOn(CharacterClaimModel.collection, 'createIndex');
+
+    await expect(migrateCharacterClaimIdentityFields()).rejects.toThrow(
+      /duplicate active claims/i,
+    );
+
+    expect(indexes).not.toHaveBeenCalled();
+    expect(createIndex).not.toHaveBeenCalled();
   });
 
   it('requests pending claims with privacy disabled by default', async () => {
@@ -434,13 +578,15 @@ describe('MongoCharacterClaimStore', () => {
       publicPostOptIn: false,
     });
     expect(upsert).toHaveBeenCalledWith(
-      {
-        guildId: 'guild-1',
-        discordUserId: 'user-1',
-        participantKey: 'character:us:stormrage:alyra',
-      },
+      expect.objectContaining({ claimId: expect.any(String) }),
       expect.objectContaining({
-        $set: expect.objectContaining({
+        $setOnInsert: expect.objectContaining({
+          guildId: 'guild-1',
+          discordUserId: 'user-1',
+          participantKey: 'character:us:stormrage:alyra',
+          region: 'US',
+          normalizedRealm: 'stormrage',
+          normalizedCharacterName: 'alyra',
           status: 'pending',
           peerCompareOptIn: false,
           publicPostOptIn: false,
@@ -448,6 +594,30 @@ describe('MongoCharacterClaimStore', () => {
         }),
       }),
       expect.objectContaining({ upsert: true, new: true }),
+    );
+  });
+
+  it('normalizes claim region at the store boundary', async () => {
+    mockFindOneLean(null);
+    vi.spyOn(CharacterClaimModel, 'findOneAndUpdate').mockReturnValue({
+      lean: vi.fn().mockResolvedValue(makeClaim()),
+    } as never);
+
+    const store = new MongoCharacterClaimStore();
+    await store.requestCharacterClaim({
+      ...claimInput,
+      region: ' us ',
+    });
+
+    expect(CharacterClaimModel.findOne).toHaveBeenCalledWith(
+      expect.objectContaining({ region: 'US' }),
+    );
+    expect(CharacterClaimModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        $setOnInsert: expect.objectContaining({ region: 'US' }),
+      }),
+      expect.anything(),
     );
   });
 
@@ -490,21 +660,47 @@ describe('MongoCharacterClaimStore', () => {
         guildId: 'guild-1',
         discordUserId: 'user-1',
         participantKey: 'character:us:stormrage:alyra',
+        status: 'pending',
       },
-      expect.objectContaining({
-        $set: expect.objectContaining({
+      {
+        $set: {
+          guildId: 'guild-1',
+          discordUserId: 'user-1',
+          participantKey: 'character:us:stormrage:alyra',
+          characterName: 'Alyra',
+          region: 'US',
+          realm: 'Stormrage',
+          normalizedRealm: 'stormrage',
+          normalizedCharacterName: 'alyra',
           status: 'approved',
           reviewedAt,
           reviewedByDiscordUserId: 'officer-1',
-        }),
-        $setOnInsert: expect.objectContaining({
-          peerCompareOptIn: false,
-          publicPostOptIn: false,
-          requestedAt: reviewedAt,
-        }),
-      }),
-      expect.objectContaining({ upsert: true, new: true }),
+        },
+      },
+      { new: true },
     );
+  });
+
+  it('does not create approved claims when no pending claim exists', async () => {
+    vi.spyOn(CharacterClaimModel, 'findOneAndUpdate').mockReturnValue({
+      lean: vi.fn().mockResolvedValue(null),
+    } as never);
+    const create = vi.spyOn(CharacterClaimModel, 'create');
+
+    const store = new MongoCharacterClaimStore();
+    const approved = await store.approveCharacterClaim({
+      ...claimInput,
+      reviewedByDiscordUserId: 'officer-1',
+      reviewedAt,
+    });
+
+    expect(approved).toBeNull();
+    expect(CharacterClaimModel.findOneAndUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'pending' }),
+      expect.objectContaining({ $set: expect.objectContaining({ status: 'approved' }) }),
+      { new: true },
+    );
+    expect(create).not.toHaveBeenCalled();
   });
 
   it('rejects pending claims', async () => {
@@ -548,7 +744,7 @@ describe('MongoCharacterClaimStore', () => {
       guildId: 'guild-1',
       discordUserId: 'user-1',
       participantKey: 'character:us:stormrage:alyra',
-      reviewedAt,
+      revokedAt: reviewedAt,
     });
 
     expect(revoked?.status).toBe('revoked');

@@ -12,6 +12,7 @@ export type {
     AutoRecapDuplicateTrackingService,
     AutoRecapPromptStateService,
     CharacterClaimStore,
+    CharacterClaimRecord,
     ComparisonHistoryStore,
     HandleOptions,
     RecapPreviewStateService,

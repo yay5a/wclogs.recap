@@ -1,10 +1,13 @@
 import {
   connectMongo,
+  migrateCharacterClaimIdentityFields,
   migrateRecapPreviewStateIndexes,
   MongoAutoRecapDuplicateTrackingStore,
   MongoAutoRecapPromptStateStore,
   MongoCharacterClaimStore,
   MongoComparisonHistoryStore,
+  MongoDashboardActivityStore,
+  MongoDashboardOnboardingStore,
   MongoGuildConfigStore,
   MongoRecapPreviewStateStore,
   MongoWclUserAuthStore,
@@ -55,6 +58,8 @@ const autoRecapPromptStateService = new MongoAutoRecapPromptStateStore();
 const autoRecapDuplicateTrackingService = new MongoAutoRecapDuplicateTrackingStore();
 const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const characterClaimStore = new MongoCharacterClaimStore();
+const dashboardActivityStore = new MongoDashboardActivityStore();
+const dashboardOnboardingStore = new MongoDashboardOnboardingStore();
 const wclUserAuthStore = new MongoWclUserAuthStore();
 
 const dashboardAssetRootCandidates = [
@@ -71,6 +76,9 @@ const app = await createWebApp({
   wclClient,
   guildConfigStore,
   dashboardGuildConfigStore: guildConfigStore,
+  dashboardCharacterClaimStore: characterClaimStore,
+  dashboardActivityStore,
+  dashboardOnboardingStore,
   recapPreviewStateService,
   autoRecapPromptStateService,
   autoRecapDuplicateTrackingService,
@@ -85,6 +93,7 @@ const app = await createWebApp({
 
 const start = async () => {
   await connectMongo(env.MONGODB_URI);
+  await migrateCharacterClaimIdentityFields();
   await migrateRecapPreviewStateIndexes();
   await app.listen({ port: env.PORT, host: '0.0.0.0' });
   logger.info({ port: env.PORT }, 'web app started');

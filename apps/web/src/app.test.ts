@@ -35,6 +35,7 @@ const makeDashboardStore = () => {
     const config = defaultGuildConfigFor(guildId);
     return {
         listGuildConfigSummaries: vi.fn(async () => []),
+        listGuildConfigSummariesForGuilds: vi.fn(async () => []),
         getGuildConfig: vi.fn(async () => config),
         saveGuildConfig: vi.fn(async () => config),
         getExistingGuildConfig: vi.fn(async () => config),
@@ -84,6 +85,19 @@ const makeOptions = (assetRoot: string): CreateWebAppOptions => {
             findApprovedClaimsForParticipant: vi.fn(),
             updateClaimPrivacy: vi.fn(),
             listClaimsForUser: vi.fn(),
+        },
+        dashboardCharacterClaimStore: {
+            requestCharacterClaim: vi.fn(),
+            approveCharacterClaim: vi.fn(),
+            rejectCharacterClaim: vi.fn(),
+            findApprovedClaimForUserCharacter: vi.fn(),
+            findApprovedClaimsForParticipant: vi.fn(),
+            updateClaimPrivacy: vi.fn(),
+            listClaimsForUser: vi.fn(),
+            listClaimsByStatus: vi.fn(async () => []),
+            approveClaimById: vi.fn(),
+            rejectClaimById: vi.fn(),
+            revokeClaimById: vi.fn(),
         },
         wclUserAuthStore: {
             get: vi.fn(),

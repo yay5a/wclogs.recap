@@ -29,6 +29,10 @@ Known beta limitations:
 - Mixed comparisons still require explicit player-character mapping and are not available yet. Alts are not guessed automatically.
 - Public compare posting is disabled by default and requires explicit server and target safeguards when enabled.
 
+## Deployment Notes
+
+Character claim history may exist in beta databases. Web and worker startup run `migrateCharacterClaimIdentityFields()` before serving traffic. The migration backfills missing `claimId`, `normalizedRealm`, and `normalizedCharacterName` values, normalizes stored claim regions, drops the legacy exact-owner claim uniqueness index, and creates the active-claim unique index for `{ guildId, region, normalizedRealm, normalizedCharacterName }`. If duplicate pending or approved claims would violate that index, startup fails and reports the duplicate identity instead of silently choosing a winner.
+
 ## Beta Testing
 
 WCLogs Recap is currently in beta. The app is being tested in a dedicated Discord server before it is treated as stable for wider use.

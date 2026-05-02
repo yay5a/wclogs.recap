@@ -23,6 +23,10 @@ const webEnvSchema = z.object({
         /^\S+$/,
         "DISCORD_BOT_TOKEN must not contain whitespace",
     ),
+    DISCORD_CLIENT_SECRET: trimmed()
+        .min(1, "DISCORD_CLIENT_SECRET must not be empty")
+        .optional(),
+    DISCORD_OAUTH_REDIRECT_URI: trimmed().url().optional(),
     WCL_CLIENT_ID: trimmed(),
     WCL_CLIENT_SECRET: trimmed(),
     WCL_API_BASE_URL: trimmed()
@@ -49,6 +53,18 @@ const webEnvSchema = z.object({
             code: z.ZodIssueCode.custom,
             path: ["DASHBOARD_ADMIN_SECRET"],
             message: "DASHBOARD_ADMIN_SECRET is required in production",
+        });
+    }
+
+    if (
+        (env.DISCORD_CLIENT_SECRET && !env.DISCORD_OAUTH_REDIRECT_URI) ||
+        (!env.DISCORD_CLIENT_SECRET && env.DISCORD_OAUTH_REDIRECT_URI)
+    ) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["DISCORD_OAUTH_REDIRECT_URI"],
+            message:
+                "DISCORD_CLIENT_SECRET and DISCORD_OAUTH_REDIRECT_URI must be set together",
         });
     }
 

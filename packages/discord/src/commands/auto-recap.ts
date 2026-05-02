@@ -15,8 +15,10 @@ import {
 } from "./recap.js";
 import {
     createFollowupInteractionResponse,
+    editOriginalInteractionResponse,
     safeEditOriginalInteractionResponse,
 } from "../infrastructure/discord-api.js";
+import { recordDashboardActivityAfterSuccess } from "./dashboard-activity.js";
 
 const logger = createLogger("discord");
 const EPHEMERAL_MESSAGE_FLAG = 64;
@@ -289,11 +291,22 @@ const runPromptPreview = async (
             expiresAt: new Date(createdAt.getTime() + previewStateTtlMs),
         };
         await options.recapPreviewStateService.savePreviewState(previewStateInput);
-        await safeEditOriginalInteractionResponse(
+        await editOriginalInteractionResponse(
             applicationId,
             interactionToken,
             artifact.previewBody,
         );
+        await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+            guildId: promptState.guildId,
+            channelId: promptState.channelId,
+            sourceMessageId: interaction.id,
+            actor: { kind: "discord", discordUserId: getRequesterDiscordUserId(interaction) },
+            kind: "recap_preview_created",
+            reportCode: promptState.reportCode,
+            sourceUrl: promptState.sourceUrl,
+            idempotencyKey: interaction.id ? `recap_prompt_preview:${interaction.id}` : undefined,
+            createdAt: new Date(),
+        });
     } catch (error) {
         logger.error(
             {
@@ -380,6 +393,17 @@ const runDuplicatePreview = async (
                 latestOutputMessageId: publicMessage.id,
                 latestOutputKind: "public_final_recap",
             });
+            await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+                guildId: duplicateState.guildId,
+                channelId: duplicateState.channelId,
+                sourceMessageId: interaction.id,
+                actor: { kind: "discord", discordUserId: getRequesterDiscordUserId(interaction) },
+                kind: "recap_posted",
+                reportCode: duplicateState.reportCode,
+                sourceUrl: duplicateState.sourceUrl,
+                idempotencyKey: interaction.id ? `recap_duplicate_posted:${interaction.id}` : undefined,
+                createdAt: new Date(),
+            });
             await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
                 content: "Recap posted to this channel.",
                 flags: EPHEMERAL_MESSAGE_FLAG,
@@ -388,11 +412,22 @@ const runDuplicatePreview = async (
         }
 
         await savePreviewStateForArtifact(artifact, options);
-        await safeEditOriginalInteractionResponse(
+        await editOriginalInteractionResponse(
             applicationId,
             interactionToken,
             artifact.previewBody,
         );
+        await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+            guildId: duplicateState.guildId,
+            channelId: duplicateState.channelId,
+            sourceMessageId: interaction.id,
+            actor: { kind: "discord", discordUserId: getRequesterDiscordUserId(interaction) },
+            kind: "recap_preview_created",
+            reportCode: duplicateState.reportCode,
+            sourceUrl: duplicateState.sourceUrl,
+            idempotencyKey: interaction.id ? `recap_duplicate_preview:${interaction.id}` : undefined,
+            createdAt: new Date(),
+        });
     } catch (error) {
         logger.error(
             {
@@ -586,6 +621,17 @@ export const handleAutoRecapMessageCreate = async ({
                 latestOutputMessageId: sent.id,
                 latestOutputKind: "public_preview",
             });
+            await recordDashboardActivityAfterSuccess(handleOptions.botActivityStore, {
+                guildId: message.guildId,
+                channelId: message.channelId,
+                sourceMessageId: message.messageId,
+                actor: { kind: "discord", discordUserId: message.authorId },
+                kind: "recap_preview_created",
+                reportCode: parsed.reportCode,
+                sourceUrl: parsed.rawUrl,
+                idempotencyKey: `auto_recap_preview:${message.guildId}:${message.channelId}:${parsed.reportCode}:${message.messageId}`,
+                createdAt: new Date(),
+            });
             return;
         }
 
@@ -600,6 +646,17 @@ export const handleAutoRecapMessageCreate = async ({
             status: "final_posted",
             latestOutputMessageId: sent.id,
             latestOutputKind: "public_final_recap",
+        });
+        await recordDashboardActivityAfterSuccess(handleOptions.botActivityStore, {
+            guildId: message.guildId,
+            channelId: message.channelId,
+            sourceMessageId: message.messageId,
+            actor: { kind: "discord", discordUserId: message.authorId },
+            kind: "recap_posted",
+            reportCode: parsed.reportCode,
+            sourceUrl: parsed.rawUrl,
+            idempotencyKey: `auto_recap_posted:${message.guildId}:${message.channelId}:${parsed.reportCode}:${message.messageId}`,
+            createdAt: new Date(),
         });
     } catch (error) {
         logger.error(

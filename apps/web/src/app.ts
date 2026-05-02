@@ -18,6 +18,11 @@ import type { WclUserAuthStore } from "./auth/routes.js";
 import { registerWclAuthRoutes } from "./auth/routes.js";
 import type { WebEnv } from "./config.js";
 import { registerDashboardRoutes, type DashboardGuildConfigStore } from "./routes/dashboard.js";
+import type {
+    DashboardActivityStore,
+    DashboardOnboardingStore,
+    DashboardCharacterClaimStore,
+} from "./routes/dashboard.js";
 import { registerDiscordInteractionRoutes } from "./routes/discord-interactions.js";
 import { registerRecapRoutes } from "./routes/recap.js";
 
@@ -32,6 +37,9 @@ export type CreateWebAppOptions = {
     autoRecapDuplicateTrackingService: AutoRecapDuplicateTrackingService;
     comparisonHistoryStore: ComparisonHistoryStore;
     characterClaimStore: CharacterClaimStore;
+    dashboardCharacterClaimStore: DashboardCharacterClaimStore;
+    dashboardActivityStore?: DashboardActivityStore;
+    dashboardOnboardingStore?: DashboardOnboardingStore;
     wclUserAuthStore: WclUserAuthStore;
     dashboardStatic?: {
         enabled: boolean;
@@ -83,12 +91,16 @@ export const createWebApp = async (options: CreateWebAppOptions): Promise<Fastif
         autoRecapDuplicateTrackingService: options.autoRecapDuplicateTrackingService,
         comparisonHistoryStore: options.comparisonHistoryStore,
         characterClaimStore: options.characterClaimStore,
+        botActivityStore: options.dashboardActivityStore,
         logger: options.logger,
     });
 
     await app.register(registerDashboardRoutes, {
         env: options.env,
         guildConfigStore: options.dashboardGuildConfigStore,
+        characterClaimStore: options.dashboardCharacterClaimStore,
+        activityStore: options.dashboardActivityStore,
+        onboardingStore: options.dashboardOnboardingStore,
     });
 
     if (options.dashboardStatic?.enabled) {

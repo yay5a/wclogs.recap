@@ -1,78 +1,151 @@
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
     api,
-    type AutoRecapMode,
-    type CompareAccessMode,
-    type CompareMode,
+    type ActivityEvent,
+    type CharacterClaim,
+    type ClaimStatus,
     type ConfigPatch,
-    type GameFamily,
+    type DashboardAuth,
+    type DashboardCapability,
+    type Directory,
     type GuildConfig,
     type GuildSummary,
+    type OnboardingState,
 } from "./api.js";
-
-const compareModes: CompareMode[] = ["character", "mixed"];
-const compareAccessModes: CompareAccessMode[] = [
-    "officer_only",
-    "owner_or_officer",
-    "owner_opt_in_or_officer",
-    "owner_only",
-];
-const autoRecapModes: AutoRecapMode[] = ["off", "prompt", "auto_preview", "auto_post"];
-const gameFamilies: GameFamily[] = ["retail", "mop_classic"];
-
-const toChannelText = (config: GuildConfig | null): string =>
-    config?.autoRecapChannelIds.join("\n") ?? "";
-
-const parseChannelText = (value: string): string[] =>
-    value
-        .split(/\s|,/)
-        .map((entry) => entry.trim())
-        .filter(Boolean);
+import { ActivityTab } from "./dashboard/ActivityTab.js";
+import { ClaimsTab } from "./dashboard/ClaimsTab.js";
+import {
+    claimActionPastTense,
+    onboardingSteps,
+    tabs,
+    type ClaimAction,
+    type Tab,
+} from "./dashboard/constants.js";
+import { IdLabel, parseChannelText, toChannelText } from "./dashboard/display.js";
+import { OfficersTab } from "./dashboard/OfficersTab.js";
+import { OnboardingPanel } from "./dashboard/OnboardingPanel.js";
+import { OverviewTab } from "./dashboard/OverviewTab.js";
+import { RevokeClaimModal } from "./dashboard/RevokeClaimModal.js";
+import { SettingsTab } from "./dashboard/SettingsTab.js";
+import { StaleGuildRequestError, useGuildRequestGuards } from "./dashboard/useGuildRequestGuards.js";
 
 export const App = () => {
     const [checkingSession, setCheckingSession] = useState(true);
-    const [authenticated, setAuthenticated] = useState(false);
+    const [auth, setAuth] = useState<DashboardAuth | null>(null);
     const [adminSecret, setAdminSecret] = useState("");
     const [guilds, setGuilds] = useState<GuildSummary[]>([]);
     const [selectedGuildId, setSelectedGuildId] = useState("");
     const [config, setConfig] = useState<GuildConfig | null>(null);
+    const [directory, setDirectory] = useState<Directory | null>(null);
+    const [onboarding, setOnboarding] = useState<OnboardingState | null>(null);
+    const [activity, setActivity] = useState<ActivityEvent[]>([]);
+    const [claims, setClaims] = useState<CharacterClaim[]>([]);
+    const [claimStatus, setClaimStatus] = useState<ClaimStatus>("pending");
     const [channelText, setChannelText] = useState("");
     const [newGuildId, setNewGuildId] = useState("");
     const [officerUserId, setOfficerUserId] = useState("");
+    const [tab, setTab] = useState<Tab>("overview");
+    const [revokeClaimId, setRevokeClaimId] = useState("");
+    const [revokeReason, setRevokeReason] = useState("player_left_guild");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [notice, setNotice] = useState("");
+    const runRequestRef = useRef(0);
+    const {
+        assertCurrentGuild,
+        assertCurrentGuildRequest,
+        invalidateGuildRequests,
+        isClaimStatusCurrent,
+        isCurrentClaimRequest,
+        startClaimRequest,
+    } = useGuildRequestGuards({ claimStatus, selectedGuildId });
 
     const selectedSummary = useMemo(
         () => guilds.find((guild) => guild.guildId === selectedGuildId),
         [guilds, selectedGuildId],
     );
+    const selectedRevokeClaim = useMemo(
+        () => claims.find((claim) => claim.claimId === revokeClaimId),
+        [claims, revokeClaimId],
+    );
+
+    const capabilities = selectedSummary?.capabilities ?? [];
+    const can = (capability: DashboardCapability): boolean =>
+        auth?.kind === "admin-secret" || capabilities.includes(capability);
+
+    const guildLabel = selectedGuildId
+        ? (directory?.guild.label ?? selectedSummary?.guildName ?? selectedGuildId)
+        : "";
 
     const clearMessages = () => {
         setError("");
         setNotice("");
     };
 
+    const clearGuildData = () => {
+        setConfig(null);
+        setDirectory(null);
+        setOnboarding(null);
+        setActivity([]);
+        setClaims([]);
+        setChannelText("");
+        setRevokeClaimId("");
+    };
+
     const run = async (task: () => Promise<void>) => {
+        const runRequestId = (runRequestRef.current += 1);
         clearMessages();
         setLoading(true);
         try {
             await task();
         } catch (caught) {
+            if (caught instanceof StaleGuildRequestError) return;
+            if (runRequestRef.current !== runRequestId) return;
             const message = caught instanceof Error ? caught.message : String(caught);
             if (message === "unauthorized") {
-                setAuthenticated(false);
-                setConfig(null);
+                setAuth(null);
                 setGuilds([]);
+                setSelectedGuildId("");
+                invalidateGuildRequests("");
+                clearGuildData();
             }
             setError(message);
         } finally {
-            setLoading(false);
+            if (runRequestRef.current === runRequestId) setLoading(false);
         }
     };
 
-    const refreshGuilds = async (nextGuildId = selectedGuildId) => {
+    const loadGuildData = async (guildId: string, status = claimStatus) => {
+        const requestId = invalidateGuildRequests(guildId);
+        clearGuildData();
+        try {
+            const nextConfig = await api.getConfig(guildId);
+            assertCurrentGuildRequest(requestId, guildId);
+            setConfig(nextConfig);
+            setChannelText(toChannelText(nextConfig));
+            const [nextDirectory, nextClaims, nextActivity, nextOnboarding] = await Promise.all([
+                api.getDirectory(guildId),
+                api.listClaims(guildId, status),
+                api.listActivity(guildId),
+                api.getOnboarding(guildId),
+            ]);
+            assertCurrentGuildRequest(requestId, guildId);
+            setDirectory(nextDirectory);
+            if (isClaimStatusCurrent(status)) setClaims(nextClaims);
+            setActivity(nextActivity);
+            setOnboarding(nextOnboarding);
+        } catch (caught) {
+            assertCurrentGuildRequest(requestId, guildId);
+            throw caught;
+        }
+    };
+
+    const refreshGuilds = async (
+        nextGuildId = selectedGuildId,
+        options: { requireCurrentGuildId?: string } = {},
+    ) => {
         const nextGuilds = await api.listGuilds();
+        if (options.requireCurrentGuildId) assertCurrentGuild(options.requireCurrentGuildId);
         setGuilds(nextGuilds);
         const fallbackGuildId = nextGuilds[0]?.guildId ?? "";
         const usableGuildId = nextGuilds.some((guild) => guild.guildId === nextGuildId)
@@ -80,12 +153,10 @@ export const App = () => {
             : fallbackGuildId;
         setSelectedGuildId(usableGuildId);
         if (usableGuildId) {
-            const nextConfig = await api.getConfig(usableGuildId);
-            setConfig(nextConfig);
-            setChannelText(toChannelText(nextConfig));
+            await loadGuildData(usableGuildId);
         } else {
-            setConfig(null);
-            setChannelText("");
+            invalidateGuildRequests("");
+            clearGuildData();
         }
     };
 
@@ -93,12 +164,10 @@ export const App = () => {
         let active = true;
         const boot = async () => {
             try {
-                const hasSession = await api.session();
+                const session = await api.session();
                 if (!active) return;
-                setAuthenticated(hasSession);
-                if (hasSession) {
-                    await refreshGuilds("");
-                }
+                setAuth(session);
+                if (session) await refreshGuilds("");
             } catch (caught) {
                 if (!active) return;
                 setError(caught instanceof Error ? caught.message : String(caught));
@@ -112,24 +181,55 @@ export const App = () => {
         };
     }, []);
 
+    useEffect(() => {
+        if (!selectedGuildId || !auth) return;
+        const requestId = startClaimRequest();
+        const guildId = selectedGuildId;
+        const status = claimStatus;
+        void run(async () => {
+            try {
+                const nextClaims = await api.listClaims(guildId, status);
+                if (!isCurrentClaimRequest(requestId, guildId, status)) {
+                    return;
+                }
+                setClaims(nextClaims);
+            } catch (caught) {
+                if (!isCurrentClaimRequest(requestId, guildId, status)) {
+                    throw new StaleGuildRequestError();
+                }
+                throw caught;
+            }
+        });
+    }, [claimStatus]);
+
+    useEffect(() => {
+        if (revokeClaimId && !selectedRevokeClaim) setRevokeClaimId("");
+    }, [revokeClaimId, selectedRevokeClaim]);
+
     const handleLogin = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
         void run(async () => {
             await api.login(adminSecret);
             setAdminSecret("");
-            setAuthenticated(true);
+            const session = await api.session();
+            setAuth(session);
             await refreshGuilds("");
             setNotice("Signed in");
         });
     };
 
+    const handleDiscordLogin = () => {
+        window.location.href = api.discordLoginUrl();
+    };
+
     const handleLogout = () => {
         void run(async () => {
             await api.logout();
-            setAuthenticated(false);
+            setAuth(null);
             setGuilds([]);
             setSelectedGuildId("");
-            setConfig(null);
+            invalidateGuildRequests("");
+            clearGuildData();
             setNotice("Signed out");
         });
     };
@@ -137,14 +237,11 @@ export const App = () => {
     const handleGuildSelect = (guildId: string) => {
         setSelectedGuildId(guildId);
         if (!guildId) {
-            setConfig(null);
+            invalidateGuildRequests("");
+            clearGuildData();
             return;
         }
-        void run(async () => {
-            const nextConfig = await api.getConfig(guildId);
-            setConfig(nextConfig);
-            setChannelText(toChannelText(nextConfig));
-        });
+        void run(async () => loadGuildData(guildId));
     };
 
     const handleCreateGuild = (event: FormEvent<HTMLFormElement>) => {
@@ -170,17 +267,24 @@ export const App = () => {
             compareModeDefault: config.compareModeDefault,
             compareAccessMode: config.compareAccessMode,
             comparePublicPostingEnabled: config.comparePublicPostingEnabled,
+            dashboardOfficerAccessEnabled: config.dashboardOfficerAccessEnabled,
             autoRecapMode: config.autoRecapMode,
             autoRecapChannelIds: parseChannelText(channelText),
             defaultGameFamily: config.defaultGameFamily,
         };
 
         void run(async () => {
-            const saved = await api.saveConfig(guildId, patch);
-            setConfig(saved);
-            setChannelText(toChannelText(saved));
-            await refreshGuilds(guildId);
-            setNotice("Config saved");
+            try {
+                const saved = await api.saveConfig(guildId, patch);
+                assertCurrentGuild(guildId);
+                setConfig(saved);
+                setChannelText(toChannelText(saved));
+                await refreshGuilds(guildId, { requireCurrentGuildId: guildId });
+                setNotice("Config saved");
+            } catch (caught) {
+                assertCurrentGuild(guildId);
+                throw caught;
+            }
         });
     };
 
@@ -190,11 +294,17 @@ export const App = () => {
         const guildId = config.guildId;
         const discordUserId = officerUserId.trim();
         void run(async () => {
-            const nextConfig = await api.addOfficer(guildId, discordUserId);
-            setConfig(nextConfig);
-            setOfficerUserId("");
-            await refreshGuilds(guildId);
-            setNotice("Officer added");
+            try {
+                const nextConfig = await api.addOfficer(guildId, discordUserId);
+                assertCurrentGuild(guildId);
+                setConfig(nextConfig);
+                setOfficerUserId("");
+                await refreshGuilds(guildId, { requireCurrentGuildId: guildId });
+                setNotice("Officer added");
+            } catch (caught) {
+                assertCurrentGuild(guildId);
+                throw caught;
+            }
         });
     };
 
@@ -202,10 +312,70 @@ export const App = () => {
         if (!config) return;
         const guildId = config.guildId;
         void run(async () => {
-            const nextConfig = await api.removeOfficer(guildId, discordUserId);
-            setConfig(nextConfig);
-            await refreshGuilds(guildId);
-            setNotice("Officer removed");
+            try {
+                const nextConfig = await api.removeOfficer(guildId, discordUserId);
+                assertCurrentGuild(guildId);
+                setConfig(nextConfig);
+                await refreshGuilds(guildId, { requireCurrentGuildId: guildId });
+                setNotice("Officer removed");
+            } catch (caught) {
+                assertCurrentGuild(guildId);
+                throw caught;
+            }
+        });
+    };
+
+    const handleClaimAction = (claimId: string, action: ClaimAction) => {
+        if (!config) return;
+        const guildId = config.guildId;
+        void run(async () => {
+            try {
+                if (action === "approve") await api.approveClaim(guildId, claimId);
+                if (action === "reject") await api.rejectClaim(guildId, claimId);
+                if (action === "revoke") await api.revokeClaim(guildId, claimId, revokeReason);
+                assertCurrentGuild(guildId);
+                setRevokeClaimId("");
+                await loadGuildData(guildId);
+                setNotice(`Claim ${claimActionPastTense[action]}`);
+            } catch (caught) {
+                assertCurrentGuild(guildId);
+                throw caught;
+            }
+        });
+    };
+
+    const handleDismissOnboarding = () => {
+        if (!config || !onboarding) return;
+        const guildId = config.guildId;
+        void run(async () => {
+            try {
+                const saved = await api.saveOnboarding(guildId, {
+                    seenSteps: onboardingSteps,
+                    dismissed: true,
+                });
+                assertCurrentGuild(guildId);
+                setOnboarding(saved);
+                setNotice("Onboarding dismissed");
+            } catch (caught) {
+                assertCurrentGuild(guildId);
+                throw caught;
+            }
+        });
+    };
+
+    const handleDeleteGuild = () => {
+        if (!config || !window.confirm(`Deconfigure ${guildLabel}?`)) return;
+        const guildId = config.guildId;
+        void run(async () => {
+            try {
+                await api.deconfigureGuild(guildId);
+            } catch (caught) {
+                assertCurrentGuild(guildId);
+                throw caught;
+            }
+            assertCurrentGuild(guildId);
+            await refreshGuilds("", { requireCurrentGuildId: guildId });
+            setNotice("Guild deconfigured");
         });
     };
 
@@ -217,14 +387,18 @@ export const App = () => {
         );
     }
 
-    if (!authenticated) {
+    if (!auth) {
         return (
             <main className="login-shell">
                 <form className="login-panel" onSubmit={handleLogin}>
                     <div>
                         <p className="eyebrow">wclogs.recap</p>
-                        <h1>Dashboard</h1>
+                        <h1>Operations Console</h1>
                     </div>
+                    <button type="button" className="discord-login" onClick={handleDiscordLogin}>
+                        Sign in with Discord
+                    </button>
+                    <div className="divider">or</div>
                     <label>
                         Admin secret
                         <input
@@ -248,22 +422,27 @@ export const App = () => {
             <aside className="sidebar">
                 <div className="brand">
                     <p className="eyebrow">wclogs.recap</p>
-                    <h1>Dashboard</h1>
+                    <h1>Operations</h1>
+                    <small>
+                        {auth.kind === "discord" ? auth.displayName : "Admin secret"}
+                    </small>
                 </div>
 
-                <form className="create-guild" onSubmit={handleCreateGuild}>
-                    <label>
-                        Guild ID
-                        <input
-                            value={newGuildId}
-                            onChange={(event) => setNewGuildId(event.target.value)}
-                            inputMode="numeric"
-                        />
-                    </label>
-                    <button type="submit" disabled={loading || !newGuildId.trim()}>
-                        Add guild
-                    </button>
-                </form>
+                {auth.kind === "admin-secret" ? (
+                    <form className="create-guild" onSubmit={handleCreateGuild}>
+                        <label>
+                            Guild ID
+                            <input
+                                value={newGuildId}
+                                onChange={(event) => setNewGuildId(event.target.value)}
+                                inputMode="numeric"
+                            />
+                        </label>
+                        <button type="submit" disabled={loading || !newGuildId.trim()}>
+                            Add guild
+                        </button>
+                    </form>
+                ) : null}
 
                 <div className="guild-list">
                     {guilds.map((guild) => (
@@ -273,7 +452,7 @@ export const App = () => {
                             className={guild.guildId === selectedGuildId ? "selected" : ""}
                             onClick={() => handleGuildSelect(guild.guildId)}
                         >
-                            <span>{guild.guildId}</span>
+                            <span>{guild.guildName ?? guild.guildId}</span>
                             <small>
                                 {guild.compareOfficerUserCount} officers -{" "}
                                 {guild.autoRecapChannelCount} channels
@@ -298,155 +477,113 @@ export const App = () => {
                         <header className="guild-header">
                             <div>
                                 <p className="eyebrow">Guild</p>
-                                <h2>{config.guildId}</h2>
+                                <h2>
+                                    <IdLabel record={directory?.guild} id={config.guildId} />
+                                </h2>
                             </div>
-                            {selectedSummary?.updatedAt ? (
-                                <time dateTime={selectedSummary.updatedAt}>
-                                    {new Date(selectedSummary.updatedAt).toLocaleString()}
-                                </time>
-                            ) : null}
+                            <div className="header-actions">
+                                {selectedSummary?.updatedAt ? (
+                                    <time dateTime={selectedSummary.updatedAt}>
+                                        {new Date(selectedSummary.updatedAt).toLocaleString()}
+                                    </time>
+                                ) : null}
+                                {can("guild:delete") ? (
+                                    <button
+                                        type="button"
+                                        className="danger"
+                                        onClick={handleDeleteGuild}
+                                        disabled={loading}
+                                    >
+                                        Deconfigure
+                                    </button>
+                                ) : null}
+                            </div>
                         </header>
 
-                        <form className="config-grid" onSubmit={handleSaveConfig}>
-                            <label>
-                                Game family
-                                <select
-                                    value={config.defaultGameFamily}
-                                    onChange={(event) =>
-                                        updateConfigField(
-                                            "defaultGameFamily",
-                                            event.target.value as GameFamily,
-                                        )
-                                    }
+                        {!onboarding?.dismissedAt ? (
+                            <OnboardingPanel onDismiss={handleDismissOnboarding} />
+                        ) : null}
+
+                        <nav className="tabs">
+                            {tabs.map((entry) => (
+                                <button
+                                    key={entry}
+                                    type="button"
+                                    className={tab === entry ? "selected" : ""}
+                                    onClick={() => setTab(entry)}
                                 >
-                                    {gameFamilies.map((family) => (
-                                        <option key={family} value={family}>
-                                            {family}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <label>
-                                Compare mode
-                                <select
-                                    value={config.compareModeDefault}
-                                    onChange={(event) =>
-                                        updateConfigField(
-                                            "compareModeDefault",
-                                            event.target.value as CompareMode,
-                                        )
-                                    }
-                                >
-                                    {compareModes.map((mode) => (
-                                        <option key={mode} value={mode}>
-                                            {mode}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <label>
-                                Compare access
-                                <select
-                                    value={config.compareAccessMode}
-                                    onChange={(event) =>
-                                        updateConfigField(
-                                            "compareAccessMode",
-                                            event.target.value as CompareAccessMode,
-                                        )
-                                    }
-                                >
-                                    {compareAccessModes.map((mode) => (
-                                        <option key={mode} value={mode}>
-                                            {mode}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <label>
-                                Auto recap
-                                <select
-                                    value={config.autoRecapMode}
-                                    onChange={(event) =>
-                                        updateConfigField(
-                                            "autoRecapMode",
-                                            event.target.value as AutoRecapMode,
-                                        )
-                                    }
-                                >
-                                    {autoRecapModes.map((mode) => (
-                                        <option key={mode} value={mode}>
-                                            {mode}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
-
-                            <label className="checkbox-row">
-                                <input
-                                    type="checkbox"
-                                    checked={config.comparePublicPostingEnabled}
-                                    onChange={(event) =>
-                                        updateConfigField(
-                                            "comparePublicPostingEnabled",
-                                            event.target.checked,
-                                        )
-                                    }
-                                />
-                                Public compare posting
-                            </label>
-
-                            <label className="wide">
-                                Auto recap channels
-                                <textarea
-                                    value={channelText}
-                                    onChange={(event) => setChannelText(event.target.value)}
-                                    rows={5}
-                                />
-                            </label>
-
-                            <button type="submit" disabled={loading}>
-                                Save config
-                            </button>
-                        </form>
-
-                        <section className="officer-panel">
-                            <h3>Officers</h3>
-                            <form className="officer-form" onSubmit={handleAddOfficer}>
-                                <input
-                                    value={officerUserId}
-                                    onChange={(event) => setOfficerUserId(event.target.value)}
-                                    inputMode="numeric"
-                                />
-                                <button type="submit" disabled={loading || !officerUserId.trim()}>
-                                    Add officer
+                                    {entry}
                                 </button>
-                            </form>
-                            <div className="officer-list">
-                                {config.compareOfficerUserIds.length === 0 ? (
-                                    <span className="empty">No explicit officers</span>
-                                ) : (
-                                    config.compareOfficerUserIds.map((discordUserId) => (
-                                        <div key={discordUserId} className="officer-row">
-                                            <span>{discordUserId}</span>
-                                            <button
-                                                type="button"
-                                                className="secondary"
-                                                onClick={() => handleRemoveOfficer(discordUserId)}
-                                                disabled={loading}
-                                            >
-                                                Remove
-                                            </button>
-                                        </div>
-                                    ))
-                                )}
-                            </div>
-                        </section>
+                            ))}
+                        </nav>
+
+                        {tab === "overview" ? (
+                            <OverviewTab
+                                activity={activity}
+                                claims={claims}
+                                claimStatus={claimStatus}
+                                config={config}
+                                directory={directory}
+                            />
+                        ) : null}
+
+                        {tab === "settings" ? (
+                            <SettingsTab
+                                can={can}
+                                channelText={channelText}
+                                config={config}
+                                loading={loading}
+                                onChannelTextChange={setChannelText}
+                                onSaveConfig={handleSaveConfig}
+                                updateConfigField={updateConfigField}
+                            />
+                        ) : null}
+
+                        {tab === "officers" ? (
+                            <OfficersTab
+                                can={can}
+                                config={config}
+                                directory={directory}
+                                loading={loading}
+                                officerUserId={officerUserId}
+                                onAddOfficer={handleAddOfficer}
+                                onOfficerUserIdChange={setOfficerUserId}
+                                onRemoveOfficer={handleRemoveOfficer}
+                            />
+                        ) : null}
+
+                        {tab === "claims" ? (
+                            <ClaimsTab
+                                can={can}
+                                claims={claims}
+                                claimStatus={claimStatus}
+                                directory={directory}
+                                onClaimAction={handleClaimAction}
+                                onClaimStatusChange={setClaimStatus}
+                                onRevokeClaim={setRevokeClaimId}
+                            />
+                        ) : null}
+
+                        {tab === "activity" ? (
+                            <ActivityTab activity={activity} directory={directory} />
+                        ) : null}
                     </>
                 )}
             </section>
+
+            {revokeClaimId && selectedRevokeClaim ? (
+                <RevokeClaimModal
+                    claim={selectedRevokeClaim}
+                    directory={directory}
+                    onCancel={() => setRevokeClaimId("")}
+                    onReasonChange={setRevokeReason}
+                    onSubmit={(event) => {
+                        event.preventDefault();
+                        handleClaimAction(revokeClaimId, "revoke");
+                    }}
+                    reason={revokeReason}
+                />
+            ) : null}
         </main>
     );
 };

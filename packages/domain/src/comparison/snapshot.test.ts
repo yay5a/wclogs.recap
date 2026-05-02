@@ -293,6 +293,7 @@ describe('comparison snapshot extraction', () => {
         code: 'missing-participant-identity',
         reportCode: 'ABC123',
         characterName: 'Yaysa',
+        server: 'Stormrage',
         warcraftLogsActorId: 7,
         reason: 'Character comparison requires a character ID or region, realm/server, and character name.',
       },

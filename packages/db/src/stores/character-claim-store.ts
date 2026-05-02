@@ -1,3 +1,4 @@
+import crypto from "node:crypto";
 import type { CharacterClaimStatus } from "@wcl/domain";
 import {
     CharacterClaimModel,
@@ -28,7 +29,24 @@ export interface ReviewCharacterClaimInput extends CharacterClaimCharacterInput 
 }
 
 export interface RevokeCharacterClaimInput extends CharacterClaimIdentityInput {
+    revokedAt?: Date;
+    revokedByDiscordUserId?: string;
+    revokeReason?: string;
+}
+
+export interface ReviewClaimByIdInput {
+    guildId: string;
+    claimId: string;
+    reviewedByDiscordUserId?: string | undefined;
     reviewedAt?: Date;
+}
+
+export interface RevokeClaimByIdInput {
+    guildId: string;
+    claimId: string;
+    revokedByDiscordUserId?: string | undefined;
+    revokedAt?: Date;
+    revokeReason?: string | undefined;
 }
 
 export interface UpdateClaimPrivacyInput extends CharacterClaimIdentityInput {
@@ -40,6 +58,32 @@ const ACTIVE_CLAIM_STATUSES: CharacterClaimStatus[] = ["pending", "approved"];
 
 const isRecord = (value: unknown): value is Record<string, unknown> =>
     typeof value === "object" && value !== null;
+
+const normalizeClaimIdentityPart = (value: string): string => value.trim().toLowerCase();
+const normalizeClaimRegion = (value: string): string => value.trim().toUpperCase();
+
+const normalizedClaimFields = (input: { characterName: string; realm: string }) => ({
+    normalizedRealm: normalizeClaimIdentityPart(input.realm),
+    normalizedCharacterName: normalizeClaimIdentityPart(input.characterName),
+});
+
+const missingClaimIdentityFieldFilter = {
+    $or: [
+        { claimId: { $exists: false } },
+        { claimId: null },
+        { claimId: "" },
+        { normalizedRealm: { $exists: false } },
+        { normalizedRealm: null },
+        { normalizedRealm: "" },
+        { normalizedCharacterName: { $exists: false } },
+        { normalizedCharacterName: null },
+        { normalizedCharacterName: "" },
+        { region: { $exists: false } },
+        { region: null },
+        { region: "" },
+        { region: { $regex: /(^\s)|(\s$)|[a-z]/ } },
+    ],
+};
 
 const assignOptionalDate = (
     target: Record<string, unknown>,
@@ -80,7 +124,19 @@ const toCharacterClaimRecord = (doc: unknown): CharacterClaimRecord | null => {
         return null;
     }
 
+    const claimId =
+        typeof doc.claimId === "string"
+            ? doc.claimId
+            : isRecord(doc._id) && typeof doc._id.toString === "function"
+              ? doc._id.toString()
+              : typeof doc._id === "string"
+                ? doc._id
+                : `${doc.guildId}:${doc.discordUserId}:${doc.participantKey}`;
+
+    if (!claimId) return null;
+
     const record: Record<string, unknown> = {
+        claimId,
         guildId: doc.guildId,
         discordUserId: doc.discordUserId,
         participantKey: doc.participantKey,
@@ -94,6 +150,9 @@ const toCharacterClaimRecord = (doc: unknown): CharacterClaimRecord | null => {
     };
     assignOptionalDate(record, "reviewedAt", doc.reviewedAt);
     assignOptionalString(record, "reviewedByDiscordUserId", doc.reviewedByDiscordUserId);
+    assignOptionalDate(record, "revokedAt", doc.revokedAt);
+    assignOptionalString(record, "revokedByDiscordUserId", doc.revokedByDiscordUserId);
+    assignOptionalString(record, "revokeReason", doc.revokeReason);
     assignOptionalDate(record, "createdAt", doc.createdAt);
     assignOptionalDate(record, "updatedAt", doc.updatedAt);
     return record as unknown as CharacterClaimRecord;
@@ -105,14 +164,190 @@ const parseRequiredClaim = (doc: unknown, failureMessage: string): CharacterClai
     return parsed;
 };
 
+export interface CharacterClaimIdentityMigrationResult {
+    backfilledCount: number;
+    droppedLegacyIndexNames: string[];
+}
+
+type CharacterClaimBackfillDocument = {
+    _id: unknown;
+    claimId?: unknown;
+    characterName?: unknown;
+    realm?: unknown;
+    region?: unknown;
+    normalizedRealm?: unknown;
+    normalizedCharacterName?: unknown;
+};
+
+type DuplicateActiveClaimIdentity = {
+    _id?: {
+        guildId?: unknown;
+        region?: unknown;
+        normalizedRealm?: unknown;
+        normalizedCharacterName?: unknown;
+    };
+    count?: unknown;
+    claimIds?: unknown[];
+    documentIds?: unknown[];
+};
+
+const isMissingString = (value: unknown): boolean =>
+    typeof value !== "string" || value.trim() === "";
+
+const sampleIds = (docs: Array<{ _id: unknown }>): string =>
+    docs
+        .slice(0, 5)
+        .map((doc) => String(doc._id))
+        .join(", ");
+
+const describeDuplicateActiveClaim = (duplicate: DuplicateActiveClaimIdentity): string => {
+    const key = duplicate._id ?? {};
+    const label = [
+        key.guildId,
+        key.region,
+        key.normalizedRealm,
+        key.normalizedCharacterName,
+    ]
+        .map((value) => (typeof value === "string" && value ? value : "<missing>"))
+        .join("/");
+    const claimIds = Array.isArray(duplicate.claimIds)
+        ? duplicate.claimIds.slice(0, 5).map((value) => String(value)).join(",")
+        : "";
+    return `${label} count=${String(duplicate.count ?? "?")}${claimIds ? ` claimIds=${claimIds}` : ""}`;
+};
+
+const isLegacyExactOwnerClaimIndex = (index: {
+    key: Record<string, unknown> | undefined;
+    unique: boolean | undefined;
+}): boolean => {
+    const key = index.key;
+    if (!key || index.unique !== true) return false;
+    const entries = Object.entries(key);
+    return (
+        entries.length === 3 &&
+        key.guildId === 1 &&
+        key.discordUserId === 1 &&
+        key.participantKey === 1
+    );
+};
+
+export const migrateCharacterClaimIdentityFields =
+    async (): Promise<CharacterClaimIdentityMigrationResult> => {
+        const found = await CharacterClaimModel.find(missingClaimIdentityFieldFilter).lean();
+        const docs = Array.isArray(found) ? (found as CharacterClaimBackfillDocument[]) : [];
+        const invalidDocs = docs.filter((doc) => {
+            const needsRealm = isMissingString(doc.normalizedRealm);
+            const needsCharacterName = isMissingString(doc.normalizedCharacterName);
+            return (
+                isMissingString(doc.region) ||
+                (needsRealm && typeof doc.realm !== "string") ||
+                (needsCharacterName && typeof doc.characterName !== "string")
+            );
+        });
+        if (invalidDocs.length > 0) {
+            throw new Error(
+                `Cannot backfill character claim identity fields for ${invalidDocs.length} claim(s); missing region, characterName, or realm. Sample ids: ${sampleIds(invalidDocs)}`,
+            );
+        }
+
+        const operations = docs
+            .map((doc) => {
+                const set: Record<string, string> = {};
+                if (isMissingString(doc.claimId)) {
+                    set.claimId = crypto.randomUUID();
+                }
+                const normalizedRegion = normalizeClaimRegion(doc.region as string);
+                if (doc.region !== normalizedRegion) {
+                    set.region = normalizedRegion;
+                }
+                if (isMissingString(doc.normalizedRealm)) {
+                    set.normalizedRealm = normalizeClaimIdentityPart(doc.realm as string);
+                }
+                if (isMissingString(doc.normalizedCharacterName)) {
+                    set.normalizedCharacterName = normalizeClaimIdentityPart(
+                        doc.characterName as string,
+                    );
+                }
+                return Object.keys(set).length > 0
+                    ? {
+                          updateOne: {
+                              filter: { _id: doc._id },
+                              update: { $set: set },
+                          },
+                      }
+                    : null;
+            })
+            .filter((operation): operation is NonNullable<typeof operation> => operation !== null);
+
+        if (operations.length > 0) {
+            await CharacterClaimModel.bulkWrite(operations, { ordered: false });
+        }
+
+        const duplicateActiveClaims =
+            await CharacterClaimModel.collection.aggregate<DuplicateActiveClaimIdentity>([
+                { $match: { status: { $in: ACTIVE_CLAIM_STATUSES } } },
+                {
+                    $group: {
+                        _id: {
+                            guildId: "$guildId",
+                            region: "$region",
+                            normalizedRealm: "$normalizedRealm",
+                            normalizedCharacterName: "$normalizedCharacterName",
+                        },
+                        count: { $sum: 1 },
+                        claimIds: { $push: "$claimId" },
+                        documentIds: { $push: "$_id" },
+                    },
+                },
+                { $match: { count: { $gt: 1 } } },
+                { $limit: 20 },
+            ]).toArray();
+        if (duplicateActiveClaims.length > 0) {
+            throw new Error(
+                `Cannot create active character claim identity index; duplicate active claims exist: ${duplicateActiveClaims
+                    .map(describeDuplicateActiveClaim)
+                    .join("; ")}`,
+            );
+        }
+
+        const indexes = await CharacterClaimModel.collection.indexes();
+        const droppedLegacyIndexNames = indexes
+            .filter((index) =>
+                isLegacyExactOwnerClaimIndex({
+                    key: index.key as Record<string, unknown> | undefined,
+                    unique: index.unique,
+                }),
+            )
+            .map((index) => index.name)
+            .filter((name): name is string => typeof name === "string" && name.length > 0);
+        await Promise.all(
+            droppedLegacyIndexNames.map((name) => CharacterClaimModel.collection.dropIndex(name)),
+        );
+
+        await CharacterClaimModel.collection.createIndex({ claimId: 1 }, { unique: true });
+        await CharacterClaimModel.collection.createIndex(
+            { guildId: 1, region: 1, normalizedRealm: 1, normalizedCharacterName: 1 },
+            {
+                unique: true,
+                partialFilterExpression: { status: { $in: ACTIVE_CLAIM_STATUSES } },
+            },
+        );
+
+        return {
+            backfilledCount: operations.length,
+            droppedLegacyIndexNames,
+        };
+    };
+
 export class MongoCharacterClaimStore {
     public async requestCharacterClaim(
         input: RequestCharacterClaimInput,
     ): Promise<CharacterClaimRecord> {
+        const region = normalizeClaimRegion(input.region);
         const existingActive = await CharacterClaimModel.findOne({
             guildId: input.guildId,
-            discordUserId: input.discordUserId,
-            participantKey: input.participantKey,
+            region,
+            ...normalizedClaimFields(input),
             status: { $in: ACTIVE_CLAIM_STATUSES },
         }).lean();
 
@@ -121,28 +356,23 @@ export class MongoCharacterClaimStore {
         }
 
         const requestedAt = input.requestedAt ?? new Date();
+        const claimId = crypto.randomUUID();
         const saved = await CharacterClaimModel.findOneAndUpdate(
+            { claimId },
             {
-                guildId: input.guildId,
-                discordUserId: input.discordUserId,
-                participantKey: input.participantKey,
-            },
-            {
-                $set: {
+                $setOnInsert: {
+                    claimId,
                     guildId: input.guildId,
                     discordUserId: input.discordUserId,
                     participantKey: input.participantKey,
                     characterName: input.characterName,
-                    region: input.region,
+                    region,
                     realm: input.realm,
+                    ...normalizedClaimFields(input),
                     status: "pending",
                     peerCompareOptIn: false,
                     publicPostOptIn: false,
                     requestedAt,
-                },
-                $unset: {
-                    reviewedAt: "",
-                    reviewedByDiscordUserId: "",
                 },
             },
             {
@@ -157,13 +387,15 @@ export class MongoCharacterClaimStore {
 
     public async approveCharacterClaim(
         input: ReviewCharacterClaimInput,
-    ): Promise<CharacterClaimRecord> {
+    ): Promise<CharacterClaimRecord | null> {
+        const region = normalizeClaimRegion(input.region);
         const reviewedAt = input.reviewedAt ?? new Date();
         const saved = await CharacterClaimModel.findOneAndUpdate(
             {
                 guildId: input.guildId,
                 discordUserId: input.discordUserId,
                 participantKey: input.participantKey,
+                status: "pending",
             },
             {
                 $set: {
@@ -171,31 +403,26 @@ export class MongoCharacterClaimStore {
                     discordUserId: input.discordUserId,
                     participantKey: input.participantKey,
                     characterName: input.characterName,
-                    region: input.region,
+                    region,
                     realm: input.realm,
+                    ...normalizedClaimFields(input),
                     status: "approved",
                     reviewedAt,
                     reviewedByDiscordUserId: input.reviewedByDiscordUserId,
                 },
-                $setOnInsert: {
-                    peerCompareOptIn: false,
-                    publicPostOptIn: false,
-                    requestedAt: reviewedAt,
-                },
             },
             {
-                upsert: true,
                 new: true,
-                setDefaultsOnInsert: true,
             },
         ).lean();
 
-        return parseRequiredClaim(saved, "Failed to approve character claim.");
+        return toCharacterClaimRecord(saved);
     }
 
     public async rejectCharacterClaim(
         input: ReviewCharacterClaimInput,
     ): Promise<CharacterClaimRecord | null> {
+        const region = normalizeClaimRegion(input.region);
         const reviewedAt = input.reviewedAt ?? new Date();
         const saved = await CharacterClaimModel.findOneAndUpdate(
             {
@@ -210,8 +437,9 @@ export class MongoCharacterClaimStore {
                     reviewedAt,
                     reviewedByDiscordUserId: input.reviewedByDiscordUserId,
                     characterName: input.characterName,
-                    region: input.region,
+                    region,
                     realm: input.realm,
+                    ...normalizedClaimFields(input),
                 },
             },
             { new: true },
@@ -233,7 +461,87 @@ export class MongoCharacterClaimStore {
             {
                 $set: {
                     status: "revoked",
-                    reviewedAt: input.reviewedAt ?? new Date(),
+                    revokedAt: input.revokedAt ?? new Date(),
+                    ...(input.revokedByDiscordUserId
+                        ? { revokedByDiscordUserId: input.revokedByDiscordUserId }
+                        : {}),
+                    ...(input.revokeReason ? { revokeReason: input.revokeReason } : {}),
+                },
+            },
+            { new: true },
+        ).lean();
+
+        return toCharacterClaimRecord(saved);
+    }
+
+    public async approveClaimById(
+        input: ReviewClaimByIdInput,
+    ): Promise<CharacterClaimRecord | null> {
+        const reviewedAt = input.reviewedAt ?? new Date();
+        const saved = await CharacterClaimModel.findOneAndUpdate(
+            {
+                guildId: input.guildId,
+                claimId: input.claimId,
+                status: "pending",
+            },
+            {
+                $set: {
+                    status: "approved",
+                    reviewedAt,
+                    ...(input.reviewedByDiscordUserId
+                        ? { reviewedByDiscordUserId: input.reviewedByDiscordUserId }
+                        : {}),
+                },
+            },
+            { new: true },
+        ).lean();
+
+        return toCharacterClaimRecord(saved);
+    }
+
+    public async rejectClaimById(
+        input: ReviewClaimByIdInput,
+    ): Promise<CharacterClaimRecord | null> {
+        const reviewedAt = input.reviewedAt ?? new Date();
+        const saved = await CharacterClaimModel.findOneAndUpdate(
+            {
+                guildId: input.guildId,
+                claimId: input.claimId,
+                status: "pending",
+            },
+            {
+                $set: {
+                    status: "rejected",
+                    reviewedAt,
+                    ...(input.reviewedByDiscordUserId
+                        ? { reviewedByDiscordUserId: input.reviewedByDiscordUserId }
+                        : {}),
+                },
+            },
+            { new: true },
+        ).lean();
+
+        return toCharacterClaimRecord(saved);
+    }
+
+    public async revokeClaimById(
+        input: RevokeClaimByIdInput,
+    ): Promise<CharacterClaimRecord | null> {
+        const revokedAt = input.revokedAt ?? new Date();
+        const saved = await CharacterClaimModel.findOneAndUpdate(
+            {
+                guildId: input.guildId,
+                claimId: input.claimId,
+                status: "approved",
+            },
+            {
+                $set: {
+                    status: "revoked",
+                    revokedAt,
+                    ...(input.revokedByDiscordUserId
+                        ? { revokedByDiscordUserId: input.revokedByDiscordUserId }
+                        : {}),
+                    ...(input.revokeReason ? { revokeReason: input.revokeReason } : {}),
                 },
             },
             { new: true },
@@ -323,6 +631,30 @@ export class MongoCharacterClaimStore {
             status: "pending",
         })
             .sort({ requestedAt: 1 })
+            .lean();
+
+        return Array.isArray(found)
+            ? found
+                .map((doc) => toCharacterClaimRecord(doc))
+                .filter((doc): doc is CharacterClaimRecord => doc !== null)
+            : [];
+    }
+
+    public async listClaimsByStatus(input: {
+        guildId: string;
+        status: CharacterClaimStatus;
+    }): Promise<CharacterClaimRecord[]> {
+        const sort =
+            input.status === "pending"
+                ? { requestedAt: 1 as const }
+                : input.status === "approved"
+                  ? { reviewedAt: -1 as const, updatedAt: -1 as const }
+                  : { revokedAt: -1 as const, updatedAt: -1 as const };
+        const found = await CharacterClaimModel.find({
+            guildId: input.guildId,
+            status: input.status,
+        })
+            .sort(sort)
             .lean();
 
         return Array.isArray(found)

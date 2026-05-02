@@ -32,6 +32,7 @@ button {
     color: #ffffff;
     padding: 0 14px;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 button:hover:not(:disabled) {
@@ -47,6 +48,14 @@ button.secondary {
     border: 1px solid #c7d2d9;
     background: #ffffff;
     color: #2d3b45;
+}
+
+button.danger {
+    background: #a13f3f;
+}
+
+button.danger:hover:not(:disabled) {
+    background: #843232;
 }
 
 input,
@@ -90,17 +99,43 @@ p {
 .login-panel,
 .status-panel,
 .officer-panel,
-.config-grid {
+.claims-panel,
+.activity-panel,
+.config-grid,
+.wide-panel,
+.metric-panel,
+.onboarding-panel,
+.modal {
     border: 1px solid #d5dee5;
     border-radius: 8px;
     background: #ffffff;
 }
 
 .login-panel {
-    width: min(100%, 390px);
+    width: min(100%, 410px);
     display: grid;
-    gap: 18px;
+    gap: 16px;
     padding: 24px;
+}
+
+.discord-login {
+    background: #5865f2;
+}
+
+.divider {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 10px;
+    align-items: center;
+    color: #657786;
+    font-size: 0.82rem;
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    height: 1px;
+    background: #d5dee5;
 }
 
 .eyebrow {
@@ -132,6 +167,13 @@ p {
     gap: 4px;
 }
 
+.brand small,
+.guild-list small,
+.empty,
+.onboarding-panel p {
+    color: #657786;
+}
+
 .create-guild {
     display: grid;
     gap: 10px;
@@ -153,15 +195,12 @@ p {
     color: #1f2933;
     padding: 10px;
     text-align: left;
+    white-space: normal;
 }
 
 .guild-list button.selected {
     border-color: #256f6c;
     background: #e7f3f1;
-}
-
-.guild-list small {
-    color: #657786;
 }
 
 .workspace {
@@ -179,19 +218,52 @@ p {
     gap: 16px;
 }
 
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
 .guild-header time {
     color: #657786;
     font-size: 0.86rem;
 }
 
-.config-grid {
+.tabs,
+.segmented {
+    display: flex;
+    gap: 6px;
+    overflow-x: auto;
+}
+
+.tabs button,
+.segmented button {
+    border: 1px solid #c7d2d9;
+    background: #ffffff;
+    color: #2d3b45;
+    text-transform: capitalize;
+}
+
+.tabs button.selected,
+.segmented button.selected {
+    border-color: #256f6c;
+    background: #e7f3f1;
+    color: #1f2933;
+}
+
+.config-grid,
+.panel-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(220px, 1fr));
     gap: 16px;
+}
+
+.config-grid {
     padding: 18px;
 }
 
-.wide {
+.wide,
+.wide-panel {
     grid-column: 1 / -1;
 }
 
@@ -206,10 +278,34 @@ p {
     height: 18px;
 }
 
-.officer-panel {
+.officer-panel,
+.claims-panel,
+.activity-panel,
+.wide-panel,
+.onboarding-panel {
     display: grid;
     gap: 14px;
     padding: 18px;
+}
+
+.onboarding-panel {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+}
+
+.metric-panel {
+    display: grid;
+    gap: 6px;
+    padding: 16px;
+}
+
+.metric-panel span {
+    color: #657786;
+    font-size: 0.84rem;
+}
+
+.metric-panel strong {
+    font-size: 1.45rem;
 }
 
 .officer-form {
@@ -218,7 +314,8 @@ p {
     gap: 10px;
 }
 
-.officer-list {
+.officer-list,
+.stack {
     display: grid;
     gap: 8px;
 }
@@ -233,8 +330,56 @@ p {
     padding: 9px 10px;
 }
 
-.empty {
+.table {
+    display: grid;
+    gap: 8px;
+}
+
+.table-row {
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) minmax(180px, 1.2fr) minmax(160px, 1fr) minmax(120px, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    border: 1px solid #d5dee5;
+    border-radius: 6px;
+    padding: 10px;
+    min-width: 0;
+}
+
+.activity-table .table-row {
+    grid-template-columns: minmax(140px, 0.9fr) minmax(180px, 1fr) minmax(140px, 0.8fr) minmax(120px, 0.8fr) minmax(120px, 0.8fr) 80px;
+}
+
+.table-row > * {
+    min-width: 0;
+}
+
+.row-actions,
+.modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.id-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    min-width: 0;
+    max-width: 100%;
+}
+
+.id-label.unresolved {
     color: #657786;
+}
+
+.copy-id {
+    width: 26px;
+    min-height: 26px;
+    padding: 0;
+    border: 1px solid #c7d2d9;
+    background: #ffffff;
+    color: #2d3b45;
 }
 
 .message {
@@ -259,7 +404,23 @@ p {
     color: #657786;
 }
 
-@media (max-width: 780px) {
+.modal-backdrop {
+    position: fixed;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    background: rgb(31 41 51 / 0.42);
+    padding: 20px;
+}
+
+.modal {
+    width: min(100%, 460px);
+    display: grid;
+    gap: 14px;
+    padding: 20px;
+}
+
+@media (max-width: 980px) {
     .dashboard-shell {
         grid-template-columns: 1fr;
     }
@@ -271,7 +432,24 @@ p {
     }
 
     .config-grid,
-    .officer-form {
+    .panel-grid,
+    .officer-form,
+    .onboarding-panel {
         grid-template-columns: 1fr;
+    }
+
+    .guild-header,
+    .header-actions {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+
+    .table-row,
+    .activity-table .table-row {
+        grid-template-columns: 1fr;
+    }
+
+    .row-actions {
+        justify-content: flex-start;
     }
 }

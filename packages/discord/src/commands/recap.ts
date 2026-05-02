@@ -11,6 +11,7 @@ import {
   editOriginalInteractionResponse,
   safeEditOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
+import { recordDashboardActivityAfterSuccess } from './dashboard-activity.js';
 
 const logger = createLogger('discord');
 const DEFAULT_PREVIEW_STATE_TTL_SECONDS = 900;
@@ -238,6 +239,17 @@ export const processRecapInteraction = async (
       interactionToken,
       artifact.previewBody,
     );
+    await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+      guildId,
+      channelId,
+      sourceMessageId: interactionId,
+      actor: { kind: 'discord', discordUserId: createdByUserId },
+      kind: 'recap_preview_created',
+      reportCode: artifact.report.reportCode,
+      sourceUrl: url,
+      idempotencyKey: interactionId ? `recap_preview:${interactionId}` : undefined,
+      createdAt: new Date(),
+    });
     logRecapStep(interactionId, 'original_response_edit', editStart);
   } catch (error) {
     logger.error({ error: serializeError(error), interactionId, guildId }, 'recap processing failed');
@@ -306,6 +318,21 @@ export const handleRecapComponentInteraction = async (
       },
     };
   }
+
+  const postedByUserId = interaction.member?.user?.id ?? interaction.user?.id;
+  await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+    guildId,
+    channelId,
+    sourceMessageId: interaction.id,
+    actor: postedByUserId
+      ? { kind: 'discord', discordUserId: postedByUserId }
+      : { kind: 'system' },
+    kind: 'recap_posted',
+    reportCode,
+    sourceUrl: previewState.sourceUrl,
+    idempotencyKey: interaction.id ? `recap_posted:${interaction.id}` : undefined,
+    createdAt: new Date(),
+  });
 
   return { type: 4, data: { embeds: [buildPublicRecapEmbed(previewState.summaryPayload)] } };
 };

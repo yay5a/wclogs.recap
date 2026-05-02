@@ -1,6 +1,12 @@
 import type { AccountabilityVisibility, CoachingShareability } from '@wcl/contracts';
 import { DEFAULT_COMPARE_MODE, type CompareMode } from './comparison/compare-mode.js';
 import { DEFAULT_COMPARE_ACCESS_MODE, type CompareAccessMode } from './comparison/privacy.js';
+export type {
+  ActivityActor,
+  BotActivityEvent,
+  BotActivityKind,
+  BotActivityStore,
+} from './dashboard-activity.js';
 
 export const GAME_FAMILIES = ['retail', 'mop_classic'] as const;
 export type GameFamily = (typeof GAME_FAMILIES)[number];
@@ -22,6 +28,7 @@ export interface GuildConfig {
   compareModeDefault: CompareMode;
   compareAccessMode: CompareAccessMode;
   compareOfficerUserIds: string[];
+  dashboardOfficerAccessEnabled: boolean;
   comparePublicPostingEnabled: boolean;
   accountabilityVisibility: AccountabilityVisibility;
   coachingShareabilityDefault: CoachingShareability;
@@ -46,6 +53,7 @@ export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
   compareModeDefault: DEFAULT_COMPARE_MODE,
   compareAccessMode: DEFAULT_COMPARE_ACCESS_MODE,
   compareOfficerUserIds: [],
+  dashboardOfficerAccessEnabled: false,
   comparePublicPostingEnabled: false,
   accountabilityVisibility: 'off',
   coachingShareabilityDefault: 'private',
