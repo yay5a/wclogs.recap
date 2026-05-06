@@ -443,6 +443,66 @@ describe('MongoGuildConfigStore', () => {
     expect(update.$set).not.toHaveProperty('coachingShareabilityDefault');
   });
 
+  it('sanitizes retired keys out of raw update payloads before $set', async () => {
+    vi.spyOn(GuildSettingsModel, 'findOneAndUpdate').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        compareModeDefault: 'mixed',
+        comparePublicPostingEnabled: true,
+        accountabilityVisibility: 'shareable',
+        coachingShareabilityDefault: 'shareable',
+      }),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    const rawUpdate = {
+      comparePublicPostingEnabled: true,
+      accountabilityVisibility: 'shareable',
+      coachingShareabilityDefault: 'shareable',
+    } as unknown as Partial<Omit<Awaited<ReturnType<MongoGuildConfigStore['getGuildConfig']>>, 'guildId'>>;
+
+    const saved = await store.saveGuildConfig('guild-1', rawUpdate);
+    const update = vi.mocked(GuildSettingsModel.findOneAndUpdate).mock.calls[0]?.[1] as {
+      $set: Record<string, unknown>;
+    };
+
+    expect(saved.comparePublicPostingEnabled).toBe(true);
+    expect(saved).not.toHaveProperty('accountabilityVisibility');
+    expect(saved).not.toHaveProperty('coachingShareabilityDefault');
+    expect(update.$set).toEqual({ comparePublicPostingEnabled: true });
+    expect(update.$set).not.toHaveProperty('accountabilityVisibility');
+    expect(update.$set).not.toHaveProperty('coachingShareabilityDefault');
+  });
+
+  it('skips writes when a raw update only contains retired keys', async () => {
+    const findOneAndUpdate = vi.spyOn(GuildSettingsModel, 'findOneAndUpdate');
+    vi.spyOn(GuildSettingsModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        compareModeDefault: 'character',
+        accountabilityVisibility: 'off',
+        coachingShareabilityDefault: 'private',
+      }),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    const rawUpdate = {
+      accountabilityVisibility: 'shareable',
+      coachingShareabilityDefault: 'shareable',
+    } as unknown as Partial<Omit<Awaited<ReturnType<MongoGuildConfigStore['getGuildConfig']>>, 'guildId'>>;
+
+    const saved = await store.saveGuildConfig('guild-1', rawUpdate);
+
+    expect(saved.compareModeDefault).toBe('character');
+    expect(saved).not.toHaveProperty('accountabilityVisibility');
+    expect(saved).not.toHaveProperty('coachingShareabilityDefault');
+    expect(findOneAndUpdate).not.toHaveBeenCalled();
+    expect(GuildSettingsModel.findOne).toHaveBeenCalledWith({
+      guildId: 'guild-1',
+      $or: [{ dashboardDeconfiguredAt: { $exists: false } }, { dashboardDeconfiguredAt: null }],
+    });
+  });
+
   it('adds and removes dashboard officers only on existing guild configs', async () => {
     const findOneAndUpdate = vi.spyOn(GuildSettingsModel, 'findOneAndUpdate').mockReturnValue({
       lean: vi.fn().mockResolvedValue({

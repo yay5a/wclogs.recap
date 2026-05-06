@@ -16,6 +16,8 @@ import type {
 } from '@wcl/domain';
 import { GuildSettingsModel } from '../index.js';
 
+type GuildConfigUpdate = Partial<Omit<GuildConfig, 'guildId'>>;
+
 const parseRecapPostMode = (value: unknown): RecapPostMode =>
   value === 'preview-only' ? 'preview-only' : 'preview-and-post';
 const parseStringArray = (value: unknown): string[] =>
@@ -33,6 +35,38 @@ const normalizeDiscordUserId = (discordUserId: string): string => {
   const normalized = discordUserId.trim();
   if (!normalized) throw new Error('discordUserId is required');
   return normalized;
+};
+
+const sanitizeGuildConfigUpdate = (update: GuildConfigUpdate): GuildConfigUpdate => {
+  return {
+    ...(update.defaultGameFamily !== undefined
+      ? { defaultGameFamily: update.defaultGameFamily }
+      : {}),
+    ...(update.compareModeDefault !== undefined
+      ? { compareModeDefault: update.compareModeDefault }
+      : {}),
+    ...(update.compareAccessMode !== undefined
+      ? { compareAccessMode: update.compareAccessMode }
+      : {}),
+    ...(update.compareOfficerUserIds !== undefined
+      ? { compareOfficerUserIds: update.compareOfficerUserIds }
+      : {}),
+    ...(update.dashboardOfficerAccessEnabled !== undefined
+      ? { dashboardOfficerAccessEnabled: update.dashboardOfficerAccessEnabled }
+      : {}),
+    ...(update.comparePublicPostingEnabled !== undefined
+      ? { comparePublicPostingEnabled: update.comparePublicPostingEnabled }
+      : {}),
+    ...(update.recapPostModeDefault !== undefined
+      ? { recapPostModeDefault: update.recapPostModeDefault }
+      : {}),
+    ...(update.autoRecapMode !== undefined
+      ? { autoRecapMode: update.autoRecapMode }
+      : {}),
+    ...(update.autoRecapChannelIds !== undefined
+      ? { autoRecapChannelIds: update.autoRecapChannelIds }
+      : {}),
+  };
 };
 
 const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
@@ -143,9 +177,10 @@ export class MongoGuildConfigStore implements GuildConfigStore {
 
   public async saveExistingGuildConfig(
     guildId: string,
-    update: Partial<Omit<GuildConfig, 'guildId'>>,
+    update: GuildConfigUpdate,
   ): Promise<GuildConfig | null> {
-    if (Object.keys(update).length === 0) {
+    const sanitizedUpdate = sanitizeGuildConfigUpdate(update);
+    if (Object.keys(sanitizedUpdate).length === 0) {
       return this.getExistingGuildConfig(guildId);
     }
 
@@ -153,7 +188,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
       activeGuildFilter(guildId),
       {
         $set: {
-          ...update,
+          ...sanitizedUpdate,
         },
         $unset: { dashboardDeconfiguredAt: '' },
       },
@@ -167,13 +202,18 @@ export class MongoGuildConfigStore implements GuildConfigStore {
 
   public async saveGuildConfig(
     guildId: string,
-    update: Partial<Omit<GuildConfig, 'guildId'>>,
+    update: GuildConfigUpdate,
   ): Promise<GuildConfig> {
+    const sanitizedUpdate = sanitizeGuildConfigUpdate(update);
+    if (Object.keys(sanitizedUpdate).length === 0) {
+      return this.getGuildConfig(guildId);
+    }
+
     const saved = await GuildSettingsModel.findOneAndUpdate(
       { guildId },
       {
         $set: {
-          ...update,
+          ...sanitizedUpdate,
         },
         $unset: { dashboardDeconfiguredAt: '' },
       },
