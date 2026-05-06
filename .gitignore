@@ -8,3 +8,4 @@ coverage
 .codex*
 nvim.log
 AGENTS.md
+docs/
