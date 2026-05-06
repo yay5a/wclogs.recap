@@ -118,13 +118,8 @@ importers:
         specifier: ^17.4.1
         version: 17.4.1
 
-  packages/contracts: {}
-
   packages/db:
     dependencies:
-      '@wcl/contracts':
-        specifier: workspace:*
-        version: link:../contracts
       '@wcl/domain':
         specifier: workspace:*
         version: link:../domain
@@ -149,9 +144,6 @@ importers:
 
   packages/domain:
     dependencies:
-      '@wcl/contracts':
-        specifier: workspace:*
-        version: link:../contracts
       '@wcl/shared':
         specifier: workspace:*
         version: link:../shared

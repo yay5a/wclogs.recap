@@ -1,4 +1,3 @@
-import type { AccountabilityVisibility, CoachingShareability } from '@wcl/contracts';
 import { DEFAULT_COMPARE_MODE, type CompareMode } from './comparison/compare-mode.js';
 import { DEFAULT_COMPARE_ACCESS_MODE, type CompareAccessMode } from './comparison/privacy.js';
 export type {
@@ -30,8 +29,6 @@ export interface GuildConfig {
   compareOfficerUserIds: string[];
   dashboardOfficerAccessEnabled: boolean;
   comparePublicPostingEnabled: boolean;
-  accountabilityVisibility: AccountabilityVisibility;
-  coachingShareabilityDefault: CoachingShareability;
   recapPostModeDefault: RecapPostMode;
   autoRecapMode: AutoRecapMode;
   autoRecapChannelIds: string[];
@@ -55,8 +52,6 @@ export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
   compareOfficerUserIds: [],
   dashboardOfficerAccessEnabled: false,
   comparePublicPostingEnabled: false,
-  accountabilityVisibility: 'off',
-  coachingShareabilityDefault: 'private',
   recapPostModeDefault: 'preview-and-post',
   autoRecapMode: 'prompt',
   autoRecapChannelIds: [],
@@ -234,8 +229,6 @@ export interface RecapSummary {
   zoneName?: string;
   bossesKilled: number;
   compareModeUsed: CompareMode;
-  accountabilityVisibility: AccountabilityVisibility;
-  coachingShareability: CoachingShareability;
   recapPostMode: RecapPostMode;
   fastestPhaseTimes: Array<{ label: string; durationMs: number; name?: string }>;
   topDamageTaken: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
@@ -386,16 +379,6 @@ export {
   summarizeBossTables,
   type FightSummaryRow,
 } from './report-mappers.js';
-
-// Temporary adapter layer for incremental migration to @wcl/contracts.
-export type {
-  AccountabilityVisibility,
-  CoachingShareability,
-  CoachingViewService,
-  AccountabilityViewService,
-  SubscriptionService,
-  IdentityMergeReviewService,
-} from '@wcl/contracts';
 
 export interface TrendTrackingService {
   ingestRaidHistory(guildId: string, report: NormalizedReport): Promise<void>;

@@ -13,7 +13,6 @@
   },
   "dependencies": {
     "mongoose": "^8.13.2",
-    "@wcl/domain": "workspace:*",
-    "@wcl/contracts": "workspace:*"
+    "@wcl/domain": "workspace:*"
   }
 }

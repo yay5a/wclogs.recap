@@ -35,8 +35,6 @@ export interface OutcomeResult {
     | 'gameFamily'
     | 'bossesKilled'
     | 'compareModeUsed'
-    | 'accountabilityVisibility'
-    | 'coachingShareability'
     | 'recapPostMode'
     | 'fastestPhaseTimes'
     | 'teamNote'
@@ -74,8 +72,6 @@ export const Outcome = {
       gameFamily: report.gameFamily,
       bossesKilled: killed,
       compareModeUsed,
-      accountabilityVisibility: guildConfig?.accountabilityVisibility ?? 'off',
-      coachingShareability: guildConfig?.coachingShareabilityDefault ?? 'private',
       recapPostMode: guildConfig?.recapPostModeDefault ?? 'preview-and-post',
       fastestPhaseTimes: [],
       teamNote: deriveDeterministicTeamNote(killed),

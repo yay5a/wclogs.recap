@@ -36,8 +36,6 @@ export type GuildConfig = {
     compareOfficerUserIds: string[];
     dashboardOfficerAccessEnabled: boolean;
     comparePublicPostingEnabled: boolean;
-    accountabilityVisibility: string;
-    coachingShareabilityDefault: string;
     recapPostModeDefault: string;
     autoRecapMode: AutoRecapMode;
     autoRecapChannelIds: string[];

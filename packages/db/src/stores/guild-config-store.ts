@@ -6,9 +6,7 @@ import {
   parseGameFamily,
 } from '@wcl/domain';
 import type {
-  AccountabilityVisibility,
   AutoRecapMode,
-  CoachingShareability,
   CompareAccessMode,
   CompareMode,
   GameFamily,
@@ -18,10 +16,6 @@ import type {
 } from '@wcl/domain';
 import { GuildSettingsModel } from '../index.js';
 
-const parseVisibility = (value: unknown): AccountabilityVisibility =>
-  value === 'officers-only' || value === 'shareable' ? value : 'off';
-const parseCoachingShareability = (value: unknown): CoachingShareability =>
-  value === 'shareable' ? 'shareable' : 'private';
 const parseRecapPostMode = (value: unknown): RecapPostMode =>
   value === 'preview-only' ? 'preview-only' : 'preview-and-post';
 const parseStringArray = (value: unknown): string[] =>
@@ -50,8 +44,6 @@ const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
     guildId,
     defaultGameFamily: parseGameFamily(raw.defaultGameFamily) ?? fallback.defaultGameFamily,
     compareModeDefault: parseCompareMode(raw.compareModeDefault) ?? fallback.compareModeDefault,
-    accountabilityVisibility: parseVisibility(raw.accountabilityVisibility),
-    coachingShareabilityDefault: parseCoachingShareability(raw.coachingShareabilityDefault),
     recapPostModeDefault: parseRecapPostMode(raw.recapPostModeDefault),
     autoRecapMode: parseAutoRecapMode(raw.autoRecapMode) ?? fallback.autoRecapMode,
     autoRecapChannelIds: parseAutoRecapChannelIds(raw.autoRecapChannelIds),

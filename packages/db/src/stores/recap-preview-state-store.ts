@@ -41,13 +41,6 @@ const isRecapSummary = (value: unknown): value is RecapSummary => {
         raw.gameFamily === "retail" || raw.gameFamily === "mop_classic";
     const isCompareMode =
         raw.compareModeUsed === "character" || raw.compareModeUsed === "mixed";
-    const isVisibility =
-        raw.accountabilityVisibility === "off" ||
-        raw.accountabilityVisibility === "officers-only" ||
-        raw.accountabilityVisibility === "shareable";
-    const isCoachingShareability =
-        raw.coachingShareability === "private" ||
-        raw.coachingShareability === "shareable";
     const isRecapPostMode =
         raw.recapPostMode === "preview-and-post" ||
         raw.recapPostMode === "preview-only";
@@ -58,8 +51,6 @@ const isRecapSummary = (value: unknown): value is RecapSummary => {
         isGameFamily &&
         typeof raw.bossesKilled === "number" &&
         isCompareMode &&
-        isVisibility &&
-        isCoachingShareability &&
         isRecapPostMode &&
         Array.isArray(raw.highestParses) &&
         Array.isArray(raw.topDamageAverageParses) &&

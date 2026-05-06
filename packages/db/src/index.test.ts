@@ -40,8 +40,6 @@ const makeRecapSummary = (): RecapSummary => ({
   gameFamily: 'retail',
   bossesKilled: 1,
   compareModeUsed: 'mixed',
-  accountabilityVisibility: 'officers-only',
-  coachingShareability: 'shareable',
   recapPostMode: 'preview-and-post',
   fastestPhaseTimes: [],
   topDamageDone: [],
@@ -85,9 +83,10 @@ describe('MongoGuildConfigStore', () => {
     expect(config.compareAccessMode).toBe(DEFAULT_COMPARE_ACCESS_MODE);
     expect(config.compareOfficerUserIds).toEqual([]);
     expect(config.comparePublicPostingEnabled).toBe(false);
-    expect(config.accountabilityVisibility).toBe('off');
     expect(config.autoRecapMode).toBe('prompt');
     expect(config.autoRecapChannelIds).toEqual([]);
+    expect(config).not.toHaveProperty('accountabilityVisibility');
+    expect(config).not.toHaveProperty('coachingShareabilityDefault');
   });
 
   it('defaults compare mode when persisted config is missing compareModeDefault', async () => {
@@ -141,13 +140,29 @@ describe('MongoGuildConfigStore', () => {
     expect(config.autoRecapChannelIds).toEqual(['channel-1', 'channel-2']);
   });
 
+  it('ignores retired config fields when loading legacy guild config documents', async () => {
+    vi.spyOn(GuildSettingsModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        defaultGameFamily: 'retail',
+        accountabilityVisibility: 'shareable',
+        coachingShareabilityDefault: 'shareable',
+      }),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    const config = await store.getGuildConfig('guild-1');
+
+    expect(config.defaultGameFamily).toBe('retail');
+    expect(config).not.toHaveProperty('accountabilityVisibility');
+    expect(config).not.toHaveProperty('coachingShareabilityDefault');
+  });
+
   it('persists configured values via upsert', async () => {
     const lean = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
       defaultGameFamily: 'mop_classic',
       compareModeDefault: 'mixed',
-      accountabilityVisibility: 'shareable',
-      coachingShareabilityDefault: 'shareable',
       recapPostModeDefault: 'preview-only',
       compareAccessMode: 'owner_only',
       compareOfficerUserIds: ['user-1'],
@@ -163,8 +178,6 @@ describe('MongoGuildConfigStore', () => {
     const saved = await store.saveGuildConfig('guild-1', {
       defaultGameFamily: 'mop_classic',
       compareModeDefault: 'mixed',
-      accountabilityVisibility: 'shareable',
-      coachingShareabilityDefault: 'shareable',
       recapPostModeDefault: 'preview-only',
       compareAccessMode: 'owner_only',
       compareOfficerUserIds: ['user-1'],
@@ -180,7 +193,29 @@ describe('MongoGuildConfigStore', () => {
     expect(saved.comparePublicPostingEnabled).toBe(true);
     expect(saved.autoRecapMode).toBe('auto_preview');
     expect(saved.autoRecapChannelIds).toEqual(['channel-1']);
-    expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledOnce();
+    expect(saved).not.toHaveProperty('accountabilityVisibility');
+    expect(saved).not.toHaveProperty('coachingShareabilityDefault');
+    expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { guildId: 'guild-1' },
+      {
+        $set: {
+          defaultGameFamily: 'mop_classic',
+          compareModeDefault: 'mixed',
+          recapPostModeDefault: 'preview-only',
+          compareAccessMode: 'owner_only',
+          compareOfficerUserIds: ['user-1'],
+          comparePublicPostingEnabled: true,
+          autoRecapMode: 'auto_preview',
+          autoRecapChannelIds: ['channel-1'],
+        },
+        $unset: { dashboardDeconfiguredAt: '' },
+      },
+      {
+        upsert: true,
+        new: true,
+        setDefaultsOnInsert: true,
+      },
+    );
   });
 
   it('adds compare officer users atomically', async () => {
@@ -332,8 +367,11 @@ describe('MongoGuildConfigStore', () => {
 
     const store = new MongoGuildConfigStore();
     const config = await store.createDefaultGuildConfig('guild-1');
+    const createDefaultUpdate = vi.mocked(GuildSettingsModel.findOneAndUpdate).mock.calls[0]?.[1];
 
     expect(config.guildId).toBe('guild-1');
+    expect(config).not.toHaveProperty('accountabilityVisibility');
+    expect(config).not.toHaveProperty('coachingShareabilityDefault');
     expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledWith(
       { guildId: 'guild-1' },
       {
@@ -345,6 +383,12 @@ describe('MongoGuildConfigStore', () => {
         new: true,
         setDefaultsOnInsert: true,
       },
+    );
+    expect((createDefaultUpdate as { $setOnInsert: Record<string, unknown> }).$setOnInsert).not.toHaveProperty(
+      'accountabilityVisibility',
+    );
+    expect((createDefaultUpdate as { $setOnInsert: Record<string, unknown> }).$setOnInsert).not.toHaveProperty(
+      'coachingShareabilityDefault',
     );
   });
 
@@ -370,6 +414,33 @@ describe('MongoGuildConfigStore', () => {
         new: true,
       },
     );
+  });
+
+  it('does not write retired fields back during unrelated config updates', async () => {
+    vi.spyOn(GuildSettingsModel, 'findOneAndUpdate').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        compareModeDefault: 'character',
+        comparePublicPostingEnabled: true,
+        accountabilityVisibility: 'off',
+        coachingShareabilityDefault: 'private',
+      }),
+    } as never);
+
+    const store = new MongoGuildConfigStore();
+    const saved = await store.saveGuildConfig('guild-1', {
+      comparePublicPostingEnabled: true,
+    });
+    const update = vi.mocked(GuildSettingsModel.findOneAndUpdate).mock.calls[0]?.[1] as {
+      $set: Record<string, unknown>;
+    };
+
+    expect(saved.comparePublicPostingEnabled).toBe(true);
+    expect(saved).not.toHaveProperty('accountabilityVisibility');
+    expect(saved).not.toHaveProperty('coachingShareabilityDefault');
+    expect(update.$set).toEqual({ comparePublicPostingEnabled: true });
+    expect(update.$set).not.toHaveProperty('accountabilityVisibility');
+    expect(update.$set).not.toHaveProperty('coachingShareabilityDefault');
   });
 
   it('adds and removes dashboard officers only on existing guild configs', async () => {
@@ -829,7 +900,7 @@ describe('MongoCharacterClaimStore', () => {
 });
 
 describe('MongoRecapPreviewStateStore', () => {
-  it('persists and retrieves valid preview state', async () => {
+  it('persists and retrieves valid preview state without retired fields', async () => {
     const now = new Date('2026-04-09T00:00:00.000Z');
     vi.useFakeTimers();
     vi.setSystemTime(now);
@@ -854,19 +925,52 @@ describe('MongoRecapPreviewStateStore', () => {
     } as never);
 
     const store = new MongoRecapPreviewStateStore();
-    await store.savePreviewState(savedState);
-    await store.getValidPreviewState({
+    const saved = await store.savePreviewState(savedState);
+    const found = await store.getValidPreviewState({
       reportCode: 'ABC123',
       guildId: 'guild-1',
       channelId: 'channel-1',
     });
 
+    expect(saved.summaryPayload).toEqual(makeRecapSummary());
+    expect(found?.summaryPayload).toEqual(makeRecapSummary());
     expect(RecapPreviewStateModel.findOne).toHaveBeenCalledWith({
       reportCode: 'ABC123',
       guildId: 'guild-1',
       channelId: 'channel-1',
       expiresAt: { $gt: now },
     });
+  });
+
+  it('accepts legacy preview payloads with retired fields', async () => {
+    const now = new Date('2026-04-09T00:00:00.000Z');
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+    vi.spyOn(RecapPreviewStateModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        reportCode: 'ABC123',
+        sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+        summaryPayload: {
+          ...makeRecapSummary(),
+          accountabilityVisibility: 'officers-only',
+          coachingShareability: 'shareable',
+        },
+        createdByUserId: 'user-1',
+        createdAt: now,
+        expiresAt: new Date(now.getTime() + 60_000),
+      }),
+    } as never);
+
+    const store = new MongoRecapPreviewStateStore();
+    const found = await store.getValidPreviewState({
+      reportCode: 'ABC123',
+      guildId: 'guild-1',
+      channelId: 'channel-1',
+    });
+
+    expect(found?.summaryPayload.reportTitle).toBe('Boss - Mythic - Zone');
   });
 
   it('returns null when preview state is missing or expired', async () => {

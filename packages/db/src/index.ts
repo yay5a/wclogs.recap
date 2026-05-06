@@ -31,17 +31,6 @@ const guildSettingsSchema = new Schema(
       enum: ['character', 'mixed'],
       default: 'character',
     },
-
-    accountabilityVisibility: {
-      type: String,
-      enum: ['off', 'officers-only', 'shareable'],
-      default: 'off',
-    },
-    coachingShareabilityDefault: {
-      type: String,
-      enum: ['private', 'shareable'],
-      default: 'private',
-    },
     recapPostModeDefault: {
       type: String,
       enum: ['preview-and-post', 'preview-only'],
