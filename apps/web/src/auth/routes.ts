@@ -60,7 +60,7 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
 
         const authorizeUrl = new URL("https://www.warcraftlogs.com/oauth/authorize");
         authorizeUrl.searchParams.set("client_id", env.WCL_CLIENT_ID);
-        authorizeUrl.searchParams.set("redirect_uri", env.WCL_REDIRECT_URI);
+        authorizeUrl.searchParams.set("redirect_uri", env.wclRedirectUri);
         authorizeUrl.searchParams.set("response_type", "code");
         authorizeUrl.searchParams.set("state", state);
 
@@ -100,7 +100,12 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
 
         if (!tokenResult.payload.access_token || tokenResult.status < 200 || tokenResult.status >= 300) {
             logger.error(
-                { status: tokenResult.status, tokenPayload: tokenResult.payload },
+                {
+                    provider: "warcraftlogs",
+                    flow: "authorization_code",
+                    failureCategory: "token_exchange_failed",
+                    status: tokenResult.status,
+                },
                 "WCL token exchange failed",
             );
 

@@ -63,6 +63,9 @@ export const publicAuthContext = (auth: DashboardAuthContext) =>
               displayName: auth.displayName,
           };
 
+export const shouldUseSecureDashboardCookies = (env: WebEnv): boolean =>
+    env.NODE_ENV === "production" || env.publicAppBaseUrl?.startsWith("https://") === true;
+
 export const setDashboardCookie = (
     reply: FastifyReply,
     env: WebEnv,
@@ -73,13 +76,21 @@ export const setDashboardCookie = (
         httpOnly: true,
         signed: true,
         sameSite: "strict",
-        secure: env.NODE_ENV === "production",
+        secure: shouldUseSecureDashboardCookies(env),
         path: DASHBOARD_COOKIE_PATH,
         maxAge: maxAgeSeconds,
     });
 };
 
+const pruneExpiredDiscordSessions = () => {
+    const now = Date.now();
+    for (const [sessionId, record] of discordSessions.entries()) {
+        if (now > record.expiresAtMs) discordSessions.delete(sessionId);
+    }
+};
+
 const parseSessionCookie = (request: FastifyRequest): DashboardAuthContext | null => {
+    pruneExpiredDiscordSessions();
     const rawCookie = request.cookies[DASHBOARD_COOKIE_NAME];
     if (!rawCookie) return null;
 
@@ -181,7 +192,7 @@ export const parseDiscordUser = (value: unknown): {
 };
 
 export const exchangeDiscordCode = async (env: WebEnv, code: string): Promise<string | null> => {
-    if (!env.DISCORD_CLIENT_SECRET || !env.DISCORD_OAUTH_REDIRECT_URI) return null;
+    if (!env.DISCORD_CLIENT_SECRET || !env.discordOAuthRedirectUri) return null;
     const response = await fetch(`${DISCORD_API_BASE_URL}/oauth2/token`, {
         method: "POST",
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
@@ -190,7 +201,7 @@ export const exchangeDiscordCode = async (env: WebEnv, code: string): Promise<st
             client_secret: env.DISCORD_CLIENT_SECRET,
             grant_type: "authorization_code",
             code,
-            redirect_uri: env.DISCORD_OAUTH_REDIRECT_URI,
+            redirect_uri: env.discordOAuthRedirectUri,
         }),
     });
     if (!response.ok) return null;
@@ -212,6 +223,7 @@ export const fetchDiscordBearerJson = async (
 export const createDiscordSession = (
     auth: DashboardAuthContext,
 ): { sessionId: string; sessionExpiresAtMs: number } => {
+    pruneExpiredDiscordSessions();
     const sessionId = crypto.randomBytes(24).toString("base64url");
     const sessionExpiresAtMs = Date.now() + DASHBOARD_SESSION_TTL_MS;
     discordSessions.set(sessionId, {

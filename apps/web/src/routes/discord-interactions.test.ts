@@ -3,7 +3,7 @@ import { verifyKey } from "discord-interactions";
 import { handleInteraction } from "@wcl/discord";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { registerDiscordInteractionRoutes } from "./discord-interactions.js";
-import type { WebEnv } from "../config.js";
+import { parseWebEnv, type WebEnv } from "../config.js";
 
 vi.mock("discord-interactions", () => ({
     verifyKey: vi.fn(),
@@ -13,9 +13,9 @@ vi.mock("@wcl/discord", () => ({
     handleInteraction: vi.fn(),
 }));
 
-const env: WebEnv = {
+const env: WebEnv = parseWebEnv({
     NODE_ENV: "test",
-    PORT: 3000,
+    PORT: "3000",
     MONGODB_URI: "mongodb://localhost:27017/wclogs",
     DISCORD_PUBLIC_KEY: "a".repeat(64),
     DISCORD_APPLICATION_ID: "1234567890",
@@ -25,8 +25,8 @@ const env: WebEnv = {
     WCL_API_BASE_URL: "https://www.warcraftlogs.com/api/v2/client",
     WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
     COOKIE_SECRET: "cookie-secret",
-    DASHBOARD_AUTH_DISABLED: false,
-};
+    DASHBOARD_AUTH_DISABLED: "false",
+});
 
 const makeLogger = () =>
     ({

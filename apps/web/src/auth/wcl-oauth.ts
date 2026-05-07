@@ -27,7 +27,7 @@ export const exchangeAuthorizationCode = async (args: {
         body: new URLSearchParams({
             grant_type: "authorization_code",
             code: args.code,
-            redirect_uri: args.env.WCL_REDIRECT_URI,
+            redirect_uri: args.env.wclRedirectUri,
         }),
     });
 

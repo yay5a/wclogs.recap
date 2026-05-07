@@ -15,6 +15,7 @@ import {
     requireDashboardAuth,
     requireDashboardMutationSafety,
     setDashboardCookie,
+    shouldUseSecureDashboardCookies,
     storeOAuthState,
     clearDiscordSessionsForGuild,
 } from "./dashboard/auth.js";
@@ -98,7 +99,7 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
     });
 
     app.get("/api/dashboard/discord/login", async (_request, reply) => {
-        if (!options.env.DISCORD_CLIENT_SECRET || !options.env.DISCORD_OAUTH_REDIRECT_URI) {
+        if (!options.env.DISCORD_CLIENT_SECRET || !options.env.discordOAuthRedirectUri) {
             return sendError(reply, 503, "discord_login_not_configured");
         }
 
@@ -108,7 +109,7 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
             httpOnly: true,
             signed: true,
             sameSite: "lax",
-            secure: options.env.NODE_ENV === "production",
+            secure: shouldUseSecureDashboardCookies(options.env),
             path: "/api/dashboard/discord/callback",
             maxAge: DASHBOARD_OAUTH_STATE_TTL_MS / 1000,
         });
@@ -117,7 +118,7 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
         authorizeUrl.searchParams.set("response_type", "code");
         authorizeUrl.searchParams.set("client_id", options.env.DISCORD_APPLICATION_ID);
         authorizeUrl.searchParams.set("scope", "identify guilds");
-        authorizeUrl.searchParams.set("redirect_uri", options.env.DISCORD_OAUTH_REDIRECT_URI);
+        authorizeUrl.searchParams.set("redirect_uri", options.env.discordOAuthRedirectUri);
         authorizeUrl.searchParams.set("state", state);
         return reply.redirect(authorizeUrl.toString());
     });
@@ -127,6 +128,7 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
             typeof request.query === "object" && request.query !== null
                 ? (request.query as Record<string, unknown>)
                 : {};
+        const oauthError = typeof query.error === "string" ? query.error : "";
         const code = typeof query.code === "string" ? query.code : "";
         const state = typeof query.state === "string" ? query.state : "";
         const rawStateCookie = request.cookies[DASHBOARD_OAUTH_STATE_COOKIE_NAME];
@@ -134,6 +136,13 @@ export const registerDashboardRoutes: FastifyPluginAsync<DashboardRouteOptions> 
         reply.clearCookie(DASHBOARD_OAUTH_STATE_COOKIE_NAME, {
             path: "/api/dashboard/discord/callback",
         });
+
+        if (oauthError) {
+            if (state && unsignedState?.valid && unsignedState.value === state) {
+                consumeOAuthState(state);
+            }
+            return sendError(reply, 400, "discord_oauth_denied");
+        }
 
         if (!code || !state || !unsignedState?.valid || unsignedState.value !== state) {
             return sendError(reply, 400, "invalid_oauth_state");

@@ -27,12 +27,9 @@ services:
       DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY}
       DISCORD_APPLICATION_ID: ${DISCORD_APPLICATION_ID}
       COOKIE_SECRET: ${COOKIE_SECRET}
-      # Configure the callback URL for the Warcraft Logs OAuth redirect.
-      WCL_REDIRECT_URI: https://yaysa.wclogsdiscobot.org/api/auth/wcl/callback
-      # Configure the Discord interactions endpoint (if your integration uses it).
-      DISCORD_INTERACTIONS_URL: https://yaysa.wclogsdiscobot.org/discord/interactions
-      # Set the base public URL used by the application when generating links.
-      PUBLIC_URL: https://yaysa.wclogsdiscobot.org
+      # Public origin used to derive OAuth callbacks, dashboard links, and the
+      # Discord interactions endpoint.
+      PUBLIC_APP_BASE_URL: ${PUBLIC_APP_BASE_URL}
       # Provide the remote MongoDB connection URI.  When using Atlas, store
       # this in your `.env` file as MONGODB_URI and do not bake it into
       # the image.
@@ -59,8 +56,6 @@ services:
       WCL_CLIENT_ID: ${WCL_CLIENT_ID}
       WCL_CLIENT_SECRET: ${WCL_CLIENT_SECRET}
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
-      # Ensure the worker also knows the OAuth redirect URL (if needed).
-      WCL_REDIRECT_URI: https://yaysa.wclogsdiscobot.org/api/auth/wcl/callback
       # Provide the remote MongoDB connection URI for the worker.
       MONGODB_URI: ${MONGODB_URI}
     networks:

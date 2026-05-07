@@ -2,7 +2,7 @@ import Fastify from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultGuildConfigFor, type GuildConfig } from "@wcl/domain";
-import type { WebEnv } from "../config.js";
+import { parseWebEnv, type WebEnv } from "../config.js";
 import {
     compareDashboardAdminSecret,
     DASHBOARD_COOKIE_NAME,
@@ -22,22 +22,35 @@ const otherGuildId = "223456789012345678";
 const discordUserId = "323456789012345678";
 const channelId = "423456789012345678";
 
-const makeEnv = (overrides: Partial<WebEnv> = {}): WebEnv => ({
-    NODE_ENV: "test",
-    PORT: 3000,
-    MONGODB_URI: "mongodb://localhost:27017/wclogs",
-    DISCORD_PUBLIC_KEY: "a".repeat(64),
-    DISCORD_APPLICATION_ID: "1234567890",
-    DISCORD_BOT_TOKEN: "discord-token",
-    WCL_CLIENT_ID: "wcl-client-id",
-    WCL_CLIENT_SECRET: "wcl-client-secret",
-    WCL_API_BASE_URL: "https://www.warcraftlogs.com/api/v2/client",
-    WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
-    COOKIE_SECRET: "cookie-secret",
-    DASHBOARD_ADMIN_SECRET: "admin-secret",
-    DASHBOARD_AUTH_DISABLED: false,
-    ...overrides,
-});
+const makeEnv = (
+    overrides: Partial<Record<string, string | number | boolean | undefined>> = {},
+): WebEnv => {
+    const rawEnv: Record<string, string> = {
+        NODE_ENV: "test",
+        PORT: "3000",
+        MONGODB_URI: "mongodb://localhost:27017/wclogs",
+        DISCORD_PUBLIC_KEY: "a".repeat(64),
+        DISCORD_APPLICATION_ID: "1234567890",
+        DISCORD_BOT_TOKEN: "discord-token",
+        WCL_CLIENT_ID: "wcl-client-id",
+        WCL_CLIENT_SECRET: "wcl-client-secret",
+        WCL_API_BASE_URL: "https://www.warcraftlogs.com/api/v2/client",
+        WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
+        COOKIE_SECRET: "cookie-secret",
+        DASHBOARD_ADMIN_SECRET: "admin-secret",
+        DASHBOARD_AUTH_DISABLED: "false",
+    };
+
+    for (const [key, value] of Object.entries(overrides)) {
+        if (value === undefined) {
+            delete rawEnv[key];
+        } else {
+            rawEnv[key] = String(value);
+        }
+    }
+
+    return parseWebEnv(rawEnv);
+};
 
 const toSummary = (config: GuildConfig): DashboardGuildConfigSummary => ({
     guildId: config.guildId,
@@ -161,6 +174,11 @@ const firstSetCookieHeader = (response: { headers: Record<string, unknown> }): s
     const raw = Array.isArray(header) ? header[0] : header;
     if (typeof raw !== "string") throw new Error("missing set-cookie");
     return raw;
+};
+
+const setCookieHeaders = (response: { headers: Record<string, unknown> }): string[] => {
+    const header = response.headers["set-cookie"];
+    return Array.isArray(header) ? header : typeof header === "string" ? [header] : [];
 };
 
 const dashboardSetCookie = (response: { headers: Record<string, unknown> }): string => {
@@ -370,6 +388,35 @@ describe("dashboard auth", () => {
         await app.close();
     });
 
+    it("sets Secure on dashboard cookies when a public HTTPS app base URL is configured", async () => {
+        const { store } = makeStore();
+        const app = await makeApp(
+            makeEnv({
+                PUBLIC_APP_BASE_URL: "https://public.example.test",
+                WCL_REDIRECT_URI: undefined,
+                DISCORD_CLIENT_SECRET: "discord-client-secret",
+                DISCORD_OAUTH_REDIRECT_URI: undefined,
+            }),
+            store,
+        );
+
+        const adminLogin = await app.inject({
+            method: "POST",
+            url: "/api/dashboard/login",
+            payload: { adminSecret: "admin-secret" },
+        });
+        const discordLogin = await app.inject("/api/dashboard/discord/login");
+
+        expect(firstSetCookieHeader(adminLogin)).toContain("Secure");
+        const discordOAuthStateCookie = firstSetCookieHeader(discordLogin);
+        expect(discordOAuthStateCookie).toContain("Secure");
+        expect(discordOAuthStateCookie).toContain("HttpOnly");
+        expect(discordOAuthStateCookie).toContain("SameSite=Lax");
+        expect(discordOAuthStateCookie).toContain("Path=/api/dashboard/discord/callback");
+
+        await app.close();
+    });
+
     it("protects session with missing, invalid, expired, and valid cookies", async () => {
         const env = makeEnv();
         const { store } = makeStore();
@@ -460,6 +507,120 @@ describe("dashboard auth", () => {
         await app.close();
     });
 
+    it("handles Discord OAuth denial without token exchange and consumes matching state", async () => {
+        const { store } = makeStore();
+        const fetchMock = vi.fn();
+        vi.stubGlobal("fetch", fetchMock);
+        const app = await makeApp(makeDiscordOAuthEnv(), store);
+
+        const login = await app.inject("/api/dashboard/discord/login");
+        const state = new URL(String(login.headers.location)).searchParams.get("state");
+        expect(state).toBeTruthy();
+
+        const denied = await app.inject({
+            url: `/api/dashboard/discord/callback?error=access_denied&state=${state}`,
+            headers: { cookie: firstSetCookie(login) },
+        });
+        const replay = await app.inject({
+            url: `/api/dashboard/discord/callback?code=abc&state=${state}`,
+            headers: { cookie: firstSetCookie(login) },
+        });
+
+        expect(denied.statusCode).toBe(400);
+        expect(denied.json()).toEqual({ error: "discord_oauth_denied" });
+        expect(replay.statusCode).toBe(400);
+        expect(fetchMock).not.toHaveBeenCalled();
+        expect(denied.body).not.toContain("access_denied");
+
+        await app.close();
+    });
+
+    it("uses the configured public base URL for Discord OAuth login redirects", async () => {
+        const { store } = makeStore();
+        const app = await makeApp(
+            makeEnv({
+                PUBLIC_APP_BASE_URL: "https://public.example.test",
+                DISCORD_CLIENT_SECRET: "discord-client-secret",
+                DISCORD_OAUTH_REDIRECT_URI: undefined,
+            }),
+            store,
+        );
+
+        const login = await app.inject({
+            url: "/api/dashboard/discord/login",
+            headers: { host: "evil.example.test" },
+        });
+
+        expect(login.statusCode).toBe(302);
+        const redirect = new URL(String(login.headers.location));
+        expect(redirect.searchParams.get("scope")).toBe("identify guilds");
+        expect(redirect.searchParams.get("redirect_uri")).toBe(
+            "https://public.example.test/api/dashboard/discord/callback",
+        );
+
+        await app.close();
+    });
+
+    it("uses the same configured Discord OAuth redirect URI for token exchange", async () => {
+        const { store } = makeStore();
+        const fetchMock = vi
+            .fn()
+            .mockResolvedValueOnce({
+                ok: true,
+                json: vi.fn().mockResolvedValue({ access_token: "access-token" }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: vi.fn().mockResolvedValue({
+                    id: discordUserId,
+                    username: "yaysa",
+                    global_name: "Yaysa",
+                }),
+            })
+            .mockResolvedValueOnce({
+                ok: true,
+                json: vi.fn().mockResolvedValue([]),
+            });
+        vi.stubGlobal("fetch", fetchMock);
+        const app = await makeApp(
+            makeEnv({
+                PUBLIC_APP_BASE_URL: "https://public.example.test",
+                DISCORD_CLIENT_SECRET: "discord-client-secret",
+                DISCORD_OAUTH_REDIRECT_URI: undefined,
+            }),
+            store,
+        );
+
+        const login = await app.inject("/api/dashboard/discord/login");
+        const state = new URL(String(login.headers.location)).searchParams.get("state");
+        expect(state).toBeTruthy();
+
+        const callback = await app.inject({
+            url: `/api/dashboard/discord/callback?code=abc&state=${state}`,
+            headers: {
+                cookie: firstSetCookie(login),
+                host: "evil.example.test",
+            },
+        });
+
+        expect(callback.statusCode).toBe(302);
+        const dashboardCookieHeader = setCookieHeaders(callback).find((header) =>
+            header.startsWith(`${DASHBOARD_COOKIE_NAME}=`),
+        );
+        expect(dashboardCookieHeader).toContain("Secure");
+        expect(dashboardCookieHeader).toContain("HttpOnly");
+        expect(dashboardCookieHeader).toContain("SameSite=Strict");
+        const tokenRequest = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
+        expect(tokenRequest?.body).toBeInstanceOf(URLSearchParams);
+        expect((tokenRequest?.body as URLSearchParams).get("redirect_uri")).toBe(
+            "https://public.example.test/api/dashboard/discord/callback",
+        );
+        expect(callback.body).not.toContain("access-token");
+        expect(JSON.stringify(callback.headers)).not.toContain("access-token");
+
+        await app.close();
+    });
+
     it("builds Discord sessions from OAuth guild facts and preserves guild isolation", async () => {
         const current = {
             ...defaultGuildConfigFor(guildId),
@@ -538,6 +699,9 @@ describe("dashboard auth", () => {
             displayName: "Yaysa",
         });
         expect(publicSessionBody.auth).not.toHaveProperty("oauthGuildsById");
+        expect(callback.body).not.toContain("access-token");
+        expect(sessionCookie).not.toContain("access-token");
+        expect(publicSession.body).not.toContain("access-token");
 
         const reusedState = await app.inject({
             url: `/api/dashboard/discord/callback?code=abc&state=${state}`,
@@ -573,6 +737,67 @@ describe("dashboard auth", () => {
         });
         expect(deleteAttempt.statusCode).toBe(404);
         expect(store.deconfigureExistingGuild).not.toHaveBeenCalled();
+
+        await app.close();
+    });
+
+    it("clears the dashboard cookie and invalidates Discord sessions on logout", async () => {
+        const { store } = makeStore([defaultGuildConfigFor(guildId)]);
+        const app = await makeApp(makeDiscordOAuthEnv(), store);
+        const { sessionCookie } = await loginAsDiscordUser(app, {
+            guilds: [{ id: guildId, name: "Allowed Guild", permissions: "32" }],
+        });
+
+        const beforeLogout = await app.inject({
+            url: "/api/dashboard/session",
+            headers: { cookie: sessionCookie },
+        });
+        const logout = await app.inject({
+            method: "POST",
+            url: "/api/dashboard/logout",
+            headers: { cookie: sessionCookie, "x-dashboard-request": "1" },
+        });
+        const afterLogout = await app.inject({
+            url: "/api/dashboard/session",
+            headers: { cookie: sessionCookie },
+        });
+
+        expect(beforeLogout.statusCode).toBe(200);
+        expect(logout.statusCode).toBe(200);
+        expect(afterLogout.statusCode).toBe(401);
+        expect(
+            setCookieHeaders(logout).some(
+                (header) =>
+                    header.startsWith(`${DASHBOARD_COOKIE_NAME}=`) &&
+                    header.includes("Max-Age=0") &&
+                    header.includes("Path=/api/dashboard"),
+            ),
+        ).toBe(true);
+
+        await app.close();
+    });
+
+    it("rejects expired Discord sessions deterministically", async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date("2026-04-09T00:00:00.000Z"));
+        const { store } = makeStore([defaultGuildConfigFor(guildId)]);
+        const app = await makeApp(makeDiscordOAuthEnv(), store);
+        const { sessionCookie } = await loginAsDiscordUser(app, {
+            guilds: [{ id: guildId, name: "Allowed Guild", permissions: "32" }],
+        });
+
+        const active = await app.inject({
+            url: "/api/dashboard/session",
+            headers: { cookie: sessionCookie },
+        });
+        vi.setSystemTime(new Date("2026-04-09T01:01:00.000Z"));
+        const expired = await app.inject({
+            url: "/api/dashboard/session",
+            headers: { cookie: sessionCookie },
+        });
+
+        expect(active.statusCode).toBe(200);
+        expect(expired.statusCode).toBe(401);
 
         await app.close();
     });

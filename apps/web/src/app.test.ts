@@ -4,13 +4,13 @@ import { join } from "node:path";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { defaultGuildConfigFor, type GuildConfig } from "@wcl/domain";
 import { createWebApp, type CreateWebAppOptions } from "./app.js";
-import type { WebEnv } from "./config.js";
+import { parseWebEnv, type WebEnv } from "./config.js";
 
 const guildId = "123456789012345678";
 
-const env: WebEnv = {
+const env: WebEnv = parseWebEnv({
     NODE_ENV: "test",
-    PORT: 3000,
+    PORT: "3000",
     MONGODB_URI: "mongodb://localhost:27017/wclogs",
     DISCORD_PUBLIC_KEY: "a".repeat(64),
     DISCORD_APPLICATION_ID: "1234567890",
@@ -20,8 +20,8 @@ const env: WebEnv = {
     WCL_API_BASE_URL: "https://www.warcraftlogs.com/api/v2/client",
     WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
     COOKIE_SECRET: "cookie-secret",
-    DASHBOARD_AUTH_DISABLED: true,
-};
+    DASHBOARD_AUTH_DISABLED: "true",
+});
 
 const makeLogger = () =>
     ({

@@ -216,7 +216,7 @@ Required for `apps/web`:
 | `DISCORD_BOT_TOKEN`      | Discord bot token used for command registration and response edits.   |
 | `WCL_CLIENT_ID`          | Warcraft Logs OAuth client ID.                                        |
 | `WCL_CLIENT_SECRET`      | Warcraft Logs OAuth client secret.                                    |
-| `WCL_REDIRECT_URI`       | Callback URL for WCL user OAuth routes.                               |
+| `PUBLIC_APP_BASE_URL`    | Public app origin used to derive OAuth callbacks and public app URLs.  |
 | `COOKIE_SECRET`          | Secret for signed cookies used by OAuth state and dashboard sessions. |
 | `DASHBOARD_ADMIN_SECRET` | Shared admin secret for dashboard login in production.                |
 
@@ -227,6 +227,10 @@ Optional web variables:
 | `NODE_ENV`                  | `development`                                | Runtime mode: `development`, `test`, or `production`.                                  |
 | `PORT`                      | `3000`                                       | HTTP port for the Fastify web service.                                                 |
 | `WCL_API_BASE_URL`          | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint.                                                              |
+| `WCL_REDIRECT_URI`          | derived from `PUBLIC_APP_BASE_URL`           | Transitional full callback URL override for WCL user OAuth routes.                     |
+| `DISCORD_CLIENT_SECRET`     | unset                                        | Enables Discord OAuth dashboard login when set.                                        |
+| `DISCORD_OAUTH_REDIRECT_URI` | derived from `PUBLIC_APP_BASE_URL`           | Transitional full callback URL override for Discord OAuth dashboard login.             |
+| `DISCORD_INTERACTIONS_URL`  | derived from `PUBLIC_APP_BASE_URL`           | Transitional full URL override for the Discord interaction webhook endpoint.           |
 | `DASHBOARD_AUTH_DISABLED`   | unset                                        | Development/test-only dashboard auth bypass. Only `true` and `false` are valid values. |
 
 Dashboard notes:
@@ -311,7 +315,7 @@ The Compose file defines:
 - `worker`: background Mongo job worker.
 - `backend`: internal Docker network.
 
-The checked-in Compose file includes deployment-specific public URLs. Adjust `WCL_REDIRECT_URI`, `DISCORD_INTERACTIONS_URL`, and `PUBLIC_URL` for the target beta environment before deploying elsewhere.
+Set `PUBLIC_APP_BASE_URL` to the public HTTPS origin for the target beta environment before deploying. The web app derives the WCL OAuth callback, Discord OAuth callback, dashboard URL, and Discord interaction webhook URL from that origin unless explicit full URL overrides are set.
 
 ## HTTP Routes
 
