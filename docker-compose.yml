@@ -28,6 +28,7 @@ services:
       DISCORD_PUBLIC_KEY: ${DISCORD_PUBLIC_KEY}
       DISCORD_APPLICATION_ID: ${DISCORD_APPLICATION_ID}
       COOKIE_SECRET: ${COOKIE_SECRET}
+      DASHBOARD_ADMIN_SECRET: ${DASHBOARD_ADMIN_SECRET}
       # Public origin used to derive OAuth callbacks, dashboard links, and the
       # Discord interactions endpoint.
       PUBLIC_APP_BASE_URL: ${PUBLIC_APP_BASE_URL}

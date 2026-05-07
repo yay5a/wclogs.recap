@@ -21,6 +21,39 @@ const baseEnv = {
 };
 
 describe("parseWebEnv dashboard config", () => {
+    it("accepts DISCORD_CLIENT_ID as a Discord application ID compatibility alias", () => {
+        const envWithAlias: Record<string, string | undefined> = {
+            ...baseEnv,
+            NODE_ENV: "test",
+            DISCORD_CLIENT_ID: baseEnv.DISCORD_APPLICATION_ID,
+        };
+        delete envWithAlias.DISCORD_APPLICATION_ID;
+
+        const env = parseWebEnv(envWithAlias);
+
+        expect(env.DISCORD_APPLICATION_ID).toBe(baseEnv.DISCORD_APPLICATION_ID);
+    });
+
+    it("rejects missing or conflicting Discord application ID aliases", () => {
+        const missingIdEnv: Partial<typeof baseEnv> = { ...baseEnv };
+        delete missingIdEnv.DISCORD_APPLICATION_ID;
+
+        expect(() =>
+            parseWebEnv({
+                ...missingIdEnv,
+                NODE_ENV: "test",
+            }),
+        ).toThrow(/DISCORD_APPLICATION_ID is required/);
+
+        expect(() =>
+            parseWebEnv({
+                ...baseEnv,
+                NODE_ENV: "test",
+                DISCORD_CLIENT_ID: "9876543210",
+            }),
+        ).toThrow(/DISCORD_CLIENT_ID must match DISCORD_APPLICATION_ID/);
+    });
+
     it("requires DASHBOARD_ADMIN_SECRET in production", () => {
         expect(() =>
             parseWebEnv({

@@ -14,8 +14,11 @@ if (existsSync(envPath)) {
     loadEnvFile(envPath);
 }
 
+const discordApplicationId = trimmed().regex(/^\d+$/);
+
 const envSchema = z.object({
-    DISCORD_APPLICATION_ID: trimmed().regex(/^\d+$/),
+    DISCORD_APPLICATION_ID: discordApplicationId.optional(),
+    DISCORD_CLIENT_ID: discordApplicationId.optional(),
     DISCORD_BOT_TOKEN: trimmed()
         .regex(/^\S+$/)
         .refine((token) => !token.toLowerCase().startsWith("bot "), {
@@ -25,7 +28,30 @@ const envSchema = z.object({
             message: "DISCORD_BOT_TOKEN looks like DISCORD_PUBLIC_KEY. Use the bot token from the Discord Developer Portal Bot page.",
         }),
     DISCORD_GUILD_ID: trimmed().regex(/^\d+$/).optional(),
-});
+}).superRefine((env, context) => {
+    if (!env.DISCORD_APPLICATION_ID && !env.DISCORD_CLIENT_ID) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["DISCORD_APPLICATION_ID"],
+            message: "DISCORD_APPLICATION_ID is required",
+        });
+    }
+
+    if (
+        env.DISCORD_APPLICATION_ID &&
+        env.DISCORD_CLIENT_ID &&
+        env.DISCORD_APPLICATION_ID !== env.DISCORD_CLIENT_ID
+    ) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["DISCORD_CLIENT_ID"],
+            message: "DISCORD_CLIENT_ID must match DISCORD_APPLICATION_ID when both are set",
+        });
+    }
+}).transform((env) => ({
+    ...env,
+    DISCORD_APPLICATION_ID: (env.DISCORD_APPLICATION_ID ?? env.DISCORD_CLIENT_ID) as string,
+}));
 
 const env = envSchema.parse(process.env);
 const logger = createLogger("discord-command-registration");

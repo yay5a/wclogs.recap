@@ -56,6 +56,11 @@ const wclTokenEncryptionKey = trimmed().superRefine((value, context) => {
 const buildPublicUrl = (baseUrl: string | undefined, path: string): string | undefined =>
     baseUrl ? `${baseUrl}${path}` : undefined;
 
+const discordApplicationId = trimmed().regex(
+    /^\d+$/,
+    "DISCORD_APPLICATION_ID must be numeric",
+);
+
 const webEnvSchema = z.object({
     NODE_ENV: z
         .enum(["development", "test", "production"])
@@ -66,10 +71,8 @@ const webEnvSchema = z.object({
         /^[a-fA-F0-9]{64}$/,
         "DISCORD_PUBLIC_KEY must be a 64-character hex string",
     ),
-    DISCORD_APPLICATION_ID: trimmed().regex(
-        /^\d+$/,
-        "DISCORD_APPLICATION_ID must be numeric",
-    ),
+    DISCORD_APPLICATION_ID: discordApplicationId.optional(),
+    DISCORD_CLIENT_ID: discordApplicationId.optional(),
     DISCORD_BOT_TOKEN: trimmed().regex(
         /^\S+$/,
         "DISCORD_BOT_TOKEN must not contain whitespace",
@@ -93,6 +96,26 @@ const webEnvSchema = z.object({
         .optional(),
     DASHBOARD_AUTH_DISABLED: dashboardAuthDisabled,
 }).superRefine((env, context) => {
+    if (!env.DISCORD_APPLICATION_ID && !env.DISCORD_CLIENT_ID) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["DISCORD_APPLICATION_ID"],
+            message: "DISCORD_APPLICATION_ID is required",
+        });
+    }
+
+    if (
+        env.DISCORD_APPLICATION_ID &&
+        env.DISCORD_CLIENT_ID &&
+        env.DISCORD_APPLICATION_ID !== env.DISCORD_CLIENT_ID
+    ) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["DISCORD_CLIENT_ID"],
+            message: "DISCORD_CLIENT_ID must match DISCORD_APPLICATION_ID when both are set",
+        });
+    }
+
     if (env.NODE_ENV === "production" && env.DASHBOARD_AUTH_DISABLED) {
         context.addIssue({
             code: z.ZodIssueCode.custom,
@@ -145,6 +168,8 @@ const webEnvSchema = z.object({
     }
 }).transform((env) => {
     const publicAppBaseUrl = env.PUBLIC_APP_BASE_URL;
+    const resolvedDiscordApplicationId =
+        env.DISCORD_APPLICATION_ID ?? env.DISCORD_CLIENT_ID;
     // Transitional full-URL overrides keep existing deployments working; otherwise
     // callback URLs are derived from the canonical public app origin.
     const discordOAuthRedirectUri =
@@ -159,6 +184,7 @@ const webEnvSchema = z.object({
 
     return {
         ...env,
+        DISCORD_APPLICATION_ID: resolvedDiscordApplicationId as string,
         publicAppBaseUrl,
         discordOAuthRedirectUri,
         wclRedirectUri: wclRedirectUri as string,
