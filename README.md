@@ -1,7 +1,7 @@
 # wclogs.report
 
-![raidlog-report concept](./docs/report-summary.png)
-![guild-rank concept](./docs/guild-ranks.png)
+![raidlog-report concept](docs/report-summary.png)
+![guild-rank concept](docs/guild-ranks.png)
 
 Beta Warcraft Logs report-summary service for Discord.
 
@@ -208,31 +208,31 @@ The web app loads `.env` from the repo root when present. Docker Compose also re
 
 Required for `apps/web`:
 
-| Variable                 | Purpose                                                               |
-| ------------------------ | --------------------------------------------------------------------- |
-| `MONGODB_URI`            | MongoDB connection URI.                                               |
-| `DISCORD_PUBLIC_KEY`     | 64-character Discord public key used to verify interactions.          |
-| `DISCORD_APPLICATION_ID` | Discord application ID.                                               |
-| `DISCORD_BOT_TOKEN`      | Discord bot token used for command registration and response edits.   |
-| `WCL_CLIENT_ID`          | Warcraft Logs v2 OAuth client ID.                                     |
-| `WCL_CLIENT_SECRET`      | Warcraft Logs v2 OAuth client secret.                                 |
-| `WCL_TOKEN_ENCRYPTION_KEY` | Base64-encoded 32-byte key for encrypting linked WCL user tokens.    |
-| `PUBLIC_APP_BASE_URL`    | Public app origin used to derive OAuth callbacks and public app URLs.  |
-| `COOKIE_SECRET`          | Secret for signed cookies used by OAuth state and dashboard sessions. |
-| `DASHBOARD_ADMIN_SECRET` | Shared admin secret for dashboard login in production.                |
+| Variable                   | Purpose                                                               |
+| -------------------------- | --------------------------------------------------------------------- |
+| `MONGODB_URI`              | MongoDB connection URI.                                               |
+| `DISCORD_PUBLIC_KEY`       | 64-character Discord public key used to verify interactions.          |
+| `DISCORD_APPLICATION_ID`   | Discord application ID.                                               |
+| `DISCORD_BOT_TOKEN`        | Discord bot token used for command registration and response edits.   |
+| `WCL_CLIENT_ID`            | Warcraft Logs v2 OAuth client ID.                                     |
+| `WCL_CLIENT_SECRET`        | Warcraft Logs v2 OAuth client secret.                                 |
+| `WCL_TOKEN_ENCRYPTION_KEY` | Base64-encoded 32-byte key for encrypting linked WCL user tokens.     |
+| `PUBLIC_APP_BASE_URL`      | Public app origin used to derive OAuth callbacks and public app URLs. |
+| `COOKIE_SECRET`            | Secret for signed cookies used by OAuth state and dashboard sessions. |
+| `DASHBOARD_ADMIN_SECRET`   | Shared admin secret for dashboard login in production.                |
 
 Optional web variables:
 
-| Variable                    | Default                                      | Purpose                                                                                |
-| --------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `NODE_ENV`                  | `development`                                | Runtime mode: `development`, `test`, or `production`.                                  |
-| `PORT`                      | `3000`                                       | HTTP port for the Fastify web service.                                                 |
-| `WCL_API_BASE_URL`          | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint.                                                              |
-| `WCL_REDIRECT_URI`          | derived from `PUBLIC_APP_BASE_URL`           | Transitional full callback URL override for WCL user OAuth routes.                     |
-| `DISCORD_CLIENT_SECRET`     | unset                                        | Enables Discord OAuth dashboard login when set.                                        |
+| Variable                     | Default                                      | Purpose                                                                                |
+| ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `NODE_ENV`                   | `development`                                | Runtime mode: `development`, `test`, or `production`.                                  |
+| `PORT`                       | `3000`                                       | HTTP port for the Fastify web service.                                                 |
+| `WCL_API_BASE_URL`           | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint.                                                              |
+| `WCL_REDIRECT_URI`           | derived from `PUBLIC_APP_BASE_URL`           | Transitional full callback URL override for WCL user OAuth routes.                     |
+| `DISCORD_CLIENT_SECRET`      | unset                                        | Enables Discord OAuth dashboard login when set.                                        |
 | `DISCORD_OAUTH_REDIRECT_URI` | derived from `PUBLIC_APP_BASE_URL`           | Transitional full callback URL override for Discord OAuth dashboard login.             |
-| `DISCORD_INTERACTIONS_URL`  | derived from `PUBLIC_APP_BASE_URL`           | Transitional full URL override for the Discord interaction webhook endpoint.           |
-| `DASHBOARD_AUTH_DISABLED`   | unset                                        | Development/test-only dashboard auth bypass. Only `true` and `false` are valid values. |
+| `DISCORD_INTERACTIONS_URL`   | derived from `PUBLIC_APP_BASE_URL`           | Transitional full URL override for the Discord interaction webhook endpoint.           |
+| `DASHBOARD_AUTH_DISABLED`    | unset                                        | Development/test-only dashboard auth bypass. Only `true` and `false` are valid values. |
 
 Dashboard notes:
 
@@ -252,12 +252,12 @@ Dashboard notes:
 
 Required for `apps/worker`:
 
-| Variable                   | Purpose                                                    |
-| -------------------------- | ---------------------------------------------------------- |
-| `MONGODB_URI`              | MongoDB connection URI.                                    |
-| `DISCORD_BOT_TOKEN`        | Discord bot token used for Gateway and Discord API calls.  |
-| `WCL_CLIENT_ID`            | Warcraft Logs v2 OAuth client ID.                          |
-| `WCL_CLIENT_SECRET`        | Warcraft Logs v2 OAuth client secret.                      |
+| Variable                   | Purpose                                                     |
+| -------------------------- | ----------------------------------------------------------- |
+| `MONGODB_URI`              | MongoDB connection URI.                                     |
+| `DISCORD_BOT_TOKEN`        | Discord bot token used for Gateway and Discord API calls.   |
+| `WCL_CLIENT_ID`            | Warcraft Logs v2 OAuth client ID.                           |
+| `WCL_CLIENT_SECRET`        | Warcraft Logs v2 OAuth client secret.                       |
 | `WCL_TOKEN_ENCRYPTION_KEY` | Base64-encoded 32-byte key for linked WCL user token reads. |
 
 Useful WCL client toggles:
@@ -270,10 +270,10 @@ Useful WCL client toggles:
 
 Optional future WCL v1 variables:
 
-| Variable             | Purpose                                                                 |
-| -------------------- | ----------------------------------------------------------------------- |
-| `WCL_V1_CLIENT_NAME` | Descriptive Warcraft Logs v1 client name from the WCL client settings.  |
-| `WCL_V1_CLIENT_KEY`  | Warcraft Logs v1 REST API client key. Keep it server-only.              |
+| Variable             | Purpose                                                                |
+| -------------------- | ---------------------------------------------------------------------- |
+| `WCL_V1_CLIENT_NAME` | Descriptive Warcraft Logs v1 client name from the WCL client settings. |
+| `WCL_V1_CLIENT_KEY`  | Warcraft Logs v1 REST API client key. Keep it server-only.             |
 
 The current report flow uses WCL v2 GraphQL. WCL v1 variables are reserved for
 documented v1 REST endpoints such as guild reports, character rankings, and
@@ -336,14 +336,14 @@ Set `PUBLIC_APP_BASE_URL` to the public HTTPS origin for the target beta environ
 
 ## HTTP Routes
 
-| Route                        | Purpose                                                        |
-| ---------------------------- | -------------------------------------------------------------- |
-| `GET /health`                | Basic health check returning `{ "status": "ok" }`.             |
-| `POST /api/report`           | Fetch and normalize a report payload from a report code.       |
-| `POST /discord/interactions` | Discord interaction webhook endpoint.                          |
-| `GET /api/auth/wcl/status`   | Inspect stored WCL user OAuth state.                           |
-| `GET /api/auth/wcl/login`    | Start WCL user OAuth.                                          |
-| `GET /api/auth/wcl/callback` | Complete WCL user OAuth.                                       |
+| Route                        | Purpose                                                  |
+| ---------------------------- | -------------------------------------------------------- |
+| `GET /health`                | Basic health check returning `{ "status": "ok" }`.       |
+| `POST /api/report`           | Fetch and normalize a report payload from a report code. |
+| `POST /discord/interactions` | Discord interaction webhook endpoint.                    |
+| `GET /api/auth/wcl/status`   | Inspect stored WCL user OAuth state.                     |
+| `GET /api/auth/wcl/login`    | Start WCL user OAuth.                                    |
+| `GET /api/auth/wcl/callback` | Complete WCL user OAuth.                                 |
 
 ## Verification
 
