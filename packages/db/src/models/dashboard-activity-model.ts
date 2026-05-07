@@ -57,7 +57,7 @@ const dashboardActivitySchema = new Schema<DashboardActivityDocument>(
         targetDiscordUserId: { type: String, index: true },
         idempotencyKey: { type: String, unique: true, sparse: true },
         createdAt: { type: Date, required: true, default: Date.now, index: true },
-        expiresAt: { type: Date, required: true, index: true },
+        expiresAt: { type: Date, required: true },
         archivedAt: { type: Date },
     },
     { timestamps: false },
