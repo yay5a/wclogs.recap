@@ -1,7 +1,7 @@
 import { PassThrough } from "node:stream";
 import pino from "pino";
 import { describe, expect, it } from "vitest";
-import { baseLoggerOptions, serializeError } from "./index.js";
+import { baseLoggerOptions, createLogger, serializeError } from "./index.js";
 
 describe("serializeError", () => {
     it("serializes normal Error objects", () => {
@@ -172,5 +172,18 @@ describe("logger redaction", () => {
         }
         expect(output).toContain("ABC123");
         expect(output).toContain("[REDACTED]");
+    });
+});
+
+describe("createLogger", () => {
+    it("reuses one development pretty transport for child loggers", () => {
+        const before = process.listenerCount("exit");
+
+        for (let index = 0; index < 20; index += 1) {
+            createLogger(`test-${index}`);
+        }
+
+        const after = process.listenerCount("exit");
+        expect(after - before).toBeLessThanOrEqual(1);
     });
 });

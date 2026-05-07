@@ -1,4 +1,4 @@
-import pino, { type LoggerOptions } from "pino";
+import pino, { type Logger, type LoggerOptions } from "pino";
 import { z } from "zod";
 
 export const loggerRedactionPaths = [
@@ -101,6 +101,23 @@ export const baseLoggerOptions: LoggerOptions = {
 
 export const logger = pino(baseLoggerOptions);
 
+let developmentRootLogger: Logger | undefined;
+
+const getDevelopmentRootLogger = (): Logger => {
+    developmentRootLogger ??= pino(
+        {
+            ...baseLoggerOptions,
+            level: "debug",
+        },
+        pino.transport({
+            target: "pino-pretty",
+            options: { colorize: true },
+        }),
+    );
+
+    return developmentRootLogger;
+};
+
 export const createLogger = (name: string) => {
     if (process.env.NODE_ENV === "production") {
         return pino({
@@ -110,15 +127,7 @@ export const createLogger = (name: string) => {
         });
     }
 
-    return pino({
-        ...baseLoggerOptions,
-        name,
-        level: "debug",
-        transport: {
-            target: "pino-pretty",
-            options: { colorize: true },
-        },
-    });
+    return getDevelopmentRootLogger().child({ name });
 };
 
 export const trimmed = () => z.string().trim().min(1);
