@@ -19,6 +19,10 @@ import {
 import { RAW_PAYLOAD_VERSION } from "./cache-policy.js";
 import type { WclGraphqlClient } from "./graphql-client.js";
 import {
+    classifyWclReportFetchError,
+    WclReportFetchError,
+} from "./report-errors.js";
+import {
     getArchiveStatus,
     getRateLimitData,
     getReportNode,
@@ -117,6 +121,16 @@ const toFightIDs = (
     return Array.isArray(fightIDs) ? fightIDs : [fightIDs];
 };
 
+const formatEnrichmentFailure = (
+    error: unknown,
+    authMode: ReturnType<WclGraphqlClient["getAuthModeKind"]>,
+): string => {
+    const classified = classifyWclReportFetchError(error, authMode);
+    return typeof classified.status === "number"
+        ? `${classified.category}; status ${classified.status}`
+        : classified.category;
+};
+
 export class ReportFetcher {
     private readonly queries: WclQueries;
 
@@ -149,10 +163,12 @@ export class ReportFetcher {
             skippedEnrichments.push(message);
             logger.warn({ reportCode: code }, message);
         };
+        const authMode = this.client.getAuthModeKind();
 
         logger.info(
             {
                 operation: "BaseReportSummary",
+                authMode,
                 variables: {
                     code,
                     allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
@@ -172,6 +188,17 @@ export class ReportFetcher {
         const rateLimitData = getRateLimitData(base);
         const ratePressure = getRatePressure(rateLimitData);
         const baseReport = getReportNode(base);
+        if (!baseReport) {
+            throw new WclReportFetchError({
+                category:
+                    authMode === "userLinked"
+                        ? "user_auth_rejected"
+                        : "private_or_auth_required",
+                reportCode: code,
+                authMode,
+                message: "WCL report was not accessible from the selected auth mode.",
+            });
+        }
         const archiveStatus = baseReport
             ? getArchiveStatus(baseReport)
             : undefined;
@@ -202,7 +229,7 @@ export class ReportFetcher {
             });
         } catch (error) {
             noteSkippedEnrichment(
-                `Failed report rankings enrichment; continuing without report rankings (${error instanceof Error ? error.message : "unknown error"}).`,
+                `Failed report rankings enrichment; continuing without report rankings (${formatEnrichmentFailure(error, authMode)}).`,
             );
         }
         try {
@@ -213,7 +240,7 @@ export class ReportFetcher {
                 });
         } catch (error) {
             noteSkippedEnrichment(
-                `Failed report rankings DPS enrichment; continuing without report rankings DPS (${error instanceof Error ? error.message : "unknown error"}).`,
+                `Failed report rankings DPS enrichment; continuing without report rankings DPS (${formatEnrichmentFailure(error, authMode)}).`,
             );
         }
         try {
@@ -224,7 +251,7 @@ export class ReportFetcher {
                 });
         } catch (error) {
             noteSkippedEnrichment(
-                `Failed report rankings HPS enrichment; continuing without report rankings HPS (${error instanceof Error ? error.message : "unknown error"}).`,
+                `Failed report rankings HPS enrichment; continuing without report rankings HPS (${formatEnrichmentFailure(error, authMode)}).`,
             );
         }
         logTiming("fetch report rankings", reportRankingsStartedAt, {
@@ -255,7 +282,7 @@ export class ReportFetcher {
                 });
             } catch (error) {
                 noteSkippedEnrichment(
-                    `Failed playerDetails enrichment; continuing without player details (${error instanceof Error ? error.message : "unknown error"}).`,
+                    `Failed playerDetails enrichment; continuing without player details (${formatEnrichmentFailure(error, authMode)}).`,
                 );
             }
         } else {
@@ -295,7 +322,7 @@ export class ReportFetcher {
                         reportWideTablesSucceeded += 1;
                     } catch (error) {
                         noteSkippedEnrichment(
-                            `Failed report-wide ${dataType} table enrichment; continuing without this table (${error instanceof Error ? error.message : "unknown error"}).`,
+                            `Failed report-wide ${dataType} table enrichment; continuing without this table (${formatEnrichmentFailure(error, authMode)}).`,
                         );
                     }
                 }
@@ -340,7 +367,7 @@ export class ReportFetcher {
                         reportWideEncounterTablesSucceeded += 1;
                     } catch (error) {
                         noteSkippedEnrichment(
-                            `Failed all-encounter ${dataType} table enrichment; continuing without this table (${error instanceof Error ? error.message : "unknown error"}).`,
+                            `Failed all-encounter ${dataType} table enrichment; continuing without this table (${formatEnrichmentFailure(error, authMode)}).`,
                         );
                     }
                 }
@@ -400,7 +427,7 @@ export class ReportFetcher {
                         rankingsSucceeded = true;
                     } catch (error) {
                         noteSkippedEnrichment(
-                            `Failed boss rankings enrichment for fight ${summaryFight.id} (${summaryFight.name}); continuing without boss rankings (${error instanceof Error ? error.message : "unknown error"}).`,
+                            `Failed boss rankings enrichment for fight ${summaryFight.id}; continuing without boss rankings (${formatEnrichmentFailure(error, authMode)}).`,
                         );
                     }
                 }

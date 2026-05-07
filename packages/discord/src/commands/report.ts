@@ -1,5 +1,6 @@
 import { buildReportSummary, extractComparisonSnapshots } from '@wcl/domain';
 import { createLogger, serializeError } from '@wcl/shared';
+import { WclReportFetchError } from '@wcl/wcl-client';
 import type { NormalizedReport } from '@wcl/domain';
 import type { DiscordInteraction, HandleOptions } from '../types.js';
 import {
@@ -15,6 +16,19 @@ const toDurationMs = (startedAt: number): number => Date.now() - startedAt;
 
 const logReportStep = (interactionId: string | undefined, step: string, startedAt: number) => {
   logger.info({ interactionId, step, durationMs: toDurationMs(startedAt) }, 'report step complete');
+};
+
+export const serializeReportFetchFailureForLog = (
+  error: unknown,
+): ReturnType<typeof serializeError> | Record<string, unknown> => {
+  if (!(error instanceof WclReportFetchError)) return serializeError(error);
+  return {
+    name: error.name,
+    category: error.category,
+    reportCode: error.reportCode,
+    authMode: error.authMode,
+    ...(typeof error.status === 'number' ? { status: error.status } : {}),
+  };
 };
 
 const persistComparisonSnapshotsForReport = async ({
@@ -95,13 +109,45 @@ const persistComparisonSnapshotsForReport = async ({
     );
   } catch (error) {
     logger.error(
-      { interactionId, guildId, reportCode: report.reportCode, error: serializeError(error) },
+      {
+        interactionId,
+        guildId,
+        reportCode: report.reportCode,
+        error: serializeReportFetchFailureForLog(error),
+      },
       'comparison snapshot persistence skipped after unexpected error',
     );
   }
 };
 
 export const getReportFailureMessage = (error: unknown): string => {
+  if (error instanceof WclReportFetchError) {
+    switch (error.category) {
+      case 'private_or_auth_required':
+      case 'missing_linked_auth':
+        return 'This report may require Warcraft Logs authorization. Link your Warcraft Logs account from the dashboard, then try again.';
+      case 'expired_linked_auth':
+      case 'linked_auth_unreadable':
+        return 'Your Warcraft Logs authorization has expired. Re-link Warcraft Logs from the dashboard, then try again.';
+      case 'user_auth_rejected':
+        return 'Warcraft Logs rejected your linked authorization for this report. Re-link Warcraft Logs from the dashboard, then try again.';
+      case 'public_report_not_found':
+        return 'I could not find that Warcraft Logs report. Verify the URL and try again.';
+      case 'wcl_rate_limit':
+        return 'Warcraft Logs is rate limiting requests right now. Try again later.';
+      case 'network_failure':
+        return 'Warcraft Logs could not be reached right now. Try again later.';
+      case 'archived_report':
+        return 'That Warcraft Logs report appears to be archived or inaccessible.';
+      case 'malformed_wcl_response':
+        return 'Warcraft Logs returned an unexpected payload for that report.';
+      case 'wcl_auth_failed':
+        return 'Warcraft Logs authentication failed; check server configuration.';
+      case 'unknown':
+      default:
+        return 'Could not build a report summary for that Warcraft Logs report. Please verify the URL and try again.';
+    }
+  }
   const errorMessage = error instanceof Error ? error.message.toLowerCase() : '';
   if (errorMessage.includes('report code')) {
     return "I couldn't find a Warcraft Logs report code in that URL. Paste the full report link.";
@@ -116,18 +162,23 @@ export const getReportFailureMessage = (error: unknown): string => {
 };
 
 export const buildReportArtifact = async ({
+  discordUserId,
   guildId,
   interactionId,
   options,
   url,
 }: {
+  discordUserId?: string;
   guildId: string;
   interactionId?: string;
   options: HandleOptions;
   url: string;
 }) => {
   const reportFetchStart = Date.now();
-  const report = await options.wclClient.fetchAndNormalizeReport(url);
+  const report = await options.wclClient.fetchAndNormalizeReport(
+    url,
+    discordUserId ? { discordUserId } : undefined,
+  );
   logReportStep(interactionId, 'report_fetch_normalize', reportFetchStart);
 
   const comparisonSnapshotStart = Date.now();
@@ -174,7 +225,9 @@ export const processReportInteraction = async (
   }
 
   try {
+    const discordUserId = getInteractionDiscordUserId(interaction);
     const artifact = await buildReportArtifact({
+      ...(discordUserId ? { discordUserId } : {}),
       guildId,
       ...(interactionId ? { interactionId } : {}),
       options,
@@ -189,10 +242,17 @@ export const processReportInteraction = async (
     );
     logReportStep(interactionId, 'original_response_edit', editStart);
   } catch (error) {
-    logger.error({ error: serializeError(error), interactionId, guildId }, 'report processing failed');
+    logger.error(
+      { error: serializeReportFetchFailureForLog(error), interactionId, guildId },
+      'report processing failed',
+    );
     await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
       flags: EPHEMERAL_MESSAGE_FLAG,
       content: getReportFailureMessage(error),
     });
   }
 };
+
+export const getInteractionDiscordUserId = (
+  interaction: DiscordInteraction,
+): string | undefined => interaction.member?.user?.id ?? interaction.user?.id;

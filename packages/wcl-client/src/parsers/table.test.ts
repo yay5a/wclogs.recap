@@ -51,9 +51,37 @@ describe("table parser", () => {
 
     it("warns for malformed present sections", () => {
         const warn = vi.fn();
-        const entries = parseTablePayload({ totalTime: 100 }, "Healing", warn);
+        const entries = parseTablePayload(
+            {
+                totalTime: 100,
+                privatePlayerName: "Private Player",
+                access_token: "private-access-token",
+            },
+            "Healing",
+            warn,
+        );
         expect(entries).toEqual([]);
         expect(warn).toHaveBeenCalled();
+        const [, context] = warn.mock.calls[0] ?? [];
+        expect(context).toEqual({ payloadShape: { type: "object", keyCount: 3 } });
+        expect(JSON.stringify(context)).not.toContain("Private Player");
+        expect(JSON.stringify(context)).not.toContain("private-access-token");
+    });
+
+    it("warns for malformed rows without exposing row contents", () => {
+        const warn = vi.fn();
+        const entries = parseTablePayload(
+            { entries: [{ name: "Private Player", valueText: "hidden" }] },
+            "Healing",
+            warn,
+        );
+
+        expect(entries).toEqual([]);
+        expect(warn).toHaveBeenCalled();
+        const [, context] = warn.mock.calls[0] ?? [];
+        expect(context).toEqual({ rowShape: { type: "object", keyCount: 2 } });
+        expect(JSON.stringify(context)).not.toContain("Private Player");
+        expect(JSON.stringify(context)).not.toContain("hidden");
     });
 
     it("treats explicit empty entries as valid empty payloads", () => {

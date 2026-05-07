@@ -4,6 +4,7 @@ import {
     asObject,
     asString,
     defaultDebugWarn,
+    describePayloadShape,
     parseUnknownJson,
 } from "./common.js";
 import type { DebugWarn } from "./common.js";
@@ -146,7 +147,7 @@ const getTableEntries = (
             warn(
                 `table parser (${dataType} payload): unrecognized payload shape`,
                 {
-                    payload,
+                    payloadShape: describePayloadShape(payload),
                 },
             );
         }
@@ -199,7 +200,7 @@ const getTableEntries = (
             warn(
                 `table parser (${dataType} payload): unrecognized payload shape`,
                 {
-                    payload,
+                    payloadShape: describePayloadShape(payload),
                 },
             );
         }
@@ -244,7 +245,7 @@ export const parseTablePayloadDetailed = (
             }
 
             warn(`table parser (${dataType} payload): skipped malformed row`, {
-                row: entry,
+                rowShape: describePayloadShape(entry),
             });
             return [];
         }

@@ -10,7 +10,9 @@ import type {
 } from "../types.js";
 import {
     buildReportArtifact,
+    getInteractionDiscordUserId,
     getReportFailureMessage,
+    serializeReportFetchFailureForLog,
 } from "./report.js";
 import {
     createFollowupInteractionResponse,
@@ -224,6 +226,11 @@ const isDuplicateComponent = (
 const getRequesterDiscordUserId = (interaction: DiscordInteraction): string =>
     interaction.member?.user?.id ?? interaction.user?.id ?? "unknown";
 
+const getRequesterDiscordUserIdOrFallback = (
+    interaction: DiscordInteraction,
+    fallback?: string,
+): string | undefined => getInteractionDiscordUserId(interaction) ?? fallback;
+
 const autoReportUnavailableResponse = (
     interaction: DiscordInteraction,
     details: Record<string, unknown>,
@@ -266,7 +273,12 @@ const runPromptPreview = async (
             return;
         }
 
+        const discordUserId = getRequesterDiscordUserIdOrFallback(
+            interaction,
+            promptState.sourceAuthorId,
+        );
         const artifact = await buildReportArtifact({
+            ...(discordUserId ? { discordUserId } : {}),
             guildId: promptState.guildId,
             ...(interaction.id ? { interactionId: interaction.id } : {}),
             options,
@@ -293,7 +305,7 @@ const runPromptPreview = async (
             {
                 interactionId: interaction.id,
                 sourceMessageId,
-                error: serializeError(error),
+                error: serializeReportFetchFailureForLog(error),
             },
             "auto report prompt preview failed",
         );
@@ -334,7 +346,12 @@ const runDuplicatePreview = async (
             });
             return;
         }
+        const discordUserId = getRequesterDiscordUserIdOrFallback(
+            interaction,
+            duplicateState.sourceAuthorId,
+        );
         const artifact = await buildReportArtifact({
+            ...(discordUserId ? { discordUserId } : {}),
             guildId: duplicateState.guildId,
             ...(interaction.id ? { interactionId: interaction.id } : {}),
             options,
@@ -394,7 +411,7 @@ const runDuplicatePreview = async (
             {
                 interactionId: interaction.id,
                 confirmationNonce,
-                error: serializeError(error),
+                error: serializeReportFetchFailureForLog(error),
             },
             "auto report duplicate action failed",
         );
@@ -564,6 +581,7 @@ export const handleAutoReportMessageCreate = async ({
         }
 
         const artifact = await buildReportArtifact({
+            discordUserId: message.authorId,
             guildId: message.guildId,
             options: handleOptions,
             url: parsed.rawUrl,
@@ -619,7 +637,7 @@ export const handleAutoReportMessageCreate = async ({
                 guildId: message.guildId,
                 channelId: message.channelId,
                 reportCode: parsed.reportCode,
-                error: serializeError(error),
+                error: serializeReportFetchFailureForLog(error),
             },
             "auto report passive handling failed",
         );

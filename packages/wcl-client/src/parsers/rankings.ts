@@ -5,6 +5,7 @@ import {
     asObject,
     asString,
     defaultDebugWarn,
+    describePayloadShape,
     normalizeName,
     parseUnknownJson,
 } from "./common.js";
@@ -233,7 +234,7 @@ export const parseReportRankingsPayload = (
     );
     if (candidates.length === 0) {
         warn("rankings parser (report payload): unrecognized payload shape", {
-            payload: parsed,
+            payloadShape: describePayloadShape(parsed),
         });
         return [];
     }
@@ -246,7 +247,7 @@ export const parseReportRankingsPayload = (
 
     if (results.length === 0) {
         warn("rankings parser (report payload): no leaderboard entries detected", {
-            payload: parsed,
+            payloadShape: describePayloadShape(parsed),
         });
     }
     return results;
@@ -261,7 +262,7 @@ export const parseReportRankingsPayloadForRole = (
     const fightRows = collectFightRows(parsed);
     if (fightRows.length === 0) {
         warn("rankings parser (report payload by role): unrecognized payload shape", {
-            payload: parsed,
+            payloadShape: describePayloadShape(parsed),
             role,
         });
         return [];
@@ -292,7 +293,7 @@ export const parseReportRankingsPayloadForRole = (
 
     if (results.length === 0) {
         warn("rankings parser (report payload by role): no leaderboard entries detected", {
-            payload: parsed,
+            payloadShape: describePayloadShape(parsed),
             role,
         });
     }
@@ -324,7 +325,7 @@ export const parseBossRankingsPayload = (
     );
     if (candidates.length === 0) {
         warn("rankings parser (boss payload): unrecognized payload shape", {
-            payload: parsed,
+            payloadShape: describePayloadShape(parsed),
             context,
         });
         return [];
@@ -338,7 +339,7 @@ export const parseBossRankingsPayload = (
 
     if (results.length === 0) {
         warn("rankings parser (boss payload): no leaderboard entries detected", {
-            payload: parsed,
+            payloadShape: describePayloadShape(parsed),
             context,
         });
     }

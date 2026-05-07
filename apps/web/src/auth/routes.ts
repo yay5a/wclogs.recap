@@ -1,21 +1,35 @@
 import crypto from "node:crypto";
+import type { FastifyReply, FastifyRequest } from "fastify";
 import type { FastifyPluginAsync } from "fastify";
-import type { UpsertWclUserAuthInput } from "@wcl/db";
+import type { UpsertWclUserAuthInput, WclUserAuthStatus } from "@wcl/db";
 import type { createLogger } from "@wcl/shared";
+import {
+    exchangeWclAuthorizationCode,
+    getWclTokenExpiresAt,
+} from "@wcl/wcl-client";
 import type { WebEnv } from "../config.js";
-import { exchangeAuthorizationCode } from "./wcl-oauth.js";
+import {
+    getDashboardAuthFromRequest,
+    requireDashboardMutationSafety,
+    shouldUseSecureDashboardCookies,
+} from "../routes/dashboard/auth.js";
+import type { DashboardAuthContext } from "../routes/dashboard/types.js";
 
 export type WclUserAuthStore = {
-    get(): Promise<{
+    getByDiscordUserId(discordUserId: string): Promise<{
+        discordUserId: string;
         provider?: string;
         accessToken?: string;
         refreshToken?: string;
         tokenType?: string;
         scope?: string;
         expiresAt?: Date;
+        linkedAt?: Date;
         updatedAt?: Date;
     } | null>;
-    upsert(entry: UpsertWclUserAuthInput): Promise<void>;
+    getStatusByDiscordUserId(discordUserId: string): Promise<WclUserAuthStatus | null>;
+    upsertForDiscordUser(entry: UpsertWclUserAuthInput): Promise<void>;
+    deleteForDiscordUser(discordUserId: string): Promise<void>;
 };
 
 type WclAuthRouteOptions = {
@@ -24,38 +38,127 @@ type WclAuthRouteOptions = {
     wclUserAuthStore: WclUserAuthStore;
 };
 
+const WCL_OAUTH_STATE_COOKIE_NAME = "wcl_oauth_state";
+const WCL_OAUTH_STATE_COOKIE_PATH = "/api/auth/wcl/callback";
+const WCL_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
+
+type WclOAuthStateRecord = {
+    discordUserId: string;
+    expiresAtMs: number;
+};
+
+const wclOAuthStates = new Map<string, WclOAuthStateRecord>();
+
+const hashOAuthState = (state: string): string =>
+    crypto.createHash("sha256").update(state).digest("base64url");
+
+const pruneExpiredWclOAuthStates = () => {
+    const now = Date.now();
+    for (const [stateHash, record] of wclOAuthStates.entries()) {
+        if (now > record.expiresAtMs) wclOAuthStates.delete(stateHash);
+    }
+};
+
+const storeWclOAuthState = (state: string, discordUserId: string) => {
+    pruneExpiredWclOAuthStates();
+    wclOAuthStates.set(hashOAuthState(state), {
+        discordUserId,
+        expiresAtMs: Date.now() + WCL_OAUTH_STATE_TTL_MS,
+    });
+};
+
+const consumeWclOAuthState = (state: string): WclOAuthStateRecord | null => {
+    const stateHash = hashOAuthState(state);
+    const record = wclOAuthStates.get(stateHash);
+    wclOAuthStates.delete(stateHash);
+    return record && Date.now() <= record.expiresAtMs ? record : null;
+};
+
+const sendWclAuthError = (
+    reply: FastifyReply,
+    statusCode: number,
+    message: string,
+) => reply.code(statusCode).send({ ok: false, message });
+
+const getDiscordAuth = (
+    request: FastifyRequest,
+    reply: FastifyReply,
+    env: WebEnv,
+): Extract<DashboardAuthContext, { kind: "discord" }> | undefined => {
+    const auth = getDashboardAuthFromRequest(request, env);
+    if (!auth) {
+        sendWclAuthError(
+            reply,
+            401,
+            "Sign in with Discord before linking Warcraft Logs.",
+        );
+        return undefined;
+    }
+
+    if (auth.kind !== "discord") {
+        sendWclAuthError(
+            reply,
+            403,
+            "Sign in with Discord before linking Warcraft Logs.",
+        );
+        return undefined;
+    }
+
+    return auth;
+};
+
+const serializeWclAuthStatus = (status: WclUserAuthStatus | null) => ({
+    ok: true,
+    linked: !!status,
+    provider: status?.provider ?? null,
+    tokenType: status?.tokenType ?? null,
+    scope: status?.scope ?? null,
+    expiresAt: status?.expiresAt ?? null,
+    linkedAt: status?.linkedAt ?? null,
+    updatedAt: status?.updatedAt ?? null,
+    reauthorizationRequired: status?.expiresAt ? status.expiresAt <= new Date() : false,
+});
+
 export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = async (
     app,
     options,
 ) => {
     const { env, logger, wclUserAuthStore } = options;
 
-    app.get("/api/auth/wcl/status", async (_request, reply) => {
-        const auth = await wclUserAuthStore.get();
+    app.get("/api/auth/wcl/status", async (request, reply) => {
+        const auth = getDiscordAuth(request, reply, env);
+        if (!auth) return reply;
 
-        return reply.send({
-            ok: true,
-            authorized: !!auth,
-            provider: auth?.provider ?? null,
-            hasAccessToken: typeof auth?.accessToken === "string",
-            hasRefreshToken: typeof auth?.refreshToken === "string",
-            tokenType: auth?.tokenType ?? null,
-            scope: auth?.scope ?? null,
-            expiresAt: auth?.expiresAt ?? null,
-            updatedAt: auth?.updatedAt ?? null,
-        });
+        const status = await wclUserAuthStore.getStatusByDiscordUserId(auth.discordUserId);
+        return reply.send(serializeWclAuthStatus(status));
     });
 
-    app.get("/api/auth/wcl/login", async (_request, reply) => {
-        const state = crypto.randomUUID();
+    app.delete(
+        "/api/auth/wcl",
+        { preHandler: requireDashboardMutationSafety },
+        async (request, reply) => {
+            const auth = getDiscordAuth(request, reply, env);
+            if (!auth) return reply;
 
-        reply.setCookie("wcl_oauth_state", state, {
-            path: "/",
+            await wclUserAuthStore.deleteForDiscordUser(auth.discordUserId);
+            return reply.send({ ok: true, linked: false });
+        },
+    );
+
+    app.get("/api/auth/wcl/login", async (request, reply) => {
+        const auth = getDiscordAuth(request, reply, env);
+        if (!auth) return reply;
+
+        const state = crypto.randomBytes(32).toString("base64url");
+        storeWclOAuthState(state, auth.discordUserId);
+
+        reply.setCookie(WCL_OAUTH_STATE_COOKIE_NAME, state, {
+            path: WCL_OAUTH_STATE_COOKIE_PATH,
             httpOnly: true,
-            secure: true,
+            secure: shouldUseSecureDashboardCookies(env),
             sameSite: "lax",
             signed: true,
-            maxAge: 60 * 10,
+            maxAge: WCL_OAUTH_STATE_TTL_MS / 1000,
         });
 
         const authorizeUrl = new URL("https://www.warcraftlogs.com/oauth/authorize");
@@ -68,37 +171,51 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
     });
 
     app.get("/api/auth/wcl/callback", async (request, reply) => {
+        const auth = getDiscordAuth(request, reply, env);
+        if (!auth) return reply;
+
         const query = request.query as {
             code?: string;
             state?: string;
             error?: string;
         };
+        const state = typeof query.state === "string" ? query.state : "";
+        const stateCookie = request.unsignCookie(
+            request.cookies[WCL_OAUTH_STATE_COOKIE_NAME] ?? "",
+        );
 
-        if (query.error) {
-            return reply.code(400).send({
-                ok: false,
-                message: "WCL authorization failed or was denied",
-                error: query.error,
-            });
-        }
-
-        if (!query.code || !query.state) {
-            return reply.code(400).send({ ok: false, message: "Missing code or state" });
-        }
-
-        const cookie = request.unsignCookie(request.cookies.wcl_oauth_state ?? "");
-        if (!cookie.valid || cookie.value !== query.state) {
-            return reply.code(400).send({ ok: false, message: "Invalid OAuth state" });
-        }
-
-        const tokenResult = await exchangeAuthorizationCode({
-            env,
-            code: query.code,
+        reply.clearCookie(WCL_OAUTH_STATE_COOKIE_NAME, {
+            path: WCL_OAUTH_STATE_COOKIE_PATH,
         });
 
-        reply.clearCookie("wcl_oauth_state", { path: "/" });
+        if (query.error) {
+            if (state && stateCookie.valid && stateCookie.value === state) {
+                consumeWclOAuthState(state);
+            }
+            return sendWclAuthError(reply, 400, "WCL authorization failed or was denied.");
+        }
 
-        if (!tokenResult.payload.access_token || tokenResult.status < 200 || tokenResult.status >= 300) {
+        if (!query.code || !state) {
+            return sendWclAuthError(reply, 400, "Missing code or state.");
+        }
+
+        if (!stateCookie.valid || stateCookie.value !== state) {
+            return sendWclAuthError(reply, 400, "Invalid OAuth state.");
+        }
+
+        const stateRecord = consumeWclOAuthState(state);
+        if (!stateRecord || stateRecord.discordUserId !== auth.discordUserId) {
+            return sendWclAuthError(reply, 400, "Invalid OAuth state.");
+        }
+
+        const tokenResult = await exchangeWclAuthorizationCode({
+            clientId: env.WCL_CLIENT_ID,
+            clientSecret: env.WCL_CLIENT_SECRET,
+            code: query.code,
+            redirectUri: env.wclRedirectUri,
+        });
+
+        if (!tokenResult.payload.accessToken || tokenResult.status < 200 || tokenResult.status >= 300) {
             logger.error(
                 {
                     provider: "warcraftlogs",
@@ -116,24 +233,47 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
             });
         }
 
-        await wclUserAuthStore.upsert({
-            provider: "warcraftlogs",
-            accessToken: tokenResult.payload.access_token,
-            updatedAt: new Date(),
-            ...(typeof tokenResult.payload.refresh_token === "string"
-                ? { refreshToken: tokenResult.payload.refresh_token }
-                : {}),
-            ...(typeof tokenResult.payload.token_type === "string"
-                ? { tokenType: tokenResult.payload.token_type }
-                : {}),
-            ...(typeof tokenResult.payload.scope === "string"
-                ? { scope: tokenResult.payload.scope }
-                : {}),
-            ...(typeof tokenResult.payload.expires_in === "number"
-                ? { expiresAt: new Date(Date.now() + tokenResult.payload.expires_in * 1000) }
-                : {}),
-        });
+        const updatedAt = new Date();
+        const expiresAt = getWclTokenExpiresAt(tokenResult.payload, updatedAt);
+        try {
+            await wclUserAuthStore.upsertForDiscordUser({
+                discordUserId: auth.discordUserId,
+                provider: "warcraftlogs",
+                accessToken: tokenResult.payload.accessToken,
+                updatedAt,
+                ...(tokenResult.payload.refreshToken
+                    ? { refreshToken: tokenResult.payload.refreshToken }
+                    : {}),
+                ...(tokenResult.payload.tokenType
+                    ? { tokenType: tokenResult.payload.tokenType }
+                    : {}),
+                ...(tokenResult.payload.scope
+                    ? { scope: tokenResult.payload.scope }
+                    : {}),
+                ...(expiresAt ? { expiresAt } : {}),
+            });
+        } catch {
+            logger.error(
+                {
+                    provider: "warcraftlogs",
+                    flow: "authorization_code",
+                    failureCategory: "token_persistence_failed",
+                    discordUserId: auth.discordUserId,
+                },
+                "WCL token persistence failed",
+            );
+            return reply.code(500).send({
+                ok: false,
+                message: "Could not save Warcraft Logs authorization. Try again.",
+            });
+        }
 
-        return reply.send({ ok: true, message: "WCL authorization completed" });
+        return reply.send({
+            ok: true,
+            linked: true,
+            provider: "warcraftlogs",
+            expiresAt: expiresAt ?? null,
+            updatedAt,
+        });
     });
 };

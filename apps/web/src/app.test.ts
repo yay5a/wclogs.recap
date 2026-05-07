@@ -17,6 +17,7 @@ const env: WebEnv = parseWebEnv({
     DISCORD_BOT_TOKEN: "discord-token",
     WCL_CLIENT_ID: "wcl-client-id",
     WCL_CLIENT_SECRET: "wcl-client-secret",
+    WCL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     WCL_API_BASE_URL: "https://www.warcraftlogs.com/api/v2/client",
     WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
     COOKIE_SECRET: "cookie-secret",
@@ -93,8 +94,10 @@ const makeOptions = (assetRoot: string): CreateWebAppOptions => {
             revokeClaimById: vi.fn(),
         },
         wclUserAuthStore: {
-            get: vi.fn(),
-            upsert: vi.fn(),
+            getByDiscordUserId: vi.fn(),
+            getStatusByDiscordUserId: vi.fn(),
+            upsertForDiscordUser: vi.fn(),
+            deleteForDiscordUser: vi.fn(),
         },
         dashboardStatic: {
             enabled: true,
@@ -135,7 +138,7 @@ describe("createWebApp dashboard static serving", () => {
             payload: { reportCode: "ABC123" },
         });
         expect(report.statusCode).toBe(200);
-        expect((await app.inject("/api/auth/wcl/status")).statusCode).toBe(200);
+        expect((await app.inject("/api/auth/wcl/status")).statusCode).toBe(403);
         expect((await app.inject("/api/dashboard/session")).statusCode).toBe(200);
         expect((await app.inject({ method: "POST", url: "/discord/interactions" })).statusCode).toBe(
             401,

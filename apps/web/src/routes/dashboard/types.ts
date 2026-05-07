@@ -15,7 +15,7 @@ import type { WebEnv } from "../../config.js";
 
 export const DASHBOARD_COOKIE_NAME = "wcl_dashboard";
 export const DASHBOARD_SESSION_TTL_MS = 60 * 60 * 1000;
-export const DASHBOARD_COOKIE_PATH = "/api/dashboard";
+export const DASHBOARD_COOKIE_PATH = "/api";
 export const DASHBOARD_OAUTH_STATE_COOKIE_NAME = "wcl_dashboard_oauth_state";
 export const DASHBOARD_OAUTH_STATE_TTL_MS = 10 * 60 * 1000;
 export const DASHBOARD_REQUEST_HEADER = "x-dashboard-request";

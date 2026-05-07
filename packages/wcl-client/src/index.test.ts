@@ -20,6 +20,7 @@ describe("index contract", () => {
     let normalizeEnrichedReport: typeof import("./index.js").normalizeEnrichedReport;
     let createWclClient: typeof import("./index.js").createWclClient;
     let WclClient: typeof import("./index.js").WclClient;
+    let WclReportFetchError: typeof import("./index.js").WclReportFetchError;
 
     beforeAll(async () => {
         ({
@@ -28,6 +29,7 @@ describe("index contract", () => {
             normalizeEnrichedReport,
             createWclClient,
             WclClient,
+            WclReportFetchError,
         } = await import("./index.js"));
     });
 
@@ -1147,6 +1149,26 @@ describe("index contract", () => {
     });
 
     describe("fetch cache behavior", () => {
+        const jsonResponse = (payload: unknown, status = 200): Response =>
+            new Response(JSON.stringify(payload), {
+                status,
+                headers: { "content-type": "application/json" },
+            });
+        const minimalReportPayload = {
+            data: {
+                reportData: {
+                    report: {
+                        title: "Linked Private Report",
+                        startTime: 1,
+                        endTime: 2,
+                        zone: { frozen: true },
+                        fights: [],
+                        masterData: { actors: [] },
+                    },
+                },
+            },
+        };
+
         it("re-normalizes cached raw payload when normalized payload version is stale", async () => {
             const cachedBase = {
                 reportData: {
@@ -1254,6 +1276,183 @@ describe("index contract", () => {
                 | { rawPayload?: { rawPayloadVersion?: number } }
                 | undefined;
             expect(upsertArgs?.rawPayload?.rawPayloadVersion).toBe(RAW_PAYLOAD_VERSION);
+        });
+
+        it("retries auth-required public failures with the invoking user's linked WCL auth", async () => {
+            const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url.endsWith("/oauth/token")) {
+                    return jsonResponse({ access_token: "public-token" });
+                }
+                if (url.endsWith("/api/v2/client")) {
+                    return jsonResponse(
+                        { errors: [{ message: "not authorized for this private report" }] },
+                        403,
+                    );
+                }
+                if (url.endsWith("/api/v2/user")) {
+                    return jsonResponse(minimalReportPayload);
+                }
+                return jsonResponse({ errors: [{ message: "unexpected endpoint" }] }, 500);
+            });
+            const reportCacheStore = {
+                getByReportCode: vi.fn().mockResolvedValue(null),
+                upsert: vi.fn().mockResolvedValue(undefined),
+            };
+            const wclUserAuthStore = {
+                getByDiscordUserId: vi.fn().mockResolvedValue({
+                    discordUserId: "discord-user-1",
+                    accessToken: "linked-user-token",
+                    expiresAt: new Date(Date.now() + 60_000),
+                }),
+            };
+            const client = new WclClient({
+                clientId: "id",
+                clientSecret: "secret",
+                apiBaseUrl: "https://www.warcraftlogs.com/api/v2/client",
+                fetchImpl,
+                reportCacheStore,
+                wclUserAuthStore,
+            });
+
+            const normalized = await client.fetchAndNormalizeReport(
+                "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+                { discordUserId: "discord-user-1" },
+            );
+
+            expect(normalized.title).toBe("Linked Private Report");
+            expect(wclUserAuthStore.getByDiscordUserId).toHaveBeenCalledWith(
+                "discord-user-1",
+            );
+            expect(
+                fetchImpl.mock.calls.some(([input]) =>
+                    String(input).endsWith("/api/v2/client"),
+                ),
+            ).toBe(true);
+            expect(
+                fetchImpl.mock.calls.some(([input]) =>
+                    String(input).endsWith("/api/v2/user"),
+                ),
+            ).toBe(true);
+            expect(reportCacheStore.upsert).not.toHaveBeenCalled();
+        });
+
+        it("requires reauthorization instead of using expired linked WCL auth", async () => {
+            const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url.endsWith("/oauth/token")) {
+                    return jsonResponse({ access_token: "public-token" });
+                }
+                if (url.endsWith("/api/v2/client")) {
+                    return jsonResponse(
+                        { errors: [{ message: "not authorized for this private report" }] },
+                        403,
+                    );
+                }
+                return jsonResponse(minimalReportPayload);
+            });
+            const wclUserAuthStore = {
+                getByDiscordUserId: vi.fn().mockResolvedValue({
+                    discordUserId: "discord-user-1",
+                    accessToken: "expired-linked-token",
+                    expiresAt: new Date(Date.now() - 60_000),
+                }),
+            };
+            const client = new WclClient({
+                clientId: "id",
+                clientSecret: "secret",
+                apiBaseUrl: "https://www.warcraftlogs.com/api/v2/client",
+                fetchImpl,
+                wclUserAuthStore,
+            });
+
+            await expect(
+                client.fetchAndNormalizeReport(
+                    "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+                    { discordUserId: "discord-user-1" },
+                ),
+            ).rejects.toMatchObject({
+                category: "expired_linked_auth",
+                authMode: "userLinked",
+            });
+            expect(
+                fetchImpl.mock.calls.some(([input]) =>
+                    String(input).endsWith("/api/v2/user"),
+                ),
+            ).toBe(false);
+        });
+
+        it("requires reauthorization when linked WCL auth cannot be decrypted", async () => {
+            const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url.endsWith("/oauth/token")) {
+                    return jsonResponse({ access_token: "public-token" });
+                }
+                if (url.endsWith("/api/v2/client")) {
+                    return jsonResponse(
+                        { errors: [{ message: "not authorized for this private report" }] },
+                        403,
+                    );
+                }
+                return jsonResponse(minimalReportPayload);
+            });
+            const wclUserAuthStore = {
+                getByDiscordUserId: vi.fn().mockRejectedValue(
+                    new Error("WCL token decryption failed"),
+                ),
+            };
+            const client = new WclClient({
+                clientId: "id",
+                clientSecret: "secret",
+                apiBaseUrl: "https://www.warcraftlogs.com/api/v2/client",
+                fetchImpl,
+                wclUserAuthStore,
+            });
+
+            await expect(
+                client.fetchAndNormalizeReport(
+                    "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+                    { discordUserId: "discord-user-1" },
+                ),
+            ).rejects.toMatchObject({
+                category: "linked_auth_unreadable",
+                authMode: "userLinked",
+            });
+            expect(
+                fetchImpl.mock.calls.some(([input]) =>
+                    String(input).endsWith("/api/v2/user"),
+                ),
+            ).toBe(false);
+        });
+
+        it("does not use another user's linked WCL auth when no invoking user is provided", async () => {
+            const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+                const url = String(input);
+                if (url.endsWith("/oauth/token")) {
+                    return jsonResponse({ access_token: "public-token" });
+                }
+                return jsonResponse(
+                    { errors: [{ message: "not authorized for this private report" }] },
+                    403,
+                );
+            });
+            const wclUserAuthStore = {
+                getByDiscordUserId: vi.fn(),
+            };
+            const client = new WclClient({
+                clientId: "id",
+                clientSecret: "secret",
+                apiBaseUrl: "https://www.warcraftlogs.com/api/v2/client",
+                fetchImpl,
+                wclUserAuthStore,
+            });
+
+            await expect(
+                client.fetchAndNormalizeReport(
+                    "https://www.warcraftlogs.com/reports/abc123xyz4567890",
+                ),
+            ).rejects.toBeInstanceOf(WclReportFetchError);
+            expect(wclUserAuthStore.getByDiscordUserId).not.toHaveBeenCalled();
         });
     });
 });

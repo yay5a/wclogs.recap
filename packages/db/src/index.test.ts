@@ -16,17 +16,242 @@ import {
   MongoCharacterClaimStore,
   MongoComparisonHistoryStore,
   MongoGuildConfigStore,
+  MongoWclUserAuthStore,
   AutoReportDuplicateTrackingModel,
   AutoReportPromptStateModel,
   MongoTrendTrackingService,
   PlayerRaidSummaryModel,
   ReportCacheModel,
   TrendSnapshotModel,
+  WclUserAuthModel,
+  migrateWclUserAuthDiscordUserIndex,
+  encryptWclToken,
 } from './index.js';
 
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+describe('MongoWclUserAuthStore', () => {
+  const encryptionKey = Buffer.alloc(32, 7).toString('base64');
+  const encryptionKeyBuffer = Buffer.alloc(32, 7);
+  const makeStore = () => new MongoWclUserAuthStore({ encryptionKey });
+
+  it('upserts WCL auth by Discord user ID', async () => {
+    vi.spyOn(WclUserAuthModel, 'findOneAndUpdate').mockResolvedValue(null);
+    const updatedAt = new Date('2026-04-09T00:00:00.000Z');
+    const expiresAt = new Date('2026-04-09T01:00:00.000Z');
+
+    const store = makeStore();
+    await store.upsertForDiscordUser({
+      discordUserId: 'user-1',
+      provider: 'warcraftlogs',
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      tokenType: 'Bearer',
+      scope: 'view-user-profile',
+      expiresAt,
+      updatedAt,
+    });
+
+    expect(WclUserAuthModel.findOneAndUpdate).toHaveBeenCalledWith(
+      { discordUserId: 'user-1' },
+      {
+        $set: {
+          provider: 'warcraftlogs',
+          accessTokenEnvelope: expect.objectContaining({
+            algorithm: 'aes-256-gcm',
+            keyVersion: 'v1',
+            iv: expect.any(String),
+            authTag: expect.any(String),
+            ciphertext: expect.any(String),
+          }),
+          updatedAt,
+          refreshTokenEnvelope: expect.objectContaining({
+            algorithm: 'aes-256-gcm',
+            keyVersion: 'v1',
+            iv: expect.any(String),
+            authTag: expect.any(String),
+            ciphertext: expect.any(String),
+          }),
+          tokenType: 'Bearer',
+          scope: 'view-user-profile',
+          expiresAt,
+        },
+        $setOnInsert: {
+          discordUserId: 'user-1',
+          linkedAt: updatedAt,
+        },
+        $unset: {
+          accessToken: '',
+          refreshToken: '',
+        },
+      },
+      { upsert: true },
+    );
+    expect(JSON.stringify(vi.mocked(WclUserAuthModel.findOneAndUpdate).mock.calls[0])).not.toContain(
+      'access-token',
+    );
+    expect(JSON.stringify(vi.mocked(WclUserAuthModel.findOneAndUpdate).mock.calls[0])).not.toContain(
+      'refresh-token',
+    );
+  });
+
+  it('gets and decrypts WCL auth by Discord user ID', async () => {
+    const record = {
+      discordUserId: 'user-1',
+      provider: 'warcraftlogs' as const,
+      accessTokenEnvelope: encryptWclToken('access-token', encryptionKeyBuffer),
+      refreshTokenEnvelope: encryptWclToken('refresh-token', encryptionKeyBuffer),
+      linkedAt: new Date('2026-04-08T00:00:00.000Z'),
+      updatedAt: new Date('2026-04-09T00:00:00.000Z'),
+    };
+    vi.spyOn(WclUserAuthModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue(record),
+    } as never);
+    const updateOne = vi.spyOn(WclUserAuthModel, 'updateOne').mockResolvedValue({} as never);
+
+    const store = makeStore();
+
+    await expect(store.getByDiscordUserId('user-1')).resolves.toEqual({
+      discordUserId: 'user-1',
+      provider: 'warcraftlogs',
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+      linkedAt: record.linkedAt,
+      updatedAt: record.updatedAt,
+    });
+    expect(WclUserAuthModel.findOne).toHaveBeenCalledWith({ discordUserId: 'user-1' });
+    expect(updateOne).not.toHaveBeenCalled();
+  });
+
+  it('upgrades legacy plaintext token records after successful read', async () => {
+    vi.spyOn(WclUserAuthModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        discordUserId: 'user-1',
+        provider: 'warcraftlogs',
+        accessToken: 'access-token',
+        refreshToken: 'refresh-token',
+        linkedAt: new Date('2026-04-08T00:00:00.000Z'),
+        updatedAt: new Date('2026-04-09T00:00:00.000Z'),
+      }),
+    } as never);
+    const updateOne = vi.spyOn(WclUserAuthModel, 'updateOne').mockResolvedValue({} as never);
+
+    const store = makeStore();
+    await expect(store.getByDiscordUserId('user-1')).resolves.toMatchObject({
+      discordUserId: 'user-1',
+      accessToken: 'access-token',
+      refreshToken: 'refresh-token',
+    });
+
+    expect(updateOne).toHaveBeenCalledWith(
+      { discordUserId: 'user-1' },
+      {
+        $set: {
+          accessTokenEnvelope: expect.objectContaining({
+            algorithm: 'aes-256-gcm',
+            keyVersion: 'v1',
+          }),
+          refreshTokenEnvelope: expect.objectContaining({
+            algorithm: 'aes-256-gcm',
+            keyVersion: 'v1',
+          }),
+        },
+        $unset: {
+          accessToken: '',
+          refreshToken: '',
+        },
+      },
+    );
+    expect(JSON.stringify(updateOne.mock.calls[0])).not.toContain('access-token');
+    expect(JSON.stringify(updateOne.mock.calls[0])).not.toContain('refresh-token');
+  });
+
+  it('fails safely when encrypted token envelopes are corrupt', async () => {
+    vi.spyOn(WclUserAuthModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        discordUserId: 'user-1',
+        provider: 'warcraftlogs',
+        accessTokenEnvelope: {
+          keyVersion: 'v1',
+          algorithm: 'aes-256-gcm',
+          iv: 'bad',
+          authTag: 'bad',
+          ciphertext: 'bad',
+        },
+      }),
+    } as never);
+    vi.spyOn(WclUserAuthModel, 'updateOne').mockResolvedValue({} as never);
+
+    const store = makeStore();
+    await expect(store.getByDiscordUserId('user-1')).rejects.toMatchObject({
+      name: 'WclTokenEncryptionError',
+      code: 'decrypt_failed',
+    });
+  });
+
+  it('returns safe WCL auth status without token material', async () => {
+    const lean = vi.fn().mockResolvedValue({
+      discordUserId: 'user-1',
+      provider: 'warcraftlogs',
+      tokenType: 'Bearer',
+      scope: 'view-user-profile',
+      expiresAt: new Date('2026-04-09T01:00:00.000Z'),
+      linkedAt: new Date('2026-04-08T00:00:00.000Z'),
+      updatedAt: new Date('2026-04-09T00:00:00.000Z'),
+    });
+    const select = vi.fn().mockReturnValue({ lean });
+    vi.spyOn(WclUserAuthModel, 'findOne').mockReturnValue({ select } as never);
+
+    const store = makeStore();
+    const status = await store.getStatusByDiscordUserId('user-1');
+
+    expect(select).toHaveBeenCalledWith(
+      'discordUserId provider tokenType scope expiresAt linkedAt updatedAt',
+    );
+    expect(JSON.stringify(status)).not.toContain('access-token');
+    expect(JSON.stringify(status)).not.toContain('refresh-token');
+    expect(lean).toHaveBeenCalled();
+    expect(status).toEqual(
+      expect.objectContaining({
+        discordUserId: 'user-1',
+        provider: 'warcraftlogs',
+        tokenType: 'Bearer',
+      }),
+    );
+  });
+
+  it('deletes WCL auth only for the current Discord user ID', async () => {
+    vi.spyOn(WclUserAuthModel, 'deleteOne').mockResolvedValue({ deletedCount: 1 } as never);
+
+    const store = makeStore();
+    await store.deleteForDiscordUser('user-1');
+
+    expect(WclUserAuthModel.deleteOne).toHaveBeenCalledWith({ discordUserId: 'user-1' });
+  });
+
+  it('drops the legacy unique provider index before creating user-scoped indexes', async () => {
+    vi.spyOn(WclUserAuthModel.collection, 'indexes').mockResolvedValue([
+      { name: 'provider_1', unique: true, key: { provider: 1 } },
+    ] as never);
+    const dropIndex = vi
+      .spyOn(WclUserAuthModel.collection, 'dropIndex')
+      .mockResolvedValue({ ok: 1 } as never);
+    const createIndex = vi
+      .spyOn(WclUserAuthModel.collection, 'createIndex')
+      .mockResolvedValue('index' as never);
+
+    await migrateWclUserAuthDiscordUserIndex();
+
+    expect(dropIndex).toHaveBeenCalledWith('provider_1');
+    expect(createIndex).toHaveBeenCalledWith(
+      { discordUserId: 1 },
+      { unique: true, name: 'discordUserId_1' },
+    );
+    expect(createIndex).toHaveBeenCalledWith({ provider: 1 }, { name: 'provider_1' });
+  });
 });
 
 describe('MongoGuildConfigStore', () => {

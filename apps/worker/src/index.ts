@@ -6,9 +6,11 @@ import {
     MongoDashboardActivityStore,
     MongoGuildConfigStore,
     MongoTrendTrackingService,
+    MongoWclUserAuthStore,
     ReportCacheModel,
     connectMongo,
     migrateCharacterClaimIdentityFields,
+    migrateWclUserAuthDiscordUserIndex,
 } from "@wcl/db";
 import type { AutoReportSendableChannel } from "@wcl/discord";
 import { handleAutoReportMessageCreate } from "@wcl/discord";
@@ -159,6 +161,9 @@ const autoReportPromptStateService = new MongoAutoReportPromptStateStore();
 const autoReportDuplicateTrackingService = new MongoAutoReportDuplicateTrackingStore();
 const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const dashboardActivityStore = new MongoDashboardActivityStore();
+const wclUserAuthStore = new MongoWclUserAuthStore({
+    encryptionKey: env.WCL_TOKEN_ENCRYPTION_KEY,
+});
 
 const reportCacheStore: ReportCacheStore = {
     async getByReportCode(reportCode: string) {
@@ -178,6 +183,7 @@ const wclClient = new WclClient({
     clientSecret: env.WCL_CLIENT_SECRET,
     apiBaseUrl: env.WCL_API_BASE_URL,
     reportCacheStore,
+    wclUserAuthStore,
 });
 
 class InMemoryFailureThrottle {
@@ -355,6 +361,7 @@ const processNext = async (): Promise<void> => {
 const start = async () => {
     await connectMongo(env.MONGODB_URI);
     await migrateCharacterClaimIdentityFields();
+    await migrateWclUserAuthDiscordUserIndex();
     await startDiscordGateway();
     logger.info("worker started");
 

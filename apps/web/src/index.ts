@@ -10,6 +10,7 @@ import {
   MongoGuildConfigStore,
   MongoWclUserAuthStore,
   ReportCacheModel,
+  migrateWclUserAuthDiscordUserIndex,
 } from '@wcl/db';
 import { createLogger } from '@wcl/shared';
 import { WclClient, type ReportCacheStore } from '@wcl/wcl-client';
@@ -43,11 +44,16 @@ const reportCacheStore: ReportCacheStore = {
   },
 };
 
+const wclUserAuthStore = new MongoWclUserAuthStore({
+  encryptionKey: env.WCL_TOKEN_ENCRYPTION_KEY,
+});
+
 const wclClient = new WclClient({
   clientId: env.WCL_CLIENT_ID,
   clientSecret: env.WCL_CLIENT_SECRET,
   apiBaseUrl: env.WCL_API_BASE_URL,
   reportCacheStore,
+  wclUserAuthStore,
 });
 
 const guildConfigStore = new MongoGuildConfigStore();
@@ -57,8 +63,6 @@ const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const characterClaimStore = new MongoCharacterClaimStore();
 const dashboardActivityStore = new MongoDashboardActivityStore();
 const dashboardOnboardingStore = new MongoDashboardOnboardingStore();
-const wclUserAuthStore = new MongoWclUserAuthStore();
-
 const dashboardAssetRootCandidates = [
   resolve(__dirname, '../../../../client'),
   resolve(__dirname, '../dist/client'),
@@ -90,6 +94,7 @@ const app = await createWebApp({
 const start = async () => {
   await connectMongo(env.MONGODB_URI);
   await migrateCharacterClaimIdentityFields();
+  await migrateWclUserAuthDiscordUserIndex();
   await app.listen({ port: env.PORT, host: '0.0.0.0' });
   logger.info({ port: env.PORT }, 'web app started');
 };

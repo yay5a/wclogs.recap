@@ -17,6 +17,20 @@ const parseDiscordResponseBody = (text: string): unknown => {
     }
 };
 
+const describeDiscordResponseBody = (body: unknown): Record<string, unknown> => {
+    if (Array.isArray(body)) {
+        return { type: "array", length: body.length };
+    }
+    if (body === null) return { type: "null" };
+    if (typeof body === "object") {
+        return { type: "object", keyCount: Object.keys(body).length };
+    }
+    if (typeof body === "string") {
+        return { type: "string", length: body.length };
+    }
+    return { type: typeof body };
+};
+
 interface DiscordRateLimitMetadata { retryAfterMs: number; global: boolean | null; source: "header" | "body"; }
 export interface DiscordMessageResponse extends Record<string, unknown> { id: string; flags?: number; }
 const parseRetryAfterSeconds = (value: unknown): number | null => {
@@ -75,7 +89,7 @@ export const discordApiRequest = async ({ endpoint, method, route, botToken, bod
 export const editOriginalInteractionResponse = async (applicationId: string, token: string, body: unknown): Promise<void> => {
     const endpoint = `${DISCORD_API_BASE_URL}/webhooks/${applicationId}/${token}/messages/@original`;
     const response = await discordApiRequest({ endpoint, method: "PATCH", route: "/webhooks/{applicationId}/{token}/messages/@original", body });
-    if (!response.ok) throw new Error(`Failed to edit original interaction response: ${response.status} ${response.statusText} ${await response.text()}`);
+    if (!response.ok) throw new Error(`Failed to edit original interaction response: ${response.status} ${response.statusText}`);
 };
 
 export const safeEditOriginalInteractionResponse = async (applicationId: string, token: string, body: unknown): Promise<void> => {
@@ -100,13 +114,13 @@ export const createFollowupInteractionResponse = async (applicationId: string, t
             status: response.status,
             ok: response.ok,
             messageId,
-            responseBody,
+            responseBodyShape: describeDiscordResponseBody(responseBody),
         },
         "discord followup interaction response",
     );
-    if (!response.ok) throw new Error(`Failed to create followup interaction response: ${response.status} ${response.statusText} ${responseText}`);
+    if (!response.ok) throw new Error(`Failed to create followup interaction response: ${response.status} ${response.statusText}`);
     if (!isObjectRecord(responseBody) || typeof responseBody.id !== "string") {
-        throw new Error(`Discord followup interaction response did not return a created message id: ${response.status} ${response.statusText} ${responseText}`);
+        throw new Error(`Discord followup interaction response did not return a created message id: ${response.status} ${response.statusText}`);
     }
     return responseBody as DiscordMessageResponse;
 };

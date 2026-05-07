@@ -22,6 +22,7 @@ const env: WebEnv = parseWebEnv({
     DISCORD_BOT_TOKEN: "discord-token",
     WCL_CLIENT_ID: "wcl-client-id",
     WCL_CLIENT_SECRET: "wcl-client-secret",
+    WCL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     WCL_API_BASE_URL: "https://www.warcraftlogs.com/api/v2/client",
     WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
     COOKIE_SECRET: "cookie-secret",

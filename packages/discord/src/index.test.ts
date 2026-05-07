@@ -1,5 +1,6 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
 import { InteractionResponseType, InteractionType } from 'discord-interactions';
+import { WclReportFetchError } from '@wcl/wcl-client';
 import type {
   ComparisonSnapshotInput,
   GuildConfig,
@@ -20,6 +21,7 @@ import {
   registerGlobalCommands,
   registerGuildCommands,
 } from './index.js';
+import { createFollowupInteractionResponse } from './infrastructure/discord-api.js';
 
 const makeReport = (): NormalizedReport => ({
   reportCode: 'ABC123',
@@ -532,6 +534,29 @@ describe('Discord HTTP contract behavior', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
+  });
+
+  it('does not include Discord followup response bodies in thrown errors', async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      statusText: 'Bad Gateway',
+      text: vi.fn().mockResolvedValue(
+        '{"message":"private report details should not be logged"}',
+      ),
+    });
+    vi.stubGlobal('fetch', fetchMock);
+
+    await expect(
+      createFollowupInteractionResponse('app123', 'interaction-token', {
+        content: 'report content',
+      }),
+    ).rejects.toThrow('Failed to create followup interaction response: 502 Bad Gateway');
+    await expect(
+      createFollowupInteractionResponse('app123', 'interaction-token', {
+        content: 'report content',
+      }),
+    ).rejects.not.toThrow(/private report details|report content/i);
   });
 
   it('does not retry 429 when retry timing is unavailable', async () => {
@@ -2584,6 +2609,11 @@ describe('handleInteraction', () => {
   it('can schedule report processing outside the initial response path', async () => {
     const fetchAndNormalizeReport = vi.fn().mockResolvedValue(makeReport());
     const scheduledTasks: Array<() => void> = [];
+    const editFetch = vi.fn().mockResolvedValue({
+      ok: true,
+      text: vi.fn().mockResolvedValue('ok'),
+    });
+    vi.stubGlobal('fetch', editFetch);
 
     const response = await handleInteraction(
       {
@@ -2593,6 +2623,7 @@ describe('handleInteraction', () => {
         token: 'token-1',
         guild_id: 'guild-1',
         channel_id: 'channel-1',
+        member: { user: { id: 'discord-user-1' } },
         data: {
           name: 'report',
           options: [
@@ -2619,6 +2650,13 @@ describe('handleInteraction', () => {
     });
     expect(scheduledTasks).toHaveLength(1);
     expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
+    scheduledTasks[0]?.();
+    await vi.waitFor(() => {
+      expect(fetchAndNormalizeReport).toHaveBeenCalledWith(
+        'https://www.warcraftlogs.com/reports/ABC123',
+        { discordUserId: 'discord-user-1' },
+      );
+    });
   });
 
   it('returns a generic response for unknown command interactions without processing reports', async () => {
@@ -3137,6 +3175,7 @@ describe('handleInteraction', () => {
   });
 
   it('auto_preview posts a public preview with no flags and safe mentions', async () => {
+    const fetchAndNormalizeReport = vi.fn().mockResolvedValue(makeReport());
     const channel = { send: vi.fn().mockResolvedValue({ id: 'preview-message-1' }) };
     const autoReportDuplicateTrackingService = {
       claimPassiveDetection: vi.fn().mockResolvedValue({
@@ -3157,7 +3196,7 @@ describe('handleInteraction', () => {
       channel,
       handleOptions: {
         wclClient: {
-          fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
+          fetchAndNormalizeReport,
           findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
         } as never,
         guildConfigStore: {
@@ -3192,6 +3231,68 @@ describe('handleInteraction', () => {
         latestOutputMessageId: 'preview-message-1',
         latestOutputKind: 'public_preview',
       }),
+    );
+    expect(fetchAndNormalizeReport).toHaveBeenCalledWith(
+      'https://www.warcraftlogs.com/reports/ABC123',
+      { discordUserId: 'user-1' },
+    );
+  });
+
+  it('does not publicly expose private report authorization failures from auto report', async () => {
+    const channel = { send: vi.fn().mockResolvedValue({ id: 'failure-message-1' }) };
+    const autoReportDuplicateTrackingService = {
+      claimPassiveDetection: vi.fn().mockResolvedValue({ claimed: true, record: null }),
+      updateTracking: vi.fn().mockResolvedValue(null),
+    };
+    const fetchAndNormalizeReport = vi.fn().mockRejectedValue(
+      new WclReportFetchError({
+        category: 'missing_linked_auth',
+        reportCode: 'ABC123',
+        authMode: 'userLinked',
+      }),
+    );
+
+    await handleAutoReportMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-1',
+        authorId: 'user-1',
+        content: 'https://www.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions: {
+        wclClient: {
+          fetchAndNormalizeReport,
+          findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+        } as never,
+        guildConfigStore: {
+          getGuildConfig: vi.fn().mockResolvedValue({
+            guildId: 'guild-1',
+            defaultGameFamily: 'retail',
+            compareModeDefault: 'character',
+            compareAccessMode: 'officer_only',
+            comparePublicPostingEnabled: false,
+            autoReportMode: 'auto_post',
+            autoReportChannelIds: ['channel-1'],
+          }),
+          saveGuildConfig: vi.fn(),
+        },
+        autoReportDuplicateTrackingService,
+      },
+    });
+
+    const body = channel.send.mock.calls[0]?.[0] as { content?: string };
+    expect(body.content).toBe(
+      'Could not build a report summary for that Warcraft Logs report. Please try again.',
+    );
+    expect(body.content).not.toContain('Link your Warcraft Logs account');
+    expect(fetchAndNormalizeReport).toHaveBeenCalledWith(
+      'https://www.warcraftlogs.com/reports/ABC123',
+      { discordUserId: 'user-1' },
+    );
+    expect(autoReportDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'failed' }),
     );
   });
 

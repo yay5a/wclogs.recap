@@ -4,6 +4,30 @@ export const defaultDebugWarn: DebugWarn = (message, context) => {
     console.warn(message, context);
 };
 
+export type PayloadShapeSummary = {
+    type: string;
+    length?: number;
+    keyCount?: number;
+};
+
+export const describePayloadShape = (payload: unknown): PayloadShapeSummary => {
+    if (Array.isArray(payload)) {
+        return { type: "array", length: payload.length };
+    }
+
+    if (payload === null) return { type: "null" };
+
+    if (typeof payload === "object") {
+        return { type: "object", keyCount: Object.keys(payload).length };
+    }
+
+    if (typeof payload === "string") {
+        return { type: "string", length: payload.length };
+    }
+
+    return { type: typeof payload };
+};
+
 export const asObject = (value: unknown): Record<string, unknown> | undefined =>
     typeof value === "object" && value !== null
         ? (value as Record<string, unknown>)
@@ -31,7 +55,9 @@ export const parseUnknownJson = (
     try {
         return JSON.parse(payload) as unknown;
     } catch {
-        warn(`${label}: failed to parse JSON string payload`, { payload });
+        warn(`${label}: failed to parse JSON string payload`, {
+            payloadShape: describePayloadShape(payload),
+        });
         return undefined;
     }
 };

@@ -34,6 +34,7 @@ const makeEnv = (
         DISCORD_BOT_TOKEN: "discord-token",
         WCL_CLIENT_ID: "wcl-client-id",
         WCL_CLIENT_SECRET: "wcl-client-secret",
+        WCL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
         WCL_API_BASE_URL: "https://www.warcraftlogs.com/api/v2/client",
         WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
         COOKIE_SECRET: "cookie-secret",
@@ -337,7 +338,7 @@ describe("dashboard auth", () => {
         const setCookie = firstSetCookieHeader(accepted);
         expect(setCookie).toContain(`${DASHBOARD_COOKIE_NAME}=`);
         expect(setCookie).toContain("HttpOnly");
-        expect(setCookie).toContain("Path=/api/dashboard");
+        expect(setCookie).toContain("Path=/api");
 
         await app.close();
     });
@@ -359,7 +360,7 @@ describe("dashboard auth", () => {
         expect(setCookie).toContain("HttpOnly");
         expect(setCookie).toContain("SameSite=Strict");
         expect(setCookie).toContain("Max-Age=3600");
-        expect(setCookie).toContain("Path=/api/dashboard");
+        expect(setCookie).toContain("Path=/api");
 
         const unsigned = app.unsignCookie(signedCookieValueFrom(firstSetCookie(login)));
         expect(unsigned.valid).toBe(true);
@@ -770,7 +771,7 @@ describe("dashboard auth", () => {
                 (header) =>
                     header.startsWith(`${DASHBOARD_COOKIE_NAME}=`) &&
                     header.includes("Max-Age=0") &&
-                    header.includes("Path=/api/dashboard"),
+                    header.includes("Path=/api"),
             ),
         ).toBe(true);
 

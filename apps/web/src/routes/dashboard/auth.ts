@@ -121,14 +121,15 @@ const parseSessionCookie = (request: FastifyRequest): DashboardAuthContext | nul
     return null;
 };
 
+export const getDashboardAuthFromRequest = (
+    request: FastifyRequest,
+    env: WebEnv,
+): DashboardAuthContext | null =>
+    env.DASHBOARD_AUTH_DISABLED ? dashboardAuthContext : parseSessionCookie(request);
+
 export const requireDashboardAuth =
     (env: WebEnv) => async (request: DashboardAuthedRequest, reply: FastifyReply) => {
-        if (env.DASHBOARD_AUTH_DISABLED) {
-            request.dashboardAuth = dashboardAuthContext;
-            return;
-        }
-
-        const auth = parseSessionCookie(request);
+        const auth = getDashboardAuthFromRequest(request, env);
         if (!auth) return sendError(reply, 401, "unauthorized");
         request.dashboardAuth = auth;
     };

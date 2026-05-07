@@ -54,3 +54,90 @@ export async function resolveWclAccessToken(
 
     return token;
 }
+
+export interface WclAuthorizationCodeTokenPayload {
+    accessToken?: string;
+    refreshToken?: string;
+    expiresIn?: number;
+    tokenType?: string;
+    scope?: string;
+}
+
+export type ExchangeWclAuthorizationCodeOptions = {
+    clientId: string;
+    clientSecret: string;
+    code: string;
+    redirectUri: string;
+    fetchImpl?: typeof fetch;
+};
+
+const readString = (
+    payload: Record<string, unknown>,
+    key: string,
+): string | undefined => {
+    const value = payload[key];
+    return typeof value === "string" && value.length > 0 ? value : undefined;
+};
+
+const readExpiresIn = (payload: Record<string, unknown>): number | undefined => {
+    const value = payload.expires_in;
+    return typeof value === "number" && Number.isFinite(value) && value > 0
+        ? value
+        : undefined;
+};
+
+export const parseWclAuthorizationCodeTokenPayload = (
+    value: unknown,
+): WclAuthorizationCodeTokenPayload => {
+    if (typeof value !== "object" || value === null) return {};
+    const payload = value as Record<string, unknown>;
+    const accessToken = readString(payload, "access_token");
+    const refreshToken = readString(payload, "refresh_token");
+    const expiresIn = readExpiresIn(payload);
+    const tokenType = readString(payload, "token_type");
+    const scope = readString(payload, "scope");
+
+    return {
+        ...(accessToken ? { accessToken } : {}),
+        ...(refreshToken ? { refreshToken } : {}),
+        ...(expiresIn ? { expiresIn } : {}),
+        ...(tokenType ? { tokenType } : {}),
+        ...(scope ? { scope } : {}),
+    };
+};
+
+export const getWclTokenExpiresAt = (
+    payload: WclAuthorizationCodeTokenPayload,
+    now = new Date(),
+): Date | undefined =>
+    typeof payload.expiresIn === "number"
+        ? new Date(now.getTime() + payload.expiresIn * 1000)
+        : undefined;
+
+export const exchangeWclAuthorizationCode = async (
+    options: ExchangeWclAuthorizationCodeOptions,
+): Promise<{ status: number; payload: WclAuthorizationCodeTokenPayload }> => {
+    const fetchImpl = options.fetchImpl ?? fetch;
+    const basicAuth = Buffer.from(
+        `${options.clientId}:${options.clientSecret}`,
+    ).toString("base64");
+
+    const tokenResponse = await fetchImpl("https://www.warcraftlogs.com/oauth/token", {
+        method: "POST",
+        headers: {
+            Authorization: `Basic ${basicAuth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: new URLSearchParams({
+            grant_type: "authorization_code",
+            code: options.code,
+            redirect_uri: options.redirectUri,
+        }),
+    });
+
+    const rawPayload: unknown = await tokenResponse.json().catch(() => null);
+    return {
+        status: tokenResponse.status,
+        payload: parseWclAuthorizationCodeTokenPayload(rawPayload),
+    };
+};

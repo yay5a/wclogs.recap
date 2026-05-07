@@ -6,6 +6,7 @@ export * from './models/comparison-snapshot-model.js';
 export * from './models/dashboard-activity-model.js';
 export * from './models/dashboard-onboarding-model.js';
 export * from './mongo-wcl-user-auth-store.js';
+export * from './wcl-token-encryption.js';
 export * from './stores/character-claim-store.js';
 export * from './stores/comparison-history-store.js';
 export * from './stores/guild-config-store.js';

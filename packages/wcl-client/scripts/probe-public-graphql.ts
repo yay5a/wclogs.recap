@@ -854,7 +854,7 @@ const run = async (): Promise<void> => {
 
     const apiBaseUrl =
         process.env.WCL_API_BASE_URL?.trim() || DEFAULT_API_BASE_URL;
-    const explicitToken = process.env.WCL_AUTH_TOKEN?.trim();
+    const explicitToken = process.env.WCL_OAUTH_TOKEN?.trim();
     const clientId = process.env.WCL_CLIENT_ID?.trim();
     const clientSecret = process.env.WCL_CLIENT_SECRET?.trim();
 

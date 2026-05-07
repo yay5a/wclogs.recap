@@ -15,6 +15,7 @@ const baseEnv = {
     DISCORD_BOT_TOKEN: "discord-token",
     WCL_CLIENT_ID: "wcl-client-id",
     WCL_CLIENT_SECRET: "wcl-client-secret",
+    WCL_TOKEN_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString("base64"),
     WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
     COOKIE_SECRET: "cookie-secret",
 };
@@ -85,6 +86,58 @@ describe("parseWebEnv dashboard config", () => {
                 }),
             ).toThrow();
         }
+    });
+});
+
+describe("parseWebEnv WCL token encryption config", () => {
+    it("accepts a base64-encoded 32-byte WCL token encryption key", () => {
+        const env = parseWebEnv({
+            ...baseEnv,
+            NODE_ENV: "test",
+        });
+
+        expect(env.WCL_TOKEN_ENCRYPTION_KEY).toBe(baseEnv.WCL_TOKEN_ENCRYPTION_KEY);
+    });
+
+    it("rejects missing or malformed WCL token encryption keys", () => {
+        const missingKeyEnv: Partial<typeof baseEnv> = { ...baseEnv };
+        delete missingKeyEnv.WCL_TOKEN_ENCRYPTION_KEY;
+
+        expect(() =>
+            parseWebEnv({
+                ...missingKeyEnv,
+                NODE_ENV: "test",
+            }),
+        ).toThrow(/WCL_TOKEN_ENCRYPTION_KEY/);
+
+        for (const value of ["not-base64", Buffer.alloc(16, 7).toString("base64")]) {
+            expect(() =>
+                parseWebEnv({
+                    ...baseEnv,
+                    NODE_ENV: "test",
+                    WCL_TOKEN_ENCRYPTION_KEY: value,
+                }),
+            ).toThrow(/WCL_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key/);
+        }
+    });
+
+    it("does not include the encryption key in derived public URL fields", () => {
+        const envWithoutLegacyWcl: Partial<typeof baseEnv> = { ...baseEnv };
+        delete envWithoutLegacyWcl.WCL_REDIRECT_URI;
+
+        const env = parseWebEnv({
+            ...envWithoutLegacyWcl,
+            NODE_ENV: "test",
+            PUBLIC_APP_BASE_URL: "https://public.example.test",
+        });
+
+        const publicFields = JSON.stringify({
+            publicAppBaseUrl: env.publicAppBaseUrl,
+            wclRedirectUri: env.wclRedirectUri,
+            discordInteractionsUrl: env.discordInteractionsUrl,
+            dashboardPublicUrl: env.dashboardPublicUrl,
+        });
+        expect(publicFields).not.toContain(env.WCL_TOKEN_ENCRYPTION_KEY);
     });
 });
 

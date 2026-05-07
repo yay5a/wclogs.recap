@@ -1,3 +1,4 @@
+import { isValidWclTokenEncryptionKey } from "@wcl/db";
 import { trimmed, z } from "@wcl/shared";
 
 export const DISCORD_OAUTH_CALLBACK_PATH = "/api/dashboard/discord/callback";
@@ -43,6 +44,15 @@ const publicAppBaseUrl = httpUrl("PUBLIC_APP_BASE_URL").superRefine(
     },
 ).transform((value) => new URL(value).origin);
 
+const wclTokenEncryptionKey = trimmed().superRefine((value, context) => {
+    if (!isValidWclTokenEncryptionKey(value)) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "WCL_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key",
+        });
+    }
+});
+
 const buildPublicUrl = (baseUrl: string | undefined, path: string): string | undefined =>
     baseUrl ? `${baseUrl}${path}` : undefined;
 
@@ -72,6 +82,7 @@ const webEnvSchema = z.object({
     DISCORD_INTERACTIONS_URL: httpUrl("DISCORD_INTERACTIONS_URL").optional(),
     WCL_CLIENT_ID: trimmed(),
     WCL_CLIENT_SECRET: trimmed(),
+    WCL_TOKEN_ENCRYPTION_KEY: wclTokenEncryptionKey,
     WCL_API_BASE_URL: trimmed()
         .url()
         .default("https://www.warcraftlogs.com/api/v2/client"),

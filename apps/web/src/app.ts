@@ -76,6 +76,7 @@ export const createWebApp = async (options: CreateWebAppOptions): Promise<Fastif
     });
 
     await app.register(registerReportRoutes, {
+        env: options.env,
         wclClient: options.wclClient,
         logger: options.logger,
     });

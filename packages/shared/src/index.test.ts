@@ -100,6 +100,7 @@ describe("logger redaction", () => {
             env: {
                 DISCORD_CLIENT_SECRET: "discord-env-secret",
                 WCL_CLIENT_SECRET: "wcl-env-secret",
+                WCL_TOKEN_ENCRYPTION_KEY: "wcl-token-key",
             },
             headers: {
                 authorization: "Bearer header-access",
@@ -120,7 +121,20 @@ describe("logger redaction", () => {
                     id_token: "nested-id-token",
                     client_secret: "nested-client-secret",
                 },
+                accessTokenEnvelope: {
+                    iv: "nested-iv",
+                    authTag: "nested-auth-tag",
+                    ciphertext: "nested-ciphertext",
+                },
+                refreshTokenEnvelope: {
+                    iv: "nested-refresh-iv",
+                    authTag: "nested-refresh-auth-tag",
+                    ciphertext: "nested-refresh-ciphertext",
+                },
             },
+            ciphertext: "root-ciphertext",
+            iv: "root-iv",
+            authTag: "root-auth-tag",
         });
 
         for (const secret of [
@@ -133,6 +147,7 @@ describe("logger redaction", () => {
             "root-client-secret",
             "discord-env-secret",
             "wcl-env-secret",
+            "wcl-token-key",
             "Bearer header-access",
             "dashboard-cookie",
             "dashboard-set-cookie",
@@ -143,6 +158,15 @@ describe("logger redaction", () => {
             "nested-refresh-token",
             "nested-id-token",
             "nested-client-secret",
+            "nested-iv",
+            "nested-auth-tag",
+            "nested-ciphertext",
+            "nested-refresh-iv",
+            "nested-refresh-auth-tag",
+            "nested-refresh-ciphertext",
+            "root-ciphertext",
+            "root-iv",
+            "root-auth-tag",
         ]) {
             expect(output).not.toContain(secret);
         }

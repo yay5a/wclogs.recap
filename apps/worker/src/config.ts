@@ -1,4 +1,14 @@
+import { isValidWclTokenEncryptionKey } from "@wcl/db";
 import { trimmed, z } from "@wcl/shared";
+
+const wclTokenEncryptionKey = trimmed().superRefine((value, context) => {
+    if (!isValidWclTokenEncryptionKey(value)) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "WCL_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key",
+        });
+    }
+});
 
 const workerEnvSchema = z.object({
     NODE_ENV: z
@@ -11,6 +21,7 @@ const workerEnvSchema = z.object({
     ),
     WCL_CLIENT_ID: trimmed().min(1, "WCL_CLIENT_ID is required"),
     WCL_CLIENT_SECRET: trimmed().min(1, "WCL_CLIENT_SECRET is required"),
+    WCL_TOKEN_ENCRYPTION_KEY: wclTokenEncryptionKey,
     WCL_API_BASE_URL: trimmed()
         .url()
         .default("https://www.warcraftlogs.com/api/v2/client"),

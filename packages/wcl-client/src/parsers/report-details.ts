@@ -4,6 +4,7 @@ import {
     asObject,
     asString,
     defaultDebugWarn,
+    describePayloadShape,
     parseUnknownJson,
 } from "./common.js";
 import type { DebugWarn } from "./common.js";
@@ -114,7 +115,7 @@ export const parsePlayerDetailsPayload = (
     const rows = collectPlayerNodes(parsed);
     if (rows.length === 0) {
         warn("playerDetails parser (report payload): unrecognized payload shape", {
-            payload: parsed,
+            payloadShape: describePayloadShape(parsed),
         });
         return [];
     }
@@ -156,7 +157,7 @@ export const parsePlayerDetailsPayload = (
             return [];
         }
         warn("playerDetails parser (report payload): no player details extracted", {
-            payload: parsed,
+            payloadShape: describePayloadShape(parsed),
         });
     }
 
