@@ -83,12 +83,19 @@ describe("wcl query layer", () => {
             code: "abc",
             allowUnlisted: true,
         });
+        await queries.reportRankingsKrsiCombined({
+            code: "abc",
+            allowUnlisted: true,
+        });
 
         expect(calls[0]?.query).toContain(
             "rankings(playerMetric: dps, timeframe: Today, compare: Rankings)",
         );
         expect(calls[1]?.query).toContain(
             "rankings(playerMetric: hps, timeframe: Today, compare: Rankings)",
+        );
+        expect(calls[2]?.query).toContain(
+            "rankings(playerMetric: krsi, timeframe: Today, compare: Rankings)",
         );
     });
 

@@ -161,6 +161,16 @@ const REPORT_RANKINGS_HPS_COMBINED_QUERY = `
   }
 `;
 
+const REPORT_RANKINGS_KRSI_COMBINED_QUERY = `
+  query ReportRankingsKrsiCombined($code: String!, $allowUnlisted: Boolean!) {
+    reportData {
+      report(code: $code, allowUnlisted: $allowUnlisted) {
+        rankings(playerMetric: krsi, timeframe: Today, compare: Rankings)
+      }
+    }
+  }
+`;
+
 const BOSS_RANKINGS_QUERY = `
   query BossRankings(
     $code: String!
@@ -295,6 +305,14 @@ export const createWclQueries = (execute: GraphQlExecutor) => ({
     }) =>
         execute<ReportRankingsPayload>(
             REPORT_RANKINGS_HPS_COMBINED_QUERY,
+            variables,
+        ),
+    reportRankingsKrsiCombined: (variables: {
+        code: string;
+        allowUnlisted: boolean;
+    }) =>
+        execute<ReportRankingsPayload>(
+            REPORT_RANKINGS_KRSI_COMBINED_QUERY,
             variables,
         ),
     bossRankings: (variables: {

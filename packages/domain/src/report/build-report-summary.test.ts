@@ -118,6 +118,112 @@ describe('buildReportSummary', () => {
     expect(summary.highestParses.dtpsAvailable).toBe(false);
   });
 
+  it('uses KRSI rankPercent as the DTPS parse fallback when available', () => {
+    const summary = buildReportSummary(
+      baseReport({
+        reportWideRankings: {
+          dps: [],
+          hps: [],
+          krsi: [
+            {
+              scope: 'report',
+              metric: 'rankPercent',
+              selectedMetric: 'DTPS',
+              playerName: 'Bulwark',
+              value: 55,
+              rankPercent: 92,
+              amount: 12_345_678,
+            },
+            {
+              scope: 'report',
+              metric: 'rankPercent',
+              selectedMetric: 'DTPS',
+              playerName: 'Aegis',
+              value: 88,
+              rankPercent: 88,
+              amount: 99_999_999,
+            },
+          ],
+        },
+      }),
+    );
+
+    expect(summary.highestParses.dtpsAvailable).toBe(true);
+    expect(summary.highestParses.dtps).toMatchObject({
+      playerName: 'Bulwark',
+      value: 92,
+      metric: 'DTPS',
+      sourceMetric: 'krsi',
+    });
+    expect(summary.partialDataNotes).toContain(
+      'WCL does not expose a direct DTPS parse ranking; DTPS parse uses KRSI where available.',
+    );
+  });
+
+  it('falls back to DPS rankPercent for DTPS parse when KRSI is unavailable', () => {
+    const summary = buildReportSummary(
+      baseReport({
+        reportWideRankings: {
+          dps: [
+            {
+              scope: 'report',
+              metric: 'rankPercent',
+              selectedMetric: 'DPS',
+              playerName: 'Alyra',
+              value: 99,
+              rankPercent: 74,
+              amount: 999_999_999,
+            },
+          ],
+          hps: [],
+        },
+      }),
+    );
+
+    expect(summary.highestParses.dtpsAvailable).toBe(true);
+    expect(summary.highestParses.dtps).toMatchObject({
+      playerName: 'Alyra',
+      value: 74,
+      metric: 'DTPS',
+      sourceMetric: 'dps-fallback',
+    });
+    expect(summary.partialDataNotes).toContain(
+      'WCL does not expose a direct DTPS parse ranking; DTPS parse falls back to DPS rankings because KRSI is unavailable.',
+    );
+  });
+
+  it('uses WCL active time when ranking total DPS, HPS, and damage taken rate', () => {
+    const summary = buildReportSummary(
+      baseReport({
+        encounterFights: [
+          { id: 1, encounterId: 1, name: 'Boss', startTime: 0, endTime: 120000, kill: true },
+        ],
+        reportWideEncounterSummary: {
+          topDamageDone: [
+            { playerName: 'Steady', value: 30_000_000, activeTimeMs: 300_000 },
+            { playerName: 'Burst', value: 20_000_000, activeTimeMs: 100_000 },
+          ],
+          topHealingDone: [
+            { playerName: 'Longcast', value: 15_000_000, activeTimeMs: 300_000 },
+            { playerName: 'Quickheal', value: 9_000_000, activeTimeMs: 60_000 },
+          ],
+          topDamageTaken: [
+            { playerName: 'Shield', value: 6_000_000, activeTimeMs: 120_000 },
+            { playerName: 'Sponge', value: 5_000_000, activeTimeMs: 50_000 },
+          ],
+          totals: { deaths: 0 },
+        },
+      }),
+    );
+
+    expect(summary.topPlayers.highestTotalDps[0]).toEqual({ playerName: 'Burst', value: 200_000 });
+    expect(summary.topPlayers.highestHps[0]).toEqual({ playerName: 'Quickheal', value: 150_000 });
+    expect(summary.topPlayers.highestDamageTakenRate[0]).toEqual({
+      playerName: 'Sponge',
+      value: 100_000,
+    });
+  });
+
   it('builds highest average parse from WCL rankPercent and never from amount', () => {
     const summary = buildReportSummary(
       baseReport({

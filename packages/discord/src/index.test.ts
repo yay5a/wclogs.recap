@@ -3536,7 +3536,7 @@ describe('handleInteraction', () => {
 });
 
 describe('embed rendering', () => {
-  it('renders report summaries with unavailable encounter-specific values and DTPS parse note', () => {
+  it('renders report summaries with DTPS fallback parses and unavailable encounter-specific values', () => {
     const body = buildReportResponseBody({
       reportCode: 'ABC123',
       reportTitle: 'Raid Night',
@@ -3577,7 +3577,13 @@ describe('embed rendering', () => {
       highestParses: {
         dps: { playerName: 'Alyra', metric: 'DPS', value: 91.2 },
         hps: { playerName: 'Pearl', metric: 'HPS', value: 88.4 },
-        dtpsAvailable: false,
+        dtps: {
+          playerName: 'Bulwark',
+          metric: 'DTPS',
+          value: 82.7,
+          sourceMetric: 'krsi',
+        },
+        dtpsAvailable: true,
       },
       topPlayers: {
         highestAverageParse: [{ playerName: 'Alyra', value: 78.8 }],
@@ -3591,7 +3597,9 @@ describe('embed rendering', () => {
         mostInterrupts: [{ playerName: 'Rogue', value: 12 }],
         mostDispels: [{ playerName: 'Priest', value: 8 }],
       },
-      partialDataNotes: ['WCL does not expose a direct DTPS parse ranking in the verified docs.'],
+      partialDataNotes: [
+        'WCL does not expose a direct DTPS parse ranking; DTPS parse uses KRSI where available.',
+      ],
     });
 
     const embed = body.embeds[0];
@@ -3599,29 +3607,41 @@ describe('embed rendering', () => {
     expect(embed?.title).toBe('Report Summary - Throne of Thunder (Heroic)');
     const fieldNames = embed?.fields.map((field) => field.name) ?? [];
     expect(fieldNames).toEqual([
-      'Report Metadata',
-      'Summary Stats',
+      'Report Details',
+      'Duration',
+      'Boss Pulls',
+      'Total Kills',
+      'Total Wipes',
+      'Total Deaths',
       'Best Execution',
       'Biggest Trouble',
       'Highest Parses',
-      'Top Players - Parses',
-      'Top Players - Totals',
-      'Top Players - Rates',
-      'Top Players - Utility',
+      'Highest Avg Parse',
+      'Highest Total Damage',
+      'Highest Total Healing',
+      'Highest Damage Taken',
+      'Highest DPS',
+      'Highest HPS',
+      'Highest DTPS',
+      'Most Deaths',
+      'Most Interrupts',
+      'Most Dispels',
       'Data & Source',
     ]);
     const bestExecution = embed?.fields.find((field) => field.name === 'Best Execution')?.value ?? '';
     const parses = embed?.fields.find((field) => field.name === 'Highest Parses')?.value ?? '';
-    const rates = embed?.fields.find((field) => field.name === 'Top Players - Rates')?.value ?? '';
+    const highestDtps = embed?.fields.find((field) => field.name === 'Highest DTPS')?.value ?? '';
     const source = embed?.fields.find((field) => field.name === 'Data & Source')?.value ?? '';
 
     expect(bestExecution).toContain('Deaths: unavailable');
     expect(bestExecution).toContain('Highest Total DPS: unavailable');
+    expect(bestExecution).toContain('Highest DTPS: unavailable');
     expect(parses).toContain('DPS: Alyra - 91.2');
     expect(parses).toContain('HPS: Pearl - 88.4');
-    expect(parses).toContain('DTPS: unavailable in verified WCL ranking docs');
-    expect(rates).toContain('**Damage Taken/s**');
-    expect(rates).not.toContain('DTPS parse');
+    expect(parses).toContain('DTPS: Bulwark - 82.7');
+    expect(highestDtps).toContain('Bulwark - 21K/s');
+    expect(highestDtps).not.toContain('DTPS parse');
+    expect(source).toContain('DTPS parse uses KRSI where available');
     expect(source).toContain('encounter-specific data is available');
   });
 

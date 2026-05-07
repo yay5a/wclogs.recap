@@ -25,7 +25,7 @@ const loadReportWideKillsProbePayload = (dataType: TableDataType): unknown => {
 describe("table parser", () => {
     it("handles multiple table payload variants", () => {
         const damage = parseTablePayload(
-            { entries: [{ id: 1, name: "Alyra", total: 12345 }] },
+            { entries: [{ id: 1, name: "Alyra", total: 12345, activeTime: 1000 }] },
             "DamageDone",
         );
         const healing = parseTablePayload(
@@ -38,6 +38,7 @@ describe("table parser", () => {
         );
 
         expect(damage[0]?.value).toBe(12345);
+        expect(damage[0]?.activeTimeMs).toBe(1000);
         expect(healing[0]?.value).toBe(67890);
         expect(deaths[0]?.value).toBe(2);
     });

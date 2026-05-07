@@ -1,12 +1,14 @@
 export interface ReportMetricRow {
   playerName: string;
   value: number;
+  activeTimeMs?: number;
   className?: string;
   specName?: string;
 }
 
 export interface ReportParseRow extends ReportMetricRow {
-  metric: 'DPS' | 'HPS';
+  metric: 'DPS' | 'HPS' | 'DTPS';
+  sourceMetric?: 'krsi' | 'dps-fallback';
   bossName?: string;
   fightId?: number;
 }
@@ -53,7 +55,8 @@ export interface ReportSummary {
   highestParses: {
     dps?: ReportParseRow;
     hps?: ReportParseRow;
-    dtpsAvailable: false;
+    dtps?: ReportParseRow;
+    dtpsAvailable: boolean;
   };
   topPlayers: {
     highestAverageParse: ReportMetricRow[];

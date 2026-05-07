@@ -84,9 +84,6 @@ const formatRankedRows = (
 const formatParseRow = (row?: ReportParseRow): string | undefined =>
   row ? `${row.playerName} - ${decimalFormatter.format(row.value)}` : undefined;
 
-const labeledBlock = (label: string, body: string | undefined): string | undefined =>
-  body ? `**${label}**\n${body}` : undefined;
-
 const formatEncounter = (encounter?: ReportEncounterSummary): string => {
   if (!encounter) return 'unavailable';
   const heading = `**${encounter.bossName}${
@@ -112,10 +109,10 @@ const formatEncounter = (encounter?: ReportEncounterSummary): string => {
       ? `Highest HPS: ${encounter.highestHps.playerName} - ${formatRate(encounter.highestHps.value)}`
       : unavailable('Highest HPS'),
     encounter.highestDamageTakenRate
-      ? `Damage Taken Rate: ${encounter.highestDamageTakenRate.playerName} - ${formatRate(
+      ? `Highest DTPS: ${encounter.highestDamageTakenRate.playerName} - ${formatRate(
           encounter.highestDamageTakenRate.value,
         )}`
-      : unavailable('Damage Taken Rate'),
+      : unavailable('Highest DTPS'),
   ].join('\n');
 };
 
@@ -145,28 +142,25 @@ export const buildReportResponseBody = (
 
   pushField(
     fields,
-    'Report Metadata',
+    'Report Details',
     [
       `Date: ${formatDate(summary.dateISO)}`,
       `Start Time: ${formatTime(summary.startTimeISO)}`,
       `End Time: ${formatTime(summary.endTimeISO)}`,
-      `Duration: ${formatDuration(summary.durationMs)}`,
     ].join('\n'),
   );
+  pushField(fields, 'Duration', formatDuration(summary.durationMs), true);
+  pushField(fields, 'Boss Pulls', integerFormatter.format(summary.bossPulls), true);
+  pushField(fields, 'Total Kills', integerFormatter.format(summary.totalKills), true);
+  pushField(fields, 'Total Wipes', integerFormatter.format(summary.totalWipes), true);
   pushField(
     fields,
-    'Summary Stats',
-    [
-      `Boss Pulls: ${summary.bossPulls}`,
-      `Total Kills: ${summary.totalKills}`,
-      `Total Wipes: ${summary.totalWipes}`,
-      typeof summary.totalDeaths === 'number'
-        ? `Total Deaths: ${integerFormatter.format(summary.totalDeaths)}`
-        : unavailable('Total Deaths'),
-    ].join('\n'),
+    'Total Deaths',
+    typeof summary.totalDeaths === 'number' ? integerFormatter.format(summary.totalDeaths) : 'unavailable',
+    true,
   );
-  pushField(fields, 'Best Execution', formatEncounter(summary.bestExecutionEncounter));
-  pushField(fields, 'Biggest Trouble', formatEncounter(summary.biggestTroubleEncounter));
+  pushField(fields, 'Best Execution', formatEncounter(summary.bestExecutionEncounter), true);
+  pushField(fields, 'Biggest Trouble', formatEncounter(summary.biggestTroubleEncounter), true);
 
   pushField(
     fields,
@@ -174,71 +168,70 @@ export const buildReportResponseBody = (
     [
       summary.highestParses.dps ? `DPS: ${formatParseRow(summary.highestParses.dps)}` : undefined,
       summary.highestParses.hps ? `HPS: ${formatParseRow(summary.highestParses.hps)}` : undefined,
-      'DTPS: unavailable in verified WCL ranking docs',
+      summary.highestParses.dtps ? `DTPS: ${formatParseRow(summary.highestParses.dtps)}` : 'DTPS: unavailable',
     ]
       .filter(present)
       .join('\n'),
   );
   pushField(
     fields,
-    'Top Players - Parses',
-    formatRankedRows(summary.topPlayers.highestAverageParse, (value) =>
-      decimalFormatter.format(value),
-    ),
+    'Highest Avg Parse',
+    formatRankedRows(summary.topPlayers.highestAverageParse, (value) => decimalFormatter.format(value)),
+    true,
   );
   pushField(
     fields,
-    'Top Players - Totals',
-    [
-      labeledBlock(
-        'Damage',
-        formatRankedRows(summary.topPlayers.highestTotalDamage, (value) => `${formatCompact(value)} damage`),
-      ),
-      labeledBlock(
-        'Healing',
-        formatRankedRows(summary.topPlayers.highestTotalHealing, (value) => `${formatCompact(value)} healing`),
-      ),
-      labeledBlock(
-        'Damage Taken',
-        formatRankedRows(summary.topPlayers.highestTotalDamageTaken, (value) => `${formatCompact(value)} taken`),
-      ),
-    ]
-      .filter(present)
-      .join('\n\n'),
+    'Highest Total Damage',
+    formatRankedRows(summary.topPlayers.highestTotalDamage, (value) => `${formatCompact(value)} damage`),
+    true,
   );
   pushField(
     fields,
-    'Top Players - Rates',
-    [
-      labeledBlock('DPS', formatRankedRows(summary.topPlayers.highestTotalDps, formatRate)),
-      labeledBlock('HPS', formatRankedRows(summary.topPlayers.highestHps, formatRate)),
-      labeledBlock(
-        'Damage Taken/s',
-        formatRankedRows(summary.topPlayers.highestDamageTakenRate, formatRate),
-      ),
-    ]
-      .filter(present)
-      .join('\n\n'),
+    'Highest Total Healing',
+    formatRankedRows(summary.topPlayers.highestTotalHealing, (value) => `${formatCompact(value)} healing`),
+    true,
   );
   pushField(
     fields,
-    'Top Players - Utility',
-    [
-      labeledBlock(
-        'Deaths',
-        formatRankedRows(summary.topPlayers.mostDeaths, (value) => `${integerFormatter.format(value)} deaths`),
-      ),
-      labeledBlock(
-        'Interrupts',
-        formatRankedRows(summary.topPlayers.mostInterrupts, (value) => `${integerFormatter.format(value)} interrupts`),
-      ),
-      labeledBlock(
-        'Dispels',
-        formatRankedRows(summary.topPlayers.mostDispels, (value) => `${integerFormatter.format(value)} dispels`),
-      ),
-    ]
-      .filter(present)
-      .join('\n\n'),
+    'Highest Damage Taken',
+    formatRankedRows(summary.topPlayers.highestTotalDamageTaken, (value) => `${formatCompact(value)} taken`),
+    true,
+  );
+  pushField(
+    fields,
+    'Highest DPS',
+    formatRankedRows(summary.topPlayers.highestTotalDps, formatRate),
+    true,
+  );
+  pushField(
+    fields,
+    'Highest HPS',
+    formatRankedRows(summary.topPlayers.highestHps, formatRate),
+    true,
+  );
+  pushField(
+    fields,
+    'Highest DTPS',
+    formatRankedRows(summary.topPlayers.highestDamageTakenRate, formatRate),
+    true,
+  );
+  pushField(
+    fields,
+    'Most Deaths',
+    formatRankedRows(summary.topPlayers.mostDeaths, (value) => `${integerFormatter.format(value)} deaths`),
+    true,
+  );
+  pushField(
+    fields,
+    'Most Interrupts',
+    formatRankedRows(summary.topPlayers.mostInterrupts, (value) => `${integerFormatter.format(value)} interrupts`),
+    true,
+  );
+  pushField(
+    fields,
+    'Most Dispels',
+    formatRankedRows(summary.topPlayers.mostDispels, (value) => `${integerFormatter.format(value)} dispels`),
+    true,
   );
   pushField(
     fields,

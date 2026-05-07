@@ -14,6 +14,7 @@ export interface ParsedTableEntry {
     dataType: TableDataType;
     playerId?: number;
     playerName?: string;
+    activeTimeMs?: number;
     value: number;
 }
 
@@ -257,12 +258,16 @@ export const parseTablePayloadDetailed = (
             asNumber(entry.guid);
         const playerName =
             asString(entry.name) ?? asString(asObject(entry.actor)?.name);
+        const activeTimeMs = asNumber(entry.activeTimeMs) ?? asNumber(entry.activeTime);
 
         const parsedEntry: ParsedTableEntry = {
             dataType,
             value,
             ...(typeof playerId === "number" ? { playerId } : {}),
             ...(playerName ? { playerName } : {}),
+            ...(typeof activeTimeMs === "number" && activeTimeMs > 0
+                ? { activeTimeMs }
+                : {}),
         };
         return [parsedEntry];
     });

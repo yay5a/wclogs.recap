@@ -643,6 +643,22 @@ export const normalizeEnrichedReport = (
       },
     ),
   );
+  const reportWideKrsiRankings = filterToKillFightRows(
+    parseReportRankingsPayloadForRole(
+      enriched?.reportRankingsKrsiCombined,
+      'tank',
+      (message, context) => {
+        logger.warn(
+          {
+            reportCode: parsed.reportCode,
+            section: 'report_rankings_krsi_combined',
+            context,
+          },
+          message,
+        );
+      },
+    ),
+  );
 
   const encounterSummaries = parseEncounterSummariesFromRaw(enriched);
   const bossLeaderboards = encounterSummaries.flatMap((summary) => {
@@ -667,6 +683,7 @@ export const normalizeEnrichedReport = (
     reportLeaderboards: reportLeaderboards.length,
     reportWideDpsRankings: reportWideDpsRankings.length,
     reportWideHpsRankings: reportWideHpsRankings.length,
+    reportWideKrsiRankings: reportWideKrsiRankings.length,
     bossLeaderboards: bossLeaderboards.length,
     encounterSummaries: encounterSummaries.length,
   });
@@ -679,6 +696,7 @@ export const normalizeEnrichedReport = (
     enriched?.reportRankings ?? report.rankings,
     enriched?.reportRankingsDpsCombined,
     enriched?.reportRankingsHpsCombined,
+    enriched?.reportRankingsKrsiCombined,
     ...encounterSummaries.map((summary) => summary.rankings),
   ];
   const rankingsReportRegion = getRankingsReportRegion(rankingsPayloads);
@@ -807,10 +825,11 @@ export const normalizeEnrichedReport = (
   );
   const mapReportWideRows = (
     entries: ParsedTableEntry[] | undefined,
-    limit: number,
+    limit?: number,
   ): Array<{
     playerName: string;
     value: number;
+    activeTimeMs?: number;
     className?: string;
     specName?: string;
   }> =>
@@ -824,6 +843,9 @@ export const normalizeEnrichedReport = (
           const existing = byPlayer.get(nameKey);
           if (existing) {
             existing.value += entry.value ?? 0;
+            if (typeof entry.activeTimeMs === 'number') {
+              existing.activeTimeMs = Math.max(existing.activeTimeMs ?? 0, entry.activeTimeMs);
+            }
             return byPlayer;
           }
 
@@ -831,7 +853,7 @@ export const normalizeEnrichedReport = (
           return byPlayer;
         }, new Map<string, ParsedTableEntry>()),
       ).map(([, entry]) => entry),
-      limit,
+      limit ?? Number.POSITIVE_INFINITY,
     ).map((entry) => {
       const player = entry.playerName
         ? playerByName.get(normalizeName(entry.playerName))
@@ -839,14 +861,15 @@ export const normalizeEnrichedReport = (
       return {
         playerName: entry.playerName ?? 'Unknown',
         value: entry.value ?? 0,
+        ...(typeof entry.activeTimeMs === 'number' ? { activeTimeMs: entry.activeTimeMs } : {}),
         ...(player?.className ? { className: player.className } : {}),
         ...(player?.specName ? { specName: player.specName } : {}),
       };
     });
   const buildReportWideSummaryRows = (parsedResults: ParsedReportTableResults) => ({
-    topDamageDone: mapReportWideRows(parsedResults.DamageDone?.entries, 3),
-    topDamageTaken: mapReportWideRows(parsedResults.DamageTaken?.entries, 3),
-    topHealingDone: mapReportWideRows(parsedResults.Healing?.entries, 3),
+    topDamageDone: mapReportWideRows(parsedResults.DamageDone?.entries),
+    topDamageTaken: mapReportWideRows(parsedResults.DamageTaken?.entries),
+    topHealingDone: mapReportWideRows(parsedResults.Healing?.entries),
     topDeaths: mapReportWideRows(parsedResults.Deaths?.entries, 3),
     topInterrupts: mapReportWideRows(parsedResults.Interrupts?.entries, 3),
     topDispels: mapReportWideRows(parsedResults.Dispels?.entries, 3),
@@ -1205,6 +1228,7 @@ export const normalizeEnrichedReport = (
     reportWideRankings: {
       dps: reportWideDpsRankings,
       hps: reportWideHpsRankings,
+      krsi: reportWideKrsiRankings,
     },
   } as NormalizedReport;
 

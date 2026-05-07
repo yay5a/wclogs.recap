@@ -221,6 +221,7 @@ export class ReportFetcher {
         let reportRankingsRaw: unknown;
         let reportRankingsDpsCombinedRaw: unknown;
         let reportRankingsHpsCombinedRaw: unknown;
+        let reportRankingsKrsiCombinedRaw: unknown;
         const reportRankingsStartedAt = now();
         try {
             reportRankingsRaw = await this.queries.reportRankings({
@@ -254,12 +255,24 @@ export class ReportFetcher {
                 `Failed report rankings HPS enrichment; continuing without report rankings HPS (${formatEnrichmentFailure(error, authMode)}).`,
             );
         }
+        try {
+            reportRankingsKrsiCombinedRaw =
+                await this.queries.reportRankingsKrsiCombined({
+                    code,
+                    allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                });
+        } catch (error) {
+            noteSkippedEnrichment(
+                `Failed report rankings KRSI enrichment; continuing without report rankings KRSI (${formatEnrichmentFailure(error, authMode)}).`,
+            );
+        }
         logTiming("fetch report rankings", reportRankingsStartedAt, {
-            requested: 3,
+            requested: 4,
             succeeded: [
                 reportRankingsRaw,
                 reportRankingsDpsCombinedRaw,
                 reportRankingsHpsCombinedRaw,
+                reportRankingsKrsiCombinedRaw,
             ].filter(Boolean).length,
         });
         let playerDetailsRaw: unknown;
@@ -476,6 +489,9 @@ export class ReportFetcher {
             )?.rankings,
             reportRankingsHpsCombined: getReportNode(
                 reportRankingsHpsCombinedRaw,
+            )?.rankings,
+            reportRankingsKrsiCombined: getReportNode(
+                reportRankingsKrsiCombinedRaw,
             )?.rankings,
             playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
             ...(reportTablesRaw ? { reportTables: reportTablesRaw } : {}),

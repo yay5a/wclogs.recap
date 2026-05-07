@@ -174,18 +174,21 @@ export interface NormalizedReport {
     topDamageDone: Array<{
       playerName: string;
       value: number;
+      activeTimeMs?: number;
       className?: string;
       specName?: string;
     }>;
     topHealingDone: Array<{
       playerName: string;
       value: number;
+      activeTimeMs?: number;
       className?: string;
       specName?: string;
     }>;
     topDamageTaken?: Array<{
       playerName: string;
       value: number;
+      activeTimeMs?: number;
       className?: string;
       specName?: string;
     }>;
@@ -224,18 +227,21 @@ export interface NormalizedReport {
     topDamageDone: Array<{
       playerName: string;
       value: number;
+      activeTimeMs?: number;
       className?: string;
       specName?: string;
     }>;
     topHealingDone: Array<{
       playerName: string;
       value: number;
+      activeTimeMs?: number;
       className?: string;
       specName?: string;
     }>;
     topDamageTaken?: Array<{
       playerName: string;
       value: number;
+      activeTimeMs?: number;
       className?: string;
       specName?: string;
     }>;
@@ -267,6 +273,7 @@ export interface NormalizedReport {
   reportWideRankings?: {
     dps: NormalizedLeaderboardEntry[];
     hps: NormalizedLeaderboardEntry[];
+    krsi?: NormalizedLeaderboardEntry[];
   };
 }
 

@@ -658,7 +658,7 @@ describe("index contract", () => {
             expect(bulwark?.selectedMetric).toBe("DTPS");
         });
 
-        it("exposes report-wide DPS/HPS combined rankings with rankPercent and fight metadata", () => {
+        it("exposes report-wide DPS/HPS/KRSI combined rankings with rankPercent and fight metadata", () => {
             const normalized = normalizeEnrichedReport(
                 {
                     base: {
@@ -790,6 +790,30 @@ describe("index contract", () => {
                             },
                         ],
                     },
+                    reportRankingsKrsiCombined: {
+                        data: [
+                            {
+                                fightID: 4,
+                                encounter: { name: "Horridon" },
+                                roles: {
+                                    tanks: {
+                                        characters: [
+                                            {
+                                                id: 10,
+                                                name: "Tankhem",
+                                                class: "DeathKnight",
+                                                spec: "Blood",
+                                                rankPercent: 82,
+                                                amount: 222_222,
+                                            },
+                                        ],
+                                    },
+                                    healers: { characters: [] },
+                                    dps: { characters: [] },
+                                },
+                            },
+                        ],
+                    },
                     encounterSummaries: [],
                 },
                 parsed,
@@ -809,8 +833,16 @@ describe("index contract", () => {
                 bossName: "Horridon",
                 selectedMetric: "HPS",
             });
+            expect(normalized.reportWideRankings?.krsi?.[0]).toMatchObject({
+                playerName: "Tankhem",
+                rankPercent: 82,
+                fightId: 4,
+                bossName: "Horridon",
+                selectedMetric: "DTPS",
+            });
             expect(normalized.reportWideRankings?.dps).toHaveLength(1);
             expect(normalized.reportWideRankings?.hps).toHaveLength(1);
+            expect(normalized.reportWideRankings?.krsi).toHaveLength(1);
         });
 
         it("drops report-wide combined ranking rows when no kill fights exist", () => {
@@ -884,6 +916,30 @@ describe("index contract", () => {
                             },
                         ],
                     },
+                    reportRankingsKrsiCombined: {
+                        data: [
+                            {
+                                fightID: 4,
+                                encounter: { name: "Horridon" },
+                                roles: {
+                                    tanks: {
+                                        characters: [
+                                            {
+                                                id: 3,
+                                                name: "WipeTank",
+                                                class: "Warrior",
+                                                spec: "Protection",
+                                                rankPercent: 90,
+                                                amount: 777_777,
+                                            },
+                                        ],
+                                    },
+                                    healers: { characters: [] },
+                                    dps: { characters: [] },
+                                },
+                            },
+                        ],
+                    },
                     encounterSummaries: [],
                 },
                 parsed,
@@ -891,6 +947,7 @@ describe("index contract", () => {
 
             expect(normalized.reportWideRankings?.dps).toEqual([]);
             expect(normalized.reportWideRankings?.hps).toEqual([]);
+            expect(normalized.reportWideRankings?.krsi).toEqual([]);
         });
 
         it("preserves all encounter pulls separately while keeping kill-focused fights stable", () => {
@@ -994,7 +1051,12 @@ describe("index contract", () => {
                         Deaths: { entries: [{ name: "Alyra", deaths: 1 }] },
                     },
                     reportEncounterTables: {
-                        DamageDone: { entries: [{ name: "Alyra", total: 2500 }] },
+                        DamageDone: {
+                            entries: [
+                                { name: "Alyra", total: 2500, activeTime: 5000 },
+                                { name: "Bulwark", total: 1000, activeTime: 1000 },
+                            ],
+                        },
                         DamageTaken: { entries: [{ name: "Bulwark", total: 1400 }] },
                         Deaths: { entries: [{ name: "Alyra", deaths: 4 }] },
                         Interrupts: { entries: [{ name: "Bulwark", interrupts: 3 }] },
@@ -1010,7 +1072,13 @@ describe("index contract", () => {
             ]);
             expect(normalized.reportWideSummary?.totals.deaths).toBe(1);
             expect(normalized.reportWideEncounterSummary?.topDamageDone).toEqual([
-                { playerName: "Alyra", value: 2500, className: "Priest" },
+                { playerName: "Alyra", value: 2500, activeTimeMs: 5000, className: "Priest" },
+                {
+                    playerName: "Bulwark",
+                    value: 1000,
+                    activeTimeMs: 1000,
+                    className: "Warrior",
+                },
             ]);
             expect(normalized.reportWideEncounterSummary?.topDamageTaken).toEqual([
                 { playerName: "Bulwark", value: 1400, className: "Warrior" },

@@ -61,27 +61,35 @@ const rateRows = (
   rows: readonly ReportMetricRow[] | undefined,
   durationMs: number,
 ): ReportMetricRow[] => {
-  if (durationMs <= 0) return [];
-  const durationSeconds = durationMs / 1000;
   return topRows(
-    (rows ?? []).map((row) => ({
-      playerName: row.playerName,
-      value: row.value / durationSeconds,
-      ...(row.className ? { className: row.className } : {}),
-      ...(row.specName ? { specName: row.specName } : {}),
-    })),
+    (rows ?? []).flatMap((row) => {
+      const rowDurationMs =
+        isFiniteNumber(row.activeTimeMs) && row.activeTimeMs > 0 ? row.activeTimeMs : durationMs;
+      if (rowDurationMs <= 0) return [];
+      const durationSeconds = rowDurationMs / 1000;
+      return [
+        {
+          playerName: row.playerName,
+          value: row.value / durationSeconds,
+          ...(row.className ? { className: row.className } : {}),
+          ...(row.specName ? { specName: row.specName } : {}),
+        },
+      ];
+    }),
   );
 };
 
 const metricRowFromRanking = (
   entry: NormalizedLeaderboardEntry,
-  metric: 'DPS' | 'HPS',
+  metric: ReportParseRow['metric'],
+  sourceMetric?: ReportParseRow['sourceMetric'],
 ): ReportParseRow | undefined => {
   if (!entry.playerName || !isFiniteNumber(entry.rankPercent)) return undefined;
   return {
     playerName: entry.playerName,
     value: entry.rankPercent,
     metric,
+    ...(sourceMetric ? { sourceMetric } : {}),
     ...(entry.className ? { className: entry.className } : {}),
     ...(entry.specName ? { specName: entry.specName } : {}),
     ...(entry.bossName ? { bossName: entry.bossName } : {}),
@@ -91,11 +99,12 @@ const metricRowFromRanking = (
 
 const bestParseForMetric = (
   entries: readonly NormalizedLeaderboardEntry[] | undefined,
-  metric: 'DPS' | 'HPS',
+  metric: ReportParseRow['metric'],
+  sourceMetric?: ReportParseRow['sourceMetric'],
 ): ReportParseRow | undefined =>
   (entries ?? [])
     .flatMap((entry) => {
-      const row = metricRowFromRanking(entry, metric);
+      const row = metricRowFromRanking(entry, metric, sourceMetric);
       return row ? [row] : [];
     })
     .sort((left, right) => {
@@ -259,6 +268,9 @@ export const buildReportSummary = (report: NormalizedReport): ReportSummary => {
   const durationMs = Math.max(0, report.endTime - report.startTime);
   const bestDpsParse = bestParseForMetric(report.reportWideRankings?.dps, 'DPS');
   const bestHpsParse = bestParseForMetric(report.reportWideRankings?.hps, 'HPS');
+  const bestDtpsParse =
+    bestParseForMetric(report.reportWideRankings?.krsi, 'DTPS', 'krsi') ??
+    bestParseForMetric(report.reportWideRankings?.dps, 'DTPS', 'dps-fallback');
   const representativeDifficultyName = getRepresentativeDifficultyName(encounters);
   const bestExecutionEncounter = selectBestExecutionEncounter(encounters);
   const biggestTroubleEncounter = selectBiggestTroubleEncounter(encounters);
@@ -272,7 +284,19 @@ export const buildReportSummary = (report: NormalizedReport): ReportSummary => {
   if (!report.reportWideEncounterSummary && !report.reportWideSummary) {
     partialDataNotes.push('Report table data was unavailable for player totals.');
   }
-  partialDataNotes.push('WCL does not expose a direct DTPS parse ranking in the verified docs.');
+  if (bestDtpsParse?.sourceMetric === 'krsi') {
+    partialDataNotes.push(
+      'WCL does not expose a direct DTPS parse ranking; DTPS parse uses KRSI where available.',
+    );
+  } else if (bestDtpsParse?.sourceMetric === 'dps-fallback') {
+    partialDataNotes.push(
+      'WCL does not expose a direct DTPS parse ranking; DTPS parse falls back to DPS rankings because KRSI is unavailable.',
+    );
+  } else {
+    partialDataNotes.push(
+      'WCL does not expose a direct DTPS parse ranking, and KRSI/DPS fallback ranking data was unavailable.',
+    );
+  }
 
   return {
     reportCode: report.reportCode,
@@ -296,7 +320,8 @@ export const buildReportSummary = (report: NormalizedReport): ReportSummary => {
     highestParses: {
       ...(bestDpsParse ? { dps: bestDpsParse } : {}),
       ...(bestHpsParse ? { hps: bestHpsParse } : {}),
-      dtpsAvailable: false,
+      ...(bestDtpsParse ? { dtps: bestDtpsParse } : {}),
+      dtpsAvailable: Boolean(bestDtpsParse),
     },
     topPlayers: {
       highestAverageParse: averageParseRows(report),
