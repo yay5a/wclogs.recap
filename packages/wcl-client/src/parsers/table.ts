@@ -234,7 +234,7 @@ export const parseTablePayloadDetailed = (
             }
 
             // Survivability payloads often include player/fight metadata rows that are valid but not
-            // currently rendered in the recap card.
+            // currently rendered in the report card.
             if (dataType === "Survivability") {
                 return [];
             }

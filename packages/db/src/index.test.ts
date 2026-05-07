@@ -11,13 +11,13 @@ import {
   ComparisonSnapshotModel,
   GuildSettingsModel,
   migrateCharacterClaimIdentityFields,
-  MongoAutoRecapDuplicateTrackingStore,
-  MongoAutoRecapPromptStateStore,
+  MongoAutoReportDuplicateTrackingStore,
+  MongoAutoReportPromptStateStore,
   MongoCharacterClaimStore,
   MongoComparisonHistoryStore,
   MongoGuildConfigStore,
-  AutoRecapDuplicateTrackingModel,
-  AutoRecapPromptStateModel,
+  AutoReportDuplicateTrackingModel,
+  AutoReportPromptStateModel,
   MongoTrendTrackingService,
   PlayerRaidSummaryModel,
   ReportCacheModel,
@@ -43,8 +43,8 @@ describe('MongoGuildConfigStore', () => {
     expect(config.compareAccessMode).toBe(DEFAULT_COMPARE_ACCESS_MODE);
     expect(config.compareOfficerUserIds).toEqual([]);
     expect(config.comparePublicPostingEnabled).toBe(false);
-    expect(config.autoRecapMode).toBe('prompt');
-    expect(config.autoRecapChannelIds).toEqual([]);
+    expect(config.autoReportMode).toBe('prompt');
+    expect(config.autoReportChannelIds).toEqual([]);
     expect(config).not.toHaveProperty('accountabilityVisibility');
     expect(config).not.toHaveProperty('coachingShareabilityDefault');
   });
@@ -85,8 +85,8 @@ describe('MongoGuildConfigStore', () => {
         compareAccessMode: 'guild_open',
         compareOfficerUserIds: ['user-1', 42, 'user-2', 'user-1'],
         comparePublicPostingEnabled: 'yes',
-        autoRecapMode: 'always',
-        autoRecapChannelIds: ['channel-1', 42, 'channel-1', 'channel-2'],
+        autoReportMode: 'always',
+        autoReportChannelIds: ['channel-1', 42, 'channel-1', 'channel-2'],
       }),
     } as never);
 
@@ -96,8 +96,8 @@ describe('MongoGuildConfigStore', () => {
     expect(config.compareAccessMode).toBe(DEFAULT_COMPARE_ACCESS_MODE);
     expect(config.compareOfficerUserIds).toEqual(['user-1', 'user-2']);
     expect(config.comparePublicPostingEnabled).toBe(false);
-    expect(config.autoRecapMode).toBe('prompt');
-    expect(config.autoRecapChannelIds).toEqual(['channel-1', 'channel-2']);
+    expect(config.autoReportMode).toBe('prompt');
+    expect(config.autoReportChannelIds).toEqual(['channel-1', 'channel-2']);
   });
 
   it('ignores retired config fields when loading legacy guild config documents', async () => {
@@ -123,12 +123,11 @@ describe('MongoGuildConfigStore', () => {
       guildId: 'guild-1',
       defaultGameFamily: 'mop_classic',
       compareModeDefault: 'mixed',
-      recapPostModeDefault: 'preview-only',
       compareAccessMode: 'owner_only',
       compareOfficerUserIds: ['user-1'],
       comparePublicPostingEnabled: true,
-      autoRecapMode: 'auto_preview',
-      autoRecapChannelIds: ['channel-1'],
+      autoReportMode: 'auto_preview',
+      autoReportChannelIds: ['channel-1'],
     });
     vi.spyOn(GuildSettingsModel, 'findOneAndUpdate').mockReturnValue({
       lean,
@@ -138,12 +137,11 @@ describe('MongoGuildConfigStore', () => {
     const saved = await store.saveGuildConfig('guild-1', {
       defaultGameFamily: 'mop_classic',
       compareModeDefault: 'mixed',
-      recapPostModeDefault: 'preview-only',
       compareAccessMode: 'owner_only',
       compareOfficerUserIds: ['user-1'],
       comparePublicPostingEnabled: true,
-      autoRecapMode: 'auto_preview',
-      autoRecapChannelIds: ['channel-1'],
+      autoReportMode: 'auto_preview',
+      autoReportChannelIds: ['channel-1'],
     });
 
     expect(saved.defaultGameFamily).toBe('mop_classic');
@@ -151,8 +149,8 @@ describe('MongoGuildConfigStore', () => {
     expect(saved.compareAccessMode).toBe('owner_only');
     expect(saved.compareOfficerUserIds).toEqual(['user-1']);
     expect(saved.comparePublicPostingEnabled).toBe(true);
-    expect(saved.autoRecapMode).toBe('auto_preview');
-    expect(saved.autoRecapChannelIds).toEqual(['channel-1']);
+    expect(saved.autoReportMode).toBe('auto_preview');
+    expect(saved.autoReportChannelIds).toEqual(['channel-1']);
     expect(saved).not.toHaveProperty('accountabilityVisibility');
     expect(saved).not.toHaveProperty('coachingShareabilityDefault');
     expect(GuildSettingsModel.findOneAndUpdate).toHaveBeenCalledWith(
@@ -161,12 +159,11 @@ describe('MongoGuildConfigStore', () => {
         $set: {
           defaultGameFamily: 'mop_classic',
           compareModeDefault: 'mixed',
-          recapPostModeDefault: 'preview-only',
           compareAccessMode: 'owner_only',
           compareOfficerUserIds: ['user-1'],
           comparePublicPostingEnabled: true,
-          autoRecapMode: 'auto_preview',
-          autoRecapChannelIds: ['channel-1'],
+          autoReportMode: 'auto_preview',
+          autoReportChannelIds: ['channel-1'],
         },
         $unset: { dashboardDeconfiguredAt: '' },
       },
@@ -241,7 +238,7 @@ describe('MongoGuildConfigStore', () => {
         {
           guildId: '223456789012345678',
           compareOfficerUserIds: ['user-1', 'user-2'],
-          autoRecapChannelIds: ['channel-1'],
+          autoReportChannelIds: ['channel-1'],
           updatedAt,
         },
         {
@@ -259,12 +256,12 @@ describe('MongoGuildConfigStore', () => {
         guildId: '123456789012345678',
         defaultGameFamily: 'mop_classic',
         compareOfficerUserCount: 0,
-        autoRecapChannelCount: 0,
+        autoReportChannelCount: 0,
       }),
       expect.objectContaining({
         guildId: '223456789012345678',
         compareOfficerUserCount: 2,
-        autoRecapChannelCount: 1,
+        autoReportChannelCount: 1,
         updatedAt: updatedAt.toISOString(),
       }),
     ]);
@@ -919,7 +916,7 @@ describe('MongoCharacterClaimStore', () => {
   });
 });
 
-describe('MongoAutoRecapPromptStateStore', () => {
+describe('MongoAutoReportPromptStateStore', () => {
   const promptState = {
     guildId: 'guild-1',
     channelId: 'channel-1',
@@ -936,19 +933,19 @@ describe('MongoAutoRecapPromptStateStore', () => {
     const now = new Date('2026-04-09T00:00:00.000Z');
     vi.useFakeTimers();
     vi.setSystemTime(now);
-    vi.spyOn(AutoRecapPromptStateModel, 'findOneAndUpdate').mockReturnValue({
+    vi.spyOn(AutoReportPromptStateModel, 'findOneAndUpdate').mockReturnValue({
       lean: vi.fn().mockResolvedValue(promptState),
     } as never);
-    vi.spyOn(AutoRecapPromptStateModel, 'findOne').mockReturnValue({
+    vi.spyOn(AutoReportPromptStateModel, 'findOne').mockReturnValue({
       lean: vi.fn().mockResolvedValue(promptState),
     } as never);
 
-    const store = new MongoAutoRecapPromptStateStore();
+    const store = new MongoAutoReportPromptStateStore();
     await store.savePromptState(promptState);
     const found = await store.getValidPromptState('source-message-1');
 
     expect(found?.sourceMessageId).toBe('source-message-1');
-    expect(AutoRecapPromptStateModel.findOne).toHaveBeenCalledWith({
+    expect(AutoReportPromptStateModel.findOne).toHaveBeenCalledWith({
       sourceMessageId: 'source-message-1',
       expiresAt: { $gt: now },
     });
@@ -958,11 +955,11 @@ describe('MongoAutoRecapPromptStateStore', () => {
     const now = new Date('2026-04-09T00:00:00.000Z');
     vi.useFakeTimers();
     vi.setSystemTime(now);
-    const consumeSpy = vi.spyOn(AutoRecapPromptStateModel, 'findOneAndDelete').mockReturnValue({
+    const consumeSpy = vi.spyOn(AutoReportPromptStateModel, 'findOneAndDelete').mockReturnValue({
       lean: vi.fn().mockResolvedValue(promptState),
     } as never);
 
-    const store = new MongoAutoRecapPromptStateStore();
+    const store = new MongoAutoReportPromptStateStore();
     await store.consumeValidPromptState('source-message-1');
 
     expect(consumeSpy).toHaveBeenCalledWith({
@@ -972,21 +969,21 @@ describe('MongoAutoRecapPromptStateStore', () => {
   });
 
   it('treats prompt state past expiresAt as expired even before TTL cleanup', async () => {
-    vi.spyOn(AutoRecapPromptStateModel, 'findOne').mockReturnValue({
+    vi.spyOn(AutoReportPromptStateModel, 'findOne').mockReturnValue({
       lean: vi.fn().mockResolvedValue(null),
     } as never);
 
-    const store = new MongoAutoRecapPromptStateStore();
+    const store = new MongoAutoReportPromptStateStore();
     const found = await store.getValidPromptState('source-message-1');
 
     expect(found).toBeNull();
-    expect(AutoRecapPromptStateModel.findOne).toHaveBeenCalledWith(
+    expect(AutoReportPromptStateModel.findOne).toHaveBeenCalledWith(
       expect.objectContaining({ expiresAt: expect.any(Object) }),
     );
   });
 });
 
-describe('MongoAutoRecapDuplicateTrackingStore', () => {
+describe('MongoAutoReportDuplicateTrackingStore', () => {
   const trackingInput = {
     guildId: 'guild-1',
     channelId: 'channel-1',
@@ -1004,18 +1001,18 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
   };
 
   it('supports an atomic passive detection claim', async () => {
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'findOneAndUpdate').mockReturnValue({
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'findOneAndUpdate').mockReturnValue({
       lean: vi.fn().mockResolvedValue(null),
     } as never);
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'create').mockResolvedValue({
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'create').mockResolvedValue({
       toObject: () => processingRecord,
     } as never);
 
-    const store = new MongoAutoRecapDuplicateTrackingStore();
+    const store = new MongoAutoReportDuplicateTrackingStore();
     const result = await store.claimPassiveDetection(trackingInput);
 
     expect(result).toMatchObject({ claimed: true, record: processingRecord });
-    expect(AutoRecapDuplicateTrackingModel.create).toHaveBeenCalledWith(
+    expect(AutoReportDuplicateTrackingModel.create).toHaveBeenCalledWith(
       expect.objectContaining({
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -1023,7 +1020,7 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
         status: 'processing',
       }),
     );
-    expect(AutoRecapDuplicateTrackingModel.create).toHaveBeenCalledWith(
+    expect(AutoReportDuplicateTrackingModel.create).toHaveBeenCalledWith(
       expect.not.objectContaining({
         latestOutputMessageId: expect.anything(),
         latestOutputKind: expect.anything(),
@@ -1034,11 +1031,11 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
   });
 
   it('returns the active duplicate record when the atomic claim loses a race', async () => {
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'findOneAndUpdate').mockReturnValue({
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'findOneAndUpdate').mockReturnValue({
       lean: vi.fn().mockResolvedValue(null),
     } as never);
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'create').mockRejectedValue({ code: 11000 });
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'findOne').mockReturnValue({
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'create').mockRejectedValue({ code: 11000 });
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'findOne').mockReturnValue({
       lean: vi.fn().mockResolvedValue({
         ...trackingInput,
         status: 'prompted',
@@ -1047,7 +1044,7 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
       }),
     } as never);
 
-    const store = new MongoAutoRecapDuplicateTrackingStore();
+    const store = new MongoAutoReportDuplicateTrackingStore();
     const result = await store.claimPassiveDetection(trackingInput);
 
     expect(result).toMatchObject({
@@ -1064,7 +1061,7 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
     const now = new Date('2026-04-09T00:00:00.000Z');
     vi.useFakeTimers();
     vi.setSystemTime(now);
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'findOneAndUpdate').mockReturnValue({
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'findOneAndUpdate').mockReturnValue({
       lean: vi.fn().mockResolvedValue({
         ...trackingInput,
         status: 'preview_posted',
@@ -1072,11 +1069,11 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
         latestOutputKind: 'public_preview',
       }),
     } as never);
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'findOne').mockReturnValue({
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'findOne').mockReturnValue({
       lean: vi.fn().mockResolvedValue(null),
     } as never);
 
-    const store = new MongoAutoRecapDuplicateTrackingStore();
+    const store = new MongoAutoReportDuplicateTrackingStore();
     const updated = await store.updateTracking({
       guildId: 'guild-1',
       channelId: 'channel-1',
@@ -1097,7 +1094,7 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
       latestOutputKind: 'public_preview',
     });
     expect(expired).toBeNull();
-    expect(AutoRecapDuplicateTrackingModel.findOne).toHaveBeenCalledWith({
+    expect(AutoReportDuplicateTrackingModel.findOne).toHaveBeenCalledWith({
       guildId: 'guild-1',
       channelId: 'channel-1',
       reportCode: 'ABC123',
@@ -1121,7 +1118,7 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
       expiresAt: new Date('2026-04-09T00:19:00.000Z'),
     };
     const findOneAndUpdateSpy = vi
-      .spyOn(AutoRecapDuplicateTrackingModel, 'findOneAndUpdate')
+      .spyOn(AutoReportDuplicateTrackingModel, 'findOneAndUpdate')
       .mockImplementation((_query, update) => {
         const mongoUpdate = update as {
           $set?: Record<string, unknown>;
@@ -1138,10 +1135,10 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
           lean: vi.fn().mockResolvedValue({ ...storedRecord }),
         } as never;
       });
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'create').mockRejectedValue(
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'create').mockRejectedValue(
       new Error('create should not be called when reclaiming an expired record'),
     );
-    vi.spyOn(AutoRecapDuplicateTrackingModel, 'findOne').mockImplementation((query) => {
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'findOne').mockImplementation((query) => {
       const rawQuery = query as Record<string, unknown>;
       const expiresAtQuery = rawQuery.expiresAt as { $gt?: Date } | undefined;
       const matchesNonce =
@@ -1154,7 +1151,7 @@ describe('MongoAutoRecapDuplicateTrackingStore', () => {
       } as never;
     });
 
-    const store = new MongoAutoRecapDuplicateTrackingStore();
+    const store = new MongoAutoReportDuplicateTrackingStore();
     const result = await store.claimPassiveDetection({
       ...trackingInput,
       sourceMessageId: 'new-source-message-1',

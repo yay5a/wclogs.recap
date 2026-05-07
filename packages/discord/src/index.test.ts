@@ -98,7 +98,7 @@ const makeReportWithComparisonIdentity = (): NormalizedReport => ({
     ],
     hps: [],
   },
-  reportWideRecap: {
+  reportWideSummary: {
     topDamageDone: [{ playerName: 'Alyra', value: 1234 }],
     topHealingDone: [{ playerName: 'Alyra', value: 567 }],
     topInterrupts: [{ playerName: 'Alyra', value: 5 }],
@@ -138,12 +138,12 @@ describe('command payload builder', () => {
       'compare_mode',
       'compare_access_mode',
       'compare_public_posting',
-      'auto_recap_mode',
-      'auto_recap_channel',
+      'auto_report_mode',
+      'auto_report_channel',
     ]);
     expect(configCommand.options).toContainEqual(
       expect.objectContaining({
-        name: 'auto_recap_mode',
+        name: 'auto_report_mode',
         choices: [
           { name: 'off', value: 'off' },
           { name: 'prompt', value: 'prompt' },
@@ -165,7 +165,7 @@ describe('command payload builder', () => {
     );
     expect(configCommand.options).toContainEqual(
       expect.objectContaining({
-        name: 'auto_recap_channel',
+        name: 'auto_report_channel',
         type: 7,
         channel_types: [0, 5],
       }),
@@ -563,9 +563,8 @@ describe('handleInteraction', () => {
     compareOfficerUserIds: [],
     dashboardOfficerAccessEnabled: false,
     comparePublicPostingEnabled: false,
-    recapPostModeDefault: 'preview-and-post',
-    autoRecapMode: 'prompt',
-    autoRecapChannelIds: [],
+    autoReportMode: 'prompt',
+    autoReportChannelIds: [],
     ...overrides,
   });
 
@@ -830,7 +829,6 @@ describe('handleInteraction', () => {
       guildId: 'guild-1',
       defaultGameFamily: 'mop_classic',
       compareModeDefault: 'mixed',
-      recapPostModeDefault: 'preview-only',
     });
     const options = makeConfigOptions(saveGuildConfig);
 
@@ -858,7 +856,7 @@ describe('handleInteraction', () => {
       'Default comparison mode set to mixed. Future comparisons will use mapped player history when available. Alts are not guessed automatically.',
     );
     expect((response as { data?: { content?: string } }).data?.content).toContain(
-      '**wclogs.recap setup status**',
+      '**wclogs report setup status**',
     );
     expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
   });
@@ -868,7 +866,6 @@ describe('handleInteraction', () => {
       guildId: 'guild-1',
       defaultGameFamily: 'retail',
       compareModeDefault: 'character',
-      recapPostModeDefault: 'preview-and-post',
     });
     const options = makeConfigOptions(saveGuildConfig);
 
@@ -928,7 +925,6 @@ describe('handleInteraction', () => {
       guildId: 'guild-1',
       defaultGameFamily: 'retail',
       compareModeDefault: 'character',
-      recapPostModeDefault: 'preview-and-post',
     });
     const options = makeConfigOptions(saveGuildConfig);
 
@@ -947,7 +943,7 @@ describe('handleInteraction', () => {
 
     expect(saveGuildConfig).not.toHaveBeenCalled();
     expect((response as { data?: { content?: string } }).data?.content).toContain(
-      '**wclogs.recap setup status**',
+      '**wclogs report setup status**',
     );
     expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Auto report channels: none configured',
@@ -962,7 +958,6 @@ describe('handleInteraction', () => {
       compareAccessMode: 'owner_only',
       compareOfficerUserIds: [],
       comparePublicPostingEnabled: true,
-      recapPostModeDefault: 'preview-and-post',
     });
     const options = makeConfigOptions(saveGuildConfig);
 
@@ -993,7 +988,7 @@ describe('handleInteraction', () => {
       'Public compare posting enabled.',
     );
     expect((response as { data?: { content?: string } }).data?.content).toContain(
-      '**wclogs.recap setup status**',
+      '**wclogs report setup status**',
     );
     expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
   });
@@ -1005,12 +1000,11 @@ describe('handleInteraction', () => {
       compareModeDefault: 'character',
       compareAccessMode: 'officer_only',
       comparePublicPostingEnabled: false,
-      recapPostModeDefault: 'preview-and-post',
-      autoRecapMode: 'prompt',
-      autoRecapChannelIds: ['channel-2'],
+      autoReportMode: 'prompt',
+      autoReportChannelIds: ['channel-2'],
     });
     const options = makeConfigOptions(saveGuildConfig, {
-      autoRecapChannelIds: ['channel-1', 'channel-1', 'channel-2'],
+      autoReportChannelIds: ['channel-1', 'channel-1', 'channel-2'],
     });
 
     const response = await handleInteraction(
@@ -1020,14 +1014,14 @@ describe('handleInteraction', () => {
         member: { permissions: '32' },
         data: {
           name: 'config',
-          options: [{ name: 'auto_recap_channel', value: 'channel-1' }],
+          options: [{ name: 'auto_report_channel', value: 'channel-1' }],
         },
       },
       options,
     );
 
     expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
-      autoRecapChannelIds: ['channel-2'],
+      autoReportChannelIds: ['channel-2'],
     });
     expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Auto report disabled in <#channel-1>.',
@@ -1041,13 +1035,12 @@ describe('handleInteraction', () => {
       compareModeDefault: 'character',
       compareAccessMode: 'officer_only',
       comparePublicPostingEnabled: false,
-      recapPostModeDefault: 'preview-and-post',
-      autoRecapMode: 'off',
-      autoRecapChannelIds: ['channel-1'],
+      autoReportMode: 'off',
+      autoReportChannelIds: ['channel-1'],
     });
     const options = makeConfigOptions(saveGuildConfig, {
-      autoRecapMode: 'prompt',
-      autoRecapChannelIds: ['channel-1'],
+      autoReportMode: 'prompt',
+      autoReportChannelIds: ['channel-1'],
     });
 
     const response = await handleInteraction(
@@ -1057,14 +1050,14 @@ describe('handleInteraction', () => {
         member: { permissions: '32' },
         data: {
           name: 'config',
-          options: [{ name: 'auto_recap_mode', value: 'off' }],
+          options: [{ name: 'auto_report_mode', value: 'off' }],
         },
       },
       options,
     );
 
     expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
-      autoRecapMode: 'off',
+      autoReportMode: 'off',
     });
     expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Passive detection is currently disabled. Configured channels are preserved.',
@@ -1078,9 +1071,8 @@ describe('handleInteraction', () => {
       compareModeDefault: 'character',
       compareAccessMode: 'officer_only',
       comparePublicPostingEnabled: false,
-      recapPostModeDefault: 'preview-and-post',
-      autoRecapMode: 'auto_post',
-      autoRecapChannelIds: [],
+      autoReportMode: 'auto_post',
+      autoReportChannelIds: [],
     });
     const options = makeConfigOptions(saveGuildConfig);
 
@@ -1091,14 +1083,14 @@ describe('handleInteraction', () => {
         member: { permissions: '32' },
         data: {
           name: 'config',
-          options: [{ name: 'auto_recap_mode', value: 'auto_post' }],
+          options: [{ name: 'auto_report_mode', value: 'auto_post' }],
         },
       },
       options,
     );
 
     expect(saveGuildConfig).toHaveBeenCalledWith('guild-1', {
-      autoRecapMode: 'auto_post',
+      autoReportMode: 'auto_post',
     });
     expect((response as { data?: { content?: string } }).data?.content).toContain(
       'Auto report mode set to auto_post.',
@@ -1978,7 +1970,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'owner_or_officer',
         comparePublicPostingEnabled: false,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2013,7 +2004,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'owner_only',
         comparePublicPostingEnabled: false,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2065,7 +2055,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'owner_opt_in_or_officer',
         comparePublicPostingEnabled: false,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2106,7 +2095,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'owner_or_officer',
         comparePublicPostingEnabled: false,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2140,7 +2128,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'owner_only',
         comparePublicPostingEnabled: true,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2215,7 +2202,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'owner_only',
         comparePublicPostingEnabled: true,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2276,7 +2262,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'owner_or_officer',
         comparePublicPostingEnabled: true,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2323,7 +2308,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'owner_or_officer',
         comparePublicPostingEnabled: false,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2370,7 +2354,6 @@ describe('handleInteraction', () => {
         compareModeDefault: 'character',
         compareAccessMode: 'officer_only',
         comparePublicPostingEnabled: true,
-        recapPostModeDefault: 'preview-and-post',
       }),
       saveGuildConfig: vi.fn(),
     };
@@ -2638,7 +2621,7 @@ describe('handleInteraction', () => {
     expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
   });
 
-  it('returns a deprecation message for stale recap command interactions without processing', async () => {
+  it('returns a generic response for unknown command interactions without processing reports', async () => {
     const fetchAndNormalizeReport = vi.fn();
 
     const response = await handleInteraction(
@@ -2648,7 +2631,7 @@ describe('handleInteraction', () => {
         guild_id: 'guild-1',
         channel_id: 'channel-1',
         data: {
-          name: 'recap',
+          name: 'unknown_command',
           options: [{ name: 'url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
         },
       },
@@ -2661,20 +2644,20 @@ describe('handleInteraction', () => {
     expect(response).toMatchObject({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: '`/recap` has been retired. Use `/report <wcl_report_url>`.',
+        content: 'Unsupported interaction.',
         flags: 64,
       },
     });
     expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
   });
 
-  it('returns a deprecation message for stale recap component interactions', async () => {
+  it('returns a generic response for unknown component interactions', async () => {
     const response = await handleInteraction(
       {
         type: InteractionType.MESSAGE_COMPONENT,
         guild_id: 'guild-1',
         channel_id: 'channel-1',
-        data: { custom_id: 'recap:v2:post:ABC123:guild-1:channel-1' },
+        data: { custom_id: 'unknown:v2:post:ABC123:guild-1:channel-1' },
       },
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
@@ -2685,7 +2668,7 @@ describe('handleInteraction', () => {
     expect(response).toMatchObject({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: '`/recap` has been retired. Use `/report <wcl_report_url>`.',
+        content: 'Unsupported interaction.',
         flags: 64,
       },
     });
@@ -3071,9 +3054,8 @@ describe('handleInteraction', () => {
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
             comparePublicPostingEnabled: false,
-            recapPostModeDefault: 'preview-and-post',
-            autoRecapMode: 'prompt',
-            autoRecapChannelIds: ['channel-1'],
+            autoReportMode: 'prompt',
+            autoReportChannelIds: ['channel-1'],
           }),
           saveGuildConfig: vi.fn(),
         },
@@ -3109,9 +3091,8 @@ describe('handleInteraction', () => {
       compareModeDefault: 'character',
       compareAccessMode: 'officer_only',
       comparePublicPostingEnabled: false,
-      recapPostModeDefault: 'preview-and-post',
-      autoRecapMode: 'prompt',
-      autoRecapChannelIds: ['channel-2'],
+      autoReportMode: 'prompt',
+      autoReportChannelIds: ['channel-2'],
     });
     const claimPassiveDetection = vi.fn();
 
@@ -3186,9 +3167,8 @@ describe('handleInteraction', () => {
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
             comparePublicPostingEnabled: false,
-            recapPostModeDefault: 'preview-and-post',
-            autoRecapMode: 'auto_preview',
-            autoRecapChannelIds: ['channel-1'],
+            autoReportMode: 'auto_preview',
+            autoReportChannelIds: ['channel-1'],
           }),
           saveGuildConfig: vi.fn(),
         },
@@ -3215,7 +3195,7 @@ describe('handleInteraction', () => {
     );
   });
 
-  it('auto_post publishes the report renderer output without recap preview components', async () => {
+  it('auto_post publishes the report renderer output without legacy preview components', async () => {
     const channel = { send: vi.fn().mockResolvedValue({ id: 'posted-message-1' }) };
     const autoReportDuplicateTrackingService = {
       claimPassiveDetection: vi.fn().mockResolvedValue({
@@ -3247,9 +3227,8 @@ describe('handleInteraction', () => {
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
             comparePublicPostingEnabled: false,
-            recapPostModeDefault: 'preview-and-post',
-            autoRecapMode: 'auto_post',
-            autoRecapChannelIds: ['channel-1'],
+            autoReportMode: 'auto_post',
+            autoReportChannelIds: ['channel-1'],
           }),
           saveGuildConfig: vi.fn(),
         },
@@ -3303,9 +3282,8 @@ describe('handleInteraction', () => {
           compareModeDefault: 'character',
           compareAccessMode: 'officer_only',
           comparePublicPostingEnabled: false,
-          recapPostModeDefault: 'preview-and-post',
-          autoRecapMode: 'auto_preview',
-          autoRecapChannelIds: ['channel-1'],
+          autoReportMode: 'auto_preview',
+          autoReportChannelIds: ['channel-1'],
         }),
         saveGuildConfig: vi.fn(),
       },
@@ -3391,9 +3369,8 @@ describe('handleInteraction', () => {
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
             comparePublicPostingEnabled: false,
-            recapPostModeDefault: 'preview-and-post',
-            autoRecapMode: 'prompt',
-            autoRecapChannelIds: ['channel-1'],
+            autoReportMode: 'prompt',
+            autoReportChannelIds: ['channel-1'],
           }),
           saveGuildConfig: vi.fn(),
         },
@@ -3435,9 +3412,8 @@ describe('handleInteraction', () => {
             compareModeDefault: 'character',
             compareAccessMode: 'officer_only',
             comparePublicPostingEnabled: false,
-            recapPostModeDefault: 'preview-and-post',
-            autoRecapMode: 'prompt',
-            autoRecapChannelIds: ['channel-1'],
+            autoReportMode: 'prompt',
+            autoReportChannelIds: ['channel-1'],
           }),
           saveGuildConfig: vi.fn(),
         },

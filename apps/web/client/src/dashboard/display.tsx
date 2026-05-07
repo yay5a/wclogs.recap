@@ -1,7 +1,7 @@
 import type { ActivityEvent, CharacterClaim, Directory, ResolvedLabel } from "../api.js";
 
-export const toChannelText = (config: { autoRecapChannelIds: string[] } | null): string =>
-    config?.autoRecapChannelIds.join("\n") ?? "";
+export const toChannelText = (config: { autoReportChannelIds: string[] } | null): string =>
+    config?.autoReportChannelIds.join("\n") ?? "";
 
 export const parseChannelText = (value: string): string[] =>
     value
@@ -44,10 +44,6 @@ export const actionText = (event: ActivityEvent): string => {
             return "Report preview created";
         case "report_posted":
             return "Report posted";
-        case "recap_preview_created":
-            return "Recap preview created";
-        case "recap_posted":
-            return "Recap posted";
         case "private_comparison_rendered":
             return "Private comparison rendered";
         case "public_comparison_posted":

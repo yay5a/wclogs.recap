@@ -11,8 +11,8 @@ export * from './stores/comparison-history-store.js';
 export * from './stores/guild-config-store.js';
 export * from './stores/dashboard-activity-store.js';
 export * from './stores/dashboard-onboarding-store.js';
-export * from './stores/auto-recap-prompt-state-store.js';
-export * from './stores/auto-recap-duplicate-tracking-store.js';
+export * from './stores/auto-report-prompt-state-store.js';
+export * from './stores/auto-report-duplicate-tracking-store.js';
 export * from './services/trend-tracking-service.js';
 
 export const connectMongo = async (uri: string) => mongoose.connect(uri);
@@ -30,17 +30,12 @@ const guildSettingsSchema = new Schema(
       enum: ['character', 'mixed'],
       default: 'character',
     },
-    recapPostModeDefault: {
-      type: String,
-      enum: ['preview-and-post', 'preview-only'],
-      default: 'preview-and-post',
-    },
-    autoRecapMode: {
+    autoReportMode: {
       type: String,
       enum: ['off', 'prompt', 'auto_preview', 'auto_post'],
       default: 'prompt',
     },
-    autoRecapChannelIds: {
+    autoReportChannelIds: {
       type: [String],
       default: [],
     },
@@ -217,26 +212,7 @@ const auditLogSchema = new Schema(
   { timestamps: true },
 );
 
-const recapPreviewStateSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    channelId: { type: String, required: true, index: true },
-    reportCode: { type: String, required: true, index: true },
-    sourceUrl: { type: String, required: true },
-    summaryPayload: { type: Schema.Types.Mixed, required: true },
-    createdByUserId: { type: String, required: true, index: true },
-    interactionId: { type: String, index: true },
-    messageId: { type: String, index: true },
-    createdAt: { type: Date, required: true, default: Date.now },
-    expiresAt: { type: Date, required: true },
-  },
-  { timestamps: false },
-);
-recapPreviewStateSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-recapPreviewStateSchema.index({ interactionId: 1, messageId: 1 });
-recapPreviewStateSchema.index({ guildId: 1, channelId: 1, reportCode: 1 }, { unique: true });
-
-const autoRecapPromptStateSchema = new Schema(
+const autoReportPromptStateSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
     channelId: { type: String, required: true, index: true },
@@ -254,9 +230,9 @@ const autoRecapPromptStateSchema = new Schema(
   },
   { timestamps: true },
 );
-autoRecapPromptStateSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+autoReportPromptStateSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
-const autoRecapDuplicateTrackingSchema = new Schema(
+const autoReportDuplicateTrackingSchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
     channelId: { type: String, required: true, index: true },
@@ -287,7 +263,6 @@ const autoRecapDuplicateTrackingSchema = new Schema(
         'prompt',
         'public_preview',
         'public_final_report',
-        'public_final_recap',
         'duplicate_confirmation',
         'public_failure',
       ],
@@ -298,8 +273,8 @@ const autoRecapDuplicateTrackingSchema = new Schema(
   },
   { timestamps: true },
 );
-autoRecapDuplicateTrackingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
-autoRecapDuplicateTrackingSchema.index(
+autoReportDuplicateTrackingSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
+autoReportDuplicateTrackingSchema.index(
   { guildId: 1, channelId: 1, reportCode: 1 },
   { unique: true },
 );
@@ -315,12 +290,11 @@ export const PlayerRaidSummaryModel = mongoose.model('PlayerRaidSummary', player
 export const TrendSnapshotModel = mongoose.model('TrendSnapshot', trendSnapshotSchema);
 export const JobModel = mongoose.model('Job', jobSchema);
 export const AuditLogModel = mongoose.model('AuditLog', auditLogSchema);
-export const RecapPreviewStateModel = mongoose.model('RecapPreviewState', recapPreviewStateSchema);
-export const AutoRecapPromptStateModel = mongoose.model(
-  'AutoRecapPromptState',
-  autoRecapPromptStateSchema,
+export const AutoReportPromptStateModel = mongoose.model(
+  'AutoReportPromptState',
+  autoReportPromptStateSchema,
 );
-export const AutoRecapDuplicateTrackingModel = mongoose.model(
-  'AutoRecapDuplicateTracking',
-  autoRecapDuplicateTrackingSchema,
+export const AutoReportDuplicateTrackingModel = mongoose.model(
+  'AutoReportDuplicateTracking',
+  autoReportDuplicateTrackingSchema,
 );

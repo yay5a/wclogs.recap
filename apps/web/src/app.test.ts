@@ -21,7 +21,6 @@ const env: WebEnv = {
     WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
     COOKIE_SECRET: "cookie-secret",
     DASHBOARD_AUTH_DISABLED: true,
-    PREVIEW_STATE_TTL_SECONDS: 900,
 };
 
 const makeLogger = () =>
@@ -130,7 +129,12 @@ describe("createWebApp dashboard static serving", () => {
         expect(asset.headers["cache-control"]).toContain("immutable");
 
         expect((await app.inject("/health")).json()).toEqual({ status: "ok" });
-        expect((await app.inject("/api/recap")).statusCode).toBe(404);
+        const report = await app.inject({
+            method: "POST",
+            url: "/api/report",
+            payload: { reportCode: "ABC123" },
+        });
+        expect(report.statusCode).toBe(200);
         expect((await app.inject("/api/auth/wcl/status")).statusCode).toBe(200);
         expect((await app.inject("/api/dashboard/session")).statusCode).toBe(200);
         expect((await app.inject({ method: "POST", url: "/discord/interactions" })).statusCode).toBe(

@@ -4,7 +4,7 @@ export type CompareAccessMode =
     | "owner_or_officer"
     | "owner_opt_in_or_officer"
     | "owner_only";
-export type AutoRecapMode = "off" | "prompt" | "auto_preview" | "auto_post";
+export type AutoReportMode = "off" | "prompt" | "auto_preview" | "auto_post";
 export type GameFamily = "retail" | "mop_classic";
 
 export type DashboardCapability =
@@ -36,9 +36,8 @@ export type GuildConfig = {
     compareOfficerUserIds: string[];
     dashboardOfficerAccessEnabled: boolean;
     comparePublicPostingEnabled: boolean;
-    recapPostModeDefault: string;
-    autoRecapMode: AutoRecapMode;
-    autoRecapChannelIds: string[];
+    autoReportMode: AutoReportMode;
+    autoReportChannelIds: string[];
 };
 
 export type GuildSummary = {
@@ -48,11 +47,11 @@ export type GuildSummary = {
     compareModeDefault: CompareMode;
     compareAccessMode: CompareAccessMode;
     comparePublicPostingEnabled: boolean;
-    autoRecapMode: AutoRecapMode;
+    autoReportMode: AutoReportMode;
     defaultGameFamily: GameFamily;
     dashboardOfficerAccessEnabled: boolean;
     compareOfficerUserCount: number;
-    autoRecapChannelCount: number;
+    autoReportChannelCount: number;
     updatedAt?: string;
 };
 
@@ -62,8 +61,8 @@ export type ConfigPatch = Partial<
         | "compareModeDefault"
         | "compareAccessMode"
         | "comparePublicPostingEnabled"
-        | "autoRecapMode"
-        | "autoRecapChannelIds"
+        | "autoReportMode"
+        | "autoReportChannelIds"
         | "defaultGameFamily"
         | "dashboardOfficerAccessEnabled"
     >

@@ -13,7 +13,7 @@ import {
     type WclQueries,
 } from "./queries/index.js";
 import {
-    REPORT_RECAP_TABLE_DATA_TYPES,
+    REPORT_SUMMARY_TABLE_DATA_TYPES,
     type TableDataType,
 } from "./schema-enums.js";
 import { RAW_PAYLOAD_VERSION } from "./cache-policy.js";
@@ -275,7 +275,7 @@ export class ReportFetcher {
         if (ratePressure.level !== "critical") {
             if (reportWideKillFightIds.length > 0) {
                 reportTablesRaw = {};
-                for (const dataType of REPORT_RECAP_TABLE_DATA_TYPES) {
+                for (const dataType of REPORT_SUMMARY_TABLE_DATA_TYPES) {
                     reportWideTablesRequested += 1;
                     try {
                         const tablePayload = await this.queries.reportWideTable(
@@ -320,7 +320,7 @@ export class ReportFetcher {
         if (ratePressure.level !== "critical") {
             if (reportWideEncounterFightIds.length > 0) {
                 reportEncounterTablesRaw = {};
-                for (const dataType of REPORT_RECAP_TABLE_DATA_TYPES) {
+                for (const dataType of REPORT_SUMMARY_TABLE_DATA_TYPES) {
                     reportWideEncounterTablesRequested += 1;
                     try {
                         const tablePayload = await this.queries.reportWideTable(

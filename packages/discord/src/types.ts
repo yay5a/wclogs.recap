@@ -1,5 +1,5 @@
 import type {
-    AutoRecapMode,
+    AutoReportMode,
     BotActivityStore,
     CharacterClaimStatus,
     ComparisonSnapshotInput,
@@ -39,7 +39,6 @@ export type AutoReportLatestOutputKind =
     | "prompt"
     | "public_preview"
     | "public_final_report"
-    | "public_final_recap"
     | "duplicate_confirmation"
     | "public_failure";
 
@@ -51,7 +50,7 @@ export interface AutoReportDuplicateTrackingRecord {
     sourceUrl: string;
     sourceMessageId: string;
     sourceAuthorId: string;
-    mode: Exclude<AutoRecapMode, "off">;
+    mode: Exclude<AutoReportMode, "off">;
     status: AutoReportDuplicateStatus;
     latestOutputMessageId?: string;
     latestOutputKind?: AutoReportLatestOutputKind;
@@ -69,7 +68,7 @@ export interface AutoReportDuplicateTrackingService {
         sourceUrl: string;
         sourceMessageId: string;
         sourceAuthorId: string;
-        mode: Exclude<AutoRecapMode, "off">;
+        mode: Exclude<AutoReportMode, "off">;
         expiresAt: Date;
     }): Promise<
         | { claimed: true; record: AutoReportDuplicateTrackingRecord }
@@ -86,7 +85,7 @@ export interface AutoReportDuplicateTrackingService {
         gameFamily?: GameFamily;
         sourceMessageId?: string;
         sourceAuthorId?: string;
-        mode?: Exclude<AutoRecapMode, "off">;
+        mode?: Exclude<AutoReportMode, "off">;
         status?: AutoReportDuplicateStatus;
         latestOutputMessageId?: string;
         latestOutputKind?: AutoReportLatestOutputKind;

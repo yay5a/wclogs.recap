@@ -26,7 +26,6 @@ const env: WebEnv = {
     WCL_REDIRECT_URI: "https://example.com/api/auth/wcl/callback",
     COOKIE_SECRET: "cookie-secret",
     DASHBOARD_AUTH_DISABLED: false,
-    PREVIEW_STATE_TTL_SECONDS: 900,
 };
 
 const makeLogger = () =>
@@ -74,7 +73,7 @@ describe("registerDiscordInteractionRoutes", () => {
 
         const body = {
             type: 3,
-            data: { custom_id: "recap:v2:post:ABC123:guild-1:channel-1" },
+            data: { custom_id: "ar:p:source-message-1" },
         };
         const response = await app.inject({
             method: "POST",

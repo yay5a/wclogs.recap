@@ -1,6 +1,6 @@
 import type { FastifyReply, FastifyRequest } from "fastify";
 import {
-    parseAutoRecapMode,
+    parseAutoReportMode,
     parseCompareAccessMode,
     parseCompareMode,
     parseGameFamily,
@@ -80,7 +80,7 @@ export const parseGuildCreateBody = (
     return { guildId };
 };
 
-const parseAutoRecapChannelIds = (value: unknown): string[] | "invalid" => {
+const parseAutoReportChannelIds = (value: unknown): string[] | "invalid" => {
     if (!Array.isArray(value)) return "invalid";
 
     const deduped: string[] = [];
@@ -107,8 +107,8 @@ export const parseConfigPatchBody = (
         "compareModeDefault",
         "compareAccessMode",
         "comparePublicPostingEnabled",
-        "autoRecapMode",
-        "autoRecapChannelIds",
+        "autoReportMode",
+        "autoReportChannelIds",
         "defaultGameFamily",
         "dashboardOfficerAccessEnabled",
     ]);
@@ -157,22 +157,22 @@ export const parseConfigPatchBody = (
         update.dashboardOfficerAccessEnabled = body.dashboardOfficerAccessEnabled;
     }
 
-    if ("autoRecapMode" in body && body.autoRecapMode !== undefined) {
-        const parsed = parseAutoRecapMode(body.autoRecapMode);
+    if ("autoReportMode" in body && body.autoReportMode !== undefined) {
+        const parsed = parseAutoReportMode(body.autoReportMode);
         if (!parsed) {
-            sendError(reply, 400, "invalid_auto_recap_mode");
+            sendError(reply, 400, "invalid_auto_report_mode");
             return undefined;
         }
-        update.autoRecapMode = parsed;
+        update.autoReportMode = parsed;
     }
 
-    if ("autoRecapChannelIds" in body && body.autoRecapChannelIds !== undefined) {
-        const parsed = parseAutoRecapChannelIds(body.autoRecapChannelIds);
+    if ("autoReportChannelIds" in body && body.autoReportChannelIds !== undefined) {
+        const parsed = parseAutoReportChannelIds(body.autoReportChannelIds);
         if (parsed === "invalid") {
-            sendError(reply, 400, "invalid_auto_recap_channel_ids");
+            sendError(reply, 400, "invalid_auto_report_channel_ids");
             return undefined;
         }
-        update.autoRecapChannelIds = parsed;
+        update.autoReportChannelIds = parsed;
     }
 
     if ("defaultGameFamily" in body && body.defaultGameFamily !== undefined) {

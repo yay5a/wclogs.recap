@@ -1,7 +1,7 @@
 import { createLogger } from "@wcl/shared";
 
 const DISCORD_API_BASE_URL = "https://discord.com/api/v10";
-const DISCORD_USER_AGENT = "DiscordBot (https://github.com/yay5a/wclogs.recap, 0.1.0)";
+const DISCORD_USER_AGENT = "DiscordBot (https://github.com/yay5a/wclogs.report, 0.1.0)";
 const MAX_RATE_LIMIT_RETRIES = 1;
 const MAX_RATE_LIMIT_WAIT_MS = 30_000;
 const logger = createLogger("discord");

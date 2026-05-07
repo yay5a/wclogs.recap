@@ -20,7 +20,7 @@ export const notifyClaimRevoked = async (
             headers: {
                 Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
                 "Content-Type": "application/json",
-                "User-Agent": "DiscordBot (https://github.com/yay5a/wclogs.recap, 0.1.0)",
+                "User-Agent": "DiscordBot (https://github.com/yay5a/wclogs.report, 0.1.0)",
             },
             body: JSON.stringify({ recipient_id: claim.discordUserId }),
         });
@@ -32,7 +32,7 @@ export const notifyClaimRevoked = async (
             headers: {
                 Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`,
                 "Content-Type": "application/json",
-                "User-Agent": "DiscordBot (https://github.com/yay5a/wclogs.recap, 0.1.0)",
+                "User-Agent": "DiscordBot (https://github.com/yay5a/wclogs.report, 0.1.0)",
             },
             body: JSON.stringify({
                 content: `Your approved character claim for ${claim.characterName} - ${claim.realm}-${claim.region} was removed by guild staff. Historical activity was not deleted.`,

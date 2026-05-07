@@ -19,7 +19,7 @@ export const OverviewTab = ({
     <section className="panel-grid">
         <div className="metric-panel">
             <span>Configured channels</span>
-            <strong>{config.autoRecapChannelIds.length}</strong>
+            <strong>{config.autoReportChannelIds.length}</strong>
         </div>
         <div className="metric-panel">
             <span>Officers</span>
@@ -36,10 +36,10 @@ export const OverviewTab = ({
         <section className="wide-panel">
             <h3>Channels</h3>
             <div className="stack">
-                {config.autoRecapChannelIds.length === 0 ? (
+                {config.autoReportChannelIds.length === 0 ? (
                     <span className="empty">No report channels configured</span>
                 ) : (
-                    config.autoRecapChannelIds.map((channelId) => (
+                    config.autoReportChannelIds.map((channelId) => (
                         <IdLabel
                             key={channelId}
                             id={channelId}

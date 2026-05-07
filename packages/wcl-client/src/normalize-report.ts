@@ -40,7 +40,7 @@ interface EncounterPhaseRow {
   isIntermission?: boolean;
 }
 
-type BossPerformanceRecap = NormalizedBossPerformance & {
+type BossPerformanceReport = NormalizedBossPerformance & {
   encounterId?: number;
   difficulty?: number;
   difficultyName?: string;
@@ -843,7 +843,7 @@ export const normalizeEnrichedReport = (
         ...(player?.specName ? { specName: player.specName } : {}),
       };
     });
-  const buildReportWideRecapRows = (parsedResults: ParsedReportTableResults) => ({
+  const buildReportWideSummaryRows = (parsedResults: ParsedReportTableResults) => ({
     topDamageDone: mapReportWideRows(parsedResults.DamageDone?.entries, 3),
     topDamageTaken: mapReportWideRows(parsedResults.DamageTaken?.entries, 3),
     topHealingDone: mapReportWideRows(parsedResults.Healing?.entries, 3),
@@ -876,11 +876,11 @@ export const normalizeEnrichedReport = (
         : {}),
     },
   });
-  const reportWideRecap = {
-    ...buildReportWideRecapRows(parsedReportTableResults),
+  const reportWideSummary = {
+    ...buildReportWideSummaryRows(parsedReportTableResults),
     topSurvivability: mapReportWideRows(parsedReportTableResults.Survivability?.entries, 3),
   };
-  const reportWideEncounterRecap = buildReportWideRecapRows(parsedReportEncounterTableResults);
+  const reportWideEncounterSummary = buildReportWideSummaryRows(parsedReportEncounterTableResults);
   logTiming('parse report-wide tables', parseReportWideTablesStartedAt, {
     tableTypes: Object.keys(parsedReportTableResults).length,
     encounterTableTypes: Object.keys(parsedReportEncounterTableResults).length,
@@ -1065,7 +1065,7 @@ export const normalizeEnrichedReport = (
           ? reportStartTime + summaryFightRow.endTime
           : undefined;
 
-      const recap: BossPerformanceRecap = {
+      const bossReport: BossPerformanceReport = {
         ...basePerformance,
         encounterId: encounterID,
         // Include difficulty only when defined to satisfy exactOptionalPropertyTypes
@@ -1084,7 +1084,7 @@ export const normalizeEnrichedReport = (
         bestParses,
         ...((summaryFightRow && hasDungeonPullData(summaryFightRow)) || reportContainsDungeonPulls
           ? {
-              // TODO(dungeon): add dedicated Mythic+/dungeon recap fields derived from dungeonPulls
+              // TODO(dungeon): add dedicated Mythic+/dungeon report fields derived from dungeonPulls
               // instead of raid-boss phase/table aggregates.
             }
           : {
@@ -1163,10 +1163,10 @@ export const normalizeEnrichedReport = (
             }),
       };
 
-      bossPerformances.push(recap);
+      bossPerformances.push(bossReport);
     }
   }
-  logTiming('per-encounter boss recap normalization', perEncounterNormalizationStartedAt, {
+  logTiming('per-encounter boss report normalization', perEncounterNormalizationStartedAt, {
     encounters: encounterIds.size,
     bossPerformances: bossPerformances.length,
     parsedTables: parsedEncounterTableCount,
@@ -1188,7 +1188,7 @@ export const normalizeEnrichedReport = (
       ...(typeof fight.inProgress === 'boolean' ? { inProgress: fight.inProgress } : {}),
     };
   });
-  const hasReportWideEncounterRecap = Object.keys(parsedReportEncounterTableResults).length > 0;
+  const hasReportWideEncounterSummary = Object.keys(parsedReportEncounterTableResults).length > 0;
   const normalized = {
     reportCode: parsed.reportCode,
     title: asString(report.title) ?? 'Untitled Report',
@@ -1200,8 +1200,8 @@ export const normalizeEnrichedReport = (
     players,
     leaderboards: [...reportLeaderboards, ...bossLeaderboards],
     bossPerformances,
-    reportWideRecap,
-    ...(hasReportWideEncounterRecap ? { reportWideEncounterRecap } : {}),
+    reportWideSummary,
+    ...(hasReportWideEncounterSummary ? { reportWideEncounterSummary } : {}),
     reportWideRankings: {
       dps: reportWideDpsRankings,
       hps: reportWideHpsRankings,

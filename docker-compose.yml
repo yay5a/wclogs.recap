@@ -1,5 +1,5 @@
 # This docker-compose file builds and runs the service stack for
-# the WCLogs recap application.  It defines separate networks for
+# the WCLogs report application.  It defines separate networks for
 # front‑end (public) and back‑end (internal) communication, uses
 # environment variables for secrets, adds healthchecks and restart
 # policies, and includes an nginx reverse proxy for serving the web

@@ -251,7 +251,7 @@ const getRepresentativeDifficultyName = (
 
 export const buildReportSummary = (report: NormalizedReport): ReportSummary => {
   const encounters = buildEncounterSummaries(report);
-  const reportWideRows = report.reportWideEncounterRecap ?? report.reportWideRecap;
+  const reportWideRows = report.reportWideEncounterSummary ?? report.reportWideSummary;
   const encounterDurationMs = encounters.reduce(
     (sum, encounter) => sum + encounter.totalDurationMs,
     0,
@@ -264,12 +264,12 @@ export const buildReportSummary = (report: NormalizedReport): ReportSummary => {
   const biggestTroubleEncounter = selectBiggestTroubleEncounter(encounters);
   const partialDataNotes: string[] = [];
 
-  if (!report.reportWideEncounterRecap && report.reportWideRecap) {
+  if (!report.reportWideEncounterSummary && report.reportWideSummary) {
     partialDataNotes.push(
-      'All-pull report tables were unavailable; some player totals use existing recap table data.',
+      'All-pull report tables were unavailable; some player totals use existing kill-focused table data.',
     );
   }
-  if (!report.reportWideEncounterRecap && !report.reportWideRecap) {
+  if (!report.reportWideEncounterSummary && !report.reportWideSummary) {
     partialDataNotes.push('Report table data was unavailable for player totals.');
   }
   partialDataNotes.push('WCL does not expose a direct DTPS parse ranking in the verified docs.');

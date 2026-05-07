@@ -30,7 +30,7 @@ const fetchDiscordJson = async (endpoint: string, botToken: string): Promise<unk
         const response = await fetch(`${DISCORD_API_BASE_URL}${endpoint}`, {
             headers: {
                 Authorization: `Bot ${botToken}`,
-                "User-Agent": "DiscordBot (https://github.com/yay5a/wclogs.recap, 0.1.0)",
+                "User-Agent": "DiscordBot (https://github.com/yay5a/wclogs.report, 0.1.0)",
             },
         });
         if (!response.ok) return null;
@@ -71,7 +71,7 @@ export const defaultDirectoryResolver =
     }): Promise<DashboardDirectory> => {
         const unresolved = (id: string): DashboardResolvedLabel => ({ id, label: id, resolved: false });
         const botToken = env.DISCORD_BOT_TOKEN;
-        const channelIds = new Set(config.autoRecapChannelIds);
+        const channelIds = new Set(config.autoReportChannelIds);
         for (const event of activity) {
             if (event.channelId) channelIds.add(event.channelId);
         }

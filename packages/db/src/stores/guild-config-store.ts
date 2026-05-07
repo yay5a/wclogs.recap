@@ -1,30 +1,27 @@
 import {
   defaultGuildConfigFor,
-  parseAutoRecapMode,
+  parseAutoReportMode,
   parseCompareAccessMode,
   parseCompareMode,
   parseGameFamily,
 } from '@wcl/domain';
 import type {
-  AutoRecapMode,
+  AutoReportMode,
   CompareAccessMode,
   CompareMode,
   GameFamily,
   GuildConfig,
   GuildConfigStore,
-  RecapPostMode,
 } from '@wcl/domain';
 import { GuildSettingsModel } from '../index.js';
 
 type GuildConfigUpdate = Partial<Omit<GuildConfig, 'guildId'>>;
 
-const parseRecapPostMode = (value: unknown): RecapPostMode =>
-  value === 'preview-only' ? 'preview-only' : 'preview-and-post';
 const parseStringArray = (value: unknown): string[] =>
   Array.isArray(value)
     ? [...new Set(value.filter((entry): entry is string => typeof entry === 'string'))]
     : [];
-const parseAutoRecapChannelIds = (value: unknown): string[] => parseStringArray(value);
+const parseAutoReportChannelIds = (value: unknown): string[] => parseStringArray(value);
 const parseBoolean = (value: unknown): boolean => (typeof value === 'boolean' ? value : false);
 const activeGuildFilter = (guildId: string) => ({
   guildId,
@@ -57,14 +54,11 @@ const sanitizeGuildConfigUpdate = (update: GuildConfigUpdate): GuildConfigUpdate
     ...(update.comparePublicPostingEnabled !== undefined
       ? { comparePublicPostingEnabled: update.comparePublicPostingEnabled }
       : {}),
-    ...(update.recapPostModeDefault !== undefined
-      ? { recapPostModeDefault: update.recapPostModeDefault }
+    ...(update.autoReportMode !== undefined
+      ? { autoReportMode: update.autoReportMode }
       : {}),
-    ...(update.autoRecapMode !== undefined
-      ? { autoRecapMode: update.autoRecapMode }
-      : {}),
-    ...(update.autoRecapChannelIds !== undefined
-      ? { autoRecapChannelIds: update.autoRecapChannelIds }
+    ...(update.autoReportChannelIds !== undefined
+      ? { autoReportChannelIds: update.autoReportChannelIds }
       : {}),
   };
 };
@@ -78,9 +72,8 @@ const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
     guildId,
     defaultGameFamily: parseGameFamily(raw.defaultGameFamily) ?? fallback.defaultGameFamily,
     compareModeDefault: parseCompareMode(raw.compareModeDefault) ?? fallback.compareModeDefault,
-    recapPostModeDefault: parseRecapPostMode(raw.recapPostModeDefault),
-    autoRecapMode: parseAutoRecapMode(raw.autoRecapMode) ?? fallback.autoRecapMode,
-    autoRecapChannelIds: parseAutoRecapChannelIds(raw.autoRecapChannelIds),
+    autoReportMode: parseAutoReportMode(raw.autoReportMode) ?? fallback.autoReportMode,
+    autoReportChannelIds: parseAutoReportChannelIds(raw.autoReportChannelIds),
     compareAccessMode: parseCompareAccessMode(raw.compareAccessMode) ?? fallback.compareAccessMode,
     compareOfficerUserIds: parseStringArray(raw.compareOfficerUserIds),
     dashboardOfficerAccessEnabled: parseBoolean(raw.dashboardOfficerAccessEnabled),
@@ -93,11 +86,11 @@ type DashboardGuildConfigSummaryShape = {
   compareModeDefault: CompareMode;
   compareAccessMode: CompareAccessMode;
   comparePublicPostingEnabled: boolean;
-  autoRecapMode: AutoRecapMode;
+  autoReportMode: AutoReportMode;
   defaultGameFamily: GameFamily;
   dashboardOfficerAccessEnabled: boolean;
   compareOfficerUserCount: number;
-  autoRecapChannelCount: number;
+  autoReportChannelCount: number;
   updatedAt?: string;
 };
 
@@ -109,11 +102,11 @@ const toSummary = (doc: Record<string, unknown>): DashboardGuildConfigSummarySha
     compareModeDefault: config.compareModeDefault,
     compareAccessMode: config.compareAccessMode,
     comparePublicPostingEnabled: config.comparePublicPostingEnabled,
-    autoRecapMode: config.autoRecapMode,
+    autoReportMode: config.autoReportMode,
     defaultGameFamily: config.defaultGameFamily,
     dashboardOfficerAccessEnabled: config.dashboardOfficerAccessEnabled,
     compareOfficerUserCount: config.compareOfficerUserIds.length,
-    autoRecapChannelCount: config.autoRecapChannelIds.length,
+    autoReportChannelCount: config.autoReportChannelIds.length,
   };
   if (doc.updatedAt instanceof Date) {
     summary.updatedAt = doc.updatedAt.toISOString();

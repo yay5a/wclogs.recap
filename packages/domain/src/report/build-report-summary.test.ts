@@ -61,7 +61,7 @@ describe('buildReportSummary', () => {
   it('totals deaths across all boss pulls from encounter-wide report tables', () => {
     const summary = buildReportSummary(
       baseReport({
-        reportWideEncounterRecap: {
+        reportWideEncounterSummary: {
           topDamageDone: [],
           topHealingDone: [],
           topDeaths: [{ playerName: 'Alyra', value: 4 }],
@@ -98,7 +98,7 @@ describe('buildReportSummary', () => {
         encounterFights: [
           { id: 1, encounterId: 1, name: 'Boss', startTime: 0, endTime: 120000, kill: true },
         ],
-        reportWideEncounterRecap: {
+        reportWideEncounterSummary: {
           topDamageDone: [{ playerName: 'Dps', value: 24_000_000 }],
           topHealingDone: [{ playerName: 'Healer', value: 12_000_000 }],
           topDamageTaken: [{ playerName: 'Tank', value: 6_000_000 }],
@@ -166,7 +166,7 @@ describe('buildReportSummary', () => {
   it('falls back safely for older normalized reports without report-only fields', () => {
     const summary = buildReportSummary(
       baseReport({
-        reportWideRecap: {
+        reportWideSummary: {
           topDamageDone: [{ playerName: 'Alyra', value: 1000 }],
           topHealingDone: [],
           totals: { deaths: 3 },
@@ -178,7 +178,7 @@ describe('buildReportSummary', () => {
     expect(summary.totalDeaths).toBe(3);
     expect(summary.topPlayers.highestTotalDamage).toEqual([{ playerName: 'Alyra', value: 1000 }]);
     expect(summary.partialDataNotes).toContain(
-      'All-pull report tables were unavailable; some player totals use existing recap table data.',
+      'All-pull report tables were unavailable; some player totals use existing kill-focused table data.',
     );
   });
 });

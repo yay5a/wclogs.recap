@@ -268,8 +268,8 @@ export const App = () => {
             compareAccessMode: config.compareAccessMode,
             comparePublicPostingEnabled: config.comparePublicPostingEnabled,
             dashboardOfficerAccessEnabled: config.dashboardOfficerAccessEnabled,
-            autoRecapMode: config.autoRecapMode,
-            autoRecapChannelIds: parseChannelText(channelText),
+            autoReportMode: config.autoReportMode,
+            autoReportChannelIds: parseChannelText(channelText),
             defaultGameFamily: config.defaultGameFamily,
         };
 
@@ -392,7 +392,7 @@ export const App = () => {
             <main className="login-shell">
                 <form className="login-panel" onSubmit={handleLogin}>
                     <div>
-                        <p className="eyebrow">wclogs.recap</p>
+                        <p className="eyebrow">wclogs.report</p>
                         <h1>Operations Console</h1>
                     </div>
                     <button type="button" className="discord-login" onClick={handleDiscordLogin}>
@@ -421,7 +421,7 @@ export const App = () => {
         <main className="dashboard-shell">
             <aside className="sidebar">
                 <div className="brand">
-                    <p className="eyebrow">wclogs.recap</p>
+                    <p className="eyebrow">wclogs.report</p>
                     <h1>Operations</h1>
                     <small>
                         {auth.kind === "discord" ? auth.displayName : "Admin secret"}
@@ -455,7 +455,7 @@ export const App = () => {
                             <span>{guild.guildName ?? guild.guildId}</span>
                             <small>
                                 {guild.compareOfficerUserCount} officers -{" "}
-                                {guild.autoRecapChannelCount} channels
+                                {guild.autoReportChannelCount} channels
                             </small>
                         </button>
                     ))}

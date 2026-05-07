@@ -36,7 +36,6 @@ const makeEnv = (overrides: Partial<WebEnv> = {}): WebEnv => ({
     COOKIE_SECRET: "cookie-secret",
     DASHBOARD_ADMIN_SECRET: "admin-secret",
     DASHBOARD_AUTH_DISABLED: false,
-    PREVIEW_STATE_TTL_SECONDS: 900,
     ...overrides,
 });
 
@@ -45,11 +44,11 @@ const toSummary = (config: GuildConfig): DashboardGuildConfigSummary => ({
     compareModeDefault: config.compareModeDefault,
     compareAccessMode: config.compareAccessMode,
     comparePublicPostingEnabled: config.comparePublicPostingEnabled,
-    autoRecapMode: config.autoRecapMode,
+    autoReportMode: config.autoReportMode,
     defaultGameFamily: config.defaultGameFamily,
     dashboardOfficerAccessEnabled: config.dashboardOfficerAccessEnabled,
     compareOfficerUserCount: config.compareOfficerUserIds.length,
-    autoRecapChannelCount: config.autoRecapChannelIds.length,
+    autoReportChannelCount: config.autoReportChannelIds.length,
 });
 
 const makeStore = (initialConfigs: GuildConfig[] = []) => {
@@ -814,8 +813,8 @@ describe("dashboard guild routes", () => {
                 compareModeDefault: "mixed",
                 compareAccessMode: "owner_only",
                 comparePublicPostingEnabled: true,
-                autoRecapMode: "auto_preview",
-                autoRecapChannelIds: [` ${channelId} `, channelId],
+                autoReportMode: "auto_preview",
+                autoReportChannelIds: [` ${channelId} `, channelId],
                 defaultGameFamily: "mop_classic",
             },
         });
@@ -825,16 +824,16 @@ describe("dashboard guild routes", () => {
             compareModeDefault: "mixed",
             compareAccessMode: "owner_only",
             comparePublicPostingEnabled: true,
-            autoRecapMode: "auto_preview",
-            autoRecapChannelIds: [channelId],
+            autoReportMode: "auto_preview",
+            autoReportChannelIds: [channelId],
             defaultGameFamily: "mop_classic",
         });
         expect(store.saveExistingGuildConfig).toHaveBeenCalledWith(guildId, {
             compareModeDefault: "mixed",
             compareAccessMode: "owner_only",
             comparePublicPostingEnabled: true,
-            autoRecapMode: "auto_preview",
-            autoRecapChannelIds: [channelId],
+            autoReportMode: "auto_preview",
+            autoReportChannelIds: [channelId],
             defaultGameFamily: "mop_classic",
         });
 
@@ -1599,7 +1598,7 @@ describe("dashboard guild routes", () => {
         const { store } = makeStore([
             {
                 ...defaultGuildConfigFor(directoryGuildId),
-                autoRecapChannelIds: [directoryChannelId],
+                autoReportChannelIds: [directoryChannelId],
                 compareOfficerUserIds: [directoryUserId],
             },
         ]);
@@ -1658,7 +1657,7 @@ describe("dashboard guild routes", () => {
         const { store } = makeStore([
             {
                 ...defaultGuildConfigFor(directoryGuildId),
-                autoRecapChannelIds: [directoryChannelId],
+                autoReportChannelIds: [directoryChannelId],
                 compareOfficerUserIds: [directoryUserId],
             },
         ]);

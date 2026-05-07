@@ -172,10 +172,10 @@ export const extractComparisonSnapshots = ({
   report,
 }: ExtractComparisonSnapshotsInput): ComparisonSnapshotExtractionResult => {
   const rankPercentIndexes = buildRankPercentIndexes(report);
-  const damageByName = buildMetricMap(report.reportWideRecap?.topDamageDone);
-  const healingByName = buildMetricMap(report.reportWideRecap?.topHealingDone);
-  const interruptsByName = buildMetricMap(report.reportWideRecap?.topInterrupts);
-  const dispelsByName = buildMetricMap(report.reportWideRecap?.topDispels);
+  const damageByName = buildMetricMap(report.reportWideSummary?.topDamageDone);
+  const healingByName = buildMetricMap(report.reportWideSummary?.topHealingDone);
+  const interruptsByName = buildMetricMap(report.reportWideSummary?.topInterrupts);
+  const dispelsByName = buildMetricMap(report.reportWideSummary?.topDispels);
   const snapshots: ComparisonSnapshotInput[] = [];
   const issues: ComparisonSnapshotExtractionIssue[] = [];
 

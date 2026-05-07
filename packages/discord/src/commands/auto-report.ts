@@ -484,9 +484,9 @@ export const handleAutoReportMessageCreate = async ({
     if (!message.content) return;
 
     const guildConfig = await handleOptions.guildConfigStore.getGuildConfig(message.guildId);
-    if (guildConfig.autoRecapMode === "off") return;
-    if (guildConfig.autoRecapChannelIds.length === 0) return;
-    if (!guildConfig.autoRecapChannelIds.includes(message.channelId)) return;
+    if (guildConfig.autoReportMode === "off") return;
+    if (guildConfig.autoReportChannelIds.length === 0) return;
+    if (!guildConfig.autoReportChannelIds.includes(message.channelId)) return;
 
     const parsed = extractFirstWarcraftLogsReportUrl(message.content);
     if (!parsed) return;
@@ -513,7 +513,7 @@ export const handleAutoReportMessageCreate = async ({
         sourceUrl: parsed.rawUrl,
         sourceMessageId: message.messageId,
         sourceAuthorId: message.authorId,
-        mode: guildConfig.autoRecapMode,
+        mode: guildConfig.autoReportMode,
         expiresAt,
     });
 
@@ -539,7 +539,7 @@ export const handleAutoReportMessageCreate = async ({
         }
     };
     try {
-        if (guildConfig.autoRecapMode === "prompt") {
+        if (guildConfig.autoReportMode === "prompt") {
             const sent = await sendChannelMessage(buildAutoReportPromptBody(message.messageId));
             await handleOptions.autoReportPromptStateService?.savePromptState({
                 guildId: message.guildId,
@@ -569,7 +569,7 @@ export const handleAutoReportMessageCreate = async ({
             url: parsed.rawUrl,
         });
 
-        if (guildConfig.autoRecapMode === "auto_preview") {
+        if (guildConfig.autoReportMode === "auto_preview") {
             const sent = await sendChannelMessage(toPublicReportBody(artifact.publicBody));
             await duplicateService.updateTracking({
                 guildId: message.guildId,

@@ -1,5 +1,5 @@
 import type {
-    AutoRecapMode,
+    AutoReportMode,
     ClaimStatus,
     CompareAccessMode,
     CompareMode,
@@ -13,7 +13,7 @@ export const compareAccessModes: CompareAccessMode[] = [
     "owner_opt_in_or_officer",
     "owner_only",
 ];
-export const autoRecapModes: AutoRecapMode[] = ["off", "prompt", "auto_preview", "auto_post"];
+export const autoReportModes: AutoReportMode[] = ["off", "prompt", "auto_preview", "auto_post"];
 export const gameFamilies: GameFamily[] = ["retail", "mop_classic"];
 export const tabs = ["overview", "settings", "officers", "claims", "activity"] as const;
 export const claimStatuses: ClaimStatus[] = ["pending", "approved", "revoked"];

@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import type { WclClient } from "@wcl/wcl-client";
 import type { createLogger } from "@wcl/shared";
 
-type RecapRouteOptions = {
+type ReportRouteOptions = {
     wclClient: WclClient;
     logger: ReturnType<typeof createLogger>;
 };
@@ -10,11 +10,11 @@ type RecapRouteOptions = {
 const toWclReportUrl = (reportCode: string): string =>
     `https://www.warcraftlogs.com/reports/${reportCode}`;
 
-export const registerRecapRoutes: FastifyPluginAsync<RecapRouteOptions> = async (
+export const registerReportRoutes: FastifyPluginAsync<ReportRouteOptions> = async (
     app,
     options,
 ) => {
-    app.post("/api/recap", async (request, reply) => {
+    app.post("/api/report", async (request, reply) => {
         const body =
             typeof request.body === "object" && request.body !== null
                 ? (request.body as Record<string, unknown>)
@@ -30,20 +30,20 @@ export const registerRecapRoutes: FastifyPluginAsync<RecapRouteOptions> = async 
         }
 
         try {
-            const recap = await options.wclClient.fetchAndNormalizeReport(
+            const report = await options.wclClient.fetchAndNormalizeReport(
                 toWclReportUrl(reportCode),
             );
 
             return reply.send({
                 ok: true,
-                message: "Recap payload generated",
-                payload: recap,
+                message: "Report payload generated",
+                payload: report,
             });
         } catch (error) {
-            options.logger.error({ error, reportCode }, "recap route failed");
+            options.logger.error({ error, reportCode }, "report route failed");
             return reply.code(502).send({
                 ok: false,
-                message: "Failed to generate recap payload",
+                message: "Failed to generate report payload",
             });
         }
     });

@@ -1,8 +1,8 @@
 import {
   connectMongo,
   migrateCharacterClaimIdentityFields,
-  MongoAutoRecapDuplicateTrackingStore,
-  MongoAutoRecapPromptStateStore,
+  MongoAutoReportDuplicateTrackingStore,
+  MongoAutoReportPromptStateStore,
   MongoCharacterClaimStore,
   MongoComparisonHistoryStore,
   MongoDashboardActivityStore,
@@ -51,8 +51,8 @@ const wclClient = new WclClient({
 });
 
 const guildConfigStore = new MongoGuildConfigStore();
-const autoReportPromptStateService = new MongoAutoRecapPromptStateStore();
-const autoReportDuplicateTrackingService = new MongoAutoRecapDuplicateTrackingStore();
+const autoReportPromptStateService = new MongoAutoReportPromptStateStore();
+const autoReportDuplicateTrackingService = new MongoAutoReportDuplicateTrackingStore();
 const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const characterClaimStore = new MongoCharacterClaimStore();
 const dashboardActivityStore = new MongoDashboardActivityStore();

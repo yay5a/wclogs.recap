@@ -1,7 +1,7 @@
-import type { AutoRecapMode, GameFamily } from "@wcl/domain";
-import { AutoRecapDuplicateTrackingModel } from "../index.js";
+import type { AutoReportMode, GameFamily } from "@wcl/domain";
+import { AutoReportDuplicateTrackingModel } from "../index.js";
 
-export type AutoRecapDuplicateStatus =
+export type AutoReportDuplicateStatus =
     | "processing"
     | "prompted"
     | "preview_posted"
@@ -9,15 +9,14 @@ export type AutoRecapDuplicateStatus =
     | "ignored"
     | "failed";
 
-export type AutoRecapLatestOutputKind =
+export type AutoReportLatestOutputKind =
     | "prompt"
     | "public_preview"
     | "public_final_report"
-    | "public_final_recap"
     | "duplicate_confirmation"
     | "public_failure";
 
-export interface AutoRecapDuplicateTrackingRecord {
+export interface AutoReportDuplicateTrackingRecord {
     guildId: string;
     channelId: string;
     reportCode: string;
@@ -25,17 +24,17 @@ export interface AutoRecapDuplicateTrackingRecord {
     sourceUrl: string;
     sourceMessageId: string;
     sourceAuthorId: string;
-    mode: Exclude<AutoRecapMode, "off">;
-    status: AutoRecapDuplicateStatus;
+    mode: Exclude<AutoReportMode, "off">;
+    status: AutoReportDuplicateStatus;
     latestOutputMessageId?: string;
-    latestOutputKind?: AutoRecapLatestOutputKind;
+    latestOutputKind?: AutoReportLatestOutputKind;
     duplicateConfirmationMessageId?: string;
     confirmationNonce?: string;
     expiresAt: Date;
 }
 
-type ClaimAutoRecapDuplicateInput = Omit<
-    AutoRecapDuplicateTrackingRecord,
+type ClaimAutoReportDuplicateInput = Omit<
+    AutoReportDuplicateTrackingRecord,
     | "status"
     | "latestOutputMessageId"
     | "latestOutputKind"
@@ -43,13 +42,13 @@ type ClaimAutoRecapDuplicateInput = Omit<
     | "confirmationNonce"
 >;
 
-type UpdateAutoRecapDuplicateInput = Pick<
-    AutoRecapDuplicateTrackingRecord,
+type UpdateAutoReportDuplicateInput = Pick<
+    AutoReportDuplicateTrackingRecord,
     "guildId" | "channelId" | "reportCode"
 > &
     Partial<
         Pick<
-            AutoRecapDuplicateTrackingRecord,
+            AutoReportDuplicateTrackingRecord,
             | "sourceUrl"
             | "gameFamily"
             | "sourceMessageId"
@@ -66,26 +65,25 @@ type UpdateAutoRecapDuplicateInput = Pick<
 
 const isGameFamily = (value: unknown): value is GameFamily =>
     value === "retail" || value === "mop_classic";
-const isMode = (value: unknown): value is Exclude<AutoRecapMode, "off"> =>
+const isMode = (value: unknown): value is Exclude<AutoReportMode, "off"> =>
     value === "prompt" || value === "auto_preview" || value === "auto_post";
-const isStatus = (value: unknown): value is AutoRecapDuplicateStatus =>
+const isStatus = (value: unknown): value is AutoReportDuplicateStatus =>
     value === "processing" ||
     value === "prompted" ||
     value === "preview_posted" ||
     value === "final_posted" ||
     value === "ignored" ||
     value === "failed";
-const isOutputKind = (value: unknown): value is AutoRecapLatestOutputKind =>
+const isOutputKind = (value: unknown): value is AutoReportLatestOutputKind =>
     value === "prompt" ||
     value === "public_preview" ||
     value === "public_final_report" ||
-    value === "public_final_recap" ||
     value === "duplicate_confirmation" ||
     value === "public_failure";
 
 const toDuplicateTrackingRecord = (
     doc: unknown,
-): AutoRecapDuplicateTrackingRecord | null => {
+): AutoReportDuplicateTrackingRecord | null => {
     if (!doc || typeof doc !== "object") return null;
     const raw = doc as Record<string, unknown>;
     if (
@@ -103,7 +101,7 @@ const toDuplicateTrackingRecord = (
         return null;
     }
 
-    const record: AutoRecapDuplicateTrackingRecord = {
+    const record: AutoReportDuplicateTrackingRecord = {
         guildId: raw.guildId,
         channelId: raw.channelId,
         reportCode: raw.reportCode,
@@ -136,12 +134,12 @@ const isDuplicateKeyError = (error: unknown): boolean =>
     "code" in error &&
     (error as { code?: unknown }).code === 11000;
 
-export class MongoAutoRecapDuplicateTrackingStore {
+export class MongoAutoReportDuplicateTrackingStore {
     public async claimPassiveDetection(
-        input: ClaimAutoRecapDuplicateInput,
+        input: ClaimAutoReportDuplicateInput,
     ): Promise<
-        | { claimed: true; record: AutoRecapDuplicateTrackingRecord }
-        | { claimed: false; record: AutoRecapDuplicateTrackingRecord | null }
+        | { claimed: true; record: AutoReportDuplicateTrackingRecord }
+        | { claimed: false; record: AutoReportDuplicateTrackingRecord | null }
     > {
         const now = new Date();
         const claimUpdate = {
@@ -149,7 +147,7 @@ export class MongoAutoRecapDuplicateTrackingStore {
             status: "processing" as const,
         };
 
-        const reclaimedExpired = await AutoRecapDuplicateTrackingModel.findOneAndUpdate(
+        const reclaimedExpired = await AutoReportDuplicateTrackingModel.findOneAndUpdate(
             {
                 guildId: input.guildId,
                 channelId: input.channelId,
@@ -171,12 +169,12 @@ export class MongoAutoRecapDuplicateTrackingStore {
         if (parsedReclaimed) return { claimed: true, record: parsedReclaimed };
 
         try {
-            const created = await AutoRecapDuplicateTrackingModel.create(claimUpdate);
+            const created = await AutoReportDuplicateTrackingModel.create(claimUpdate);
             const parsedCreated = toDuplicateTrackingRecord(
                 typeof created.toObject === "function" ? created.toObject() : created,
             );
             if (!parsedCreated) {
-                throw new Error("Failed to create auto recap duplicate tracking record.");
+                throw new Error("Failed to create auto report duplicate tracking record.");
             }
             return { claimed: true, record: parsedCreated };
         } catch (error) {
@@ -194,8 +192,8 @@ export class MongoAutoRecapDuplicateTrackingStore {
         guildId: string;
         channelId: string;
         reportCode: string;
-    }): Promise<AutoRecapDuplicateTrackingRecord | null> {
-        const found = await AutoRecapDuplicateTrackingModel.findOne({
+    }): Promise<AutoReportDuplicateTrackingRecord | null> {
+        const found = await AutoReportDuplicateTrackingModel.findOne({
             guildId: input.guildId,
             channelId: input.channelId,
             reportCode: input.reportCode,
@@ -206,8 +204,8 @@ export class MongoAutoRecapDuplicateTrackingStore {
 
     public async getByConfirmationNonce(
         confirmationNonce: string,
-    ): Promise<AutoRecapDuplicateTrackingRecord | null> {
-        const found = await AutoRecapDuplicateTrackingModel.findOne({
+    ): Promise<AutoReportDuplicateTrackingRecord | null> {
+        const found = await AutoReportDuplicateTrackingModel.findOne({
             confirmationNonce,
             expiresAt: { $gt: new Date() },
         }).lean();
@@ -215,10 +213,10 @@ export class MongoAutoRecapDuplicateTrackingStore {
     }
 
     public async updateTracking(
-        input: UpdateAutoRecapDuplicateInput,
-    ): Promise<AutoRecapDuplicateTrackingRecord | null> {
+        input: UpdateAutoReportDuplicateInput,
+    ): Promise<AutoReportDuplicateTrackingRecord | null> {
         const { guildId, channelId, reportCode, ...update } = input;
-        const saved = await AutoRecapDuplicateTrackingModel.findOneAndUpdate(
+        const saved = await AutoReportDuplicateTrackingModel.findOneAndUpdate(
             { guildId, channelId, reportCode },
             { $set: update },
             { new: true },

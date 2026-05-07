@@ -13,13 +13,11 @@ export type GameFamily = (typeof GAME_FAMILIES)[number];
 export const parseGameFamily = (value: unknown): GameFamily | undefined =>
   GAME_FAMILIES.includes(value as GameFamily) ? (value as GameFamily) : undefined;
 
-export type RecapPostMode = 'preview-and-post' | 'preview-only';
+export const AUTO_REPORT_MODES = ['off', 'prompt', 'auto_preview', 'auto_post'] as const;
+export type AutoReportMode = (typeof AUTO_REPORT_MODES)[number];
 
-export const AUTO_RECAP_MODES = ['off', 'prompt', 'auto_preview', 'auto_post'] as const;
-export type AutoRecapMode = (typeof AUTO_RECAP_MODES)[number];
-
-export const parseAutoRecapMode = (value: unknown): AutoRecapMode | undefined =>
-  AUTO_RECAP_MODES.includes(value as AutoRecapMode) ? (value as AutoRecapMode) : undefined;
+export const parseAutoReportMode = (value: unknown): AutoReportMode | undefined =>
+  AUTO_REPORT_MODES.includes(value as AutoReportMode) ? (value as AutoReportMode) : undefined;
 
 export interface GuildConfig {
   guildId: string;
@@ -29,9 +27,8 @@ export interface GuildConfig {
   compareOfficerUserIds: string[];
   dashboardOfficerAccessEnabled: boolean;
   comparePublicPostingEnabled: boolean;
-  recapPostModeDefault: RecapPostMode;
-  autoRecapMode: AutoRecapMode;
-  autoRecapChannelIds: string[];
+  autoReportMode: AutoReportMode;
+  autoReportChannelIds: string[];
 }
 
 export interface GuildConfigStore {
@@ -52,9 +49,8 @@ export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
   compareOfficerUserIds: [],
   dashboardOfficerAccessEnabled: false,
   comparePublicPostingEnabled: false,
-  recapPostModeDefault: 'preview-and-post',
-  autoRecapMode: 'prompt',
-  autoRecapChannelIds: [],
+  autoReportMode: 'prompt',
+  autoReportChannelIds: [],
 });
 
 export interface NormalizedPlayer {
@@ -174,7 +170,7 @@ export interface NormalizedReport {
   players: NormalizedPlayer[];
   leaderboards?: NormalizedLeaderboardEntry[];
   bossPerformances?: NormalizedBossPerformance[];
-  reportWideRecap?: {
+  reportWideSummary?: {
     topDamageDone: Array<{
       playerName: string;
       value: number;
@@ -224,7 +220,7 @@ export interface NormalizedReport {
       interrupts?: number;
     };
   };
-  reportWideEncounterRecap?: {
+  reportWideEncounterSummary?: {
     topDamageDone: Array<{
       playerName: string;
       value: number;

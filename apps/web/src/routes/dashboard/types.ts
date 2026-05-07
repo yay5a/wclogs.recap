@@ -1,6 +1,6 @@
 import type { FastifyRequest } from "fastify";
 import type {
-    AutoRecapMode,
+    AutoReportMode,
     BotActivityEvent,
     BotActivityStore,
     CharacterClaimStatus,
@@ -97,11 +97,11 @@ export type DashboardGuildConfigSummary = {
     compareModeDefault: CompareMode;
     compareAccessMode: CompareAccessMode;
     comparePublicPostingEnabled: boolean;
-    autoRecapMode: AutoRecapMode;
+    autoReportMode: AutoReportMode;
     defaultGameFamily: GameFamily;
     dashboardOfficerAccessEnabled: boolean;
     compareOfficerUserCount: number;
-    autoRecapChannelCount: number;
+    autoReportChannelCount: number;
     updatedAt?: string;
 };
 
@@ -111,8 +111,8 @@ export type DashboardConfigPatch = Partial<
         | "compareModeDefault"
         | "compareAccessMode"
         | "comparePublicPostingEnabled"
-        | "autoRecapMode"
-        | "autoRecapChannelIds"
+        | "autoReportMode"
+        | "autoReportChannelIds"
         | "defaultGameFamily"
         | "dashboardOfficerAccessEnabled"
     >

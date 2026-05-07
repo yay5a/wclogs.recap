@@ -951,7 +951,7 @@ describe("index contract", () => {
             ]);
         });
 
-        it("exposes all-encounter report tables without changing kill-focused recap tables", () => {
+        it("exposes all-encounter report tables without changing kill-focused report tables", () => {
             const normalized = normalizeEnrichedReport(
                 {
                     base: {
@@ -1003,23 +1003,23 @@ describe("index contract", () => {
                 parsed,
             );
 
-            expect(normalized.reportWideRecap?.topDamageDone).toEqual([
+            expect(normalized.reportWideSummary?.topDamageDone).toEqual([
                 { playerName: "Alyra", value: 1000, className: "Priest" },
             ]);
-            expect(normalized.reportWideRecap?.totals.deaths).toBe(1);
-            expect(normalized.reportWideEncounterRecap?.topDamageDone).toEqual([
+            expect(normalized.reportWideSummary?.totals.deaths).toBe(1);
+            expect(normalized.reportWideEncounterSummary?.topDamageDone).toEqual([
                 { playerName: "Alyra", value: 2500, className: "Priest" },
             ]);
-            expect(normalized.reportWideEncounterRecap?.topDamageTaken).toEqual([
+            expect(normalized.reportWideEncounterSummary?.topDamageTaken).toEqual([
                 { playerName: "Bulwark", value: 1400, className: "Warrior" },
             ]);
-            expect(normalized.reportWideEncounterRecap?.topDeaths).toEqual([
+            expect(normalized.reportWideEncounterSummary?.topDeaths).toEqual([
                 { playerName: "Alyra", value: 4, className: "Priest" },
             ]);
-            expect(normalized.reportWideEncounterRecap?.topInterrupts).toEqual([
+            expect(normalized.reportWideEncounterSummary?.topInterrupts).toEqual([
                 { playerName: "Bulwark", value: 3, className: "Warrior" },
             ]);
-            expect(normalized.reportWideEncounterRecap?.topDispels).toEqual([]);
+            expect(normalized.reportWideEncounterSummary?.topDispels).toEqual([]);
         });
 
         it("keeps backward compatibility for base payload only", () => {
@@ -1130,19 +1130,19 @@ describe("index contract", () => {
                 },
             );
 
-            expect(normalized.reportWideRecap?.topDamageDone[0]?.playerName).toBe("Dpsy");
-            expect(normalized.reportWideRecap?.topHealingDone[0]?.playerName).toBe("Healz");
-            expect(normalized.reportWideRecap?.topDamageTaken?.[0]?.playerName).toBe("Dpsy");
-            expect(normalized.reportWideRecap?.topInterrupts?.[0]?.playerName).toBe("Dpsy");
-            expect(normalized.reportWideRecap?.topInterrupts?.[0]?.value).toBe(7);
-            expect(normalized.reportWideRecap?.topInterrupts).toHaveLength(1);
-            expect(normalized.reportWideRecap?.topDispels?.[0]?.playerName).toBe("Healz");
-            expect(normalized.reportWideRecap?.topDispels?.[0]?.value).toBe(7);
-            expect(normalized.reportWideRecap?.topDispels).toHaveLength(1);
-            expect(normalized.reportWideRecap?.topSurvivability?.[0]?.playerName).toBe("Dpsy");
-            expect(normalized.reportWideRecap?.totals.deaths).toBe(3);
-            expect(normalized.reportWideRecap?.totals.dispels).toBe(7);
-            expect(normalized.reportWideRecap?.totals.interrupts).toBe(7);
+            expect(normalized.reportWideSummary?.topDamageDone[0]?.playerName).toBe("Dpsy");
+            expect(normalized.reportWideSummary?.topHealingDone[0]?.playerName).toBe("Healz");
+            expect(normalized.reportWideSummary?.topDamageTaken?.[0]?.playerName).toBe("Dpsy");
+            expect(normalized.reportWideSummary?.topInterrupts?.[0]?.playerName).toBe("Dpsy");
+            expect(normalized.reportWideSummary?.topInterrupts?.[0]?.value).toBe(7);
+            expect(normalized.reportWideSummary?.topInterrupts).toHaveLength(1);
+            expect(normalized.reportWideSummary?.topDispels?.[0]?.playerName).toBe("Healz");
+            expect(normalized.reportWideSummary?.topDispels?.[0]?.value).toBe(7);
+            expect(normalized.reportWideSummary?.topDispels).toHaveLength(1);
+            expect(normalized.reportWideSummary?.topSurvivability?.[0]?.playerName).toBe("Dpsy");
+            expect(normalized.reportWideSummary?.totals.deaths).toBe(3);
+            expect(normalized.reportWideSummary?.totals.dispels).toBe(7);
+            expect(normalized.reportWideSummary?.totals.interrupts).toBe(7);
         });
     });
 

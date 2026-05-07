@@ -1,5 +1,5 @@
 import { createLogger } from "@wcl/shared";
-import { AUTO_RECAP_MODES, COMPARE_ACCESS_MODES, COMPARE_MODES, COMPARE_VISIBILITIES } from "@wcl/domain";
+import { AUTO_REPORT_MODES, COMPARE_ACCESS_MODES, COMPARE_MODES, COMPARE_VISIBILITIES } from "@wcl/domain";
 import { discordApiRequest, getDiscordApiBaseUrl } from "./discord-api.js";
 
 const logger = createLogger("discord");
@@ -56,7 +56,7 @@ export type CommandDefinition = ChatInputCommandDefinition | UserCommandDefiniti
 
 const commandTypeLabel = (type: CommandDefinition["type"]): string => (type === 1 ? "CHAT_INPUT" : type === 2 ? "USER" : "MESSAGE");
 const compareModeChoices = COMPARE_MODES.map((mode) => ({ name: mode, value: mode }));
-const autoRecapModeChoices = AUTO_RECAP_MODES.map((mode) => ({ name: mode, value: mode }));
+const autoReportModeChoices = AUTO_REPORT_MODES.map((mode) => ({ name: mode, value: mode }));
 const compareVisibilityChoices = COMPARE_VISIBILITIES.map((visibility) => ({
     name: visibility,
     value: visibility,
@@ -170,14 +170,14 @@ export const commandDefinitions: CommandDefinition[] = [
                 required: false,
             },
             {
-                name: "auto_recap_mode",
+                name: "auto_report_mode",
                 description: "Passive WCL URL handling mode",
                 type: STRING_OPTION_TYPE,
                 required: false,
-                choices: autoRecapModeChoices,
+                choices: autoReportModeChoices,
             },
             {
-                name: "auto_recap_channel",
+                name: "auto_report_channel",
                 description: "Toggle a channel for passive WCL URL detection",
                 type: CHANNEL_OPTION_TYPE,
                 required: false,

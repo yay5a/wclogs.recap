@@ -1,7 +1,7 @@
 import {
     JobModel,
-    MongoAutoRecapDuplicateTrackingStore,
-    MongoAutoRecapPromptStateStore,
+    MongoAutoReportDuplicateTrackingStore,
+    MongoAutoReportPromptStateStore,
     MongoComparisonHistoryStore,
     MongoDashboardActivityStore,
     MongoGuildConfigStore,
@@ -155,8 +155,8 @@ class MongoQueue implements Queue {
 const queue = new MongoQueue();
 const trendTrackingService = new MongoTrendTrackingService();
 const guildConfigStore = new MongoGuildConfigStore();
-const autoReportPromptStateService = new MongoAutoRecapPromptStateStore();
-const autoReportDuplicateTrackingService = new MongoAutoRecapDuplicateTrackingStore();
+const autoReportPromptStateService = new MongoAutoReportPromptStateStore();
+const autoReportDuplicateTrackingService = new MongoAutoReportDuplicateTrackingStore();
 const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const dashboardActivityStore = new MongoDashboardActivityStore();
 
@@ -225,12 +225,12 @@ const toAutoReportChannel = (channel: unknown): AutoReportSendableChannel | null
 
 const sendGuildCreateNotice = async (guild: Guild): Promise<void> => {
     const content = [
-        "Thanks for adding **wclogs.recap**.",
+        "Thanks for adding **wclogs.report**.",
         "",
         "Run `/config` to check setup status.",
         "",
         "To enable passive Warcraft Logs detection, run:",
-        "`/config auto_recap_channel:#raid-logs`",
+        "`/config auto_report_channel:#raid-logs`",
         "",
         "You can also use `/report <wcl_report_url>` anytime.",
     ].join("\n");

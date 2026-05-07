@@ -1,6 +1,6 @@
 import type { FormEvent } from "react";
 import type {
-    AutoRecapMode,
+    AutoReportMode,
     CompareAccessMode,
     CompareMode,
     DashboardCapability,
@@ -8,7 +8,7 @@ import type {
     GuildConfig,
 } from "../api.js";
 import {
-    autoRecapModes,
+    autoReportModes,
     compareAccessModes,
     compareModes,
     gameFamilies,
@@ -85,13 +85,13 @@ export const SettingsTab = ({
         <label>
             Auto report
             <select
-                value={config.autoRecapMode}
+                value={config.autoReportMode}
                 disabled={!can("settings:edit")}
                 onChange={(event) =>
-                    updateConfigField("autoRecapMode", event.target.value as AutoRecapMode)
+                    updateConfigField("autoReportMode", event.target.value as AutoReportMode)
                 }
             >
-                {autoRecapModes.map((mode) => (
+                {autoReportModes.map((mode) => (
                     <option key={mode} value={mode}>
                         {mode}
                     </option>

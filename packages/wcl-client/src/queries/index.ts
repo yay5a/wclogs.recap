@@ -1,6 +1,6 @@
 import {
     KILL_TYPES,
-    REPORT_RECAP_TABLE_DATA_TYPES,
+    REPORT_SUMMARY_TABLE_DATA_TYPES,
     REPORT_TABLE_DATA_TYPES,
     type KillType,
     type TableDataType,
@@ -232,7 +232,7 @@ const REPORT_WIDE_TABLE_QUERY = `
 `;
 
 export const REPORT_WIDE_KILL_TABLE_FILTERS: Record<
-    (typeof REPORT_RECAP_TABLE_DATA_TYPES)[number],
+    (typeof REPORT_SUMMARY_TABLE_DATA_TYPES)[number],
     string
 > = {
     DamageDone:
@@ -249,7 +249,7 @@ export const REPORT_WIDE_KILL_TABLE_FILTERS: Record<
 };
 
 export const REPORT_WIDE_ENCOUNTER_TABLE_FILTERS: Record<
-    (typeof REPORT_RECAP_TABLE_DATA_TYPES)[number],
+    (typeof REPORT_SUMMARY_TABLE_DATA_TYPES)[number],
     string
 > = {
     DamageDone:

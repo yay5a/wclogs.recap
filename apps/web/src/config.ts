@@ -38,7 +38,6 @@ const webEnvSchema = z.object({
         .min(1, "DASHBOARD_ADMIN_SECRET must not be empty")
         .optional(),
     DASHBOARD_AUTH_DISABLED: dashboardAuthDisabled,
-    PREVIEW_STATE_TTL_SECONDS: z.coerce.number().int().positive().default(900),
 }).superRefine((env, context) => {
     if (env.NODE_ENV === "production" && env.DASHBOARD_AUTH_DISABLED) {
         context.addIssue({

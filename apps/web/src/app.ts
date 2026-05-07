@@ -23,7 +23,7 @@ import type {
     DashboardCharacterClaimStore,
 } from "./routes/dashboard.js";
 import { registerDiscordInteractionRoutes } from "./routes/discord-interactions.js";
-import { registerRecapRoutes } from "./routes/recap.js";
+import { registerReportRoutes } from "./routes/report.js";
 
 export type CreateWebAppOptions = {
     env: WebEnv;
@@ -75,7 +75,7 @@ export const createWebApp = async (options: CreateWebAppOptions): Promise<Fastif
         wclUserAuthStore: options.wclUserAuthStore,
     });
 
-    await app.register(registerRecapRoutes, {
+    await app.register(registerReportRoutes, {
         wclClient: options.wclClient,
         logger: options.logger,
     });

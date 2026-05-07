@@ -1,20 +1,21 @@
-# wclogs.recap
+# wclogs.report
 
-![raidlog-recap concept](docs/restructure/current-state.png)
+![raidlog-report concept](./docs/report-summary.png)
+![guild-rank concept](./docs/guild-ranks.png)
 
-Beta Warcraft Logs recap service for Discord.
+Beta Warcraft Logs report-summary service for Discord.
 
-`wclogs.recap` fetches Warcraft Logs reports, normalizes the GraphQL payloads into typed raid recap models, and renders concise Discord-ready summaries. The current beta focuses on `/recap` for Warcraft Logs Classic raid reports, with Mongo-backed caching and preview state.
+`wclogs.report` fetches Warcraft Logs reports, normalizes the GraphQL payloads into typed raid report models, and renders concise Discord-ready summaries. The current beta focuses on `/report` for Warcraft Logs Classic raid reports, with Mongo-backed caching and automatic report posting.
 
 ## Beta Status
 
-The beta is usable for live recap generation, but the internals are still being refined.
+The beta is usable for live report generation, but the internals are still being refined.
 
 Currently working:
 
 - Discord interaction webhook handling with signature verification.
-- `/recap` flow for Warcraft Logs URLs.
-- Recap sections for Outcome, Performance, Volume, Execution, and Report link.
+- `/report` flow for Warcraft Logs URLs.
+- Report sections for metadata, summary stats, encounter highlights, top players, and source details.
 - Report-wide leaderboard for damage, healing, and damage taken parses, plus total deaths, dispels, and interrupts.
 - Private `/compare` MVP for exact-character history when stored comparison snapshots and authorization are available.
 
@@ -35,7 +36,7 @@ Character claim history may exist in beta databases. Web and worker startup run 
 
 ## Beta Testing
 
-WCLogs Recap is currently in beta. The app is being tested in a dedicated Discord server before it is treated as stable for wider use.
+WCLogs Report is currently in beta. The app is being tested in a dedicated Discord server before it is treated as stable for wider use.
 
 Beta testers invited to the server are encouraged to try the current Discord command flow, report confusing behavior, and submit reproducible bugs or feature requests.
 
@@ -44,10 +45,9 @@ Beta testers invited to the server are encouraged to try the current Discord com
 Please focus on the current user-facing Discord flow:
 
 1. Run `/health` to confirm the bot is responding.
-2. Run `/recap <log url>` with a public Warcraft Logs report.
-3. Review the private preview response.
-4. Use the post/confirm button if the recap looks correct, or cancel if not.
-5. Report bugs, confusing output, or missing context.
+2. Run `/report <wcl_report_url>` with a public Warcraft Logs report.
+3. Review the private report summary response.
+4. Report bugs, confusing output, or missing context.
 
 Comparison testing is limited to the private-first MVP:
 
@@ -68,17 +68,15 @@ Useful things to check:
 
 - Does the command respond successfully?
 - Does the app reject invalid Warcraft Logs URLs clearly?
-- Does the recap identify the raid, date, and bosses correctly?
+- Does the report identify the raid, date, and bosses correctly?
 - Do player names, classes, and performance highlights look correct?
 - Do the labels, rankings, and metrics make sense and are understandable?
-- Does the preview/post flow behave as expected?
+- Does automatic report posting behave as expected when enabled?
 - Does repeated use of the same report behave consistently?
 
 ### Reporting bugs
 
-Please report confirmed bugs through GitHub Issues:
-
-https://github.com/yay5a/wclogs.recap/issues
+Please report confirmed bugs through the project issue tracker.
 
 Before opening an issue, check whether the bug is already listed in the beta Discord server or in existing GitHub issues.
 
@@ -88,7 +86,7 @@ A useful bug report should include:
     Short description of the problem
 
     Command used:
-    Example: /recap <url>
+    Example: /report <wcl_report_url>
 
     Warcraft Logs report:
     Paste the public report URL or report code if it can be shared.
@@ -130,7 +128,7 @@ Example:
     Show the boss name next to the best single-boss parse.
 
     Problem:
-    The recap can show the best parse value, but without the boss name it is hard to understand where that performance happened.
+    The report can show the best parse value, but without the boss name it is hard to understand where that performance happened.
 
     Desired behavior:
     Best Single-Boss Parse: PlayerName - 97.3 on BossName
@@ -167,7 +165,7 @@ If you are only testing the hosted beta bot in Discord, use the bot commands in 
 ## Repository Layout
 
 ```text
-  wclogs.recap/
+  wclogs.report/
     apps/
       web/            Fastify API, Discord webhook, WCL OAuth routes
       worker/         Mongo-backed background job worker
@@ -175,22 +173,22 @@ If you are only testing the hosted beta bot in Discord, use the bot commands in 
       contracts/      Shared contract package placeholder
       db/             Mongoose models and Mongo stores/services
       discord/        Discord commands, interaction handling, embed rendering
-      domain/         Normalized raid types and recap section builders
+      domain/         Normalized raid types and report section builders
       shared/         Logger, Zod helpers, shared utility types
       wcl-client/     Warcraft Logs GraphQL client, cache policy, parsers
     docker-compose.yml
     pnpm-workspace.yaml
 ```
 
-## Recap Output
+## Report Output
 
-The beta recap is rendered as a Discord embed with these sections:
+The beta report summary is rendered as a Discord embed with these sections:
 
-- `Outcome`: raid title, guild/realm, duration, date, and boss highlights.
-- `Performance`: best parses, best average, best single-boss parse, and overall DPS/HPS/DTPS rankings.
-- `Volume`: top damage done, healing done, damage taken, and raid totals.
-- `Execution`: top interrupts, top dispels, and raid superlatives.
-- `Report`: source Warcraft Logs report URL.
+- `Metadata`: report title, raid, difficulty, date, start/end time, and duration.
+- `Summary`: boss pulls, kills, wipes, and deaths.
+- `Encounter Highlights`: best execution and biggest trouble encounters when enough data is available.
+- `Top Players`: top parse, throughput, volume, deaths, interrupts, and dispels.
+- `Data Source`: source Warcraft Logs report URL and partial-data notes.
 
 Example source input:
 
@@ -210,26 +208,25 @@ The web app loads `.env` from the repo root when present. Docker Compose also re
 
 Required for `apps/web`:
 
-| Variable                 | Purpose                                                             |
-| ------------------------ | ------------------------------------------------------------------- |
-| `MONGODB_URI`            | MongoDB connection URI.                                             |
-| `DISCORD_PUBLIC_KEY`     | 64-character Discord public key used to verify interactions.        |
-| `DISCORD_APPLICATION_ID` | Discord application ID.                                             |
-| `DISCORD_BOT_TOKEN`      | Discord bot token used for command registration and response edits. |
-| `WCL_CLIENT_ID`          | Warcraft Logs OAuth client ID.                                      |
-| `WCL_CLIENT_SECRET`      | Warcraft Logs OAuth client secret.                                  |
-| `WCL_REDIRECT_URI`       | Callback URL for WCL user OAuth routes.                             |
+| Variable                 | Purpose                                                               |
+| ------------------------ | --------------------------------------------------------------------- |
+| `MONGODB_URI`            | MongoDB connection URI.                                               |
+| `DISCORD_PUBLIC_KEY`     | 64-character Discord public key used to verify interactions.          |
+| `DISCORD_APPLICATION_ID` | Discord application ID.                                               |
+| `DISCORD_BOT_TOKEN`      | Discord bot token used for command registration and response edits.   |
+| `WCL_CLIENT_ID`          | Warcraft Logs OAuth client ID.                                        |
+| `WCL_CLIENT_SECRET`      | Warcraft Logs OAuth client secret.                                    |
+| `WCL_REDIRECT_URI`       | Callback URL for WCL user OAuth routes.                               |
 | `COOKIE_SECRET`          | Secret for signed cookies used by OAuth state and dashboard sessions. |
-| `DASHBOARD_ADMIN_SECRET` | Shared admin secret for dashboard login in production.               |
+| `DASHBOARD_ADMIN_SECRET` | Shared admin secret for dashboard login in production.                |
 
 Optional web variables:
 
-| Variable                    | Default                                      | Purpose                                               |
-| --------------------------- | -------------------------------------------- | ----------------------------------------------------- |
-| `NODE_ENV`                  | `development`                                | Runtime mode: `development`, `test`, or `production`. |
-| `PORT`                      | `3000`                                       | HTTP port for the Fastify web service.                |
-| `WCL_API_BASE_URL`          | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint.                             |
-| `PREVIEW_STATE_TTL_SECONDS` | `900`                                        | TTL for Discord recap preview state.                  |
+| Variable                    | Default                                      | Purpose                                                                                |
+| --------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `NODE_ENV`                  | `development`                                | Runtime mode: `development`, `test`, or `production`.                                  |
+| `PORT`                      | `3000`                                       | HTTP port for the Fastify web service.                                                 |
+| `WCL_API_BASE_URL`          | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint.                                                              |
 | `DASHBOARD_AUTH_DISABLED`   | unset                                        | Development/test-only dashboard auth bypass. Only `true` and `false` are valid values. |
 
 Dashboard notes:
@@ -321,7 +318,7 @@ The checked-in Compose file includes deployment-specific public URLs. Adjust `WC
 | Route                        | Purpose                                                        |
 | ---------------------------- | -------------------------------------------------------------- |
 | `GET /health`                | Basic health check returning `{ "status": "ok" }`.             |
-| `POST /api/recap`            | Fetch and normalize a recap payload from a report code or URL. |
+| `POST /api/report`           | Fetch and normalize a report payload from a report code.       |
 | `POST /discord/interactions` | Discord interaction webhook endpoint.                          |
 | `GET /api/auth/wcl/status`   | Inspect stored WCL user OAuth state.                           |
 | `GET /api/auth/wcl/login`    | Start WCL user OAuth.                                          |
@@ -348,8 +345,8 @@ pnpm --filter @wcl/domain test
 
 ## Operational Notes
 
-- Discord requires interaction webhooks to acknowledge quickly. The web route defers the response and schedules the heavier WCL recap work after the HTTP response finishes.
-- Report-wide table data is fetched from kill fight IDs and normalized into recap totals and top-player rows.
+- Discord requires interaction webhooks to acknowledge quickly. The web route defers the response and schedules the heavier WCL report work after the HTTP response finishes.
+- Report-wide table data is normalized into report totals and top-player rows.
 - Per-encounter boss rankings are fetched with bounded concurrency to reduce report latency without firing every boss request at once.
 - Mongo report cache entries include payload versions so stale normalized/raw payload shapes can be refetched after parser changes.
 - Logs are emitted through Pino with sensitive fields redacted by `@wcl/shared`.

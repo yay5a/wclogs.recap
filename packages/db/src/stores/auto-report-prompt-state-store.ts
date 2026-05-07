@@ -1,7 +1,7 @@
 import type { GameFamily } from "@wcl/domain";
-import { AutoRecapPromptStateModel } from "../index.js";
+import { AutoReportPromptStateModel } from "../index.js";
 
-export interface AutoRecapPromptStateRecord {
+export interface AutoReportPromptStateRecord {
     guildId: string;
     channelId: string;
     reportCode: string;
@@ -13,12 +13,12 @@ export interface AutoRecapPromptStateRecord {
     expiresAt: Date;
 }
 
-type SaveAutoRecapPromptStateInput = AutoRecapPromptStateRecord;
+type SaveAutoReportPromptStateInput = AutoReportPromptStateRecord;
 
 const isGameFamily = (value: unknown): value is GameFamily =>
     value === "retail" || value === "mop_classic";
 
-const toPromptStateRecord = (doc: unknown): AutoRecapPromptStateRecord | null => {
+const toPromptStateRecord = (doc: unknown): AutoReportPromptStateRecord | null => {
     if (!doc || typeof doc !== "object") return null;
     const raw = doc as Record<string, unknown>;
     if (
@@ -48,25 +48,25 @@ const toPromptStateRecord = (doc: unknown): AutoRecapPromptStateRecord | null =>
     };
 };
 
-export class MongoAutoRecapPromptStateStore {
+export class MongoAutoReportPromptStateStore {
     public async savePromptState(
-        input: SaveAutoRecapPromptStateInput,
-    ): Promise<AutoRecapPromptStateRecord> {
-        const saved = await AutoRecapPromptStateModel.findOneAndUpdate(
+        input: SaveAutoReportPromptStateInput,
+    ): Promise<AutoReportPromptStateRecord> {
+        const saved = await AutoReportPromptStateModel.findOneAndUpdate(
             { sourceMessageId: input.sourceMessageId },
             { $set: input },
             { upsert: true, new: true, setDefaultsOnInsert: true },
         ).lean();
 
         const parsed = toPromptStateRecord(saved);
-        if (!parsed) throw new Error("Failed to persist auto recap prompt state.");
+        if (!parsed) throw new Error("Failed to persist auto report prompt state.");
         return parsed;
     }
 
     public async getValidPromptState(
         sourceMessageId: string,
-    ): Promise<AutoRecapPromptStateRecord | null> {
-        const found = await AutoRecapPromptStateModel.findOne({
+    ): Promise<AutoReportPromptStateRecord | null> {
+        const found = await AutoReportPromptStateModel.findOne({
             sourceMessageId,
             expiresAt: { $gt: new Date() },
         }).lean();
@@ -75,8 +75,8 @@ export class MongoAutoRecapPromptStateStore {
 
     public async consumeValidPromptState(
         sourceMessageId: string,
-    ): Promise<AutoRecapPromptStateRecord | null> {
-        const consumed = await AutoRecapPromptStateModel.findOneAndDelete({
+    ): Promise<AutoReportPromptStateRecord | null> {
+        const consumed = await AutoReportPromptStateModel.findOneAndDelete({
             sourceMessageId,
             expiresAt: { $gt: new Date() },
         }).lean();

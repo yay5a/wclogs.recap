@@ -32,7 +32,7 @@ export const REPORT_TABLE_DATA_TYPES = [
     "Survivability",
 ] as const satisfies readonly TableDataType[];
 
-export const REPORT_RECAP_TABLE_DATA_TYPES = [
+export const REPORT_SUMMARY_TABLE_DATA_TYPES = [
     "DamageDone",
     "DamageTaken",
     "Healing",

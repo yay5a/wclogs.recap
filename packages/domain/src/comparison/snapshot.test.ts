@@ -142,7 +142,7 @@ describe('comparison snapshot extraction', () => {
     expect(result.snapshots[0]).toMatchObject({ rankPercent: 82 });
   });
 
-  it('includes damageTotal and healingTotal when available from normalized report recap rows', () => {
+  it('includes damageTotal and healingTotal when available from normalized report summary rows', () => {
     const report: NormalizedReport = {
       ...makeReport([
         {
@@ -152,7 +152,7 @@ describe('comparison snapshot extraction', () => {
           region: 'US',
         },
       ]),
-      reportWideRecap: {
+      reportWideSummary: {
         topDamageDone: [{ playerName: 'Yaysa', value: 1234 }],
         topHealingDone: [{ playerName: 'Yaysa', value: 5678 }],
         totals: {},
@@ -183,7 +183,7 @@ describe('comparison snapshot extraction', () => {
     expect(result.snapshots[0]).toMatchObject({ deaths: 2 });
   });
 
-  it('includes interrupts and dispels when available from normalized report recap rows', () => {
+  it('includes interrupts and dispels when available from normalized report summary rows', () => {
     const report: NormalizedReport = {
       ...makeReport([
         {
@@ -193,7 +193,7 @@ describe('comparison snapshot extraction', () => {
           region: 'US',
         },
       ]),
-      reportWideRecap: {
+      reportWideSummary: {
         topDamageDone: [],
         topHealingDone: [],
         topInterrupts: [{ playerName: 'Yaysa', value: 5 }],
@@ -241,7 +241,7 @@ describe('comparison snapshot extraction', () => {
           deaths: 0,
         },
       ]),
-      reportWideRecap: {
+      reportWideSummary: {
         topDamageDone: [{ playerName: 'Yaysa', value: 0 }],
         topHealingDone: [{ playerName: 'Yaysa', value: 0 }],
         topInterrupts: [{ playerName: 'Yaysa', value: 0 }],

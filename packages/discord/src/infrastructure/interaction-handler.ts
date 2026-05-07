@@ -10,7 +10,6 @@ import { processReportInteraction } from "../commands/report.js";
 
 const logger = createLogger("discord");
 const EPHEMERAL_MESSAGE_FLAG = 64;
-const RECAP_RETIRED_MESSAGE = "`/recap` has been retired. Use `/report <wcl_report_url>`.";
 
 export const handleInteraction = async (interaction: unknown, options: HandleOptions): Promise<unknown> => {
     const typedInteraction = interaction as import("../types.js").DiscordInteraction;
@@ -67,16 +66,6 @@ export const handleInteraction = async (interaction: unknown, options: HandleOpt
             return handleComparePrivacyCommand(typedInteraction, options);
         }
 
-        if (typedInteraction.data?.name === "recap") {
-            return {
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: RECAP_RETIRED_MESSAGE,
-                    flags: EPHEMERAL_MESSAGE_FLAG,
-                },
-            };
-        }
-
         if (typedInteraction.data?.name === "report") {
             const url = getStringCommandOption(typedInteraction.data.options, "wcl_report_url");
             logger.info({ interactionId: typedInteraction.id, rawUrl: url ?? null }, "report url received");
@@ -110,22 +99,11 @@ export const handleInteraction = async (interaction: unknown, options: HandleOpt
         if (autoReportResponse) {
             return autoReportResponse;
         }
-
-        const customId = typedInteraction.data?.custom_id;
-        if (typeof customId === "string" && customId.startsWith("recap:")) {
-            return {
-                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: {
-                    content: RECAP_RETIRED_MESSAGE,
-                    flags: EPHEMERAL_MESSAGE_FLAG,
-                },
-            };
-        }
     }
 
     return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-        data: { content: "Unsupported interaction in MVP.", flags: 64 },
+        data: { content: "Unsupported interaction.", flags: 64 },
     };
 };
 

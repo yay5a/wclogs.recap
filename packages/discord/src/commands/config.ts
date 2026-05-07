@@ -1,5 +1,5 @@
 import { InteractionResponseType } from "discord-interactions";
-import { COMPARE_ACCESS_MODES, parseAutoRecapMode, parseCompareAccessMode, parseCompareMode, parseGameFamily, type AutoRecapMode, type CompareAccessMode, type CompareMode, type GameFamily, type GuildConfig } from "@wcl/domain";
+import { COMPARE_ACCESS_MODES, parseAutoReportMode, parseCompareAccessMode, parseCompareMode, parseGameFamily, type AutoReportMode, type CompareAccessMode, type CompareMode, type GameFamily, type GuildConfig } from "@wcl/domain";
 import type { DiscordInteraction, HandleOptions } from "../types.js";
 import { canManageGuildConfig } from "./permissions.js";
 
@@ -20,17 +20,17 @@ const hasCommandOptions = (options: unknown): boolean => Array.isArray(options) 
 const parseGameFamilyOption = (value: string | undefined): GameFamily | undefined =>
     parseGameFamily(value);
 
-const getAutoRecapMode = (config: Partial<GuildConfig>): AutoRecapMode => config.autoRecapMode ?? "prompt";
+const getAutoReportMode = (config: Partial<GuildConfig>): AutoReportMode => config.autoReportMode ?? "prompt";
 
-const getAutoRecapChannelIds = (config: Partial<GuildConfig>): string[] => (Array.isArray(config.autoRecapChannelIds) ? [...new Set(config.autoRecapChannelIds)] : []);
+const getAutoReportChannelIds = (config: Partial<GuildConfig>): string[] => (Array.isArray(config.autoReportChannelIds) ? [...new Set(config.autoReportChannelIds)] : []);
 
 const buildConfigStatusResponse = (config: Partial<GuildConfig>): string => {
-    const mode = getAutoRecapMode(config);
-    const channelIds = getAutoRecapChannelIds(config);
-    const lines = ["**wclogs.recap setup status**", "", `Auto report: \`${mode}\``];
+    const mode = getAutoReportMode(config);
+    const channelIds = getAutoReportChannelIds(config);
+    const lines = ["**wclogs report setup status**", "", `Auto report: \`${mode}\``];
 
     if (channelIds.length === 0) {
-        lines.push("Auto report channels: none configured", "", "**Next step:**", "Add a raid-log channel: `/config auto_recap_channel:#raid-logs`", "", "**Required bot permissions in that channel:**", "View Channel, Send Messages, Embed Links", "", "**Optional:**", "Use `/report <wcl_report_url>` anytime without auto report.");
+        lines.push("Auto report channels: none configured", "", "**Next step:**", "Add a raid-log channel: `/config auto_report_channel:#raid-logs`", "", "**Required bot permissions in that channel:**", "View Channel, Send Messages, Embed Links", "", "**Optional:**", "Use `/report <wcl_report_url>` anytime without auto report.");
         return lines.join("\n");
     }
 
@@ -78,11 +78,11 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
     const rawCompareMode = getStringOption(interaction.data?.options, "compare_mode");
     const rawCompareAccessMode = getStringOption(interaction.data?.options, "compare_access_mode");
     const comparePublicPostingEnabled = getBooleanOption(interaction.data?.options, "compare_public_posting");
-    const rawAutoRecapMode = getStringOption(interaction.data?.options, "auto_recap_mode");
-    const autoRecapChannelId = getStringOption(interaction.data?.options, "auto_recap_channel");
+    const rawAutoReportMode = getStringOption(interaction.data?.options, "auto_report_mode");
+    const autoReportChannelId = getStringOption(interaction.data?.options, "auto_report_channel");
     const compareModeDefault = rawCompareMode === undefined ? undefined : parseCompareMode(rawCompareMode);
     const compareAccessMode = rawCompareAccessMode === undefined ? undefined : parseCompareAccessMode(rawCompareAccessMode);
-    const autoRecapMode = rawAutoRecapMode === undefined ? undefined : parseAutoRecapMode(rawAutoRecapMode);
+    const autoReportMode = rawAutoReportMode === undefined ? undefined : parseAutoReportMode(rawAutoReportMode);
 
     if (!hasCommandOptions(interaction.data?.options)) {
         const config = await options.guildConfigStore.getGuildConfig(guildId);
@@ -115,30 +115,30 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
         };
     }
 
-    if (rawAutoRecapMode !== undefined && !autoRecapMode) {
+    if (rawAutoReportMode !== undefined && !autoReportMode) {
         return {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-                content: "Invalid auto_recap_mode. Choose off, prompt, auto_preview, or auto_post.",
+                content: "Invalid auto_report_mode. Choose off, prompt, auto_preview, or auto_post.",
                 flags: 64,
             },
         };
     }
 
     const updateObject: Parameters<HandleOptions["guildConfigStore"]["saveGuildConfig"]>[1] = {};
-    const needsExistingConfig = Boolean(autoRecapChannelId);
+    const needsExistingConfig = Boolean(autoReportChannelId);
     const existingConfig = needsExistingConfig ? await options.guildConfigStore.getGuildConfig(guildId) : undefined;
     const parsedGameFamily = parseGameFamilyOption(defaultGameFamily);
     if (parsedGameFamily) updateObject.defaultGameFamily = parsedGameFamily;
     if (compareModeDefault) updateObject.compareModeDefault = compareModeDefault;
     if (compareAccessMode) updateObject.compareAccessMode = compareAccessMode;
-    if (autoRecapMode) updateObject.autoRecapMode = autoRecapMode;
+    if (autoReportMode) updateObject.autoReportMode = autoReportMode;
     if (comparePublicPostingEnabled !== undefined) {
         updateObject.comparePublicPostingEnabled = comparePublicPostingEnabled;
     }
-    if (autoRecapChannelId && existingConfig) {
-        const currentChannelIds = getAutoRecapChannelIds(existingConfig);
-        updateObject.autoRecapChannelIds = currentChannelIds.includes(autoRecapChannelId) ? currentChannelIds.filter((channelId) => channelId !== autoRecapChannelId) : [...currentChannelIds, autoRecapChannelId];
+    if (autoReportChannelId && existingConfig) {
+        const currentChannelIds = getAutoReportChannelIds(existingConfig);
+        updateObject.autoReportChannelIds = currentChannelIds.includes(autoReportChannelId) ? currentChannelIds.filter((channelId) => channelId !== autoReportChannelId) : [...currentChannelIds, autoReportChannelId];
     }
     const saved = await options.guildConfigStore.saveGuildConfig(guildId, updateObject);
     const responseLines: string[] = [];
@@ -151,12 +151,12 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
     if (comparePublicPostingEnabled !== undefined) {
         responseLines.push(saved.comparePublicPostingEnabled ? "Public compare posting enabled. Posting still requires explicit visibility and target safeguards." : "Public compare posting disabled. Private comparison cards remain the default.");
     }
-    if (autoRecapMode) {
-        responseLines.push(`Auto report mode set to ${autoRecapMode}.`);
+    if (autoReportMode) {
+        responseLines.push(`Auto report mode set to ${autoReportMode}.`);
     }
-    if (autoRecapChannelId) {
-        const enabled = getAutoRecapChannelIds(saved).includes(autoRecapChannelId);
-        responseLines.push(enabled ? `Auto report enabled in <#${autoRecapChannelId}>.` : `Auto report disabled in <#${autoRecapChannelId}>.`);
+    if (autoReportChannelId) {
+        const enabled = getAutoReportChannelIds(saved).includes(autoReportChannelId);
+        responseLines.push(enabled ? `Auto report enabled in <#${autoReportChannelId}>.` : `Auto report disabled in <#${autoReportChannelId}>.`);
     }
 
     return {
