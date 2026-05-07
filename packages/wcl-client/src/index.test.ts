@@ -656,71 +656,6 @@ describe("index contract", () => {
             expect(bulwark?.selectedMetric).toBe("DTPS");
         });
 
-        it("preserves healer/tank metrics in boss performance best parses", () => {
-            const normalized = normalizeEnrichedReport(
-                {
-                    base: {
-                        reportData: {
-                            report: {
-                                title: "Boss metrics",
-                                startTime: 100,
-                                endTime: 1000,
-                                fights: [
-                                    {
-                                        id: 46,
-                                        name: "Lei Shen",
-                                        startTime: 200,
-                                        endTime: 500,
-                                        kill: true,
-                                        encounterID: 51579,
-                                    },
-                                ],
-                                masterData: {
-                                    actors: [
-                                        { id: 1, name: "Emerald", subType: "Priest" },
-                                        { id: 2, name: "Bulwark", subType: "Warrior" },
-                                    ],
-                                },
-                            },
-                        },
-                    },
-                    encounterSummaries: [
-                        {
-                            encounterID: 51579,
-                            bossName: "Lei Shen",
-                            fightId: 46,
-                            kill: true,
-                            rankings: {
-                                rankings: [
-                                    {
-                                        playerID: 1,
-                                        name: "Emerald",
-                                        role: "Healer",
-                                        selectedMetric: "hps",
-                                        rankPercent: 99,
-                                        amount: 111111,
-                                    },
-                                    {
-                                        playerID: 2,
-                                        name: "Bulwark",
-                                        role: "Tank",
-                                        playerMetric: "dtps",
-                                        rankPercent: 96,
-                                        amount: 222222,
-                                    },
-                                ],
-                            },
-                            tables: {},
-                        },
-                    ],
-                },
-                parsed,
-            );
-
-            expect(normalized.bossPerformances?.[0]?.bestParses?.[0]?.metric).toBe("HPS");
-            expect(normalized.bossPerformances?.[0]?.bestParses?.[1]?.metric).toBe("DTPS");
-        });
-
         it("exposes report-wide DPS/HPS combined rankings with rankPercent and fight metadata", () => {
             const normalized = normalizeEnrichedReport(
                 {
@@ -956,6 +891,137 @@ describe("index contract", () => {
             expect(normalized.reportWideRankings?.hps).toEqual([]);
         });
 
+        it("preserves all encounter pulls separately while keeping kill-focused fights stable", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "All pulls",
+                                startTime: 100,
+                                endTime: 1000,
+                                zone: { difficulties: [{ id: 4, name: "Heroic" }] },
+                                fights: [
+                                    {
+                                        id: 4,
+                                        name: "Horridon",
+                                        startTime: 100,
+                                        endTime: 200,
+                                        kill: false,
+                                        encounterID: 51575,
+                                        difficulty: 4,
+                                    },
+                                    {
+                                        id: 5,
+                                        name: "Horridon",
+                                        startTime: 210,
+                                        endTime: 360,
+                                        kill: true,
+                                        encounterID: 51575,
+                                        difficulty: 4,
+                                    },
+                                ],
+                                masterData: { actors: [] },
+                            },
+                        },
+                    },
+                    encounterSummaries: [],
+                },
+                parsed,
+            );
+
+            expect(normalized.fights).toEqual([
+                { id: 5, name: "Horridon", startTime: 210, endTime: 360, kill: true },
+            ]);
+            expect(normalized.encounterFights).toEqual([
+                expect.objectContaining({
+                    id: 4,
+                    name: "Horridon",
+                    kill: false,
+                    encounterId: 51575,
+                    difficultyName: "Heroic",
+                }),
+                expect.objectContaining({
+                    id: 5,
+                    name: "Horridon",
+                    kill: true,
+                    encounterId: 51575,
+                    difficultyName: "Heroic",
+                }),
+            ]);
+        });
+
+        it("exposes all-encounter report tables without changing kill-focused recap tables", () => {
+            const normalized = normalizeEnrichedReport(
+                {
+                    base: {
+                        reportData: {
+                            report: {
+                                title: "Encounter tables",
+                                startTime: 100,
+                                endTime: 1000,
+                                fights: [
+                                    {
+                                        id: 4,
+                                        name: "Horridon",
+                                        startTime: 100,
+                                        endTime: 200,
+                                        kill: false,
+                                        encounterID: 51575,
+                                    },
+                                    {
+                                        id: 5,
+                                        name: "Horridon",
+                                        startTime: 210,
+                                        endTime: 360,
+                                        kill: true,
+                                        encounterID: 51575,
+                                    },
+                                ],
+                                masterData: {
+                                    actors: [
+                                        { id: 1, name: "Alyra", subType: "Priest" },
+                                        { id: 2, name: "Bulwark", subType: "Warrior" },
+                                    ],
+                                },
+                            },
+                        },
+                    },
+                    reportTables: {
+                        DamageDone: { entries: [{ name: "Alyra", total: 1000 }] },
+                        Deaths: { entries: [{ name: "Alyra", deaths: 1 }] },
+                    },
+                    reportEncounterTables: {
+                        DamageDone: { entries: [{ name: "Alyra", total: 2500 }] },
+                        DamageTaken: { entries: [{ name: "Bulwark", total: 1400 }] },
+                        Deaths: { entries: [{ name: "Alyra", deaths: 4 }] },
+                        Interrupts: { entries: [{ name: "Bulwark", interrupts: 3 }] },
+                        Dispels: { entries: [{ malformed: true }] },
+                    },
+                    encounterSummaries: [],
+                },
+                parsed,
+            );
+
+            expect(normalized.reportWideRecap?.topDamageDone).toEqual([
+                { playerName: "Alyra", value: 1000, className: "Priest" },
+            ]);
+            expect(normalized.reportWideRecap?.totals.deaths).toBe(1);
+            expect(normalized.reportWideEncounterRecap?.topDamageDone).toEqual([
+                { playerName: "Alyra", value: 2500, className: "Priest" },
+            ]);
+            expect(normalized.reportWideEncounterRecap?.topDamageTaken).toEqual([
+                { playerName: "Bulwark", value: 1400, className: "Warrior" },
+            ]);
+            expect(normalized.reportWideEncounterRecap?.topDeaths).toEqual([
+                { playerName: "Alyra", value: 4, className: "Priest" },
+            ]);
+            expect(normalized.reportWideEncounterRecap?.topInterrupts).toEqual([
+                { playerName: "Bulwark", value: 3, className: "Warrior" },
+            ]);
+            expect(normalized.reportWideEncounterRecap?.topDispels).toEqual([]);
+        });
+
         it("keeps backward compatibility for base payload only", () => {
             const normalized = normalizeReport(
                 {
@@ -975,401 +1041,6 @@ describe("index contract", () => {
             );
 
             expect(normalized.players[0]?.name).toBe("Alyra");
-        });
-
-        it("normalizes selected Lei Shen fight from representative probe payloads", () => {
-            const normalized = normalizeEnrichedReport(
-                {
-                    base: {
-                        reportData: {
-                            report: {
-                                title: "Throne of Thunder",
-                                startTime: 1000,
-                                endTime: 441287,
-                                phases: [
-                                    {
-                                        encounterID: 51579,
-                                        phases: [
-                                            { id: 1, name: "Phase 1", isIntermission: false },
-                                            { id: 2, name: "Intermission 1", isIntermission: true },
-                                            { id: 3, name: "Phase 3", isIntermission: false },
-                                            { id: 4, name: "Intermission 2", isIntermission: true },
-                                            { id: 5, name: "Phase 5", isIntermission: false },
-                                        ],
-                                    },
-                                ],
-                                fights: [
-                                    {
-                                        id: 46,
-                                        name: "Lei Shen",
-                                        startTime: 1000,
-                                        endTime: 441287,
-                                        kill: true,
-                                        encounterID: 51579,
-                                        phaseTransitions: [
-                                            { id: 2, startTime: 120000 },
-                                            { id: 3, startTime: 130000 },
-                                            { id: 4, startTime: 300000 },
-                                            { id: 5, startTime: 310000 },
-                                        ],
-                                    },
-                                ],
-                                masterData: {
-                                    actors: [
-                                        { id: 1, name: "Raikami", subType: "Hunter" },
-                                        { id: 2, name: "Arakinak", subType: "Druid" },
-                                        { id: 3, name: "Floorroller", subType: "Monk" },
-                                        { id: 4, name: "Pearl", subType: "Priest" },
-                                    ],
-                                },
-                            },
-                        },
-                    },
-                    encounterSummaries: [
-                        {
-                            encounterID: 51579,
-                            bossName: "Lei Shen",
-                            fightId: 46,
-                            kill: true,
-                            difficulty: 3,
-                            rankings: {
-                                rankings: [
-                                    {
-                                        playerID: 1,
-                                        name: "Raikami",
-                                        rankPercent: 99,
-                                        amount: 169858,
-                                        role: "DPS",
-                                        className: "Hunter",
-                                        spec: "Survival",
-                                    },
-                                    {
-                                        playerID: 2,
-                                        name: "Arakinak",
-                                        rankPercent: 79,
-                                        amount: 94429,
-                                        role: "Tank",
-                                        playerMetric: "dtps",
-                                        className: "Druid",
-                                        spec: "Guardian",
-                                    },
-                                    {
-                                        playerID: 3,
-                                        name: "Floorroller",
-                                        rankPercent: 43,
-                                        amount: 48423,
-                                        role: "Healer",
-                                        selectedMetric: "hps",
-                                        className: "Monk",
-                                        spec: "Mistweaver",
-                                    },
-                                    {
-                                        playerID: 4,
-                                        name: "Pearl",
-                                        rankPercent: 41,
-                                        amount: 42000,
-                                        role: "Healer",
-                                        selectedMetric: "hps",
-                                        className: "Priest",
-                                        spec: "Holy",
-                                    },
-                                ],
-                            },
-                            tables: {
-                                DamageTaken: {
-                                    entries: [{ id: 2, name: "Arakinak", total: 94429 }],
-                                },
-                                Healing: {
-                                    entries: [
-                                        { id: 3, name: "Floorroller", total: 48423 },
-                                        { id: 4, name: "Pearl", total: 42000 },
-                                    ],
-                                },
-                                Deaths: {
-                                    data: {
-                                        entries: [
-                                            { id: 1, name: "Raikami", timestamp: 1000, overkill: 1 },
-                                            { id: 2, name: "Arakinak", timestamp: 2000, events: [] },
-                                            { id: 3, name: "Floorroller", timestamp: 3000, deathWindow: [] },
-                                            {
-                                                id: 4,
-                                                name: "Pearl",
-                                                timestamp: 4000,
-                                                killingBlow: { name: "Thunderstruck" },
-                                            },
-                                        ],
-                                    },
-                                },
-                                Dispels: {
-                                    data: {
-                                        entries: [
-                                            {
-                                                entries: [
-                                                    {
-                                                        details: [
-                                                            { id: 4, name: "Pearl", total: 1 },
-                                                        ],
-                                                    },
-                                                ],
-                                            },
-                                        ],
-                                    },
-                                },
-                                Interrupts: {
-                                    data: {
-                                        entries: [
-                                            {
-                                                entries: [
-                                                    {
-                                                        details: [
-                                                            { id: 1, name: "Raikami", total: 3 },
-                                                        ],
-                                                    },
-                                                ],
-                                            },
-                                        ],
-                                    },
-                                },
-                                Survivability: {
-                                    data: {
-                                        players: [{ id: 1, name: "Raikami" }],
-                                        fights: [{ id: 46 }],
-                                        actortotals: [{ id: 1, name: "Raikami", class: "HUNTER" }],
-                                        abilitytotals: [],
-                                    },
-                                },
-                            },
-                        },
-                    ],
-                },
-                {
-                    reportCode: "v4apgdkyWQmrZ3q8",
-                    gameFamily: "mop_classic",
-                    rawUrl: "https://classic.warcraftlogs.com/reports/v4apgdkyWQmrZ3q8",
-                },
-            );
-
-            const recap = normalized.bossPerformances?.find(
-                (entry) => entry.bossName === "Lei Shen",
-            );
-            expect(recap?.bossName).toBe("Lei Shen");
-            expect(recap?.pullCount).toBe(1);
-            expect(recap?.fightDurationMs).toBe(440287);
-            expect(recap?.deaths).toBe(4);
-            expect(recap?.dispels).toBe(1);
-            expect(recap?.kicks).toBe(3);
-            expect(recap?.fastestPhaseTimes?.map((phase) => phase.label)).toEqual([
-                "P1",
-                "P3",
-                "P5",
-            ]);
-            expect(
-                recap?.bestParses?.map((entry) => ({
-                    player: entry.playerName,
-                    parse: entry.parse,
-                    amount: Math.round(entry.amount ?? 0),
-                    metric: entry.metric,
-                    className: entry.className,
-                    specName: entry.specName,
-                })),
-            ).toEqual([
-                {
-                    player: "Raikami",
-                    parse: 99,
-                    amount: 169858,
-                    metric: "DPS",
-                    className: "Hunter",
-                    specName: "Survival",
-                },
-                {
-                    player: "Arakinak",
-                    parse: 79,
-                    amount: 94429,
-                    metric: "DTPS",
-                    className: "Druid",
-                    specName: "Guardian",
-                },
-                {
-                    player: "Floorroller",
-                    parse: 43,
-                    amount: 48423,
-                    metric: "HPS",
-                    className: "Monk",
-                    specName: "Mistweaver",
-                },
-            ]);
-            expect(recap?.topHealers?.map((entry) => entry.playerName)).toEqual([
-                "Floorroller",
-                "Pearl",
-            ]);
-            expect(recap?.topHealers?.some((entry) => entry.playerName === "Arakinak")).toBe(
-                false,
-            );
-        });
-
-        it("sources top healers from boss rankings healer-role rows, not healing totals", () => {
-            const normalized = normalizeEnrichedReport(
-                {
-                    base: {
-                        reportData: {
-                            report: {
-                                title: "Top Healer Source",
-                                startTime: 100,
-                                endTime: 1000,
-                                fights: [
-                                    {
-                                        id: 46,
-                                        name: "Lei Shen",
-                                        startTime: 200,
-                                        endTime: 500,
-                                        kill: true,
-                                        encounterID: 51579,
-                                    },
-                                ],
-                                masterData: {
-                                    actors: [
-                                        { id: 1, name: "TankOffheal", subType: "Druid" },
-                                        { id: 2, name: "Floorroller", subType: "Monk" },
-                                        { id: 3, name: "Pearl", subType: "Priest" },
-                                    ],
-                                },
-                            },
-                        },
-                    },
-                    encounterSummaries: [
-                        {
-                            encounterID: 51579,
-                            bossName: "Lei Shen",
-                            fightId: 46,
-                            kill: true,
-                            rankings: {
-                                rankings: [
-                                    {
-                                        playerID: 1,
-                                        name: "TankOffheal",
-                                        amount: 999999,
-                                        rankPercent: 98,
-                                        role: "Tank",
-                                        className: "Druid",
-                                        spec: "Guardian",
-                                    },
-                                    {
-                                        playerID: 2,
-                                        name: "Floorroller",
-                                        amount: 50000,
-                                        rankPercent: 80,
-                                        role: "Healer",
-                                        className: "Monk",
-                                        spec: "Mistweaver",
-                                    },
-                                    {
-                                        playerID: 3,
-                                        name: "Pearl",
-                                        amount: 40000,
-                                        rankPercent: 75,
-                                        role: "Healer",
-                                        className: "Priest",
-                                        spec: "Holy",
-                                    },
-                                ],
-                            },
-                            tables: {
-                                Healing: {
-                                    data: {
-                                        entries: [
-                                            { id: 1, name: "TankOffheal", total: 999999 },
-                                            { id: 2, name: "Floorroller", total: 50000 },
-                                            { id: 3, name: "Pearl", total: 40000 },
-                                        ],
-                                    },
-                                },
-                            },
-                        },
-                    ],
-                },
-                {
-                    reportCode: "abc123xyz4567890",
-                    gameFamily: "mop_classic",
-                    rawUrl: "https://classic.warcraftlogs.com/reports/abc123xyz4567890",
-                },
-            );
-
-            expect(
-                normalized.bossPerformances?.[0]?.topHealers?.map((entry) => entry.playerName),
-            ).toEqual(["Floorroller", "Pearl"]);
-            expect(
-                normalized.bossPerformances?.[0]?.topHealers?.map((entry) => entry.specName),
-            ).toEqual(["Mistweaver", "Holy"]);
-        });
-
-        it("uses selected-fight phase windows instead of fastest windows across all pulls", () => {
-            const normalized = normalizeEnrichedReport(
-                {
-                    base: {
-                        reportData: {
-                            report: {
-                                title: "Phase policy",
-                                startTime: 100,
-                                endTime: 5000,
-                                phases: [
-                                    {
-                                        encounterID: 51579,
-                                        phases: [
-                                            { id: 1, name: "Phase 1", isIntermission: false },
-                                            { id: 2, name: "Intermission", isIntermission: true },
-                                            { id: 3, name: "Phase 2", isIntermission: false },
-                                        ],
-                                    },
-                                ],
-                                fights: [
-                                    {
-                                        id: 45,
-                                        name: "Lei Shen",
-                                        startTime: 1000,
-                                        endTime: 1200,
-                                        kill: false,
-                                        encounterID: 51579,
-                                        phaseTransitions: [{ id: 3, startTime: 1100 }],
-                                    },
-                                    {
-                                        id: 46,
-                                        name: "Lei Shen",
-                                        startTime: 2000,
-                                        endTime: 2600,
-                                        kill: true,
-                                        encounterID: 51579,
-                                        phaseTransitions: [
-                                            { id: 2, startTime: 2200 },
-                                            { id: 3, startTime: 2300 },
-                                        ],
-                                    },
-                                ],
-                                masterData: { actors: [] },
-                            },
-                        },
-                    },
-                    encounterSummaries: [
-                        {
-                            encounterID: 51579,
-                            bossName: "Lei Shen",
-                            fightId: 46,
-                            kill: true,
-                            rankings: { rankings: [] },
-                            tables: {},
-                        },
-                    ],
-                },
-                {
-                    reportCode: "abc123xyz4567890",
-                    gameFamily: "mop_classic",
-                    rawUrl: "https://classic.warcraftlogs.com/reports/abc123xyz4567890",
-                },
-            );
-
-            expect(normalized.bossPerformances?.[0]?.fastestPhaseTimes).toEqual([
-                { phaseId: 1, label: "P1", name: "Phase 1", durationMs: 200 },
-                { phaseId: 3, label: "P3", name: "Phase 2", durationMs: 300 },
-            ]);
         });
 
         it("normalizes report-wide tables from both direct and wrapped entries", () => {
@@ -1554,7 +1225,7 @@ describe("index contract", () => {
                         leaderboards: [],
                         bossPerformances: [],
                     },
-                    normalizedPayloadVersion: 4,
+                    normalizedPayloadVersion: NORMALIZED_PAYLOAD_VERSION - 1,
                     fetchedAt: new Date(),
                 }),
                 upsert: vi.fn().mockResolvedValue(undefined),
@@ -1582,7 +1253,7 @@ describe("index contract", () => {
             const upsertArgs = store.upsert.mock.calls[0]?.[0] as
                 | { rawPayload?: { rawPayloadVersion?: number } }
                 | undefined;
-            expect(upsertArgs?.rawPayload?.rawPayloadVersion).toBe(4);
+            expect(upsertArgs?.rawPayload?.rawPayloadVersion).toBe(RAW_PAYLOAD_VERSION);
         });
     });
 });

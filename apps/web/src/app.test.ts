@@ -57,18 +57,12 @@ const makeOptions = (assetRoot: string): CreateWebAppOptions => {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: dashboardGuildConfigStore,
         dashboardGuildConfigStore,
-        recapPreviewStateService: {
-            savePreviewState: vi.fn(),
-            getValidPreviewState: vi.fn(),
-            consumeValidPreviewState: vi.fn(),
-            deletePreviewState: vi.fn(),
-        } as never,
-        autoRecapPromptStateService: {
+        autoReportPromptStateService: {
             savePromptState: vi.fn(),
             getValidPromptState: vi.fn(),
             consumeValidPromptState: vi.fn(),
         } as never,
-        autoRecapDuplicateTrackingService: {
+        autoReportDuplicateTrackingService: {
             claimPassiveDetection: vi.fn(),
             getByConfirmationNonce: vi.fn(),
             updateTracking: vi.fn(),

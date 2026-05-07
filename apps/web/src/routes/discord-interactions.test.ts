@@ -44,22 +44,16 @@ describe("registerDiscordInteractionRoutes", () => {
         });
     });
 
-    it("passes auto recap stores and existing recap preview state into handleInteraction", async () => {
+    it("passes auto report stores into handleInteraction", async () => {
         const app = Fastify({ logger: false });
         const wclClient = { fetchAndNormalizeReport: vi.fn() } as never;
         const guildConfigStore = { getGuildConfig: vi.fn(), saveGuildConfig: vi.fn() } as never;
-        const recapPreviewStateService = {
-            savePreviewState: vi.fn(),
-            getValidPreviewState: vi.fn(),
-            consumeValidPreviewState: vi.fn(),
-            deletePreviewState: vi.fn(),
-        } as never;
-        const autoRecapPromptStateService = {
+        const autoReportPromptStateService = {
             savePromptState: vi.fn(),
             getValidPromptState: vi.fn(),
             consumeValidPromptState: vi.fn(),
         } as never;
-        const autoRecapDuplicateTrackingService = {
+        const autoReportDuplicateTrackingService = {
             claimPassiveDetection: vi.fn(),
             getByConfirmationNonce: vi.fn(),
             updateTracking: vi.fn(),
@@ -71,9 +65,8 @@ describe("registerDiscordInteractionRoutes", () => {
             env,
             wclClient,
             guildConfigStore,
-            recapPreviewStateService,
-            autoRecapPromptStateService,
-            autoRecapDuplicateTrackingService,
+            autoReportPromptStateService,
+            autoReportDuplicateTrackingService,
             comparisonHistoryStore,
             characterClaimStore,
             logger: makeLogger(),
@@ -102,18 +95,15 @@ describe("registerDiscordInteractionRoutes", () => {
             expect.objectContaining({
                 wclClient,
                 guildConfigStore,
-                recapPreviewStateService,
-                autoRecapPromptStateService,
-                autoRecapDuplicateTrackingService,
+                autoReportPromptStateService,
+                autoReportDuplicateTrackingService,
                 comparisonHistoryStore,
                 characterClaimStore,
-                previewStateTtlSeconds: 900,
             }),
         );
-        expect(handleOptions?.recapPreviewStateService).toBe(recapPreviewStateService);
-        expect(handleOptions?.autoRecapPromptStateService).toBe(autoRecapPromptStateService);
-        expect(handleOptions?.autoRecapDuplicateTrackingService).toBe(
-            autoRecapDuplicateTrackingService,
+        expect(handleOptions?.autoReportPromptStateService).toBe(autoReportPromptStateService);
+        expect(handleOptions?.autoReportDuplicateTrackingService).toBe(
+            autoReportDuplicateTrackingService,
         );
 
         await app.close();

@@ -7,45 +7,9 @@ import type {
     GuildConfigStore,
     PreviousRaidLookup,
 } from "@wcl/domain";
-import type { buildRecapSummary } from "@wcl/domain";
 import type { WclClient } from "@wcl/wcl-client";
 
-export type RecapSummary = ReturnType<typeof buildRecapSummary>;
-export type RecapPreviewSummary = RecapSummary;
-
-export interface SavePreviewStateInput {
-    guildId: string;
-    channelId: string;
-    reportCode: string;
-    sourceUrl: string;
-    summaryPayload: RecapPreviewSummary;
-    createdByUserId: string;
-    createdAt: Date;
-    expiresAt: Date;
-    interactionId?: string;
-    messageId?: string;
-}
-
-export interface PreviewStateLookup {
-    reportCode: string;
-    guildId: string;
-    channelId: string;
-}
-
-export type PreviewStateRecord = SavePreviewStateInput;
-
-export interface RecapPreviewStateService {
-    savePreviewState(input: SavePreviewStateInput): Promise<PreviewStateRecord>;
-    getValidPreviewState(
-        lookup: PreviewStateLookup,
-    ): Promise<PreviewStateRecord | null>;
-    consumeValidPreviewState(
-        lookup: PreviewStateLookup,
-    ): Promise<PreviewStateRecord | null>;
-    deletePreviewState(lookup: PreviewStateLookup): Promise<void>;
-}
-
-export interface AutoRecapPromptStateRecord {
+export interface AutoReportPromptStateRecord {
     guildId: string;
     channelId: string;
     reportCode: string;
@@ -57,13 +21,13 @@ export interface AutoRecapPromptStateRecord {
     expiresAt: Date;
 }
 
-export interface AutoRecapPromptStateService {
-    savePromptState(input: AutoRecapPromptStateRecord): Promise<AutoRecapPromptStateRecord>;
-    getValidPromptState(sourceMessageId: string): Promise<AutoRecapPromptStateRecord | null>;
-    consumeValidPromptState(sourceMessageId: string): Promise<AutoRecapPromptStateRecord | null>;
+export interface AutoReportPromptStateService {
+    savePromptState(input: AutoReportPromptStateRecord): Promise<AutoReportPromptStateRecord>;
+    getValidPromptState(sourceMessageId: string): Promise<AutoReportPromptStateRecord | null>;
+    consumeValidPromptState(sourceMessageId: string): Promise<AutoReportPromptStateRecord | null>;
 }
 
-export type AutoRecapDuplicateStatus =
+export type AutoReportDuplicateStatus =
     | "processing"
     | "prompted"
     | "preview_posted"
@@ -71,14 +35,15 @@ export type AutoRecapDuplicateStatus =
     | "ignored"
     | "failed";
 
-export type AutoRecapLatestOutputKind =
+export type AutoReportLatestOutputKind =
     | "prompt"
     | "public_preview"
+    | "public_final_report"
     | "public_final_recap"
     | "duplicate_confirmation"
     | "public_failure";
 
-export interface AutoRecapDuplicateTrackingRecord {
+export interface AutoReportDuplicateTrackingRecord {
     guildId: string;
     channelId: string;
     reportCode: string;
@@ -87,15 +52,15 @@ export interface AutoRecapDuplicateTrackingRecord {
     sourceMessageId: string;
     sourceAuthorId: string;
     mode: Exclude<AutoRecapMode, "off">;
-    status: AutoRecapDuplicateStatus;
+    status: AutoReportDuplicateStatus;
     latestOutputMessageId?: string;
-    latestOutputKind?: AutoRecapLatestOutputKind;
+    latestOutputKind?: AutoReportLatestOutputKind;
     duplicateConfirmationMessageId?: string;
     confirmationNonce?: string;
     expiresAt: Date;
 }
 
-export interface AutoRecapDuplicateTrackingService {
+export interface AutoReportDuplicateTrackingService {
     claimPassiveDetection(input: {
         guildId: string;
         channelId: string;
@@ -107,12 +72,12 @@ export interface AutoRecapDuplicateTrackingService {
         mode: Exclude<AutoRecapMode, "off">;
         expiresAt: Date;
     }): Promise<
-        | { claimed: true; record: AutoRecapDuplicateTrackingRecord }
-        | { claimed: false; record: AutoRecapDuplicateTrackingRecord | null }
+        | { claimed: true; record: AutoReportDuplicateTrackingRecord }
+        | { claimed: false; record: AutoReportDuplicateTrackingRecord | null }
     >;
     getByConfirmationNonce?(
         confirmationNonce: string,
-    ): Promise<AutoRecapDuplicateTrackingRecord | null>;
+    ): Promise<AutoReportDuplicateTrackingRecord | null>;
     updateTracking(input: {
         guildId: string;
         channelId: string;
@@ -122,13 +87,13 @@ export interface AutoRecapDuplicateTrackingService {
         sourceMessageId?: string;
         sourceAuthorId?: string;
         mode?: Exclude<AutoRecapMode, "off">;
-        status?: AutoRecapDuplicateStatus;
+        status?: AutoReportDuplicateStatus;
         latestOutputMessageId?: string;
-        latestOutputKind?: AutoRecapLatestOutputKind;
+        latestOutputKind?: AutoReportLatestOutputKind;
         duplicateConfirmationMessageId?: string;
         confirmationNonce?: string;
         expiresAt?: Date;
-    }): Promise<AutoRecapDuplicateTrackingRecord | null>;
+    }): Promise<AutoReportDuplicateTrackingRecord | null>;
 }
 
 export interface ComparisonHistoryStore {
@@ -232,13 +197,11 @@ export interface CharacterClaimStore {
 export interface HandleOptions {
     wclClient: WclClient & Partial<PreviousRaidLookup>;
     guildConfigStore: GuildConfigStore;
-    recapPreviewStateService: RecapPreviewStateService;
     comparisonHistoryStore?: ComparisonHistoryStore;
     characterClaimStore?: CharacterClaimStore;
     botActivityStore?: BotActivityStore | undefined;
-    autoRecapPromptStateService?: AutoRecapPromptStateService;
-    autoRecapDuplicateTrackingService?: AutoRecapDuplicateTrackingService;
-    previewStateTtlSeconds?: number;
+    autoReportPromptStateService?: AutoReportPromptStateService;
+    autoReportDuplicateTrackingService?: AutoReportDuplicateTrackingService;
     scheduleBackgroundTask?: (task: () => void) => void;
 }
 

@@ -248,6 +248,23 @@ export const REPORT_WIDE_KILL_TABLE_FILTERS: Record<
         '((encounterID != 0) AND (encounterEnd = "kill")) AND (type = "interrupt") AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
 };
 
+export const REPORT_WIDE_ENCOUNTER_TABLE_FILTERS: Record<
+    (typeof REPORT_RECAP_TABLE_DATA_TYPES)[number],
+    string
+> = {
+    DamageDone:
+        '(encounterID != 0) AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
+    DamageTaken:
+        '(encounterID != 0) AND (target.disposition = "friendly")',
+    Healing:
+        '(encounterID != 0) AND (inCategory("healing") = true) AND (source.disposition = "friendly") AND (target.disposition = "friendly")',
+    Deaths: '(encounterID != 0) AND (type = "death") AND (target.disposition = "friendly") AND (feign = false)',
+    Dispels:
+        '(encounterID != 0) AND (source.disposition = "friendly")',
+    Interrupts:
+        '(encounterID != 0) AND (type = "interrupt") AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
+};
+
 export const buildReportWideTableQuery = (dataType: TableDataType): string =>
     REPORT_WIDE_TABLE_QUERY.replace("DATA_TYPE_PLACEHOLDER", dataType);
 

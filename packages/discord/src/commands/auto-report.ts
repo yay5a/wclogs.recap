@@ -4,15 +4,14 @@ import { parseReportUrl } from "@wcl/wcl-client";
 import type { ParsedReportUrl } from "@wcl/wcl-client";
 import { randomUUID } from "node:crypto";
 import type {
-    AutoRecapDuplicateTrackingRecord,
+    AutoReportDuplicateTrackingRecord,
     DiscordInteraction,
     HandleOptions,
-    SavePreviewStateInput,
 } from "../types.js";
 import {
-    buildRecapArtifact,
-    getRecapFailureMessage,
-} from "./recap.js";
+    buildReportArtifact,
+    getReportFailureMessage,
+} from "./report.js";
 import {
     createFollowupInteractionResponse,
     editOriginalInteractionResponse,
@@ -22,18 +21,17 @@ import { recordDashboardActivityAfterSuccess } from "./dashboard-activity.js";
 
 const logger = createLogger("discord");
 const EPHEMERAL_MESSAGE_FLAG = 64;
-const DEFAULT_PREVIEW_STATE_TTL_SECONDS = 900;
 const PROMPT_PREVIEW_PREFIX = "ar:p:";
 const PROMPT_IGNORE_PREFIX = "ar:i:";
 const DUPLICATE_PREFIX = "ar:d:";
 const PROMPT_EXPIRED_MESSAGE =
-    "This auto recap prompt has expired. Paste the Warcraft Logs URL again if you still want a recap.";
-const AUTO_RECAP_UNAVAILABLE_MESSAGE =
-    "Auto recap is temporarily unavailable. Please try again later.";
+    "This auto report prompt has expired. Paste the Warcraft Logs URL again if you still want a report summary.";
+const AUTO_REPORT_UNAVAILABLE_MESSAGE =
+    "Auto report is temporarily unavailable. Please try again later.";
 const SAFE_ALLOWED_MENTIONS = { parse: [] as string[] };
 const DEFAULT_DUPLICATE_TTL_MS = 15 * 60 * 1000;
 
-type AutoRecapComponent =
+type AutoReportComponent =
     | { action: "prompt_preview"; sourceMessageId: string }
     | { action: "prompt_ignore"; sourceMessageId: string }
     | { action: "duplicate_preview"; confirmationNonce: string }
@@ -41,7 +39,7 @@ type AutoRecapComponent =
     | { action: "duplicate_post"; confirmationNonce: string }
     | { action: "duplicate_ignore"; confirmationNonce: string };
 
-interface AutoRecapInboundMessage {
+interface AutoReportInboundMessage {
     guildId?: string | null;
     channelId: string;
     messageId: string;
@@ -50,37 +48,37 @@ interface AutoRecapInboundMessage {
     content?: string | null;
 }
 
-export interface AutoRecapSendableChannel {
+export interface AutoReportSendableChannel {
     send(body: Record<string, unknown>): Promise<{ id: string }>;
 }
 
-interface AutoRecapFailureThrottle {
+interface AutoReportFailureThrottle {
     shouldPostFailure(key: string, ttlMs: number): boolean;
 }
 
-interface AutoRecapMessageCreateOptions {
-    message: AutoRecapInboundMessage;
-    channel: AutoRecapSendableChannel | null;
+interface AutoReportMessageCreateOptions {
+    message: AutoReportInboundMessage;
+    channel: AutoReportSendableChannel | null;
     handleOptions: HandleOptions;
     duplicateTtlMs?: number;
     failureTtlMs?: number;
-    failureThrottle?: AutoRecapFailureThrottle;
+    failureThrottle?: AutoReportFailureThrottle;
 }
 
-export const makeAutoRecapPromptPreviewCustomId = (sourceMessageId: string): string =>
+export const makeAutoReportPromptPreviewCustomId = (sourceMessageId: string): string =>
     `${PROMPT_PREVIEW_PREFIX}${sourceMessageId}`;
 
-export const makeAutoRecapPromptIgnoreCustomId = (sourceMessageId: string): string =>
+export const makeAutoReportPromptIgnoreCustomId = (sourceMessageId: string): string =>
     `${PROMPT_IGNORE_PREFIX}${sourceMessageId}`;
 
-export const makeAutoRecapDuplicateCustomId = (
+export const makeAutoReportDuplicateCustomId = (
     action: "p" | "t" | "o" | "i",
     confirmationNonce: string,
 ): string => `${DUPLICATE_PREFIX}${action}:${confirmationNonce}`;
 
-export const parseAutoRecapComponentCustomId = (
+export const parseAutoReportComponentCustomId = (
     customId: string,
-): AutoRecapComponent | undefined => {
+): AutoReportComponent | undefined => {
     if (customId.startsWith(PROMPT_PREVIEW_PREFIX)) {
         const sourceMessageId = customId.slice(PROMPT_PREVIEW_PREFIX.length);
         return sourceMessageId ? { action: "prompt_preview", sourceMessageId } : undefined;
@@ -134,8 +132,8 @@ export const extractFirstWarcraftLogsReportUrl = (
     return null;
 };
 
-export const buildAutoRecapPromptBody = (sourceMessageId: string) => ({
-    content: "Detected a Warcraft Logs report.\nGenerate a recap?",
+export const buildAutoReportPromptBody = (sourceMessageId: string) => ({
+    content: "Detected a Warcraft Logs report.\nGenerate a report summary?",
     allowed_mentions: SAFE_ALLOWED_MENTIONS,
     components: [
         {
@@ -144,13 +142,13 @@ export const buildAutoRecapPromptBody = (sourceMessageId: string) => ({
                 {
                     type: 2,
                     style: 1,
-                    custom_id: makeAutoRecapPromptPreviewCustomId(sourceMessageId),
-                    label: "Preview recap",
+                    custom_id: makeAutoReportPromptPreviewCustomId(sourceMessageId),
+                    label: "Preview report",
                 },
                 {
                     type: 2,
                     style: 2,
-                    custom_id: makeAutoRecapPromptIgnoreCustomId(sourceMessageId),
+                    custom_id: makeAutoReportPromptIgnoreCustomId(sourceMessageId),
                     label: "Ignore",
                 },
             ],
@@ -158,14 +156,8 @@ export const buildAutoRecapPromptBody = (sourceMessageId: string) => ({
     ],
 });
 
-const stripEphemeralFlag = <TBody extends Record<string, unknown>>(body: TBody): Omit<TBody, "flags"> => {
-    const publicBody: Record<string, unknown> = { ...body };
-    delete publicBody.flags;
-    return publicBody as Omit<TBody, "flags">;
-};
-
-const toPublicPreviewBody = (previewBody: Record<string, unknown>): Record<string, unknown> => ({
-    ...stripEphemeralFlag(previewBody),
+const toPublicReportBody = (body: Record<string, unknown>): Record<string, unknown> => ({
+    ...body,
     allowed_mentions: SAFE_ALLOWED_MENTIONS,
 });
 
@@ -174,7 +166,7 @@ const statusMessage = (status: string): string => {
         case "preview_posted":
             return "A preview for this Warcraft Logs report was already posted here recently.";
         case "final_posted":
-            return "A recap for this Warcraft Logs report was already posted here recently.";
+            return "A report summary for this Warcraft Logs report was already posted here recently.";
         case "ignored":
             return "This Warcraft Logs report was recently ignored here.";
         case "failed":
@@ -217,7 +209,7 @@ const buildDuplicateConfirmationBody = (status: string, confirmationNonce: strin
             components: duplicateActionsForStatus(status).map((action) => ({
                 type: 2,
                 style: action.style,
-                custom_id: makeAutoRecapDuplicateCustomId(action.action, confirmationNonce),
+                custom_id: makeAutoReportDuplicateCustomId(action.action, confirmationNonce),
                 label: action.label,
             })),
         },
@@ -225,14 +217,14 @@ const buildDuplicateConfirmationBody = (status: string, confirmationNonce: strin
 });
 
 const isDuplicateComponent = (
-    component: AutoRecapComponent,
-): component is Extract<AutoRecapComponent, { confirmationNonce: string }> =>
+    component: AutoReportComponent,
+): component is Extract<AutoReportComponent, { confirmationNonce: string }> =>
     "confirmationNonce" in component;
 
 const getRequesterDiscordUserId = (interaction: DiscordInteraction): string =>
     interaction.member?.user?.id ?? interaction.user?.id ?? "unknown";
 
-const autoRecapUnavailableResponse = (
+const autoReportUnavailableResponse = (
     interaction: DiscordInteraction,
     details: Record<string, unknown>,
 ): unknown => {
@@ -243,12 +235,12 @@ const autoRecapUnavailableResponse = (
             channelId: interaction.channel_id,
             ...details,
         },
-        "auto recap component configuration error",
+        "auto report component configuration error",
     );
     return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-            content: AUTO_RECAP_UNAVAILABLE_MESSAGE,
+            content: AUTO_REPORT_UNAVAILABLE_MESSAGE,
             flags: EPHEMERAL_MESSAGE_FLAG,
         },
     };
@@ -265,7 +257,7 @@ const runPromptPreview = async (
 
     try {
         const promptState =
-            await options.autoRecapPromptStateService?.getValidPromptState(sourceMessageId);
+            await options.autoReportPromptStateService?.getValidPromptState(sourceMessageId);
         if (!promptState) {
             await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
                 content: PROMPT_EXPIRED_MESSAGE,
@@ -274,37 +266,26 @@ const runPromptPreview = async (
             return;
         }
 
-        const previewStateTtlMs =
-            (options.previewStateTtlSeconds ?? DEFAULT_PREVIEW_STATE_TTL_SECONDS) * 1000;
-        const artifact = await buildRecapArtifact({
+        const artifact = await buildReportArtifact({
             guildId: promptState.guildId,
-            channelId: promptState.channelId,
-            createdByUserId: getRequesterDiscordUserId(interaction),
             ...(interaction.id ? { interactionId: interaction.id } : {}),
             options,
             url: promptState.sourceUrl,
         });
-        const createdAt = new Date();
-        const previewStateInput: SavePreviewStateInput = {
-            ...artifact.previewStateInputBase,
-            createdAt,
-            expiresAt: new Date(createdAt.getTime() + previewStateTtlMs),
-        };
-        await options.recapPreviewStateService.savePreviewState(previewStateInput);
         await editOriginalInteractionResponse(
             applicationId,
             interactionToken,
-            artifact.previewBody,
+            artifact.responseBody,
         );
         await recordDashboardActivityAfterSuccess(options.botActivityStore, {
             guildId: promptState.guildId,
             channelId: promptState.channelId,
             sourceMessageId: interaction.id,
             actor: { kind: "discord", discordUserId: getRequesterDiscordUserId(interaction) },
-            kind: "recap_preview_created",
+            kind: "report_preview_created",
             reportCode: promptState.reportCode,
             sourceUrl: promptState.sourceUrl,
-            idempotencyKey: interaction.id ? `recap_prompt_preview:${interaction.id}` : undefined,
+            idempotencyKey: interaction.id ? `report_prompt_preview:${interaction.id}` : undefined,
             createdAt: new Date(),
         });
     } catch (error) {
@@ -314,10 +295,10 @@ const runPromptPreview = async (
                 sourceMessageId,
                 error: serializeError(error),
             },
-            "auto recap prompt preview failed",
+            "auto report prompt preview failed",
         );
         await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
-            content: getRecapFailureMessage(error),
+            content: getReportFailureMessage(error),
             flags: EPHEMERAL_MESSAGE_FLAG,
         });
     }
@@ -329,20 +310,6 @@ const scheduleTask = (options: HandleOptions, task: () => void): void => {
         return;
     }
     queueMicrotask(task);
-};
-
-const savePreviewStateForArtifact = async (
-    artifact: Awaited<ReturnType<typeof buildRecapArtifact>>,
-    options: HandleOptions,
-): Promise<void> => {
-    const previewStateTtlMs =
-        (options.previewStateTtlSeconds ?? DEFAULT_PREVIEW_STATE_TTL_SECONDS) * 1000;
-    const createdAt = new Date();
-    await options.recapPreviewStateService.savePreviewState({
-        ...artifact.previewStateInputBase,
-        createdAt,
-        expiresAt: new Date(createdAt.getTime() + previewStateTtlMs),
-    });
 };
 
 const runDuplicatePreview = async (
@@ -357,7 +324,7 @@ const runDuplicatePreview = async (
 
     try {
         const duplicateState =
-            await options.autoRecapDuplicateTrackingService?.getByConfirmationNonce?.(
+            await options.autoReportDuplicateTrackingService?.getByConfirmationNonce?.(
                 confirmationNonce,
             );
         if (!duplicateState) {
@@ -367,10 +334,8 @@ const runDuplicatePreview = async (
             });
             return;
         }
-        const artifact = await buildRecapArtifact({
+        const artifact = await buildReportArtifact({
             guildId: duplicateState.guildId,
-            channelId: duplicateState.channelId,
-            createdByUserId: getRequesterDiscordUserId(interaction),
             ...(interaction.id ? { interactionId: interaction.id } : {}),
             options,
             url: duplicateState.sourceUrl,
@@ -380,52 +345,48 @@ const runDuplicatePreview = async (
             const publicMessage = await createFollowupInteractionResponse(
                 applicationId,
                 interactionToken,
-                {
-                    embeds: [artifact.publicEmbed],
-                    allowed_mentions: SAFE_ALLOWED_MENTIONS,
-                },
+                toPublicReportBody(artifact.publicBody),
             );
-            await options.autoRecapDuplicateTrackingService?.updateTracking({
+            await options.autoReportDuplicateTrackingService?.updateTracking({
                 guildId: duplicateState.guildId,
                 channelId: duplicateState.channelId,
                 reportCode: duplicateState.reportCode,
                 status: "final_posted",
                 latestOutputMessageId: publicMessage.id,
-                latestOutputKind: "public_final_recap",
+                latestOutputKind: "public_final_report",
             });
             await recordDashboardActivityAfterSuccess(options.botActivityStore, {
                 guildId: duplicateState.guildId,
                 channelId: duplicateState.channelId,
                 sourceMessageId: interaction.id,
                 actor: { kind: "discord", discordUserId: getRequesterDiscordUserId(interaction) },
-                kind: "recap_posted",
+                kind: "report_posted",
                 reportCode: duplicateState.reportCode,
                 sourceUrl: duplicateState.sourceUrl,
-                idempotencyKey: interaction.id ? `recap_duplicate_posted:${interaction.id}` : undefined,
+                idempotencyKey: interaction.id ? `report_duplicate_posted:${interaction.id}` : undefined,
                 createdAt: new Date(),
             });
             await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
-                content: "Recap posted to this channel.",
+                content: "Report summary posted to this channel.",
                 flags: EPHEMERAL_MESSAGE_FLAG,
             });
             return;
         }
 
-        await savePreviewStateForArtifact(artifact, options);
         await editOriginalInteractionResponse(
             applicationId,
             interactionToken,
-            artifact.previewBody,
+            artifact.responseBody,
         );
         await recordDashboardActivityAfterSuccess(options.botActivityStore, {
             guildId: duplicateState.guildId,
             channelId: duplicateState.channelId,
             sourceMessageId: interaction.id,
             actor: { kind: "discord", discordUserId: getRequesterDiscordUserId(interaction) },
-            kind: "recap_preview_created",
+            kind: "report_preview_created",
             reportCode: duplicateState.reportCode,
             sourceUrl: duplicateState.sourceUrl,
-            idempotencyKey: interaction.id ? `recap_duplicate_preview:${interaction.id}` : undefined,
+            idempotencyKey: interaction.id ? `report_duplicate_preview:${interaction.id}` : undefined,
             createdAt: new Date(),
         });
     } catch (error) {
@@ -435,10 +396,10 @@ const runDuplicatePreview = async (
                 confirmationNonce,
                 error: serializeError(error),
             },
-            "auto recap duplicate action failed",
+            "auto report duplicate action failed",
         );
         await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
-            content: getRecapFailureMessage(error),
+            content: getReportFailureMessage(error),
             flags: EPHEMERAL_MESSAGE_FLAG,
         });
     }
@@ -447,11 +408,11 @@ const runDuplicatePreview = async (
 const sendPublicFailure = async (
     input: {
         key: string;
-        channel: AutoRecapSendableChannel;
+        channel: AutoReportSendableChannel;
         reportCode: string;
         error: unknown;
         failureTtlMs: number;
-        failureThrottle?: AutoRecapFailureThrottle;
+        failureThrottle?: AutoReportFailureThrottle;
     },
 ): Promise<string | null> => {
     if (input.failureThrottle && !input.failureThrottle.shouldPostFailure(input.key, input.failureTtlMs)) {
@@ -459,7 +420,7 @@ const sendPublicFailure = async (
     }
     try {
         const sent = await input.channel.send({
-            content: "Could not build recap for that Warcraft Logs report. Please try again.",
+            content: "Could not build a report summary for that Warcraft Logs report. Please try again.",
             allowed_mentions: SAFE_ALLOWED_MENTIONS,
         });
         return sent.id;
@@ -469,7 +430,7 @@ const sendPublicFailure = async (
                 reportCode: input.reportCode,
                 error: serializeError(sendError),
             },
-            "auto recap public failure message could not be sent",
+            "auto report public failure message could not be sent",
         );
         return null;
     }
@@ -477,9 +438,9 @@ const sendPublicFailure = async (
 
 const handleDuplicatePassiveDetection = async (
     input: {
-        existing: AutoRecapDuplicateTrackingRecord;
-        channel: AutoRecapSendableChannel;
-        duplicateService: NonNullable<HandleOptions["autoRecapDuplicateTrackingService"]>;
+        existing: AutoReportDuplicateTrackingRecord;
+        channel: AutoReportSendableChannel;
+        duplicateService: NonNullable<HandleOptions["autoReportDuplicateTrackingService"]>;
     },
 ): Promise<void> => {
     if (input.existing.duplicateConfirmationMessageId) return;
@@ -505,19 +466,19 @@ const handleDuplicatePassiveDetection = async (
                 reportCode: input.existing.reportCode,
                 error: serializeError(error),
             },
-            "auto recap duplicate confirmation could not be sent",
+            "auto report duplicate confirmation could not be sent",
         );
     }
 };
 
-export const handleAutoRecapMessageCreate = async ({
+export const handleAutoReportMessageCreate = async ({
     message,
     channel,
     handleOptions,
     duplicateTtlMs = DEFAULT_DUPLICATE_TTL_MS,
     failureTtlMs = DEFAULT_DUPLICATE_TTL_MS,
     failureThrottle,
-}: AutoRecapMessageCreateOptions): Promise<void> => {
+}: AutoReportMessageCreateOptions): Promise<void> => {
     if (message.authorBot) return;
     if (!message.guildId) return;
     if (!message.content) return;
@@ -536,12 +497,12 @@ export const handleAutoRecapMessageCreate = async ({
                 channelId: message.channelId,
                 reportCode: parsed.reportCode,
             },
-            "auto recap skipped because channel is not sendable",
+            "auto report skipped because channel is not sendable",
         );
         return;
     }
 
-    const duplicateService = handleOptions.autoRecapDuplicateTrackingService;
+    const duplicateService = handleOptions.autoReportDuplicateTrackingService;
     if (!duplicateService) return;
     const expiresAt = new Date(Date.now() + duplicateTtlMs);
     const claim = await duplicateService.claimPassiveDetection({
@@ -579,8 +540,8 @@ export const handleAutoRecapMessageCreate = async ({
     };
     try {
         if (guildConfig.autoRecapMode === "prompt") {
-            const sent = await sendChannelMessage(buildAutoRecapPromptBody(message.messageId));
-            await handleOptions.autoRecapPromptStateService?.savePromptState({
+            const sent = await sendChannelMessage(buildAutoReportPromptBody(message.messageId));
+            await handleOptions.autoReportPromptStateService?.savePromptState({
                 guildId: message.guildId,
                 channelId: message.channelId,
                 reportCode: parsed.reportCode,
@@ -602,17 +563,14 @@ export const handleAutoRecapMessageCreate = async ({
             return;
         }
 
-        const artifact = await buildRecapArtifact({
+        const artifact = await buildReportArtifact({
             guildId: message.guildId,
-            channelId: message.channelId,
-            createdByUserId: message.authorId,
             options: handleOptions,
             url: parsed.rawUrl,
         });
 
         if (guildConfig.autoRecapMode === "auto_preview") {
-            await savePreviewStateForArtifact(artifact, handleOptions);
-            const sent = await sendChannelMessage(toPublicPreviewBody(artifact.previewBody));
+            const sent = await sendChannelMessage(toPublicReportBody(artifact.publicBody));
             await duplicateService.updateTracking({
                 guildId: message.guildId,
                 channelId: message.channelId,
@@ -626,36 +584,33 @@ export const handleAutoRecapMessageCreate = async ({
                 channelId: message.channelId,
                 sourceMessageId: message.messageId,
                 actor: { kind: "discord", discordUserId: message.authorId },
-                kind: "recap_preview_created",
+                kind: "report_preview_created",
                 reportCode: parsed.reportCode,
                 sourceUrl: parsed.rawUrl,
-                idempotencyKey: `auto_recap_preview:${message.guildId}:${message.channelId}:${parsed.reportCode}:${message.messageId}`,
+                idempotencyKey: `auto_report_preview:${message.guildId}:${message.channelId}:${parsed.reportCode}:${message.messageId}`,
                 createdAt: new Date(),
             });
             return;
         }
 
-        const sent = await sendChannelMessage({
-            embeds: [artifact.publicEmbed],
-            allowed_mentions: SAFE_ALLOWED_MENTIONS,
-        });
+        const sent = await sendChannelMessage(toPublicReportBody(artifact.publicBody));
         await duplicateService.updateTracking({
             guildId: message.guildId,
             channelId: message.channelId,
             reportCode: parsed.reportCode,
             status: "final_posted",
             latestOutputMessageId: sent.id,
-            latestOutputKind: "public_final_recap",
+            latestOutputKind: "public_final_report",
         });
         await recordDashboardActivityAfterSuccess(handleOptions.botActivityStore, {
             guildId: message.guildId,
             channelId: message.channelId,
             sourceMessageId: message.messageId,
             actor: { kind: "discord", discordUserId: message.authorId },
-            kind: "recap_posted",
+            kind: "report_posted",
             reportCode: parsed.reportCode,
             sourceUrl: parsed.rawUrl,
-            idempotencyKey: `auto_recap_posted:${message.guildId}:${message.channelId}:${parsed.reportCode}:${message.messageId}`,
+            idempotencyKey: `auto_report_posted:${message.guildId}:${message.channelId}:${parsed.reportCode}:${message.messageId}`,
             createdAt: new Date(),
         });
     } catch (error) {
@@ -666,7 +621,7 @@ export const handleAutoRecapMessageCreate = async ({
                 reportCode: parsed.reportCode,
                 error: serializeError(error),
             },
-            "auto recap passive handling failed",
+            "auto report passive handling failed",
         );
         const failureMessageId = channelSendFailed
             ? null
@@ -693,26 +648,26 @@ export const handleAutoRecapMessageCreate = async ({
     }
 };
 
-export const handleAutoRecapComponentInteraction = async (
+export const handleAutoReportComponentInteraction = async (
     interaction: DiscordInteraction,
     options: HandleOptions,
 ): Promise<unknown | undefined> => {
     const id = interaction.data?.custom_id;
     if (typeof id !== "string") return undefined;
-    const parsed = parseAutoRecapComponentCustomId(id);
+    const parsed = parseAutoReportComponentCustomId(id);
     if (!parsed) return undefined;
 
     if (isDuplicateComponent(parsed)) {
-        if (!options.autoRecapDuplicateTrackingService?.getByConfirmationNonce) {
-            return autoRecapUnavailableResponse(interaction, {
+        if (!options.autoReportDuplicateTrackingService?.getByConfirmationNonce) {
+            return autoReportUnavailableResponse(interaction, {
                 componentAction: parsed.action,
-                missingStore: "autoRecapDuplicateTrackingService",
+                missingStore: "autoReportDuplicateTrackingService",
             });
         }
 
         if (parsed.action === "duplicate_ignore") {
             const duplicateState =
-                await options.autoRecapDuplicateTrackingService.getByConfirmationNonce(
+                await options.autoReportDuplicateTrackingService.getByConfirmationNonce(
                     parsed.confirmationNonce,
                 );
             if (!duplicateState) {
@@ -724,7 +679,7 @@ export const handleAutoRecapComponentInteraction = async (
                     },
                 };
             }
-            await options.autoRecapDuplicateTrackingService.updateTracking({
+            await options.autoReportDuplicateTrackingService.updateTracking({
                 guildId: duplicateState.guildId,
                 channelId: duplicateState.channelId,
                 reportCode: duplicateState.reportCode,
@@ -732,7 +687,7 @@ export const handleAutoRecapComponentInteraction = async (
             });
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-                data: { content: "Duplicate recap action ignored.", flags: EPHEMERAL_MESSAGE_FLAG },
+                data: { content: "Duplicate report action ignored.", flags: EPHEMERAL_MESSAGE_FLAG },
             };
         }
 
@@ -740,7 +695,7 @@ export const handleAutoRecapComponentInteraction = async (
             return {
                 type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
                 data: {
-                    content: "Could not prepare recap action. Please try again.",
+                    content: "Could not prepare report action. Please try again.",
                     flags: EPHEMERAL_MESSAGE_FLAG,
                 },
             };
@@ -760,15 +715,15 @@ export const handleAutoRecapComponentInteraction = async (
         };
     }
 
-    if (!options.autoRecapPromptStateService) {
-        return autoRecapUnavailableResponse(interaction, {
+    if (!options.autoReportPromptStateService) {
+        return autoReportUnavailableResponse(interaction, {
             componentAction: parsed.action,
-            missingStore: "autoRecapPromptStateService",
+            missingStore: "autoReportPromptStateService",
         });
     }
 
     if (parsed.action === "prompt_ignore") {
-        const promptState = await options.autoRecapPromptStateService.consumeValidPromptState(
+        const promptState = await options.autoReportPromptStateService.consumeValidPromptState(
             parsed.sourceMessageId,
         );
         if (!promptState) {
@@ -780,7 +735,7 @@ export const handleAutoRecapComponentInteraction = async (
                 },
             };
         }
-        await options.autoRecapDuplicateTrackingService?.updateTracking({
+        await options.autoReportDuplicateTrackingService?.updateTracking({
             guildId: promptState.guildId,
             channelId: promptState.channelId,
             reportCode: promptState.reportCode,
@@ -788,11 +743,11 @@ export const handleAutoRecapComponentInteraction = async (
         });
         return {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-            data: { content: "Auto recap prompt ignored.", flags: EPHEMERAL_MESSAGE_FLAG },
+            data: { content: "Auto report prompt ignored.", flags: EPHEMERAL_MESSAGE_FLAG },
         };
     }
 
-    const promptState = await options.autoRecapPromptStateService.getValidPromptState(
+    const promptState = await options.autoReportPromptStateService.getValidPromptState(
         parsed.sourceMessageId,
     );
     if (!promptState) {
@@ -809,7 +764,7 @@ export const handleAutoRecapComponentInteraction = async (
         return {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-                content: "Could not prepare recap preview. Please try again.",
+                content: "Could not prepare report preview. Please try again.",
                 flags: EPHEMERAL_MESSAGE_FLAG,
             },
         };

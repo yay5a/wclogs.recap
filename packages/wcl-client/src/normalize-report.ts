@@ -769,29 +769,42 @@ export const normalizeEnrichedReport = (
     }
   }
   const parseReportWideTablesStartedAt = now();
-  const reportTableNode = asObject(enriched?.reportTables);
-  const parsedReportTableResults: Partial<
+  type ParsedReportTableResults = Partial<
     Record<TableDataType, { entries: ParsedTableEntry[]; isValidEmpty: boolean }>
-  > = {};
-  for (const dataType of REPORT_TABLE_DATA_TYPES) {
-    const payload = reportTableNode?.[dataType];
-    if (payload === undefined || payload === null) continue;
+  >;
+  const parseReportTableResults = (
+    tableNode: Record<string, unknown> | undefined,
+    sectionPrefix: string,
+  ): ParsedReportTableResults => {
+    const parsedResults: ParsedReportTableResults = {};
+    for (const dataType of REPORT_TABLE_DATA_TYPES) {
+      const payload = tableNode?.[dataType];
+      if (payload === undefined || payload === null) continue;
 
-    parsedReportTableResults[dataType] = parseTablePayloadDetailed(
-      payload,
-      dataType,
-      (message, context) => {
-        logger.warn(
-          {
-            reportCode: parsed.reportCode,
-            section: `report_table:${dataType}`,
-            context,
-          },
-          message,
-        );
-      },
-    );
-  }
+      parsedResults[dataType] = parseTablePayloadDetailed(
+        payload,
+        dataType,
+        (message, context) => {
+          logger.warn(
+            {
+              reportCode: parsed.reportCode,
+              section: `${sectionPrefix}:${dataType}`,
+              context,
+            },
+            message,
+          );
+        },
+      );
+    }
+    return parsedResults;
+  };
+  const reportTableNode = asObject(enriched?.reportTables);
+  const reportEncounterTableNode = asObject(enriched?.reportEncounterTables);
+  const parsedReportTableResults = parseReportTableResults(reportTableNode, 'report_table');
+  const parsedReportEncounterTableResults = parseReportTableResults(
+    reportEncounterTableNode,
+    'report_encounter_table',
+  );
   const mapReportWideRows = (
     entries: ParsedTableEntry[] | undefined,
     limit: number,
@@ -830,42 +843,47 @@ export const normalizeEnrichedReport = (
         ...(player?.specName ? { specName: player.specName } : {}),
       };
     });
-  const reportWideRecap = {
-    topDamageDone: mapReportWideRows(parsedReportTableResults.DamageDone?.entries, 3),
-    topDamageTaken: mapReportWideRows(parsedReportTableResults.DamageTaken?.entries, 3),
-    topHealingDone: mapReportWideRows(parsedReportTableResults.Healing?.entries, 3),
-    topInterrupts: mapReportWideRows(parsedReportTableResults.Interrupts?.entries, 3),
-    topDispels: mapReportWideRows(parsedReportTableResults.Dispels?.entries, 3),
-    topSurvivability: mapReportWideRows(parsedReportTableResults.Survivability?.entries, 3),
+  const buildReportWideRecapRows = (parsedResults: ParsedReportTableResults) => ({
+    topDamageDone: mapReportWideRows(parsedResults.DamageDone?.entries, 3),
+    topDamageTaken: mapReportWideRows(parsedResults.DamageTaken?.entries, 3),
+    topHealingDone: mapReportWideRows(parsedResults.Healing?.entries, 3),
+    topDeaths: mapReportWideRows(parsedResults.Deaths?.entries, 3),
+    topInterrupts: mapReportWideRows(parsedResults.Interrupts?.entries, 3),
+    topDispels: mapReportWideRows(parsedResults.Dispels?.entries, 3),
     totals: {
-      ...(parsedReportTableResults.Deaths &&
-      typeof sumTableValues(parsedReportTableResults.Deaths.entries) === 'number'
+      ...(parsedResults.Deaths && typeof sumTableValues(parsedResults.Deaths.entries) === 'number'
         ? {
-            deaths: sumTableValues(parsedReportTableResults.Deaths.entries),
+            deaths: sumTableValues(parsedResults.Deaths.entries),
           }
         : {}),
-      ...(parsedReportTableResults.DamageTaken &&
-      typeof sumTableValues(parsedReportTableResults.DamageTaken.entries) === 'number'
+      ...(parsedResults.DamageTaken &&
+      typeof sumTableValues(parsedResults.DamageTaken.entries) === 'number'
         ? {
-            raidDamageTaken: sumTableValues(parsedReportTableResults.DamageTaken.entries),
+            raidDamageTaken: sumTableValues(parsedResults.DamageTaken.entries),
           }
         : {}),
-      ...(parsedReportTableResults.Dispels &&
-      typeof sumTableValues(parsedReportTableResults.Dispels.entries) === 'number'
+      ...(parsedResults.Dispels &&
+      typeof sumTableValues(parsedResults.Dispels.entries) === 'number'
         ? {
-            dispels: sumTableValues(parsedReportTableResults.Dispels.entries),
+            dispels: sumTableValues(parsedResults.Dispels.entries),
           }
         : {}),
-      ...(parsedReportTableResults.Interrupts &&
-      typeof sumTableValues(parsedReportTableResults.Interrupts.entries) === 'number'
+      ...(parsedResults.Interrupts &&
+      typeof sumTableValues(parsedResults.Interrupts.entries) === 'number'
         ? {
-            interrupts: sumTableValues(parsedReportTableResults.Interrupts.entries),
+            interrupts: sumTableValues(parsedResults.Interrupts.entries),
           }
         : {}),
     },
+  });
+  const reportWideRecap = {
+    ...buildReportWideRecapRows(parsedReportTableResults),
+    topSurvivability: mapReportWideRows(parsedReportTableResults.Survivability?.entries, 3),
   };
+  const reportWideEncounterRecap = buildReportWideRecapRows(parsedReportEncounterTableResults);
   logTiming('parse report-wide tables', parseReportWideTablesStartedAt, {
     tableTypes: Object.keys(parsedReportTableResults).length,
+    encounterTableTypes: Object.keys(parsedReportEncounterTableResults).length,
     playerRows: players.length,
   });
 
@@ -1155,6 +1173,22 @@ export const normalizeEnrichedReport = (
   });
 
   const summaryAssemblyStartedAt = now();
+  const encounterFights = allEncounterFights.map((fight) => {
+    const encounterId = getBossEncounterId(fight);
+    const difficultyName = getDifficultyLabel(fight.difficulty, report);
+    return {
+      id: fight.id,
+      name: fight.name,
+      startTime: fight.startTime,
+      endTime: fight.endTime,
+      kill: fight.kill,
+      ...(typeof encounterId === 'number' ? { encounterId } : {}),
+      ...(typeof fight.difficulty === 'number' ? { difficulty: fight.difficulty } : {}),
+      ...(difficultyName ? { difficultyName } : {}),
+      ...(typeof fight.inProgress === 'boolean' ? { inProgress: fight.inProgress } : {}),
+    };
+  });
+  const hasReportWideEncounterRecap = Object.keys(parsedReportEncounterTableResults).length > 0;
   const normalized = {
     reportCode: parsed.reportCode,
     title: asString(report.title) ?? 'Untitled Report',
@@ -1162,10 +1196,12 @@ export const normalizeEnrichedReport = (
     endTime: asNumber(report.endTime) ?? Date.now(),
     gameFamily: parsed.gameFamily,
     fights,
+    ...(encounterFights.length > 0 ? { encounterFights } : {}),
     players,
     leaderboards: [...reportLeaderboards, ...bossLeaderboards],
     bossPerformances,
     reportWideRecap,
+    ...(hasReportWideEncounterRecap ? { reportWideEncounterRecap } : {}),
     reportWideRankings: {
       dps: reportWideDpsRankings,
       hps: reportWideHpsRankings,

@@ -7,15 +7,14 @@ export type {
     UserCommandDefinition,
 } from "./infrastructure/command-registration.js";
 
-export type { AutoRecapSendableChannel } from "./commands/auto-recap.js";
+export type { AutoReportSendableChannel } from "./commands/auto-report.js";
 export type {
-    AutoRecapDuplicateTrackingService,
-    AutoRecapPromptStateService,
+    AutoReportDuplicateTrackingService,
+    AutoReportPromptStateService,
     CharacterClaimStore,
     CharacterClaimRecord,
     ComparisonHistoryStore,
     HandleOptions,
-    RecapPreviewStateService,
 } from "./types.js";
 
 export {
@@ -29,9 +28,9 @@ export {
 
 export { handleInteraction } from "./infrastructure/interaction-handler.js";
 export {
-    handleAutoRecapMessageCreate,
-    makeAutoRecapDuplicateCustomId,
-    makeAutoRecapPromptIgnoreCustomId,
-    makeAutoRecapPromptPreviewCustomId,
-} from "./commands/auto-recap.js";
-export { buildPublicRecapEmbed, buildRecapPreviewBody } from "./renderers/embeds.js";
+    handleAutoReportMessageCreate,
+    makeAutoReportDuplicateCustomId,
+    makeAutoReportPromptIgnoreCustomId,
+    makeAutoReportPromptPreviewCustomId,
+} from "./commands/auto-report.js";
+export { buildReportResponseBody } from "./renderers/report.js";

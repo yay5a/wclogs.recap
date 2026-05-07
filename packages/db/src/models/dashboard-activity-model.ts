@@ -36,6 +36,8 @@ const dashboardActivitySchema = new Schema<DashboardActivityDocument>(
             type: String,
             required: true,
             enum: [
+                "report_preview_created",
+                "report_posted",
                 "recap_preview_created",
                 "recap_posted",
                 "private_comparison_rendered",

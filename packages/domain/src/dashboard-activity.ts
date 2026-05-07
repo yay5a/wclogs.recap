@@ -1,4 +1,6 @@
 export type BotActivityKind =
+  | 'report_preview_created'
+  | 'report_posted'
   | 'recap_preview_created'
   | 'recap_posted'
   | 'private_comparison_rendered'

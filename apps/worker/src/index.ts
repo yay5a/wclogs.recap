@@ -5,15 +5,13 @@ import {
     MongoComparisonHistoryStore,
     MongoDashboardActivityStore,
     MongoGuildConfigStore,
-    MongoRecapPreviewStateStore,
     MongoTrendTrackingService,
     ReportCacheModel,
     connectMongo,
     migrateCharacterClaimIdentityFields,
-    migrateRecapPreviewStateIndexes,
 } from "@wcl/db";
-import type { AutoRecapSendableChannel } from "@wcl/discord";
-import { handleAutoRecapMessageCreate } from "@wcl/discord";
+import type { AutoReportSendableChannel } from "@wcl/discord";
+import { handleAutoReportMessageCreate } from "@wcl/discord";
 import { createLogger } from "@wcl/shared";
 import type { ReportCacheStore } from "@wcl/wcl-client";
 import { WclClient } from "@wcl/wcl-client";
@@ -157,9 +155,8 @@ class MongoQueue implements Queue {
 const queue = new MongoQueue();
 const trendTrackingService = new MongoTrendTrackingService();
 const guildConfigStore = new MongoGuildConfigStore();
-const recapPreviewStateService = new MongoRecapPreviewStateStore();
-const autoRecapPromptStateService = new MongoAutoRecapPromptStateStore();
-const autoRecapDuplicateTrackingService = new MongoAutoRecapDuplicateTrackingStore();
+const autoReportPromptStateService = new MongoAutoRecapPromptStateStore();
+const autoReportDuplicateTrackingService = new MongoAutoRecapDuplicateTrackingStore();
 const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const dashboardActivityStore = new MongoDashboardActivityStore();
 
@@ -216,7 +213,7 @@ const isDiscordSendableTextChannel = (value: unknown): value is DiscordSendableC
     return isTextType && sendable && typeof candidate.send === "function";
 };
 
-const toAutoRecapChannel = (channel: unknown): AutoRecapSendableChannel | null => {
+const toAutoReportChannel = (channel: unknown): AutoReportSendableChannel | null => {
     if (!isDiscordSendableTextChannel(channel)) return null;
     return {
         send: async (body: Record<string, unknown>) => {
@@ -235,12 +232,12 @@ const sendGuildCreateNotice = async (guild: Guild): Promise<void> => {
         "To enable passive Warcraft Logs detection, run:",
         "`/config auto_recap_channel:#raid-logs`",
         "",
-        "You can also use `/recap <warcraftlogs-url>` anytime.",
+        "You can also use `/report <wcl_report_url>` anytime.",
     ].join("\n");
 
     const channel =
-        toAutoRecapChannel(guild.systemChannel) ??
-        toAutoRecapChannel(
+        toAutoReportChannel(guild.systemChannel) ??
+        toAutoReportChannel(
             guild.channels.cache.find((candidate) => isDiscordSendableTextChannel(candidate)),
         );
     if (!channel) {
@@ -269,7 +266,7 @@ const startDiscordGateway = async (): Promise<Client> => {
         ],
     });
     client.on(Events.MessageCreate, (message) => {
-        void handleAutoRecapMessageCreate({
+        void handleAutoReportMessageCreate({
             message: {
                 guildId: message.guildId,
                 channelId: message.channelId,
@@ -278,13 +275,12 @@ const startDiscordGateway = async (): Promise<Client> => {
                 authorBot: message.author.bot,
                 content: message.content,
             },
-            channel: toAutoRecapChannel(message.channel),
+            channel: toAutoReportChannel(message.channel),
             handleOptions: {
                 wclClient,
                 guildConfigStore,
-                recapPreviewStateService,
-                autoRecapPromptStateService,
-                autoRecapDuplicateTrackingService,
+                autoReportPromptStateService,
+                autoReportDuplicateTrackingService,
                 comparisonHistoryStore,
                 botActivityStore: dashboardActivityStore,
             },
@@ -359,7 +355,6 @@ const processNext = async (): Promise<void> => {
 const start = async () => {
     await connectMongo(env.MONGODB_URI);
     await migrateCharacterClaimIdentityFields();
-    await migrateRecapPreviewStateIndexes();
     await startDiscordGateway();
     logger.info("worker started");
 

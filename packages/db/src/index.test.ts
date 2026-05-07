@@ -4,7 +4,6 @@ import {
   DEFAULT_COMPARE_MODE,
   defaultGuildConfigFor,
   historyLimit,
-  type RecapSummary,
 } from '@wcl/domain';
 import {
   CharacterClaimModel,
@@ -12,57 +11,18 @@ import {
   ComparisonSnapshotModel,
   GuildSettingsModel,
   migrateCharacterClaimIdentityFields,
-  migrateRecapPreviewStateIndexes,
   MongoAutoRecapDuplicateTrackingStore,
   MongoAutoRecapPromptStateStore,
   MongoCharacterClaimStore,
   MongoComparisonHistoryStore,
   MongoGuildConfigStore,
-  MongoRecapPreviewStateStore,
   AutoRecapDuplicateTrackingModel,
   AutoRecapPromptStateModel,
-  RecapPreviewStateModel,
   MongoTrendTrackingService,
   PlayerRaidSummaryModel,
   ReportCacheModel,
   TrendSnapshotModel,
 } from './index.js';
-
-const makeRecapSummary = (): RecapSummary => ({
-  reportTitle: 'Boss - Mythic - Zone',
-  titleLine: 'Boss - Mythic - Zone',
-  secondaryLine: 'Guild on Realm-US',
-  reportDateISO: new Date(0).toISOString(),
-  reportDateLabel: '01/01/1970',
-  killTimeLabel: '45 Min',
-  pullCount: 9,
-  reportLink: 'https://www.warcraftlogs.com/reports/ABC123',
-  gameFamily: 'retail',
-  bossesKilled: 1,
-  compareModeUsed: 'mixed',
-  recapPostMode: 'preview-and-post',
-  fastestPhaseTimes: [],
-  topDamageDone: [],
-  topHealingDone: [],
-  topDamageTaken: [],
-  topInterrupts: [],
-  topDispels: [],
-  topSurvivability: [],
-  topHealers: [],
-  totals: {
-    totalDeaths: 0,
-    raidDamageTaken: 0,
-    dispels: 0,
-    battleRezzes: 0,
-    kicks: 0,
-  },
-  highestParses: [],
-  topDamageAverageParses: [],
-  topHealingAverageParses: [],
-  bossHighlights: [],
-  raidSuperlatives: [],
-  teamNote: 'Team note',
-});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -955,203 +915,6 @@ describe('MongoCharacterClaimStore', () => {
       },
       { $set: { peerCompareOptIn: true, publicPostOptIn: true } },
       { new: true },
-    );
-  });
-});
-
-describe('MongoRecapPreviewStateStore', () => {
-  it('persists and retrieves valid preview state without retired fields', async () => {
-    const now = new Date('2026-04-09T00:00:00.000Z');
-    vi.useFakeTimers();
-    vi.setSystemTime(now);
-    const savedState = {
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-      reportCode: 'ABC123',
-      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
-      summaryPayload: makeRecapSummary(),
-      createdByUserId: 'user-1',
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + 60_000),
-    };
-
-    const updateLean = vi.fn().mockResolvedValue(savedState);
-    vi.spyOn(RecapPreviewStateModel, 'findOneAndUpdate').mockReturnValue({
-      lean: updateLean,
-    } as never);
-    const findLean = vi.fn().mockResolvedValue(savedState);
-    vi.spyOn(RecapPreviewStateModel, 'findOne').mockReturnValue({
-      lean: findLean,
-    } as never);
-
-    const store = new MongoRecapPreviewStateStore();
-    const saved = await store.savePreviewState(savedState);
-    const found = await store.getValidPreviewState({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-
-    expect(saved.summaryPayload).toEqual(makeRecapSummary());
-    expect(found?.summaryPayload).toEqual(makeRecapSummary());
-    expect(RecapPreviewStateModel.findOne).toHaveBeenCalledWith({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-      expiresAt: { $gt: now },
-    });
-  });
-
-  it('accepts legacy preview payloads with retired fields', async () => {
-    const now = new Date('2026-04-09T00:00:00.000Z');
-    vi.useFakeTimers();
-    vi.setSystemTime(now);
-    vi.spyOn(RecapPreviewStateModel, 'findOne').mockReturnValue({
-      lean: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        channelId: 'channel-1',
-        reportCode: 'ABC123',
-        sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
-        summaryPayload: {
-          ...makeRecapSummary(),
-          accountabilityVisibility: 'officers-only',
-          coachingShareability: 'shareable',
-        },
-        createdByUserId: 'user-1',
-        createdAt: now,
-        expiresAt: new Date(now.getTime() + 60_000),
-      }),
-    } as never);
-
-    const store = new MongoRecapPreviewStateStore();
-    const found = await store.getValidPreviewState({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-
-    expect(found?.summaryPayload.reportTitle).toBe('Boss - Mythic - Zone');
-  });
-
-  it('returns null when preview state is missing or expired', async () => {
-    const findLean = vi.fn().mockResolvedValue(null);
-    vi.spyOn(RecapPreviewStateModel, 'findOne').mockReturnValue({
-      lean: findLean,
-    } as never);
-
-    const store = new MongoRecapPreviewStateStore();
-    const result = await store.getValidPreviewState({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-
-    expect(result).toBeNull();
-  });
-
-  it('deletes preview state by lookup key', async () => {
-    const deleteSpy = vi.spyOn(RecapPreviewStateModel, 'deleteOne').mockResolvedValue({
-      acknowledged: true,
-      deletedCount: 1,
-    } as never);
-
-    const store = new MongoRecapPreviewStateStore();
-    await store.deletePreviewState({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-
-    expect(deleteSpy).toHaveBeenCalledWith({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-  });
-
-  it('consumes preview state atomically for valid entries', async () => {
-    const now = new Date('2026-04-09T00:00:00.000Z');
-    vi.useFakeTimers();
-    vi.setSystemTime(now);
-    const savedState = {
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-      reportCode: 'ABC123',
-      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
-      summaryPayload: makeRecapSummary(),
-      createdByUserId: 'user-1',
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + 60_000),
-    };
-    const consumeLean = vi.fn().mockResolvedValue(savedState);
-    const consumeSpy = vi.spyOn(RecapPreviewStateModel, 'findOneAndDelete').mockReturnValue({
-      lean: consumeLean,
-    } as never);
-
-    const store = new MongoRecapPreviewStateStore();
-    await store.consumeValidPreviewState({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-
-    expect(consumeSpy).toHaveBeenCalledWith({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-      expiresAt: { $gt: now },
-    });
-  });
-
-  it('uses guildId, channelId, and reportCode as preview identity', async () => {
-    const now = new Date('2026-04-09T00:00:00.000Z');
-    const savedState = {
-      guildId: 'guild-1',
-      channelId: 'channel-2',
-      reportCode: 'ABC123',
-      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
-      summaryPayload: makeRecapSummary(),
-      createdByUserId: 'user-1',
-      createdAt: now,
-      expiresAt: new Date(now.getTime() + 60_000),
-    };
-    vi.spyOn(RecapPreviewStateModel, 'findOneAndUpdate').mockReturnValue({
-      lean: vi.fn().mockResolvedValue(savedState),
-    } as never);
-
-    const store = new MongoRecapPreviewStateStore();
-    await store.savePreviewState(savedState);
-
-    expect(RecapPreviewStateModel.findOneAndUpdate).toHaveBeenCalledWith(
-      { guildId: 'guild-1', channelId: 'channel-2', reportCode: 'ABC123' },
-      expect.any(Object),
-      expect.any(Object),
-    );
-  });
-
-  it('drops the old guildId and reportCode unique index during migration', async () => {
-    const indexesSpy = vi.spyOn(RecapPreviewStateModel.collection, 'indexes').mockResolvedValue([
-      { name: '_id_', key: { _id: 1 } },
-      {
-        name: 'guildId_1_reportCode_1',
-        key: { guildId: 1, reportCode: 1 },
-        unique: true,
-      },
-    ] as never);
-    const dropSpy = vi
-      .spyOn(RecapPreviewStateModel.collection, 'dropIndex')
-      .mockResolvedValue({ ok: 1 } as never);
-    const createSpy = vi
-      .spyOn(RecapPreviewStateModel.collection, 'createIndex')
-      .mockResolvedValue('guildId_1_channelId_1_reportCode_1' as never);
-
-    await migrateRecapPreviewStateIndexes();
-
-    expect(indexesSpy).toHaveBeenCalledOnce();
-    expect(dropSpy).toHaveBeenCalledWith('guildId_1_reportCode_1');
-    expect(createSpy).toHaveBeenCalledWith(
-      { guildId: 1, channelId: 1, reportCode: 1 },
-      { unique: true },
     );
   });
 });

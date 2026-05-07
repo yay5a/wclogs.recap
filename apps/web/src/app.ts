@@ -5,11 +5,10 @@ import fastifyCookie from "@fastify/cookie";
 import fastifyStatic from "@fastify/static";
 import fastifyRawBody from "fastify-raw-body";
 import type {
-    AutoRecapDuplicateTrackingService,
-    AutoRecapPromptStateService,
+    AutoReportDuplicateTrackingService,
+    AutoReportPromptStateService,
     CharacterClaimStore,
     ComparisonHistoryStore,
-    RecapPreviewStateService,
 } from "@wcl/discord";
 import type { GuildConfigStore } from "@wcl/domain";
 import type { createLogger } from "@wcl/shared";
@@ -32,9 +31,8 @@ export type CreateWebAppOptions = {
     wclClient: WclClient;
     guildConfigStore: GuildConfigStore;
     dashboardGuildConfigStore: DashboardGuildConfigStore;
-    recapPreviewStateService: RecapPreviewStateService;
-    autoRecapPromptStateService: AutoRecapPromptStateService;
-    autoRecapDuplicateTrackingService: AutoRecapDuplicateTrackingService;
+    autoReportPromptStateService: AutoReportPromptStateService;
+    autoReportDuplicateTrackingService: AutoReportDuplicateTrackingService;
     comparisonHistoryStore: ComparisonHistoryStore;
     characterClaimStore: CharacterClaimStore;
     dashboardCharacterClaimStore: DashboardCharacterClaimStore;
@@ -86,9 +84,8 @@ export const createWebApp = async (options: CreateWebAppOptions): Promise<Fastif
         env: options.env,
         wclClient: options.wclClient,
         guildConfigStore: options.guildConfigStore,
-        recapPreviewStateService: options.recapPreviewStateService,
-        autoRecapPromptStateService: options.autoRecapPromptStateService,
-        autoRecapDuplicateTrackingService: options.autoRecapDuplicateTrackingService,
+        autoReportPromptStateService: options.autoReportPromptStateService,
+        autoReportDuplicateTrackingService: options.autoReportDuplicateTrackingService,
         comparisonHistoryStore: options.comparisonHistoryStore,
         characterClaimStore: options.characterClaimStore,
         botActivityStore: options.dashboardActivityStore,

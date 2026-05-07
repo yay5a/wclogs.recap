@@ -12,6 +12,7 @@ export type AutoRecapDuplicateStatus =
 export type AutoRecapLatestOutputKind =
     | "prompt"
     | "public_preview"
+    | "public_final_report"
     | "public_final_recap"
     | "duplicate_confirmation"
     | "public_failure";
@@ -77,6 +78,7 @@ const isStatus = (value: unknown): value is AutoRecapDuplicateStatus =>
 const isOutputKind = (value: unknown): value is AutoRecapLatestOutputKind =>
     value === "prompt" ||
     value === "public_preview" ||
+    value === "public_final_report" ||
     value === "public_final_recap" ||
     value === "duplicate_confirmation" ||
     value === "public_failure";

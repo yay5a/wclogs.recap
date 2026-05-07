@@ -27,8 +27,8 @@ export const revokeReasons = [
 export const onboardingSteps = [
     "bot-in-guild",
     "game-family",
-    "recap-channel",
-    "auto-recap",
+    "report-channel",
+    "auto-report",
     "compare-privacy",
     "raid-officers",
     "officer-dashboard-access",

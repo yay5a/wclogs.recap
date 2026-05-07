@@ -8,6 +8,7 @@ import {
 import { createLogger } from "@wcl/shared";
 import {
     createWclQueries,
+    REPORT_WIDE_ENCOUNTER_TABLE_FILTERS,
     REPORT_WIDE_KILL_TABLE_FILTERS,
     type WclQueries,
 } from "./queries/index.js";
@@ -238,6 +239,9 @@ export class ReportFetcher {
         let reportTablesRaw:
             | Partial<Record<TableDataType, unknown>>
             | undefined;
+        let reportEncounterTablesRaw:
+            | Partial<Record<TableDataType, unknown>>
+            | undefined;
         const playerDetailsStartedAt = now();
         const playerDetailsFightIds = getCompletedEncounterFightIds(baseReport);
         if (playerDetailsFightIds.length > 0) {
@@ -308,6 +312,51 @@ export class ReportFetcher {
         logTiming("fetch report-wide tables", reportWideTablesStartedAt, {
             requested: reportWideTablesRequested,
             succeeded: reportWideTablesSucceeded,
+        });
+        const reportWideEncounterTablesStartedAt = now();
+        const reportWideEncounterFightIds = getCompletedEncounterFightIds(baseReport);
+        let reportWideEncounterTablesRequested = 0;
+        let reportWideEncounterTablesSucceeded = 0;
+        if (ratePressure.level !== "critical") {
+            if (reportWideEncounterFightIds.length > 0) {
+                reportEncounterTablesRaw = {};
+                for (const dataType of REPORT_RECAP_TABLE_DATA_TYPES) {
+                    reportWideEncounterTablesRequested += 1;
+                    try {
+                        const tablePayload = await this.queries.reportWideTable(
+                            {
+                                code,
+                                allowUnlisted: DEFAULT_ALLOW_UNLISTED_REPORTS,
+                                dataType,
+                                fightIDs: reportWideEncounterFightIds,
+                                filterExpression:
+                                    REPORT_WIDE_ENCOUNTER_TABLE_FILTERS[dataType],
+                            },
+                        );
+                        const tableNode = getReportNode(tablePayload)?.table;
+                        if (tableNode !== undefined && tableNode !== null) {
+                            reportEncounterTablesRaw[dataType] = tableNode;
+                        }
+                        reportWideEncounterTablesSucceeded += 1;
+                    } catch (error) {
+                        noteSkippedEnrichment(
+                            `Failed all-encounter ${dataType} table enrichment; continuing without this table (${error instanceof Error ? error.message : "unknown error"}).`,
+                        );
+                    }
+                }
+            } else {
+                noteSkippedEnrichment(
+                    "Skipped all-encounter tables enrichment due to missing completed encounter fight IDs.",
+                );
+            }
+        } else {
+            noteSkippedEnrichment(
+                `Skipped all-encounter tables enrichment due to critical rate pressure (${Math.round(ratePressure.usage * 100)}% used).`,
+            );
+        }
+        logTiming("fetch all-encounter tables", reportWideEncounterTablesStartedAt, {
+            requested: reportWideEncounterTablesRequested,
+            succeeded: reportWideEncounterTablesSucceeded,
         });
         const rawFights = baseReport ? parseFightSummaries(baseReport) : [];
         const fightsByEncounterId = new Map<number, FightSummaryRow[]>();
@@ -403,6 +452,9 @@ export class ReportFetcher {
             )?.rankings,
             playerDetails: getReportNode(playerDetailsRaw)?.playerDetails,
             ...(reportTablesRaw ? { reportTables: reportTablesRaw } : {}),
+            ...(reportEncounterTablesRaw
+                ? { reportEncounterTables: reportEncounterTablesRaw }
+                : {}),
             encounterSummaries,
         };
     }

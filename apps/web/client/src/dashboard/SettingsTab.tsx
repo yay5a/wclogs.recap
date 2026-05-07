@@ -83,7 +83,7 @@ export const SettingsTab = ({
             </select>
         </label>
         <label>
-            Auto recap
+            Auto report
             <select
                 value={config.autoRecapMode}
                 disabled={!can("settings:edit")}
@@ -121,7 +121,7 @@ export const SettingsTab = ({
             Officer dashboard access
         </label>
         <label className="wide">
-            Auto recap channels
+            Auto report channels
             <textarea
                 value={channelText}
                 disabled={!can("settings:edit")}

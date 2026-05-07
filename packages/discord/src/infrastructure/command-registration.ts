@@ -135,7 +135,7 @@ export const commandDefinitions: CommandDefinition[] = [
     { name: "health", description: "Check bot health", type: 1 },
     {
         name: "config",
-        description: "Configure guild recap behavior",
+        description: "Configure guild report behavior",
         type: 1,
         default_member_permissions: "32",
         options: [
@@ -215,10 +215,17 @@ export const commandDefinitions: CommandDefinition[] = [
     },
     { name: "list_officers", description: "List explicit officer users", type: 1 },
     {
-        name: "recap",
-        description: "Generate a recap preview from a WCL report URL",
+        name: "report",
+        description: "Summarize a Warcraft Logs raid-night report",
         type: 1,
-        options: [{ name: "url", description: "WCL report URL", type: 3, required: true }],
+        options: [
+            {
+                name: "wcl_report_url",
+                description: "Warcraft Logs report URL",
+                type: STRING_OPTION_TYPE,
+                required: true,
+            },
+        ],
     },
     {
         name: "compare",

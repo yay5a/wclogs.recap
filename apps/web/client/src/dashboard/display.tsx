@@ -40,6 +40,10 @@ export const userLabelForClaim = (
 
 export const actionText = (event: ActivityEvent): string => {
     switch (event.kind) {
+        case "report_preview_created":
+            return "Report preview created";
+        case "report_posted":
+            return "Report posted";
         case "recap_preview_created":
             return "Recap preview created";
         case "recap_posted":

@@ -37,7 +37,7 @@ export const OverviewTab = ({
             <h3>Channels</h3>
             <div className="stack">
                 {config.autoRecapChannelIds.length === 0 ? (
-                    <span className="empty">No recap channels configured</span>
+                    <span className="empty">No report channels configured</span>
                 ) : (
                     config.autoRecapChannelIds.map((channelId) => (
                         <IdLabel

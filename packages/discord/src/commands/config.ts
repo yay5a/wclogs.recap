@@ -27,14 +27,14 @@ const getAutoRecapChannelIds = (config: Partial<GuildConfig>): string[] => (Arra
 const buildConfigStatusResponse = (config: Partial<GuildConfig>): string => {
     const mode = getAutoRecapMode(config);
     const channelIds = getAutoRecapChannelIds(config);
-    const lines = ["**wclogs.recap setup status**", "", `Auto recap: \`${mode}\``];
+    const lines = ["**wclogs.recap setup status**", "", `Auto report: \`${mode}\``];
 
     if (channelIds.length === 0) {
-        lines.push("Auto recap channels: none configured", "", "**Next step:**", "Add a raid-log channel: `/config auto_recap_channel:#raid-logs`", "", "**Required bot permissions in that channel:**", "View Channel, Send Messages, Embed Links", "", "**Optional:**", "Use `/recap <warcraftlogs-url>` anytime without auto recap.");
+        lines.push("Auto report channels: none configured", "", "**Next step:**", "Add a raid-log channel: `/config auto_recap_channel:#raid-logs`", "", "**Required bot permissions in that channel:**", "View Channel, Send Messages, Embed Links", "", "**Optional:**", "Use `/report <wcl_report_url>` anytime without auto report.");
         return lines.join("\n");
     }
 
-    lines.push("Auto recap channels:", "", ...channelIds.map((channelId) => `* <#${channelId}>`), "", mode === "off" ? "Passive detection is currently disabled. Configured channels are preserved." : "Passive Warcraft Logs detection is active in the listed channels.");
+    lines.push("Auto report channels:", "", ...channelIds.map((channelId) => `* <#${channelId}>`), "", mode === "off" ? "Passive detection is currently disabled. Configured channels are preserved." : "Passive Warcraft Logs detection is active in the listed channels.");
     return lines.join("\n");
 };
 
@@ -152,11 +152,11 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
         responseLines.push(saved.comparePublicPostingEnabled ? "Public compare posting enabled. Posting still requires explicit visibility and target safeguards." : "Public compare posting disabled. Private comparison cards remain the default.");
     }
     if (autoRecapMode) {
-        responseLines.push(`Auto recap mode set to ${autoRecapMode}.`);
+        responseLines.push(`Auto report mode set to ${autoRecapMode}.`);
     }
     if (autoRecapChannelId) {
         const enabled = getAutoRecapChannelIds(saved).includes(autoRecapChannelId);
-        responseLines.push(enabled ? `Auto recap enabled in <#${autoRecapChannelId}>.` : `Auto recap disabled in <#${autoRecapChannelId}>.`);
+        responseLines.push(enabled ? `Auto report enabled in <#${autoRecapChannelId}>.` : `Auto report disabled in <#${autoRecapChannelId}>.`);
     }
 
     return {

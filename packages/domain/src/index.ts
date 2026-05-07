@@ -83,6 +83,13 @@ export interface NormalizedFight {
   kill: boolean;
 }
 
+export interface NormalizedEncounterFight extends NormalizedFight {
+  encounterId?: number;
+  difficulty?: number;
+  difficultyName?: string;
+  inProgress?: boolean;
+}
+
 export interface NormalizedLeaderboardEntry {
   scope: 'report' | 'boss';
   bossName?: string;
@@ -163,6 +170,7 @@ export interface NormalizedReport {
   gameFamily: GameFamily;
   zoneName?: string;
   fights: NormalizedFight[];
+  encounterFights?: NormalizedEncounterFight[];
   players: NormalizedPlayer[];
   leaderboards?: NormalizedLeaderboardEntry[];
   bossPerformances?: NormalizedBossPerformance[];
@@ -180,6 +188,12 @@ export interface NormalizedReport {
       specName?: string;
     }>;
     topDamageTaken?: Array<{
+      playerName: string;
+      value: number;
+      className?: string;
+      specName?: string;
+    }>;
+    topDeaths?: Array<{
       playerName: string;
       value: number;
       className?: string;
@@ -210,80 +224,58 @@ export interface NormalizedReport {
       interrupts?: number;
     };
   };
+  reportWideEncounterRecap?: {
+    topDamageDone: Array<{
+      playerName: string;
+      value: number;
+      className?: string;
+      specName?: string;
+    }>;
+    topHealingDone: Array<{
+      playerName: string;
+      value: number;
+      className?: string;
+      specName?: string;
+    }>;
+    topDamageTaken?: Array<{
+      playerName: string;
+      value: number;
+      className?: string;
+      specName?: string;
+    }>;
+    topDeaths?: Array<{
+      playerName: string;
+      value: number;
+      className?: string;
+      specName?: string;
+    }>;
+    topInterrupts?: Array<{
+      playerName: string;
+      value: number;
+      className?: string;
+      specName?: string;
+    }>;
+    topDispels?: Array<{
+      playerName: string;
+      value: number;
+      className?: string;
+      specName?: string;
+    }>;
+    totals: {
+      deaths?: number;
+      raidDamageTaken?: number;
+      dispels?: number;
+      interrupts?: number;
+    };
+  };
   reportWideRankings?: {
     dps: NormalizedLeaderboardEntry[];
     hps: NormalizedLeaderboardEntry[];
   };
 }
 
-export interface RecapSummary {
-  reportTitle: string;
-  titleLine: string;
-  secondaryLine: string;
-  reportDateISO: string;
-  reportDateLabel: string;
-  killTimeLabel: string;
-  pullCount: number;
-  reportLink: string;
-  gameFamily: GameFamily;
-  zoneName?: string;
-  bossesKilled: number;
-  compareModeUsed: CompareMode;
-  recapPostMode: RecapPostMode;
-  fastestPhaseTimes: Array<{ label: string; durationMs: number; name?: string }>;
-  topDamageTaken: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
-  topHealers: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
-  topDamageDone: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
-  topHealingDone: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
-  topInterrupts: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
-  topDispels: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
-  topSurvivability: Array<{ playerName: string; value: number; classSpecLabel?: string }>;
-  totals: {
-    totalDeaths?: number;
-    mostWipesBoss?: string;
-    mostWipesCount?: number;
-    raidDamageTaken?: number;
-    dispels?: number;
-    battleRezzes?: number;
-    kicks?: number;
-  };
-  bestExecution?: { playerName: string; value: number };
-  mostImprovedPlayer?: { playerName: string; delta: number };
-  highestParses: Array<{
-    playerName: string;
-    metric: 'DPS' | 'HPS';
-    value: number;
-    bossName?: string;
-    fightId?: number;
-    className?: string;
-    specName?: string;
-    classSpecLabel?: string;
-  }>;
-  topDamageAverageParses: Array<{
-    playerName: string;
-    value: number;
-    className?: string;
-    specName?: string;
-    classSpecLabel?: string;
-  }>;
-  topHealingAverageParses: Array<{
-    playerName: string;
-    value: number;
-    className?: string;
-    specName?: string;
-    classSpecLabel?: string;
-  }>;
-  bossHighlights: Array<{ bossName: string; fightId: number; text: string }>;
-  raidSuperlatives: Array<{ label: string; text: string }>;
-  teamNote: string;
-}
-
 export interface PreviousRaidLookup {
   findPreviousRaidSummaries(guildId: string, beforeDate: Date): Promise<NormalizedPlayer[]>;
-}
-
-export interface BuildRecapSummaryOptions {
-  guildConfig?: GuildConfig;
 }
 
 export { buildComparisonBaseline } from './comparison/baseline.js';
@@ -365,11 +357,13 @@ export type {
   ReadyCharacterComparisonIdentity,
   ReadyPlayerComparisonIdentity,
 } from './comparison/identity.js';
-export { deriveDeterministicTeamNote, Outcome } from './recap/outcome.js';
-export { Performance } from './recap/performance.js';
-export { Volume } from './recap/volume.js';
-export { Execution } from './recap/execution.js';
-export { buildRecapSummary } from './recap/build-recap-summary.js';
+export { buildReportSummary } from './report/build-report-summary.js';
+export type {
+  ReportEncounterSummary,
+  ReportMetricRow,
+  ReportParseRow,
+  ReportSummary,
+} from './report/types.js';
 export {
   getBossEncounterId,
   hasDungeonPullData,

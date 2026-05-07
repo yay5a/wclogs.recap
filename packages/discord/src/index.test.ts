@@ -4,22 +4,19 @@ import type {
   ComparisonSnapshotInput,
   GuildConfig,
   GuildConfigStore,
-  NormalizedPlayer,
   NormalizedReport,
 } from '@wcl/domain';
-import { buildRecapSummary } from '@wcl/domain';
 import {
-  buildRecapPreviewBody,
-  buildPublicRecapEmbed,
+  buildReportResponseBody,
   buildDiscordCommandPayload,
   buildDiscordCommandPayloads,
   commandDefinitions,
   DiscordCommandRegistrationError,
   handleInteraction,
-  handleAutoRecapMessageCreate,
-  makeAutoRecapDuplicateCustomId,
-  makeAutoRecapPromptIgnoreCustomId,
-  makeAutoRecapPromptPreviewCustomId,
+  handleAutoReportMessageCreate,
+  makeAutoReportDuplicateCustomId,
+  makeAutoReportPromptIgnoreCustomId,
+  makeAutoReportPromptPreviewCustomId,
   registerGlobalCommands,
   registerGuildCommands,
 } from './index.js';
@@ -110,44 +107,6 @@ const makeReportWithComparisonIdentity = (): NormalizedReport => ({
   },
 });
 
-type PreviewSummary = Parameters<typeof buildRecapPreviewBody>[0];
-
-const makePreviewSummary = (): PreviewSummary => ({
-  reportTitle: 'Boss - Mythic - Zone',
-  titleLine: 'Boss - Mythic - Zone',
-  secondaryLine: 'Guild on Realm-US',
-  reportDateISO: new Date(0).toISOString(),
-  reportDateLabel: '01/01/1970',
-  killTimeLabel: '45 Min',
-  pullCount: 9,
-  reportLink: 'https://www.warcraftlogs.com/reports/ABC123',
-  gameFamily: 'retail' as const,
-  bossesKilled: 1,
-  compareModeUsed: 'mixed' as const,
-  recapPostMode: 'preview-and-post' as const,
-  fastestPhaseTimes: [],
-  topDamageDone: [],
-  topHealingDone: [],
-  topDamageTaken: [],
-  topInterrupts: [],
-  topDispels: [],
-  topSurvivability: [],
-  topHealers: [],
-  totals: {
-    totalDeaths: 0,
-    raidDamageTaken: 0,
-    dispels: 0,
-    battleRezzes: 0,
-    kicks: 0,
-  },
-  highestParses: [],
-  topDamageAverageParses: [],
-  topHealingAverageParses: [],
-  bossHighlights: [],
-  raidSuperlatives: [],
-  teamNote: 'Team note',
-});
-
 afterEach(() => {
   vi.restoreAllMocks();
 });
@@ -160,7 +119,7 @@ describe('command payload builder', () => {
       'add_officer',
       'remove_officer',
       'list_officers',
-      'recap',
+      'report',
       'compare',
       'claim_character',
       'approve_character',
@@ -229,6 +188,11 @@ describe('command payload builder', () => {
       type: 1,
     });
     expect(listOfficersCommand?.default_member_permissions).toBeUndefined();
+
+    expect(commandDefinitions.find((command) => command.name === 'report')).toMatchObject({
+      type: 1,
+      options: [{ name: 'wcl_report_url', type: 3, required: true }],
+    });
 
     const compareCommand = commandDefinitions.find((command) => command.name === 'compare');
     if (!compareCommand || !('options' in compareCommand)) {
@@ -617,25 +581,12 @@ describe('handleInteraction', () => {
       fetchAndNormalizeReport: vi.fn(),
       findPreviousRaidSummaries: vi.fn(),
     } as never;
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn(),
-      getValidPreviewState: vi.fn(),
-      consumeValidPreviewState: vi.fn(),
-      deletePreviewState: vi.fn(),
-    };
-    return { wclClient, guildConfigStore, recapPreviewStateService };
+    return { wclClient, guildConfigStore };
   };
 
   const makeGuildConfigStore = (overrides: Partial<GuildConfig> = {}): GuildConfigStore => ({
     getGuildConfig: vi.fn().mockResolvedValue(makeGuildConfig(overrides)),
     saveGuildConfig: vi.fn(),
-  });
-
-  const makeRecapPreviewStateService = () => ({
-    savePreviewState: vi.fn(),
-    getValidPreviewState: vi.fn(),
-    consumeValidPreviewState: vi.fn(),
-    deletePreviewState: vi.fn(),
   });
 
   const makeHistorySnapshot = (
@@ -822,8 +773,7 @@ describe('handleInteraction', () => {
     const response = await handleInteraction(interaction, {
       wclClient,
       guildConfigStore,
-      recapPreviewStateService: makeRecapPreviewStateService(),
-      comparisonHistoryStore,
+            comparisonHistoryStore,
       characterClaimStore,
       botActivityStore,
     });
@@ -942,7 +892,7 @@ describe('handleInteraction', () => {
       'Default comparison mode set to character. Future comparisons will match exact character history unless a command overrides it.',
     );
     expect((response as { data?: { content?: string } }).data?.content).toContain(
-      'Auto recap: `prompt`',
+      'Auto report: `prompt`',
     );
     expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
   });
@@ -1000,7 +950,7 @@ describe('handleInteraction', () => {
       '**wclogs.recap setup status**',
     );
     expect((response as { data?: { content?: string } }).data?.content).toContain(
-      'Auto recap channels: none configured',
+      'Auto report channels: none configured',
     );
   });
 
@@ -1048,7 +998,7 @@ describe('handleInteraction', () => {
     expect((response as { data?: { content?: string } }).data?.content).not.toMatch(/trend/i);
   });
 
-  it('toggles auto recap channels and de-dupes channel ids', async () => {
+  it('toggles auto report channels and de-dupes channel ids', async () => {
     const saveGuildConfig = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
       defaultGameFamily: 'retail',
@@ -1080,11 +1030,11 @@ describe('handleInteraction', () => {
       autoRecapChannelIds: ['channel-2'],
     });
     expect((response as { data?: { content?: string } }).data?.content).toContain(
-      'Auto recap disabled in <#channel-1>.',
+      'Auto report disabled in <#channel-1>.',
     );
   });
 
-  it('sets auto recap mode off while preserving configured channels', async () => {
+  it('sets auto report mode off while preserving configured channels', async () => {
     const saveGuildConfig = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
       defaultGameFamily: 'retail',
@@ -1151,7 +1101,7 @@ describe('handleInteraction', () => {
       autoRecapMode: 'auto_post',
     });
     expect((response as { data?: { content?: string } }).data?.content).toContain(
-      'Auto recap mode set to auto_post.',
+      'Auto report mode set to auto_post.',
     );
   });
 
@@ -1385,8 +1335,7 @@ describe('handleInteraction', () => {
         guildConfigStore: makeGuildConfigStore({
           compareOfficerUserIds: ['officer-1', 'officer-2'],
         }),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-      },
+              },
     );
 
     expect(response).toMatchObject({
@@ -1410,8 +1359,7 @@ describe('handleInteraction', () => {
         guildConfigStore: makeGuildConfigStore({
           compareOfficerUserIds: ['officer-1'],
         }),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-      },
+              },
     );
 
     expect(response).toMatchObject({
@@ -1430,8 +1378,7 @@ describe('handleInteraction', () => {
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-      },
+              },
     );
 
     expect(response).toMatchObject({
@@ -1460,8 +1407,7 @@ describe('handleInteraction', () => {
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore,
+                characterClaimStore,
         botActivityStore,
       },
     );
@@ -1514,8 +1460,7 @@ describe('handleInteraction', () => {
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore,
+                characterClaimStore,
         botActivityStore,
       },
     );
@@ -1551,8 +1496,7 @@ describe('handleInteraction', () => {
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore: blockedStore,
+                characterClaimStore: blockedStore,
       },
     );
 
@@ -1586,8 +1530,7 @@ describe('handleInteraction', () => {
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore: approvedStore,
+                characterClaimStore: approvedStore,
         botActivityStore,
       },
     );
@@ -1640,8 +1583,7 @@ describe('handleInteraction', () => {
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore,
+                characterClaimStore,
         botActivityStore,
       },
     );
@@ -1678,8 +1620,7 @@ describe('handleInteraction', () => {
         guildConfigStore: makeGuildConfigStore({
           compareOfficerUserIds: [],
         }),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore: broadRoleStore,
+                characterClaimStore: broadRoleStore,
       },
     );
 
@@ -1714,8 +1655,7 @@ describe('handleInteraction', () => {
         guildConfigStore: makeGuildConfigStore({
           compareOfficerUserIds: ['officer-1'],
         }),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore: explicitOfficerStore,
+                characterClaimStore: explicitOfficerStore,
       },
     );
 
@@ -1765,8 +1705,7 @@ describe('handleInteraction', () => {
         guildConfigStore: makeGuildConfigStore({
           compareOfficerUserIds: ['officer-1'],
         }),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore,
+                characterClaimStore,
         botActivityStore,
       },
     );
@@ -1813,8 +1752,7 @@ describe('handleInteraction', () => {
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore,
+                characterClaimStore,
       },
     );
 
@@ -1855,8 +1793,7 @@ describe('handleInteraction', () => {
       {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        characterClaimStore,
+                characterClaimStore,
       },
     );
 
@@ -2582,8 +2519,7 @@ describe('handleInteraction', () => {
     const response = await handleInteraction(makeCompareInteraction('alts'), {
       wclClient,
       guildConfigStore: makeGuildConfigStore(),
-      recapPreviewStateService: makeRecapPreviewStateService(),
-      comparisonHistoryStore,
+            comparisonHistoryStore,
     });
 
     expect(response).toMatchObject({
@@ -2614,8 +2550,7 @@ describe('handleInteraction', () => {
       {
         wclClient,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        comparisonHistoryStore,
+                comparisonHistoryStore,
         characterClaimStore: makeCharacterClaimStore(),
       },
     );
@@ -2646,8 +2581,7 @@ describe('handleInteraction', () => {
     const response = await handleInteraction(makeCompareInteraction('mixed'), {
       wclClient,
       guildConfigStore: makeGuildConfigStore(),
-      recapPreviewStateService: makeRecapPreviewStateService(),
-      comparisonHistoryStore,
+            comparisonHistoryStore,
     });
 
     expect(response).toMatchObject({
@@ -2664,388 +2598,8 @@ describe('handleInteraction', () => {
     expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
   });
 
-  it('creates recap preview and post flow', async () => {
-    const report = makeReport();
-    const previous: NormalizedPlayer[] = [];
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
-      findPreviousRaidSummaries: vi.fn().mockResolvedValue(previous),
-    } as never;
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn().mockResolvedValue(undefined),
-      getValidPreviewState: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        channelId: 'channel-1',
-        reportCode: 'ABC123',
-        sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
-        summaryPayload: {
-          ...makePreviewSummary(),
-        },
-        createdByUserId: 'user-1',
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 60_000),
-      }),
-      consumeValidPreviewState: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        channelId: 'channel-1',
-        reportCode: 'ABC123',
-        sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
-        summaryPayload: {
-          ...makePreviewSummary(),
-        },
-        createdByUserId: 'user-1',
-        createdAt: new Date(),
-        expiresAt: new Date(Date.now() + 60_000),
-      }),
-      deletePreviewState: vi.fn().mockResolvedValue(undefined),
-    };
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      status: 200,
-      statusText: 'OK',
-      text: vi.fn().mockResolvedValue('ok'),
-    });
-    vi.stubGlobal('fetch', fetchMock);
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'mixed',
-        recapPostModeDefault: 'preview-and-post',
-      }),
-      saveGuildConfig: vi.fn(),
-    };
-    const editFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn().mockResolvedValue('ok'),
-    });
-    vi.stubGlobal('fetch', editFetch);
-
-    await handleInteraction(
-      {
-        type: InteractionType.APPLICATION_COMMAND,
-        id: 'interaction-1',
-        application_id: 'app-1',
-        token: 'token-1',
-        guild_id: 'guild-1',
-        channel_id: 'channel-1',
-        member: { user: { id: 'user-1' } },
-        data: {
-          name: 'recap',
-          options: [
-            {
-              name: 'url',
-              value: 'https://www.warcraftlogs.com/reports/ABC123',
-            },
-          ],
-        },
-      },
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
-      },
-    );
-
-    await vi.waitFor(() => {
-      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
-      expect(editFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/webhooks/'),
-        expect.objectContaining({ method: 'PATCH' }),
-      );
-    });
-    const patchCall = editFetch.mock.calls.find(
-      ([url]) =>
-        typeof url === 'string' &&
-        url.includes('/webhooks/') &&
-        url.includes('/messages/@original'),
-    );
-    const body =
-      patchCall?.[1] &&
-      typeof patchCall[1] === 'object' &&
-      'body' in (patchCall[1] as Record<string, unknown>)
-        ? (patchCall[1] as { body: string }).body
-        : '{}';
-    const previewBody = JSON.parse(body) as {
-      components?: Array<{ components?: Array<{ custom_id?: string; label?: string }> }>;
-    };
-    const buttons = previewBody.components?.[0]?.components ?? [];
-    const postButton = buttons.find((button) => button.custom_id?.includes(':post:'));
-    const cancelButton = buttons.find((button) => button.custom_id?.includes(':cancel:'));
-
-    const posted = await handleInteraction(
-      {
-        type: InteractionType.MESSAGE_COMPONENT,
-        guild_id: 'guild-1',
-        data: { custom_id: 'recap:v2:post:ABC123:guild-1:channel-1' },
-      },
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
-      },
-    );
-    expect(postButton?.label).toBe('Post to Current Channel');
-    expect(postButton?.custom_id).toBe('recap:v2:post:ABC123:guild-1:channel-1');
-    expect(cancelButton?.label).toBe('Cancel');
-    expect(cancelButton?.custom_id).toBe('recap:v2:cancel:ABC123:guild-1:channel-1');
-
-    expect((posted as { data?: { embeds?: unknown[] } }).data?.embeds?.length).toBe(1);
-    expect(recapPreviewStateService.consumeValidPreviewState).toHaveBeenCalledWith({
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-  });
-
-  it('persists extracted character comparison snapshots after a successful recap fetch', async () => {
-    const report = makeReportWithComparisonIdentity();
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn().mockResolvedValue(report),
-      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
-    } as never;
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'mixed',
-        recapPostModeDefault: 'preview-and-post',
-      }),
-      saveGuildConfig: vi.fn(),
-    };
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn().mockResolvedValue(undefined),
-      getValidPreviewState: vi.fn(),
-      consumeValidPreviewState: vi.fn(),
-      deletePreviewState: vi.fn(),
-    };
-    const comparisonHistoryStore = {
-      saveComparisonSnapshot: vi.fn().mockResolvedValue(undefined),
-      findCharacterHistory: vi.fn(),
-    };
-    const editFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn().mockResolvedValue('ok'),
-    });
-    vi.stubGlobal('fetch', editFetch);
-
-    await handleInteraction(
-      {
-        type: InteractionType.APPLICATION_COMMAND,
-        id: 'interaction-1',
-        application_id: 'app-1',
-        token: 'token-1',
-        guild_id: 'guild-1',
-        channel_id: 'channel-1',
-        member: { user: { id: 'user-1' } },
-        data: {
-          name: 'recap',
-          options: [{ name: 'url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
-        },
-      },
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
-        comparisonHistoryStore,
-      },
-    );
-
-    await vi.waitFor(() => {
-      expect(comparisonHistoryStore.saveComparisonSnapshot).toHaveBeenCalledOnce();
-      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
-      expect(editFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/webhooks/'),
-        expect.objectContaining({ method: 'PATCH' }),
-      );
-    });
-
-    expect(comparisonHistoryStore.saveComparisonSnapshot).toHaveBeenCalledWith(
-      expect.objectContaining({
-        guildId: 'guild-1',
-        reportCode: 'ABC123',
-        participantKey: 'character:us:stormrage:alyra',
-        warcraftLogsActorId: 7,
-        warcraftLogsGuid: 99060818,
-        characterName: 'Alyra',
-        server: 'Stormrage',
-        region: 'US',
-        realm: 'Stormrage',
-        rankPercent: 82,
-        damageTotal: 1234,
-        healingTotal: 567,
-        interrupts: 5,
-        dispels: 1,
-      }),
-    );
-    const savedSnapshot = comparisonHistoryStore.saveComparisonSnapshot.mock.calls[0]?.[0];
-    expect(savedSnapshot).not.toHaveProperty('playerProfileId');
-    expect(savedSnapshot).not.toHaveProperty('rawPayload');
-    expect(savedSnapshot).not.toHaveProperty('normalizedPayload');
-    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
-
-    const patchCall = editFetch.mock.calls.find(
-      ([url]) =>
-        typeof url === 'string' &&
-        url.includes('/webhooks/') &&
-        url.includes('/messages/@original'),
-    );
-    const body =
-      patchCall?.[1] &&
-      typeof patchCall[1] === 'object' &&
-      'body' in (patchCall[1] as Record<string, unknown>)
-        ? (patchCall[1] as { body: string }).body
-        : '{}';
-    expect(body).not.toMatch(/participantKey|baseline|history|playerProfileId|snapshot/i);
-  });
-
-  it('keeps recap preview successful when comparison extraction returns no snapshots', async () => {
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
-      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
-    } as never;
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'character',
-        recapPostModeDefault: 'preview-and-post',
-      }),
-      saveGuildConfig: vi.fn(),
-    };
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn().mockResolvedValue(undefined),
-      getValidPreviewState: vi.fn(),
-      consumeValidPreviewState: vi.fn(),
-      deletePreviewState: vi.fn(),
-    };
-    const comparisonHistoryStore = {
-      saveComparisonSnapshot: vi.fn(),
-      findCharacterHistory: vi.fn(),
-    };
-    const editFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn().mockResolvedValue('ok'),
-    });
-    vi.stubGlobal('fetch', editFetch);
-
-    await handleInteraction(
-      {
-        type: InteractionType.APPLICATION_COMMAND,
-        id: 'interaction-1',
-        application_id: 'app-1',
-        token: 'token-1',
-        guild_id: 'guild-1',
-        channel_id: 'channel-1',
-        member: { user: { id: 'user-1' } },
-        data: {
-          name: 'recap',
-          options: [{ name: 'url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
-        },
-      },
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
-        comparisonHistoryStore,
-      },
-    );
-
-    await vi.waitFor(() => {
-      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
-      expect(editFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/webhooks/'),
-        expect.objectContaining({ method: 'PATCH' }),
-      );
-    });
-    expect(comparisonHistoryStore.saveComparisonSnapshot).not.toHaveBeenCalled();
-    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
-  });
-
-  it('keeps recap preview successful when comparison snapshot persistence fails', async () => {
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReportWithComparisonIdentity()),
-      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
-    } as never;
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'character',
-        recapPostModeDefault: 'preview-and-post',
-      }),
-      saveGuildConfig: vi.fn(),
-    };
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn().mockResolvedValue(undefined),
-      getValidPreviewState: vi.fn(),
-      consumeValidPreviewState: vi.fn(),
-      deletePreviewState: vi.fn(),
-    };
-    const comparisonHistoryStore = {
-      saveComparisonSnapshot: vi.fn().mockRejectedValue(new Error('snapshot write failed')),
-      findCharacterHistory: vi.fn(),
-    };
-    const editFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn().mockResolvedValue('ok'),
-    });
-    vi.stubGlobal('fetch', editFetch);
-
-    await handleInteraction(
-      {
-        type: InteractionType.APPLICATION_COMMAND,
-        id: 'interaction-1',
-        application_id: 'app-1',
-        token: 'token-1',
-        guild_id: 'guild-1',
-        channel_id: 'channel-1',
-        member: { user: { id: 'user-1' } },
-        data: {
-          name: 'recap',
-          options: [{ name: 'url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
-        },
-      },
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
-        comparisonHistoryStore,
-      },
-    );
-
-    await vi.waitFor(() => {
-      expect(comparisonHistoryStore.saveComparisonSnapshot).toHaveBeenCalledOnce();
-      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
-      expect(editFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/webhooks/'),
-        expect.objectContaining({ method: 'PATCH' }),
-      );
-    });
-    expect(comparisonHistoryStore.findCharacterHistory).not.toHaveBeenCalled();
-  });
-
-  it('can schedule recap processing outside the initial response path', async () => {
+  it('can schedule report processing outside the initial response path', async () => {
     const fetchAndNormalizeReport = vi.fn().mockResolvedValue(makeReport());
-    const wclClient = {
-      fetchAndNormalizeReport,
-      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
-    } as never;
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'mixed',
-        recapPostModeDefault: 'preview-and-post',
-      }),
-      saveGuildConfig: vi.fn(),
-    };
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn().mockResolvedValue(undefined),
-      getValidPreviewState: vi.fn(),
-      consumeValidPreviewState: vi.fn(),
-      deletePreviewState: vi.fn(),
-    };
     const scheduledTasks: Array<() => void> = [];
 
     const response = await handleInteraction(
@@ -3056,32 +2610,89 @@ describe('handleInteraction', () => {
         token: 'token-1',
         guild_id: 'guild-1',
         channel_id: 'channel-1',
-        member: { user: { id: 'user-1' } },
         data: {
-          name: 'recap',
+          name: 'report',
           options: [
             {
-              name: 'url',
+              name: 'wcl_report_url',
               value: 'https://www.warcraftlogs.com/reports/ABC123',
             },
           ],
         },
       },
       {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
+        wclClient: { fetchAndNormalizeReport } as never,
+        guildConfigStore: {
+          getGuildConfig: vi.fn(),
+          saveGuildConfig: vi.fn(),
+        },
         scheduleBackgroundTask: (task) => scheduledTasks.push(task),
       },
     );
 
-    expect(response).toMatchObject({ type: expect.any(Number) });
+    expect(response).toMatchObject({
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+      data: { flags: 64 },
+    });
     expect(scheduledTasks).toHaveLength(1);
     expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
   });
 
-  it('handles expired auto recap prompt buttons without falling through as unsupported', async () => {
-    const autoRecapPromptStateService = {
+  it('returns a deprecation message for stale recap command interactions without processing', async () => {
+    const fetchAndNormalizeReport = vi.fn();
+
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        id: 'interaction-1',
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        data: {
+          name: 'recap',
+          options: [{ name: 'url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
+        },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport } as never,
+        guildConfigStore: makeGuildConfigStore(),
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: '`/recap` has been retired. Use `/report <wcl_report_url>`.',
+        flags: 64,
+      },
+    });
+    expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
+  });
+
+  it('returns a deprecation message for stale recap component interactions', async () => {
+    const response = await handleInteraction(
+      {
+        type: InteractionType.MESSAGE_COMPONENT,
+        guild_id: 'guild-1',
+        channel_id: 'channel-1',
+        data: { custom_id: 'recap:v2:post:ABC123:guild-1:channel-1' },
+      },
+      {
+        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        guildConfigStore: makeGuildConfigStore(),
+      },
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+      data: {
+        content: '`/recap` has been retired. Use `/report <wcl_report_url>`.',
+        flags: 64,
+      },
+    });
+  });
+
+  it('handles expired auto report prompt buttons without falling through as unsupported', async () => {
+    const autoReportPromptStateService = {
       savePromptState: vi.fn(),
       getValidPromptState: vi.fn().mockResolvedValue(null),
       consumeValidPromptState: vi.fn(),
@@ -3091,7 +2702,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.MESSAGE_COMPONENT,
         guild_id: 'guild-1',
-        data: { custom_id: makeAutoRecapPromptPreviewCustomId('source-message-1') },
+        data: { custom_id: makeAutoReportPromptPreviewCustomId('source-message-1') },
       },
       {
         wclClient: {
@@ -3099,15 +2710,14 @@ describe('handleInteraction', () => {
           findPreviousRaidSummaries: vi.fn(),
         } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        autoRecapPromptStateService,
+        autoReportPromptStateService,
       },
     );
 
     expect(response).toMatchObject({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: expect.stringContaining('auto recap prompt has expired'),
+        content: expect.stringContaining('auto report prompt has expired'),
         flags: 64,
       },
     });
@@ -3116,14 +2726,14 @@ describe('handleInteraction', () => {
     );
   });
 
-  it('reports missing auto recap prompt store as temporarily unavailable, not expired', async () => {
+  it('reports missing auto report prompt store as temporarily unavailable, not expired', async () => {
     const response = await handleInteraction(
       {
         type: InteractionType.MESSAGE_COMPONENT,
         id: 'interaction-1',
         guild_id: 'guild-1',
         channel_id: 'channel-1',
-        data: { custom_id: makeAutoRecapPromptPreviewCustomId('source-message-1') },
+        data: { custom_id: makeAutoReportPromptPreviewCustomId('source-message-1') },
       },
       {
         wclClient: {
@@ -3131,14 +2741,13 @@ describe('handleInteraction', () => {
           findPreviousRaidSummaries: vi.fn(),
         } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-      },
+              },
     );
 
     expect(response).toMatchObject({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: expect.stringContaining('Auto recap is temporarily unavailable'),
+        content: expect.stringContaining('Auto report is temporarily unavailable'),
         flags: 64,
       },
     });
@@ -3152,7 +2761,7 @@ describe('handleInteraction', () => {
         id: 'interaction-1',
         guild_id: 'guild-1',
         channel_id: 'channel-1',
-        data: { custom_id: makeAutoRecapDuplicateCustomId('p', 'nonce-1') },
+        data: { custom_id: makeAutoReportDuplicateCustomId('p', 'nonce-1') },
       },
       {
         wclClient: {
@@ -3160,14 +2769,13 @@ describe('handleInteraction', () => {
           findPreviousRaidSummaries: vi.fn(),
         } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-      },
+              },
     );
 
     expect(response).toMatchObject({
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
       data: {
-        content: expect.stringContaining('Auto recap is temporarily unavailable'),
+        content: expect.stringContaining('Auto report is temporarily unavailable'),
         flags: 64,
       },
     });
@@ -3196,7 +2804,7 @@ describe('handleInteraction', () => {
         id: 'interaction-1',
         guild_id: 'guild-1',
         channel_id: 'channel-1',
-        data: { custom_id: makeAutoRecapDuplicateCustomId('i', 'nonce-1') },
+        data: { custom_id: makeAutoReportDuplicateCustomId('i', 'nonce-1') },
       },
       {
         wclClient: {
@@ -3204,8 +2812,7 @@ describe('handleInteraction', () => {
           findPreviousRaidSummaries: vi.fn(),
         } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        autoRecapDuplicateTrackingService: {
+        autoReportDuplicateTrackingService: {
           claimPassiveDetection: vi.fn(),
           getByConfirmationNonce,
           updateTracking,
@@ -3221,11 +2828,11 @@ describe('handleInteraction', () => {
       status: 'ignored',
     });
     expect(response).toMatchObject({
-      data: { content: 'Duplicate recap action ignored.', flags: 64 },
+      data: { content: 'Duplicate report action ignored.', flags: 64 },
     });
   });
 
-  it('does not record duplicate auto recap preview activity when the Discord edit fails', async () => {
+  it('does not record duplicate auto report preview activity when the Discord edit fails', async () => {
     const getByConfirmationNonce = vi.fn().mockResolvedValue({
       guildId: 'guild-1',
       channelId: 'channel-1',
@@ -3252,7 +2859,6 @@ describe('handleInteraction', () => {
       .mockResolvedValueOnce(makeDiscordFetchResponse());
     vi.stubGlobal('fetch', editFetch);
     const scheduleBackgroundTask = vi.fn((task: () => void) => task());
-    const recapPreviewStateService = makeRecapPreviewStateService();
     const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
 
     const response = await handleInteraction(
@@ -3264,7 +2870,7 @@ describe('handleInteraction', () => {
         guild_id: 'guild-1',
         channel_id: 'channel-1',
         member: { user: { id: 'clicker-1' } },
-        data: { custom_id: makeAutoRecapDuplicateCustomId('p', 'nonce-1') },
+        data: { custom_id: makeAutoReportDuplicateCustomId('p', 'nonce-1') },
       },
       {
         wclClient: {
@@ -3272,8 +2878,7 @@ describe('handleInteraction', () => {
           findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
         } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService,
-        autoRecapDuplicateTrackingService: {
+        autoReportDuplicateTrackingService: {
           claimPassiveDetection: vi.fn(),
           getByConfirmationNonce,
           updateTracking: vi.fn().mockResolvedValue(null),
@@ -3290,16 +2895,14 @@ describe('handleInteraction', () => {
     await vi.waitFor(() => {
       expect(editFetch).toHaveBeenCalledTimes(2);
     });
-    expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
     expect(botActivityStore.recordActivity).not.toHaveBeenCalled();
   });
 
-  it('defers auto recap prompt preview ephemerally and edits with the preview', async () => {
+  it('defers auto report prompt preview ephemerally and edits with the preview', async () => {
     const wclClient = {
       fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
       findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
     } as never;
-    const recapPreviewStateService = makeRecapPreviewStateService();
     const promptState = {
       guildId: 'guild-1',
       channelId: 'channel-1',
@@ -3311,7 +2914,7 @@ describe('handleInteraction', () => {
       promptMessageId: 'prompt-message-1',
       expiresAt: new Date(Date.now() + 60_000),
     };
-    const autoRecapPromptStateService = {
+    const autoReportPromptStateService = {
       savePromptState: vi.fn(),
       getValidPromptState: vi.fn().mockResolvedValue(promptState),
       consumeValidPromptState: vi.fn(),
@@ -3333,13 +2936,12 @@ describe('handleInteraction', () => {
         guild_id: 'guild-1',
         channel_id: 'channel-1',
         member: { user: { id: 'clicker-1' } },
-        data: { custom_id: makeAutoRecapPromptPreviewCustomId('source-message-1') },
+        data: { custom_id: makeAutoReportPromptPreviewCustomId('source-message-1') },
       },
       {
         wclClient,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService,
-        autoRecapPromptStateService,
+        autoReportPromptStateService,
         scheduleBackgroundTask,
         botActivityStore,
       },
@@ -3351,14 +2953,6 @@ describe('handleInteraction', () => {
     });
     expect(scheduleBackgroundTask).toHaveBeenCalledOnce();
     await vi.waitFor(() => {
-      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledWith(
-        expect.objectContaining({
-          guildId: 'guild-1',
-          channelId: 'channel-1',
-          reportCode: 'ABC123',
-          createdByUserId: 'clicker-1',
-        }),
-      );
       expect(editFetch).toHaveBeenCalledWith(
         expect.stringContaining('/webhooks/app-1/token-1/messages/@original'),
         expect.objectContaining({ method: 'PATCH' }),
@@ -3370,14 +2964,14 @@ describe('handleInteraction', () => {
         guildId: 'guild-1',
         channelId: 'channel-1',
         actor: { kind: 'discord', discordUserId: 'clicker-1' },
-        kind: 'recap_preview_created',
+        kind: 'report_preview_created',
         reportCode: 'ABC123',
         sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
       }),
     );
   });
 
-  it('records ignored auto recap prompts', async () => {
+  it('records ignored auto report prompts', async () => {
     const promptState = {
       guildId: 'guild-1',
       channelId: 'channel-1',
@@ -3389,12 +2983,12 @@ describe('handleInteraction', () => {
       promptMessageId: 'prompt-message-1',
       expiresAt: new Date(Date.now() + 60_000),
     };
-    const autoRecapPromptStateService = {
+    const autoReportPromptStateService = {
       savePromptState: vi.fn(),
       getValidPromptState: vi.fn(),
       consumeValidPromptState: vi.fn().mockResolvedValue(promptState),
     };
-    const autoRecapDuplicateTrackingService = {
+    const autoReportDuplicateTrackingService = {
       claimPassiveDetection: vi.fn(),
       updateTracking: vi.fn().mockResolvedValue(null),
     };
@@ -3403,7 +2997,7 @@ describe('handleInteraction', () => {
       {
         type: InteractionType.MESSAGE_COMPONENT,
         guild_id: 'guild-1',
-        data: { custom_id: makeAutoRecapPromptIgnoreCustomId('source-message-1') },
+        data: { custom_id: makeAutoReportPromptIgnoreCustomId('source-message-1') },
       },
       {
         wclClient: {
@@ -3411,16 +3005,15 @@ describe('handleInteraction', () => {
           findPreviousRaidSummaries: vi.fn(),
         } as never,
         guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        autoRecapPromptStateService,
-        autoRecapDuplicateTrackingService,
+        autoReportPromptStateService,
+        autoReportDuplicateTrackingService,
       },
     );
 
     expect(response).toMatchObject({
-      data: { content: 'Auto recap prompt ignored.', flags: 64 },
+      data: { content: 'Auto report prompt ignored.', flags: 64 },
     });
-    expect(autoRecapDuplicateTrackingService.updateTracking).toHaveBeenCalledWith({
+    expect(autoReportDuplicateTrackingService.updateTracking).toHaveBeenCalledWith({
       guildId: 'guild-1',
       channelId: 'channel-1',
       reportCode: 'ABC123',
@@ -3432,12 +3025,12 @@ describe('handleInteraction', () => {
     const channel = {
       send: vi.fn().mockResolvedValue({ id: 'prompt-message-1' }),
     };
-    const autoRecapPromptStateService = {
+    const autoReportPromptStateService = {
       savePromptState: vi.fn().mockResolvedValue(undefined),
       getValidPromptState: vi.fn(),
       consumeValidPromptState: vi.fn(),
     };
-    const autoRecapDuplicateTrackingService = {
+    const autoReportDuplicateTrackingService = {
       claimPassiveDetection: vi.fn().mockResolvedValue({
         claimed: true,
         record: {
@@ -3456,7 +3049,7 @@ describe('handleInteraction', () => {
       updateTracking: vi.fn().mockResolvedValue(null),
     };
 
-    await handleAutoRecapMessageCreate({
+    await handleAutoReportMessageCreate({
       message: {
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -3484,13 +3077,12 @@ describe('handleInteraction', () => {
           }),
           saveGuildConfig: vi.fn(),
         },
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        autoRecapPromptStateService,
-        autoRecapDuplicateTrackingService,
+        autoReportPromptStateService,
+        autoReportDuplicateTrackingService,
       },
     });
 
-    expect(autoRecapDuplicateTrackingService.claimPassiveDetection).toHaveBeenCalledWith(
+    expect(autoReportDuplicateTrackingService.claimPassiveDetection).toHaveBeenCalledWith(
       expect.objectContaining({
         reportCode: 'ABC123',
         sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
@@ -3498,11 +3090,11 @@ describe('handleInteraction', () => {
     );
     expect(channel.send).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: 'Detected a Warcraft Logs report.\nGenerate a recap?',
+        content: 'Detected a Warcraft Logs report.\nGenerate a report summary?',
         allowed_mentions: { parse: [] },
       }),
     );
-    expect(autoRecapPromptStateService.savePromptState).toHaveBeenCalledWith(
+    expect(autoReportPromptStateService.savePromptState).toHaveBeenCalledWith(
       expect.objectContaining({
         sourceMessageId: 'source-message-1',
         promptMessageId: 'prompt-message-1',
@@ -3523,7 +3115,7 @@ describe('handleInteraction', () => {
     });
     const claimPassiveDetection = vi.fn();
 
-    await handleAutoRecapMessageCreate({
+    await handleAutoReportMessageCreate({
       message: {
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -3535,14 +3127,13 @@ describe('handleInteraction', () => {
       handleOptions: {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: { getGuildConfig, saveGuildConfig: vi.fn() },
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        autoRecapDuplicateTrackingService: {
+        autoReportDuplicateTrackingService: {
           claimPassiveDetection,
           updateTracking: vi.fn(),
         },
       },
     });
-    await handleAutoRecapMessageCreate({
+    await handleAutoReportMessageCreate({
       message: {
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -3554,8 +3145,7 @@ describe('handleInteraction', () => {
       handleOptions: {
         wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
         guildConfigStore: { getGuildConfig, saveGuildConfig: vi.fn() },
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        autoRecapDuplicateTrackingService: {
+        autoReportDuplicateTrackingService: {
           claimPassiveDetection,
           updateTracking: vi.fn(),
         },
@@ -3567,8 +3157,7 @@ describe('handleInteraction', () => {
 
   it('auto_preview posts a public preview with no flags and safe mentions', async () => {
     const channel = { send: vi.fn().mockResolvedValue({ id: 'preview-message-1' }) };
-    const recapPreviewStateService = makeRecapPreviewStateService();
-    const autoRecapDuplicateTrackingService = {
+    const autoReportDuplicateTrackingService = {
       claimPassiveDetection: vi.fn().mockResolvedValue({
         claimed: true,
         record: null,
@@ -3576,7 +3165,7 @@ describe('handleInteraction', () => {
       updateTracking: vi.fn().mockResolvedValue(null),
     };
 
-    await handleAutoRecapMessageCreate({
+    await handleAutoReportMessageCreate({
       message: {
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -3603,16 +3192,21 @@ describe('handleInteraction', () => {
           }),
           saveGuildConfig: vi.fn(),
         },
-        recapPreviewStateService,
-        autoRecapDuplicateTrackingService,
+        autoReportDuplicateTrackingService,
       },
     });
 
-    const body = channel.send.mock.calls[0]?.[0] as { flags?: number; allowed_mentions?: unknown };
+    const body = channel.send.mock.calls[0]?.[0] as {
+      flags?: number;
+      allowed_mentions?: unknown;
+      components?: unknown;
+      embeds?: Array<{ title?: string; fields?: Array<{ name: string }> }>;
+    };
     expect(body.flags).toBeUndefined();
     expect(body.allowed_mentions).toEqual({ parse: [] });
-    expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
-    expect(autoRecapDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
+    expect(body.components).toBeUndefined();
+    expect(body.embeds?.[0]?.title).toContain('Report Summary');
+    expect(autoReportDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
       expect.objectContaining({
         status: 'preview_posted',
         latestOutputMessageId: 'preview-message-1',
@@ -3621,14 +3215,78 @@ describe('handleInteraction', () => {
     );
   });
 
-  it('keys passive auto recap activity by source message so distinct messages stay distinct', async () => {
+  it('auto_post publishes the report renderer output without recap preview components', async () => {
+    const channel = { send: vi.fn().mockResolvedValue({ id: 'posted-message-1' }) };
+    const autoReportDuplicateTrackingService = {
+      claimPassiveDetection: vi.fn().mockResolvedValue({
+        claimed: true,
+        record: null,
+      }),
+      updateTracking: vi.fn().mockResolvedValue(null),
+    };
+    const botActivityStore = { recordActivity: vi.fn().mockResolvedValue(undefined) };
+
+    await handleAutoReportMessageCreate({
+      message: {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        messageId: 'source-message-1',
+        authorId: 'user-1',
+        content: 'https://www.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions: {
+        wclClient: {
+          fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
+          findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
+        } as never,
+        guildConfigStore: {
+          getGuildConfig: vi.fn().mockResolvedValue({
+            guildId: 'guild-1',
+            defaultGameFamily: 'retail',
+            compareModeDefault: 'character',
+            compareAccessMode: 'officer_only',
+            comparePublicPostingEnabled: false,
+            recapPostModeDefault: 'preview-and-post',
+            autoRecapMode: 'auto_post',
+            autoRecapChannelIds: ['channel-1'],
+          }),
+          saveGuildConfig: vi.fn(),
+        },
+        autoReportDuplicateTrackingService,
+        botActivityStore,
+      },
+    });
+
+    const body = channel.send.mock.calls[0]?.[0] as {
+      components?: unknown;
+      embeds?: Array<{ title?: string; fields?: Array<{ name: string }> }>;
+    };
+    expect(body.components).toBeUndefined();
+    expect(body.embeds?.[0]?.title).toContain('Report Summary');
+    expect(autoReportDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: 'final_posted',
+        latestOutputMessageId: 'posted-message-1',
+        latestOutputKind: 'public_final_report',
+      }),
+    );
+    expect(botActivityStore.recordActivity).toHaveBeenCalledWith(
+      expect.objectContaining({
+        kind: 'report_posted',
+        idempotencyKey: 'auto_report_posted:guild-1:channel-1:ABC123:source-message-1',
+      }),
+    );
+  });
+
+  it('keys passive auto report activity by source message so distinct messages stay distinct', async () => {
     const channel = {
       send: vi
         .fn()
         .mockResolvedValueOnce({ id: 'preview-message-1' })
         .mockResolvedValueOnce({ id: 'preview-message-2' }),
     };
-    const autoRecapDuplicateTrackingService = {
+    const autoReportDuplicateTrackingService = {
       claimPassiveDetection: vi.fn().mockResolvedValue({ claimed: true, record: null }),
       updateTracking: vi.fn().mockResolvedValue(null),
     };
@@ -3651,12 +3309,11 @@ describe('handleInteraction', () => {
         }),
         saveGuildConfig: vi.fn(),
       },
-      recapPreviewStateService: makeRecapPreviewStateService(),
-      autoRecapDuplicateTrackingService,
+      autoReportDuplicateTrackingService,
       botActivityStore,
     };
 
-    await handleAutoRecapMessageCreate({
+    await handleAutoReportMessageCreate({
       message: {
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -3667,7 +3324,7 @@ describe('handleInteraction', () => {
       channel,
       handleOptions,
     });
-    await handleAutoRecapMessageCreate({
+    await handleAutoReportMessageCreate({
       message: {
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -3683,20 +3340,20 @@ describe('handleInteraction', () => {
     expect(botActivityStore.recordActivity).toHaveBeenNthCalledWith(
       1,
       expect.objectContaining({
-        idempotencyKey: 'auto_recap_preview:guild-1:channel-1:ABC123:source-message-1',
+        idempotencyKey: 'auto_report_preview:guild-1:channel-1:ABC123:source-message-1',
       }),
     );
     expect(botActivityStore.recordActivity).toHaveBeenNthCalledWith(
       2,
       expect.objectContaining({
-        idempotencyKey: 'auto_recap_preview:guild-1:channel-1:ABC123:source-message-2',
+        idempotencyKey: 'auto_report_preview:guild-1:channel-1:ABC123:source-message-2',
       }),
     );
   });
 
   it('does not repeat passive work when duplicate tracking reports an active record', async () => {
     const channel = { send: vi.fn().mockResolvedValue({ id: 'duplicate-message-1' }) };
-    const autoRecapDuplicateTrackingService = {
+    const autoReportDuplicateTrackingService = {
       claimPassiveDetection: vi.fn().mockResolvedValue({
         claimed: false,
         record: {
@@ -3716,7 +3373,7 @@ describe('handleInteraction', () => {
     };
     const fetchAndNormalizeReport = vi.fn();
 
-    await handleAutoRecapMessageCreate({
+    await handleAutoReportMessageCreate({
       message: {
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -3740,15 +3397,14 @@ describe('handleInteraction', () => {
           }),
           saveGuildConfig: vi.fn(),
         },
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        autoRecapDuplicateTrackingService,
+        autoReportDuplicateTrackingService,
       },
     });
 
     expect(fetchAndNormalizeReport).not.toHaveBeenCalled();
     expect(channel.send).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: 'A recap for this Warcraft Logs report was already posted here recently.',
+        content: 'A report summary for this Warcraft Logs report was already posted here recently.',
         allowed_mentions: { parse: [] },
       }),
     );
@@ -3756,12 +3412,12 @@ describe('handleInteraction', () => {
 
   it('does not attempt a second public failure message when channel sending fails', async () => {
     const channel = { send: vi.fn().mockRejectedValue(new Error('missing permissions')) };
-    const autoRecapDuplicateTrackingService = {
+    const autoReportDuplicateTrackingService = {
       claimPassiveDetection: vi.fn().mockResolvedValue({ claimed: true, record: null }),
       updateTracking: vi.fn().mockResolvedValue(null),
     };
 
-    await handleAutoRecapMessageCreate({
+    await handleAutoReportMessageCreate({
       message: {
         guildId: 'guild-1',
         channelId: 'channel-1',
@@ -3785,652 +3441,111 @@ describe('handleInteraction', () => {
           }),
           saveGuildConfig: vi.fn(),
         },
-        recapPreviewStateService: makeRecapPreviewStateService(),
-        autoRecapPromptStateService: {
+        autoReportPromptStateService: {
           savePromptState: vi.fn(),
           getValidPromptState: vi.fn(),
           consumeValidPromptState: vi.fn(),
         },
-        autoRecapDuplicateTrackingService,
+        autoReportDuplicateTrackingService,
       },
     });
 
     expect(channel.send).toHaveBeenCalledTimes(1);
-    expect(autoRecapDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
+    expect(autoReportDuplicateTrackingService.updateTracking).toHaveBeenCalledWith(
       expect.objectContaining({ status: 'failed' }),
     );
   });
 
-  it('keeps recap preview success when activity recording fails', async () => {
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn().mockResolvedValue(makeReport()),
-      findPreviousRaidSummaries: vi.fn().mockResolvedValue([]),
-    } as never;
-    const recapPreviewStateService = makeRecapPreviewStateService();
-    const editFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn().mockResolvedValue('ok'),
-    });
-    vi.stubGlobal('fetch', editFetch);
-    const scheduleBackgroundTask = vi.fn((task: () => void) => task());
-    const botActivityStore = { recordActivity: vi.fn().mockRejectedValue(new Error('activity down')) };
-
-    const response = await handleInteraction(
-      {
-        type: InteractionType.APPLICATION_COMMAND,
-        id: 'recap-interaction-1',
-        application_id: 'app-1',
-        token: 'token-1',
-        guild_id: 'guild-1',
-        channel_id: 'channel-1',
-        member: { user: { id: 'user-1' } },
-        data: {
-          name: 'recap',
-          options: [
-            {
-              name: 'url',
-              value: 'https://www.warcraftlogs.com/reports/ABC123',
-            },
-          ],
-        },
-      },
-      {
-        wclClient,
-        guildConfigStore: makeGuildConfigStore(),
-        recapPreviewStateService,
-        scheduleBackgroundTask,
-        botActivityStore,
-      },
-    );
-
-    expect(response).toMatchObject({
-      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { flags: 64 },
-    });
-    await vi.waitFor(() => {
-      expect(recapPreviewStateService.savePreviewState).toHaveBeenCalledOnce();
-      expect(editFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/webhooks/app-1/token-1/messages/@original'),
-        expect.objectContaining({ method: 'PATCH' }),
-      );
-    });
-    expect(botActivityStore.recordActivity).toHaveBeenCalledOnce();
-    expect(editFetch).toHaveBeenCalledTimes(1);
-  });
-
-  it.each([
-    [
-      new Error('WCL OAuth failed: 401'),
-      'Warcraft Logs authentication failed; check server configuration.',
-    ],
-    [
-      new Error('Unexpected WCL payload shape'),
-      'Warcraft Logs returned an unexpected payload for that report.',
-    ],
-    [
-      new Error('Could not find a Warcraft Logs report code in the URL'),
-      "I couldn't find a Warcraft Logs report code in that URL. Paste the full report link.",
-    ],
-  ])('edits the deferred response with a useful recap failure message', async (error, content) => {
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn().mockRejectedValue(error),
-      findPreviousRaidSummaries: vi.fn(),
-    } as never;
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'mixed',
-        recapPostModeDefault: 'preview-and-post',
-      }),
-      saveGuildConfig: vi.fn(),
-    };
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn(),
-      getValidPreviewState: vi.fn(),
-      consumeValidPreviewState: vi.fn(),
-      deletePreviewState: vi.fn(),
-    };
-    const editFetch = vi.fn().mockResolvedValue({
-      ok: true,
-      text: vi.fn().mockResolvedValue('ok'),
-    });
-    vi.stubGlobal('fetch', editFetch);
-
-    await handleInteraction(
-      {
-        type: InteractionType.APPLICATION_COMMAND,
-        id: 'interaction-1',
-        application_id: 'app-1',
-        token: 'token-1',
-        guild_id: 'guild-1',
-        channel_id: 'channel-1',
-        member: { user: { id: 'user-1' } },
-        data: {
-          name: 'recap',
-          options: [
-            {
-              name: 'url',
-              value: 'https://www.warcraftlogs.com/reports/ABC123',
-            },
-          ],
-        },
-      },
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
-      },
-    );
-
-    await vi.waitFor(() => {
-      expect(editFetch).toHaveBeenCalledWith(
-        expect.stringContaining('/webhooks/'),
-        expect.objectContaining({ method: 'PATCH' }),
-      );
-    });
-    const patchCall = editFetch.mock.calls.find(
-      ([url]) =>
-        typeof url === 'string' &&
-        url.includes('/webhooks/') &&
-        url.includes('/messages/@original'),
-    );
-    const body =
-      patchCall?.[1] && typeof patchCall[1] === 'object' && 'body' in patchCall[1]
-        ? (patchCall[1] as { body: string }).body
-        : '{}';
-    expect(JSON.parse(body)).toMatchObject({ content, flags: 64 });
-    expect(recapPreviewStateService.savePreviewState).not.toHaveBeenCalled();
-  });
-
-  it('returns an ephemeral error when preview state is missing or expired', async () => {
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn(),
-      getValidPreviewState: vi.fn().mockResolvedValue(null),
-      consumeValidPreviewState: vi.fn().mockResolvedValue(null),
-      deletePreviewState: vi.fn(),
-    };
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn(),
-      saveGuildConfig: vi.fn(),
-    };
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn(),
-      findPreviousRaidSummaries: vi.fn(),
-    } as never;
-
-    const response = await handleInteraction(
-      {
-        type: InteractionType.MESSAGE_COMPONENT,
-        guild_id: 'guild-1',
-        data: { custom_id: 'recap:v1:post:ABC123:guild-1' },
-      },
-      { wclClient, guildConfigStore, recapPreviewStateService },
-    );
-
-    expect(response).toMatchObject({
-      type: expect.any(Number),
-      data: {
-        content:
-          'This recap preview has already been posted or expired. Please run /recap with the URL again.',
-        flags: 64,
-      },
-    });
-  });
-
-  it('treats duplicate post attempts as idempotent and skips side effects on replay', async () => {
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn(),
-      getValidPreviewState: vi.fn(),
-      consumeValidPreviewState: vi
-        .fn()
-        .mockResolvedValueOnce({
-          guildId: 'guild-1',
-          channelId: 'channel-1',
-          reportCode: 'ABC123',
-          sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
-          summaryPayload: {
-            ...makePreviewSummary(),
-          },
-          createdByUserId: 'user-1',
-          createdAt: new Date(0),
-          expiresAt: new Date(Date.now() + 60_000),
-          interactionId: 'preview-interaction-1',
-          messageId: 'preview-message-1',
-        })
-        .mockResolvedValueOnce(null),
-      deletePreviewState: vi.fn(),
-    };
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn(),
-      saveGuildConfig: vi.fn(),
-    };
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn(),
-      findPreviousRaidSummaries: vi.fn(),
-    } as never;
-
-    const firstResponse = await handleInteraction(
-      {
-        id: 'post-interaction-1',
-        type: InteractionType.MESSAGE_COMPONENT,
-        guild_id: 'guild-1',
-        data: { custom_id: 'recap:v2:post:ABC123:guild-1:channel-1' },
-      },
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
-      },
-    );
-
-    const secondResponse = await handleInteraction(
-      {
-        id: 'post-interaction-2',
-        type: InteractionType.MESSAGE_COMPONENT,
-        guild_id: 'guild-1',
-        data: { custom_id: 'recap:v2:post:ABC123:guild-1:channel-1' },
-      },
-      {
-        wclClient,
-        guildConfigStore,
-        recapPreviewStateService,
-      },
-    );
-
-    expect((firstResponse as { data?: { embeds?: unknown[] } }).data?.embeds).toHaveLength(1);
-    expect(secondResponse).toMatchObject({
-      type: expect.any(Number),
-      data: {
-        content:
-          'This recap preview has already been posted or expired. Please run /recap with the URL again.',
-        flags: 64,
-      },
-    });
-    expect(recapPreviewStateService.consumeValidPreviewState).toHaveBeenNthCalledWith(1, {
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-    expect(recapPreviewStateService.consumeValidPreviewState).toHaveBeenNthCalledWith(2, {
-      reportCode: 'ABC123',
-      guildId: 'guild-1',
-      channelId: 'channel-1',
-    });
-  });
-
-  it('does not support retired officer recap action', async () => {
-    const wclClient = {
-      fetchAndNormalizeReport: vi.fn(),
-      findPreviousRaidSummaries: vi.fn(),
-    } as never;
-
-    const guildConfigStore: GuildConfigStore = {
-      getGuildConfig: vi.fn(),
-      saveGuildConfig: vi.fn(),
-    };
-
-    const recapPreviewStateService = {
-      savePreviewState: vi.fn(),
-      getValidPreviewState: vi.fn().mockResolvedValue(null),
-      consumeValidPreviewState: vi.fn(),
-      deletePreviewState: vi.fn(),
-    };
-
-    const restricted = await handleInteraction(
-      {
-        type: InteractionType.MESSAGE_COMPONENT,
-        guild_id: 'guild-1',
-        data: { custom_id: 'recap:v1:officers:ABC123:guild-1' },
-      },
-      { wclClient, guildConfigStore, recapPreviewStateService },
-    );
-
-    expect((restricted as { data?: { content?: string } }).data?.content).toMatch(
-      /unsupported recap action/i,
-    );
-  });
 });
 
 describe('embed rendering', () => {
-  it('uses cleaned domain recap title for public recap embed', () => {
-    const summary = buildRecapSummary({
+  it('renders report summaries with unavailable encounter-specific values and DTPS parse note', () => {
+    const body = buildReportResponseBody({
       reportCode: 'ABC123',
-      title: 'Throne of Thunder',
-      startTime: Date.UTC(2025, 0, 2),
-      endTime: Date.UTC(2025, 0, 2, 1),
-      gameFamily: 'retail',
-      zoneName: 'Throne of Thunder',
-      fights: [{ id: 1, name: 'Lei Shen', startTime: 0, endTime: 1, kill: true }],
-      players: [],
-      bossPerformances: [
-        {
-          bossName: 'Lei Shen',
-          fightId: 1,
-          kill: true,
-          zoneName: 'Throne of Thunder',
-          difficultyName: 'Heroic',
-          fightDate: Date.UTC(2025, 0, 3),
-        },
-      ],
-    });
-    const embed = buildPublicRecapEmbed(summary);
-
-    expect(summary.titleLine).toBe('Throne of Thunder - Heroic');
-    expect(embed.title).toBe(summary.titleLine);
-    expect(embed.title).not.toContain('Throne of Thunder - Throne of Thunder');
-  });
-
-  it('renders report-wide recap field set', () => {
-    const embed = buildPublicRecapEmbed({
-      ...makePreviewSummary(),
-      topDamageDone: [{ playerName: 'Alyra', value: 250000, classSpecLabel: 'Shadow Priest' }],
-      topHealingDone: [{ playerName: 'Healz', value: 67890, classSpecLabel: 'Mistweaver Monk' }],
-      topDamageTaken: [
-        { playerName: 'Bulwark', value: 120000, classSpecLabel: 'Protection Warrior' },
-      ],
-      topInterrupts: [{ playerName: 'Bulwark', value: 11 }],
-      topDispels: [{ playerName: 'Pearl', value: 8 }],
-      topSurvivability: [{ playerName: 'Alyra', value: 98.2 }],
-      topHealers: [{ playerName: 'Healz', value: 67890, classSpecLabel: 'Mistweaver Monk' }],
-      totals: {
-        totalDeaths: 5,
-        raidDamageTaken: 1234567,
-        dispels: 8,
-        battleRezzes: 2,
-        kicks: 11,
+      reportTitle: 'Raid Night',
+      raidName: 'Throne of Thunder',
+      difficultyName: 'Heroic',
+      reportLink: 'https://www.warcraftlogs.com/reports/ABC123',
+      dateISO: new Date(Date.UTC(2026, 4, 1, 1)).toISOString(),
+      startTimeISO: new Date(Date.UTC(2026, 4, 1, 1)).toISOString(),
+      endTimeISO: new Date(Date.UTC(2026, 4, 1, 3, 30)).toISOString(),
+      durationMs: 9_000_000,
+      bossPulls: 7,
+      totalKills: 1,
+      totalWipes: 6,
+      totalDeaths: 24,
+      encounters: [],
+      bestExecutionEncounter: {
+        bossName: 'Jinrokh',
+        difficultyName: 'Heroic',
+        pulls: 2,
+        kills: 1,
+        wipes: 1,
+        totalDurationMs: 300_000,
+        longestPullMs: 180_000,
+        shortestPullMs: 120_000,
+        dtpsParseAvailable: false,
       },
-      highestParses: [
-        { playerName: 'Kaltsit', metric: 'DPS', value: 90, bossName: 'Horridon' },
-        { playerName: 'Bustinsihder', metric: 'HPS', value: 89, bossName: 'Horridon' },
-        { playerName: 'Jokerofpain', metric: 'DPS', value: 81, bossName: 'Horridon' },
-      ],
-      topDamageAverageParses: [
-        { playerName: 'Kaltsit', value: 61 },
-        { playerName: 'Jokerofpain', value: 61 },
-        { playerName: 'Venomblàdez', value: 57 },
-      ],
-      topHealingAverageParses: [
-        { playerName: 'Bustinsihder', value: 70 },
-        { playerName: 'Emerald', value: 54 },
-      ],
-      bossHighlights: [{ bossName: 'One-Armed Bandit', fightId: 11, text: 'Kill secured.' }],
-      bestExecution: { playerName: 'Alyra', value: 94.2 },
-      mostImprovedPlayer: { playerName: 'Pearl', delta: 5.2 },
-      raidSuperlatives: [{ label: 'Raid deaths', text: '5 total raid deaths' }],
+      biggestTroubleEncounter: {
+        bossName: 'Council of Elders',
+        difficultyName: 'Heroic',
+        pulls: 5,
+        kills: 0,
+        wipes: 5,
+        totalDurationMs: 900_000,
+        longestPullMs: 360_000,
+        shortestPullMs: 90_000,
+        dtpsParseAvailable: false,
+      },
+      highestParses: {
+        dps: { playerName: 'Alyra', metric: 'DPS', value: 91.2 },
+        hps: { playerName: 'Pearl', metric: 'HPS', value: 88.4 },
+        dtpsAvailable: false,
+      },
+      topPlayers: {
+        highestAverageParse: [{ playerName: 'Alyra', value: 78.8 }],
+        highestTotalDamage: [{ playerName: 'Alyra', value: 48_200_000 }],
+        highestTotalHealing: [{ playerName: 'Pearl', value: 22_400_000 }],
+        highestTotalDamageTaken: [{ playerName: 'Bulwark', value: 12_000_000 }],
+        highestTotalDps: [{ playerName: 'Alyra', value: 54_000 }],
+        highestHps: [{ playerName: 'Pearl', value: 34_000 }],
+        highestDamageTakenRate: [{ playerName: 'Bulwark', value: 21_000 }],
+        mostDeaths: [{ playerName: 'Floorroller', value: 9 }],
+        mostInterrupts: [{ playerName: 'Rogue', value: 12 }],
+        mostDispels: [{ playerName: 'Priest', value: 8 }],
+      },
+      partialDataNotes: ['WCL does not expose a direct DTPS parse ranking in the verified docs.'],
     });
 
-    expect(embed.title).toBe('Boss - Mythic - Zone');
-    expect(
-      embed.fields.filter((field) => field.name !== '\u200B').map((field) => field.name),
-    ).toEqual([
-      '🏁 Raid Snapshot',
-      '⚡ Performance',
-      '🎛️ Output & Intake',
-      '🎯 Utility & Execution',
-      '🔗 Warcraft Logs',
+    const embed = body.embeds[0];
+    expect(body.flags).toBe(64);
+    expect(embed?.title).toBe('Report Summary - Throne of Thunder (Heroic)');
+    const fieldNames = embed?.fields.map((field) => field.name) ?? [];
+    expect(fieldNames).toEqual([
+      'Report Metadata',
+      'Summary Stats',
+      'Best Execution',
+      'Biggest Trouble',
+      'Highest Parses',
+      'Top Players - Parses',
+      'Top Players - Totals',
+      'Top Players - Rates',
+      'Top Players - Utility',
+      'Data & Source',
     ]);
-    const outcome = embed.fields.find((field) => field.name === '🏁 Raid Snapshot')?.value ?? '';
-    const performance = embed.fields.find((field) => field.name === '⚡ Performance')?.value ?? '';
-    const output = embed.fields.find((field) => field.name === '🎛️ Output & Intake')?.value ?? '';
-    const execution =
-      embed.fields.find((field) => field.name === '🎯 Utility & Execution')?.value ?? '';
-    const logs = embed.fields.find((field) => field.name === '🔗 Warcraft Logs')?.value ?? '';
-    const domainDivider = '━━━━━━━━━━━━━━━━━━━━';
+    const bestExecution = embed?.fields.find((field) => field.name === 'Best Execution')?.value ?? '';
+    const parses = embed?.fields.find((field) => field.name === 'Highest Parses')?.value ?? '';
+    const rates = embed?.fields.find((field) => field.name === 'Top Players - Rates')?.value ?? '';
+    const source = embed?.fields.find((field) => field.name === 'Data & Source')?.value ?? '';
 
-    expect(output).not.toContain('Most wipes:');
-    expect(performance).toContain('▸ __**Highest Parse**__');
-    expect(performance).toContain('▸ __**Damage Parse Averages**__');
-    expect(performance).toContain('▸ __**Healing Parse Averages**__');
-    expect(performance).toContain('  #1 **Kaltsit** · DPS parse: 90.0 on Horridon');
-    expect(performance).toContain('  #2 **Bustinsihder** · HPS parse: 89.0 on Horridon');
-    expect(performance).toContain('  #3 **Jokerofpain** · DPS parse: 81.0 on Horridon');
-    expect(performance).toContain('  #1 **Kaltsit** · average parse: 61');
-    expect(performance).toContain('  #2 **Jokerofpain** · average parse: 61');
-    expect(performance).toContain('  #3 **Venomblàdez** · average parse: 57');
-    expect(performance).toContain('  #1 **Bustinsihder** · average parse: 70');
-    expect(performance).toContain('  #2 **Emerald** · average parse: 54');
-    expect(performance).not.toContain('Signature Parses');
-    expect(performance).not.toContain('Player Standouts');
-    expect(performance).not.toContain('Overall Parses');
-    expect(performance).not.toContain('Damage Parses');
-    expect(performance).not.toContain('Healing Parses');
-    expect(performance).not.toContain('DTPS parse');
-    expect(performance).not.toContain('damage done');
-    expect(performance).not.toContain('healing');
-    expect(performance).not.toContain('parsed 61');
-    expect(outcome).toContain('  ☠️ Deaths: 5');
-    expect(outcome).toContain('  🩸 Raid-wide damage taken: 1.2M');
-    expect(outcome).toContain('  🦵 Kicks: 11');
-    expect(outcome).toContain('  🪄 Dispels: 8');
-    expect(outcome).toContain('  ♻️ Battle rezzes: 2');
-    expect(outcome).toContain(
-      '▸ __**Boss Highlights**__\n  • **One-Armed Bandit** · Kill secured.\n\n▸ __**Raid Totals**__',
-    );
-    expect(outcome.endsWith(`\n\n${domainDivider}`)).toBe(true);
-    expect(output).not.toContain('Damage taken: 1.2M');
-    expect(performance.endsWith(`\n\n${domainDivider}`)).toBe(true);
-    expect(performance).not.toContain('Note: Parses are WCL percentiles');
-    expect(logs).toBe(
-      'https://www.warcraftlogs.com/reports/ABC123\n\n*Note: Parses are WCL percentiles; damage/healing values are totals across included boss kills and not including damage/healing for wipes.*',
-    );
-    expect(execution).not.toContain('Best boss parse');
-    expect(execution).toContain('Best execution');
-    expect(execution).toContain('Most improved');
-    expect(performance).not.toMatch(/^\s+\d+\./m);
-    expect(performance).not.toMatch(/\d(?:\.\d+)?[KMB] (?:DPS|HPS|DTPS)\b/);
-    for (const removedTierBadge of ['🩷', '🟧', '🟪', '🟦', '🟩', '⬛']) {
-      expect(performance).not.toContain(removedTierBadge);
-    }
-    for (const rowMetricIcon of ['⚔️ **Alyra**', '💚 **Pearl**', '🛡️ **Bulwark**']) {
-      expect(performance).not.toContain(rowMetricIcon);
-    }
-    expect(outcome).toContain('  • **One-Armed Bandit** · Kill secured.');
-    expect(output).toContain('▸ __**Damage Done**__\n  #1 **Alyra** · 250K · Shadow Priest');
-    expect(output).toContain('▸ __**Healing Done**__\n  #1 **Healz** · 67.9K · Mistweaver Monk');
-    expect(output).toContain(
-      '▸ __**Damage Taken**__\n  #1 **Bulwark** · 120K · Protection Warrior',
-    );
-    expect(output.endsWith(`\n\n${domainDivider}`)).toBe(true);
-    expect(output).not.toMatch(/^\s+\d+\./m);
-    expect(output).not.toContain('Shadow Priest,');
-    expect(execution).toContain('▸ __**Top Interrupts**__\n  #1 **Bulwark** · 11');
-    expect(execution).not.toMatch(/^\s+\d+\./m);
-    expect(execution).toContain('▸ __**Raid Notes**__');
-    expect(execution).not.toContain('Raid Superlatives');
-    expect(execution).not.toContain('**Bulwark** 11,');
-    expect(execution).not.toContain('parse');
-    expect(execution).not.toContain(domainDivider);
-    expect(logs).not.toContain(domainDivider);
+    expect(bestExecution).toContain('Deaths: unavailable');
+    expect(bestExecution).toContain('Highest Total DPS: unavailable');
+    expect(parses).toContain('DPS: Alyra - 91.2');
+    expect(parses).toContain('HPS: Pearl - 88.4');
+    expect(parses).toContain('DTPS: unavailable in verified WCL ranking docs');
+    expect(rates).toContain('**Damage Taken/s**');
+    expect(rates).not.toContain('DTPS parse');
+    expect(source).toContain('encounter-specific data is available');
   });
 
-  it('omits top overall healing parse when parse rows do not exist', () => {
-    const embed = buildPublicRecapEmbed({
-      ...makePreviewSummary(),
-      topHealers: [
-        { playerName: 'Pearl', value: 4800, classSpecLabel: 'Restoration Shaman' },
-        { playerName: 'Floorroller', value: 48423, classSpecLabel: 'Mistweaver Monk' },
-      ],
-    });
-
-    expect(embed.fields.find((field) => field.name === '⚡ Performance')).toBeUndefined();
-  });
-
-  it('degrades cleanly when optional fields are missing', () => {
-    const embed = buildPublicRecapEmbed({
-      ...makePreviewSummary(),
-    });
-
-    expect(
-      embed.fields.filter((field) => field.name !== '\u200B').map((field) => field.name),
-    ).toEqual(['🏁 Raid Snapshot', '🔗 Warcraft Logs']);
-  });
-
-  it('formats non-kill boss highlight rows as progress pulls', () => {
-    const embed = buildPublicRecapEmbed({
-      ...makePreviewSummary(),
-      bossHighlights: [{ bossName: 'Horridon', fightId: 2, text: 'Wipe at 52%.' }],
-    });
-
-    expect(embed.fields.find((field) => field.name === '🏁 Raid Snapshot')?.value).toContain(
-      '• **Horridon** · Wipe at 52%.',
-    );
-  });
-
-  it('does not render duplicate player rows in report-wide parse sections', () => {
-    const summary = buildRecapSummary({
-      reportCode: 'ABC123',
-      title: 'Raid Night',
-      startTime: Date.UTC(2025, 0, 2),
-      endTime: Date.UTC(2025, 0, 2, 1),
-      gameFamily: 'retail',
-      fights: [],
-      players: [],
-      reportWideRankings: {
-        dps: [
-          {
-            scope: 'report',
-            playerName: 'Tankhem',
-            metric: 'rankPercent',
-            selectedMetric: 'DPS',
-            role: 'dps',
-            value: 80,
-            rankPercent: 80,
-            bossName: 'Horridon',
-            fightId: 4,
-          },
-          {
-            scope: 'report',
-            playerName: 'Tankhem',
-            metric: 'rankPercent',
-            selectedMetric: 'DPS',
-            role: 'dps',
-            value: 80,
-            rankPercent: 80,
-            bossName: 'Horridon',
-            fightId: 4,
-            className: 'DeathKnight',
-            specName: 'Blood',
-          },
-        ],
-        hps: [
-          {
-            scope: 'report',
-            playerName: 'Pearl',
-            metric: 'rankPercent',
-            selectedMetric: 'HPS',
-            role: 'healer',
-            value: 96.3,
-            rankPercent: 96.3,
-            bossName: 'Horridon',
-            fightId: 4,
-          },
-        ],
-      },
-    });
-    const embed = buildPublicRecapEmbed(summary);
-
-    const performanceField =
-      embed.fields.find((field) => field.name === '⚡ Performance')?.value ?? '';
-    const sectionValue = (label: string): string =>
-      performanceField.split(`▸ __**${label}**__\n`)[1]?.split('\n\n▸ __**')[0] ?? '';
-
-    expect(sectionValue('Highest Parse').match(/Tankhem/g)).toHaveLength(1);
-    expect(sectionValue('Damage Parse Averages').match(/Tankhem/g)).toHaveLength(1);
-  });
-});
-
-describe('preview rendering', () => {
-  it('includes required compact preview lines', () => {
-    const body = buildRecapPreviewBody(
-      {
-        ...makePreviewSummary(),
-        highestParses: [{ playerName: 'Alyra', value: 99, metric: 'DPS', bossName: 'Megaera' }],
-        topDamageAverageParses: [{ playerName: 'Alyra', value: 61 }],
-        topHealingAverageParses: [{ playerName: 'Emerald', value: 54 }],
-      },
-      'ABC123',
-      'guild-1',
-      'channel-1',
-    );
-
-    const description =
-      (body.embeds?.[0] as { description?: string } | undefined)?.description ?? '';
-    const title = (body.embeds?.[0] as { title?: string } | undefined)?.title ?? '';
-    expect(body.content).toBe(
-      'Review this preview before posting for everyone to see; cancel if you pasted the wrong link.',
-    );
-    expect(title).toBe('Preview: Boss - Mythic - Zone');
-    expect(description).toContain('Guild on Realm-US');
-    expect(description).toContain('45 Min · 9 pulls · 01/01/1970');
-    expect(description).toContain('**Top Line:**');
-    expect(description).toContain('Highest parse: Alyra · DPS parse: 99.0 on Megaera');
-    expect(description).toContain('Damage average: Alyra · average parse: 61');
-    expect(description).toContain('Healing average: Emerald · average parse: 54');
-    expect(description).toContain('☠️ Deaths: 0 · 🦵 Kicks: 0 · 🪄 Dispels: 0');
-    expect(description).not.toContain('[object Object]');
-  });
-
-  it('renders compact preview metadata line', () => {
-    const body = buildRecapPreviewBody(
-      {
-        ...makePreviewSummary(),
-        killTimeLabel: '01 Hour 09 Min',
-      },
-      'ABC123',
-      'guild-1',
-      'channel-1',
-    );
-
-    const description =
-      (body.embeds?.[0] as { description?: string } | undefined)?.description ?? '';
-    expect(description).toContain('01 Hour 09 Min · 9 pulls · 01/01/1970');
-  });
-
-  it('does not stringify boss highlight objects in preview metadata', () => {
-    const body = buildRecapPreviewBody(
-      {
-        ...makePreviewSummary(),
-        bossHighlights: [
-          { bossName: 'Megaera', fightId: 1, text: 'Kill in 05 Min.' },
-          { bossName: 'Ji-Kun', fightId: 2, text: 'Wipe at 4%.' },
-        ],
-      },
-      'ABC123',
-      'guild-1',
-      'channel-1',
-    );
-
-    const description =
-      (body.embeds?.[0] as { description?: string } | undefined)?.description ?? '';
-    expect(description).toContain('45 Min · 9 pulls · 01/01/1970');
-    expect(description).not.toContain('[object Object]');
-  });
-
-  it('uses durable recap component ids for preview buttons', () => {
-    const body = buildRecapPreviewBody(
-      {
-        ...makePreviewSummary(),
-      },
-      'ABC123',
-      'guild-1',
-      'channel-1',
-    );
-
-    type PreviewButton = {
-      custom_id?: string;
-      label?: string;
-    };
-
-    const buttons = (body.components?.[0]?.components as PreviewButton[] | undefined) ?? [];
-    const postButton = buttons.find((button) => button.custom_id?.includes(':post:'));
-    const cancelButton = buttons.find((button) => button.custom_id?.includes(':cancel:'));
-
-    expect(postButton?.custom_id).toBe('recap:v2:post:ABC123:guild-1:channel-1');
-    expect((postButton?.custom_id?.length ?? 0) <= 100).toBe(true);
-    expect(postButton?.label).toBe('Post to Current Channel');
-    expect(cancelButton?.custom_id).toBe('recap:v2:cancel:ABC123:guild-1:channel-1');
-    expect((cancelButton?.custom_id?.length ?? 0) <= 100).toBe(true);
-    expect(cancelButton?.label).toBe('Cancel');
-  });
 });

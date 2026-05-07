@@ -1,11 +1,10 @@
 import { verifyKey } from "discord-interactions";
 import type { FastifyPluginAsync } from "fastify";
 import type {
-    AutoRecapDuplicateTrackingService,
-    AutoRecapPromptStateService,
+    AutoReportDuplicateTrackingService,
+    AutoReportPromptStateService,
     CharacterClaimStore,
     ComparisonHistoryStore,
-    RecapPreviewStateService,
 } from "@wcl/discord";
 import type { BotActivityStore, GuildConfigStore } from "@wcl/domain";
 import { handleInteraction } from "@wcl/discord";
@@ -17,9 +16,8 @@ type DiscordInteractionRouteOptions = {
     env: WebEnv;
     wclClient: WclClient;
     guildConfigStore: GuildConfigStore;
-    recapPreviewStateService: RecapPreviewStateService;
-    autoRecapPromptStateService: AutoRecapPromptStateService;
-    autoRecapDuplicateTrackingService: AutoRecapDuplicateTrackingService;
+    autoReportPromptStateService: AutoReportPromptStateService;
+    autoReportDuplicateTrackingService: AutoReportDuplicateTrackingService;
     comparisonHistoryStore: ComparisonHistoryStore;
     characterClaimStore: CharacterClaimStore;
     botActivityStore?: BotActivityStore | undefined;
@@ -77,13 +75,11 @@ export const registerDiscordInteractionRoutes: FastifyPluginAsync<
                 const response = await handleInteraction(body, {
                     wclClient: options.wclClient,
                     guildConfigStore: options.guildConfigStore,
-                    recapPreviewStateService: options.recapPreviewStateService,
-                    autoRecapPromptStateService: options.autoRecapPromptStateService,
-                    autoRecapDuplicateTrackingService: options.autoRecapDuplicateTrackingService,
+                    autoReportPromptStateService: options.autoReportPromptStateService,
+                    autoReportDuplicateTrackingService: options.autoReportDuplicateTrackingService,
                     comparisonHistoryStore: options.comparisonHistoryStore,
                     characterClaimStore: options.characterClaimStore,
                     botActivityStore: options.botActivityStore,
-                    previewStateTtlSeconds: options.env.PREVIEW_STATE_TTL_SECONDS,
                     scheduleBackgroundTask: (task) => {
                         backgroundTasks.push(task);
                     },

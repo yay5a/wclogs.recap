@@ -5,11 +5,12 @@ import { handleApproveCharacterCommand, handleClaimCharacterCommand, handleCompa
 import { handleCompareCommand } from "../commands/compare.js";
 import { handleConfigCommand } from "../commands/config.js";
 import { handleAddOfficerCommand, handleListOfficersCommand, handleRemoveOfficerCommand } from "../commands/officer-management.js";
-import { handleAutoRecapComponentInteraction } from "../commands/auto-recap.js";
-import { handleRecapComponentInteraction, processRecapInteraction } from "../commands/recap.js";
+import { handleAutoReportComponentInteraction } from "../commands/auto-report.js";
+import { processReportInteraction } from "../commands/report.js";
 
 const logger = createLogger("discord");
 const EPHEMERAL_MESSAGE_FLAG = 64;
+const RECAP_RETIRED_MESSAGE = "`/recap` has been retired. Use `/report <wcl_report_url>`.";
 
 export const handleInteraction = async (interaction: unknown, options: HandleOptions): Promise<unknown> => {
     const typedInteraction = interaction as import("../types.js").DiscordInteraction;
@@ -67,8 +68,18 @@ export const handleInteraction = async (interaction: unknown, options: HandleOpt
         }
 
         if (typedInteraction.data?.name === "recap") {
-            const url = getStringCommandOption(typedInteraction.data.options, "url");
-            logger.info({ interactionId: typedInteraction.id, rawUrl: url ?? null }, "recap url received");
+            return {
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: RECAP_RETIRED_MESSAGE,
+                    flags: EPHEMERAL_MESSAGE_FLAG,
+                },
+            };
+        }
+
+        if (typedInteraction.data?.name === "report") {
+            const url = getStringCommandOption(typedInteraction.data.options, "wcl_report_url");
+            logger.info({ interactionId: typedInteraction.id, rawUrl: url ?? null }, "report url received");
             if (!url || typeof url !== "string") {
                 return {
                     type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
@@ -80,7 +91,7 @@ export const handleInteraction = async (interaction: unknown, options: HandleOpt
             }
 
             const backgroundTask = () => {
-                void processRecapInteraction(typedInteraction, options, url);
+                void processReportInteraction(typedInteraction, options, url);
             };
             if (options.scheduleBackgroundTask) {
                 options.scheduleBackgroundTask(backgroundTask);
@@ -95,14 +106,20 @@ export const handleInteraction = async (interaction: unknown, options: HandleOpt
     }
 
     if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
-        const autoRecapResponse = await handleAutoRecapComponentInteraction(typedInteraction, options);
-        if (autoRecapResponse) {
-            return autoRecapResponse;
+        const autoReportResponse = await handleAutoReportComponentInteraction(typedInteraction, options);
+        if (autoReportResponse) {
+            return autoReportResponse;
         }
 
-        const recapResponse = await handleRecapComponentInteraction(typedInteraction, options);
-        if (recapResponse) {
-            return recapResponse;
+        const customId = typedInteraction.data?.custom_id;
+        if (typeof customId === "string" && customId.startsWith("recap:")) {
+            return {
+                type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+                data: {
+                    content: RECAP_RETIRED_MESSAGE,
+                    flags: EPHEMERAL_MESSAGE_FLAG,
+                },
+            };
         }
     }
 

@@ -23,6 +23,7 @@ export interface EnrichedRawReport {
   reportRankingsHpsCombined?: unknown;
   playerDetails?: unknown;
   reportTables?: Partial<Record<TableDataType, unknown>>;
+  reportEncounterTables?: Partial<Record<TableDataType, unknown>>;
   encounterPhaseTimes?: unknown;
   encounterSummaries: EncounterSummaryRow[];
 }

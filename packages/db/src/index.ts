@@ -11,7 +11,6 @@ export * from './stores/comparison-history-store.js';
 export * from './stores/guild-config-store.js';
 export * from './stores/dashboard-activity-store.js';
 export * from './stores/dashboard-onboarding-store.js';
-export * from './stores/recap-preview-state-store.js';
 export * from './stores/auto-recap-prompt-state-store.js';
 export * from './stores/auto-recap-duplicate-tracking-store.js';
 export * from './services/trend-tracking-service.js';
@@ -287,6 +286,7 @@ const autoRecapDuplicateTrackingSchema = new Schema(
       enum: [
         'prompt',
         'public_preview',
+        'public_final_report',
         'public_final_recap',
         'duplicate_confirmation',
         'public_failure',
@@ -324,28 +324,3 @@ export const AutoRecapDuplicateTrackingModel = mongoose.model(
   'AutoRecapDuplicateTracking',
   autoRecapDuplicateTrackingSchema,
 );
-
-export const migrateRecapPreviewStateIndexes = async (): Promise<void> => {
-  const oldUniqueKey = { guildId: 1, reportCode: 1 };
-  const indexes = await RecapPreviewStateModel.collection.indexes();
-  await Promise.all(
-    indexes
-      .filter((index) => {
-        const key = index.key as Record<string, unknown> | undefined;
-        return (
-          index.unique === true &&
-          key?.guildId === oldUniqueKey.guildId &&
-          key?.reportCode === oldUniqueKey.reportCode &&
-          !('channelId' in key)
-        );
-      })
-      .map(async (index) => {
-        if (!index.name) return;
-        await RecapPreviewStateModel.collection.dropIndex(index.name);
-      }),
-  );
-  await RecapPreviewStateModel.collection.createIndex(
-    { guildId: 1, channelId: 1, reportCode: 1 },
-    { unique: true },
-  );
-};
