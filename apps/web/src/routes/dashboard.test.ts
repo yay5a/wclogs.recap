@@ -358,7 +358,7 @@ describe("dashboard auth", () => {
 
         const setCookie = firstSetCookieHeader(login);
         expect(setCookie).toContain("HttpOnly");
-        expect(setCookie).toContain("SameSite=Strict");
+        expect(setCookie).toContain("SameSite=Lax");
         expect(setCookie).toContain("Max-Age=3600");
         expect(setCookie).toContain("Path=/api");
 
@@ -610,7 +610,7 @@ describe("dashboard auth", () => {
         );
         expect(dashboardCookieHeader).toContain("Secure");
         expect(dashboardCookieHeader).toContain("HttpOnly");
-        expect(dashboardCookieHeader).toContain("SameSite=Strict");
+        expect(dashboardCookieHeader).toContain("SameSite=Lax");
         const tokenRequest = fetchMock.mock.calls[0]?.[1] as RequestInit | undefined;
         expect(tokenRequest?.body).toBeInstanceOf(URLSearchParams);
         expect((tokenRequest?.body as URLSearchParams).get("redirect_uri")).toBe(

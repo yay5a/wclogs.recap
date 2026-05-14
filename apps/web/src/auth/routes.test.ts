@@ -284,7 +284,7 @@ describe("WCL OAuth routes", () => {
         await app.close();
     });
 
-    it("stores token data for the authenticated Discord user only", async () => {
+    it("reads the dashboard session during WCL callback and stores token data for that user only", async () => {
         const store = makeStore();
         const fetchMock = vi.fn().mockResolvedValue({
             status: 200,

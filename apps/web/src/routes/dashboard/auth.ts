@@ -75,7 +75,7 @@ export const setDashboardCookie = (
     reply.setCookie(DASHBOARD_COOKIE_NAME, value, {
         httpOnly: true,
         signed: true,
-        sameSite: "strict",
+        sameSite: "lax",
         secure: shouldUseSecureDashboardCookies(env),
         path: DASHBOARD_COOKIE_PATH,
         maxAge: maxAgeSeconds,
