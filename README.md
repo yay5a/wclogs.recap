@@ -160,7 +160,7 @@ Before opening a pull request:
   wclogs.report/
     apps/
       web/            Fastify API, Discord webhook, WCL OAuth routes
-      worker/         Mongo-backed background job worker
+      worker/         Discord Gateway and passive auto-report worker
     packages/
       db/             Mongoose models and Mongo stores/services
       discord/        Discord commands, interaction handling, embed rendering

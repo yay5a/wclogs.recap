@@ -12,7 +12,6 @@ export * from './stores/dashboard-activity-store.js';
 export * from './stores/dashboard-onboarding-store.js';
 export * from './stores/auto-report-prompt-state-store.js';
 export * from './stores/auto-report-duplicate-tracking-store.js';
-export * from './services/trend-tracking-service.js';
 
 export const connectMongo = async (uri: string) => mongoose.connect(uri);
 
@@ -73,66 +72,6 @@ const guildSettingsSchema = new Schema(
   },
   { timestamps: true },
 );
-
-const playerRaidSummarySchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    reportCode: { type: String, required: true, index: true },
-    raidSnapshotId: {
-      type: Schema.Types.ObjectId,
-      ref: 'RaidSnapshot',
-      index: true,
-    },
-    playerProfileId: {
-      type: Schema.Types.ObjectId,
-      ref: 'PlayerProfile',
-      index: true,
-    },
-    characterName: String,
-    bestParse: Number,
-    averageParse: Number,
-    executionScore: Number,
-    capturedAt: Date,
-  },
-  { timestamps: true },
-);
-
-const trendSnapshotSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    playerProfileId: {
-      type: Schema.Types.ObjectId,
-      ref: 'PlayerProfile',
-      index: true,
-    },
-    playerName: { type: String, index: true },
-    metric: { type: String, required: true },
-    window: { type: String, required: true },
-    value: Number,
-    capturedAt: Date,
-  },
-  { timestamps: true },
-);
-
-const jobSchema = new Schema(
-  {
-    type: { type: String, required: true, index: true },
-    status: {
-      type: String,
-      enum: ['pending', 'running', 'completed', 'failed'],
-      default: 'pending',
-    },
-    payload: Schema.Types.Mixed,
-    runAt: { type: Date, default: Date.now },
-    attempts: { type: Number, default: 0 },
-    lastError: String,
-    startedAt: Date,
-    leaseExpiresAt: { type: Date, index: true },
-    completedAt: Date,
-  },
-  { timestamps: true },
-);
-jobSchema.index({ status: 1, runAt: 1, leaseExpiresAt: 1 });
 
 const autoReportPromptStateSchema = new Schema(
   {
@@ -202,9 +141,6 @@ autoReportDuplicateTrackingSchema.index(
 );
 
 export const GuildSettingsModel = mongoose.model('GuildSettings', guildSettingsSchema);
-export const PlayerRaidSummaryModel = mongoose.model('PlayerRaidSummary', playerRaidSummarySchema);
-export const TrendSnapshotModel = mongoose.model('TrendSnapshot', trendSnapshotSchema);
-export const JobModel = mongoose.model('Job', jobSchema);
 export const AutoReportPromptStateModel = mongoose.model(
   'AutoReportPromptState',
   autoReportPromptStateSchema,

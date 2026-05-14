@@ -206,7 +206,3 @@ export {
   summarizeBossTables,
   type FightSummaryRow,
 } from './report-mappers.js';
-
-export interface TrendTrackingService {
-  recomputeTrendsForGuild(guildId: string): Promise<void>;
-}
