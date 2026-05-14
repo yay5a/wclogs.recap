@@ -10,7 +10,8 @@
         "lint": "eslint src --ext .ts",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "vitest run --passWithNoTests",
-        "probe:report-components": "tsx scripts/probe-report-components.ts",
+        "probe:report": "tsx scripts/probe-report.ts",
+        "probe:guildrank": "tsx scripts/probe-guildrank.ts",
         "probe:public-graphql": "tsx scripts/probe-public-graphql.ts"
     },
     "dependencies": {

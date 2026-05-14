@@ -44,7 +44,16 @@ export class WclGraphqlClient {
         query: string,
         variables: Record<string, unknown>,
     ): Promise<TPayload> {
-        return await this.gqlClient.request<TPayload>(query, variables);
+        await this.authorize();
+        const payload = await this.gqlClient.request<Record<string, unknown>>(
+            query,
+            variables,
+        );
+        const wrapped =
+            payload && typeof payload === "object" && "data" in payload
+                ? payload
+                : { data: payload };
+        return wrapped as TPayload;
     }
 
     public async authorize(): Promise<void> {
@@ -60,9 +69,14 @@ export class WclGraphqlClient {
             return this.token;
         }
 
+        const explicitToken =
+            !this.options.clientId || !this.options.clientSecret
+                ? process.env.WCL_OAUTH_TOKEN
+                : undefined;
+
         const tokenOptions = {
-            ...(process.env.WCL_OAUTH_TOKEN
-                ? { explicitToken: process.env.WCL_OAUTH_TOKEN }
+            ...(explicitToken
+                ? { explicitToken }
                 : {}),
             ...(this.options.clientId
                 ? { clientId: this.options.clientId }

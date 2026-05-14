@@ -38,6 +38,10 @@ export type GuildConfig = {
     comparePublicPostingEnabled: boolean;
     autoReportMode: AutoReportMode;
     autoReportChannelIds: string[];
+    wclGuildName?: string;
+    wclGuildServerSlug?: string;
+    wclGuildServerRegion?: string;
+    wclZoneId?: number;
 };
 
 export type GuildSummary = {
@@ -65,6 +69,10 @@ export type ConfigPatch = Partial<
         | "autoReportChannelIds"
         | "defaultGameFamily"
         | "dashboardOfficerAccessEnabled"
+        | "wclGuildName"
+        | "wclGuildServerSlug"
+        | "wclGuildServerRegion"
+        | "wclZoneId"
     >
 >;
 

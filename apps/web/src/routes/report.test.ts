@@ -29,7 +29,7 @@ const makeLogger = () =>
         fatal: vi.fn(),
     }) as never;
 
-const makeApp = async (wclClient: { fetchAndNormalizeReport: ReturnType<typeof vi.fn> }) => {
+const makeApp = async (wclClient: { fetchReportSummary: ReturnType<typeof vi.fn> }) => {
     const app = Fastify({ logger: false });
     await app.register(fastifyCookie, { secret: env.COOKIE_SECRET });
     app.get("/test/session", async (_request, reply) => {
@@ -57,10 +57,10 @@ const makeApp = async (wclClient: { fetchAndNormalizeReport: ReturnType<typeof v
 
 describe("report routes", () => {
     it("uses the authenticated dashboard Discord user as WCL auth context", async () => {
-        const fetchAndNormalizeReport = vi.fn().mockResolvedValue({
+        const fetchReportSummary = vi.fn().mockResolvedValue({
             reportCode: "ABC123",
         });
-        const app = await makeApp({ fetchAndNormalizeReport });
+        const app = await makeApp({ fetchReportSummary });
         const sessionResponse = await app.inject("/test/session");
         const cookie = sessionResponse.headers["set-cookie"];
 
@@ -72,7 +72,7 @@ describe("report routes", () => {
         });
 
         expect(response.statusCode).toBe(200);
-        expect(fetchAndNormalizeReport).toHaveBeenCalledWith(
+        expect(fetchReportSummary).toHaveBeenCalledWith(
             "https://www.warcraftlogs.com/reports/ABC123",
             { discordUserId: "discord-user-1" },
         );
@@ -80,14 +80,14 @@ describe("report routes", () => {
     });
 
     it("returns safe JSON guidance for missing linked WCL auth", async () => {
-        const fetchAndNormalizeReport = vi.fn().mockRejectedValue(
+        const fetchReportSummary = vi.fn().mockRejectedValue(
             new WclReportFetchError({
                 category: "missing_linked_auth",
                 reportCode: "ABC123",
                 authMode: "userLinked",
             }),
         );
-        const app = await makeApp({ fetchAndNormalizeReport });
+        const app = await makeApp({ fetchReportSummary });
 
         const response = await app.inject({
             method: "POST",
@@ -107,14 +107,14 @@ describe("report routes", () => {
     });
 
     it("returns safe JSON guidance when linked WCL auth cannot be read", async () => {
-        const fetchAndNormalizeReport = vi.fn().mockRejectedValue(
+        const fetchReportSummary = vi.fn().mockRejectedValue(
             new WclReportFetchError({
                 category: "linked_auth_unreadable",
                 reportCode: "ABC123",
                 authMode: "userLinked",
             }),
         );
-        const app = await makeApp({ fetchAndNormalizeReport });
+        const app = await makeApp({ fetchReportSummary });
 
         const response = await app.inject({
             method: "POST",

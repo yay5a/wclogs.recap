@@ -40,6 +40,7 @@ export interface ReportSummary {
   reportTitle: string;
   raidName?: string;
   difficultyName?: string;
+  sizeLabel?: string;
   reportLink: string;
   dateISO: string;
   startTimeISO: string;
@@ -71,4 +72,60 @@ export interface ReportSummary {
     mostDispels: ReportMetricRow[];
   };
   partialDataNotes: string[];
+}
+
+export interface GuildRankMetricRow {
+  bestPercentile?: number;
+  bestDelta?: number;
+  medianPercentile?: number;
+  medianDelta?: number;
+}
+
+export interface GuildRankEncounterRow {
+  encounterName: string;
+  speed: GuildRankMetricRow;
+  execution: GuildRankMetricRow;
+}
+
+export interface GuildRankProgressRanks {
+  world?: number;
+  region?: number;
+  realm?: number;
+}
+
+export interface GuildRankSummary {
+  guildName: string;
+  zoneName: string;
+  difficultyLabel: string;
+  sizeLabel: string;
+  window: {
+    currentStartIso: string;
+    currentEndIso: string;
+    baselineStartIso: string;
+    baselineEndIso: string;
+  };
+  progress: {
+    clearedEncounters: number;
+    totalEncounters: number;
+    pulls: number;
+    wipes: number;
+    ranks: GuildRankProgressRanks;
+    ranksAvailable: boolean;
+    sourceLabel: 'Official WCL Rankings' | 'Progress Only: Ranking Unavailable';
+  };
+  speed: {
+    sourceLabel: 'Official WCL Rankings' | 'Derived from WCL Reports';
+    ranks?: GuildRankProgressRanks;
+    overall: GuildRankMetricRow;
+    bestEncounterGain?: { encounterName: string; delta: number };
+    encounters: GuildRankEncounterRow[];
+  };
+  execution: {
+    sourceLabel: 'Official WCL Rankings' | 'Derived from WCL Reports';
+    ranks?: GuildRankProgressRanks;
+    overall: GuildRankMetricRow;
+    bestEncounterGain?: { encounterName: string; delta: number };
+    encounters: GuildRankEncounterRow[];
+  };
+  notes: string[];
 }

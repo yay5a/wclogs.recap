@@ -15,6 +15,12 @@ const getBooleanOption = (options: unknown, name: string): boolean | undefined =
     return typeof found?.value === "boolean" ? found.value : undefined;
 };
 
+const getIntegerOption = (options: unknown, name: string): number | undefined => {
+    if (!Array.isArray(options)) return undefined;
+    const found = options.find((option) => typeof option === "object" && option !== null && (option as { name?: unknown }).name === name) as { value?: unknown } | undefined;
+    return typeof found?.value === "number" && Number.isFinite(found.value) ? found.value : undefined;
+};
+
 const hasCommandOptions = (options: unknown): boolean => Array.isArray(options) && options.length > 0;
 
 const parseGameFamilyOption = (value: string | undefined): GameFamily | undefined =>
@@ -31,10 +37,18 @@ const buildConfigStatusResponse = (config: Partial<GuildConfig>): string => {
 
     if (channelIds.length === 0) {
         lines.push("Auto report channels: none configured", "", "**Next step:**", "Add a raid-log channel: `/config auto_report_channel:#raid-logs`", "", "**Required bot permissions in that channel:**", "View Channel, Send Messages, Embed Links", "", "**Optional:**", "Use `/report <wcl_report_url>` anytime without auto report.");
-        return lines.join("\n");
+    } else {
+        lines.push("Auto report channels:", "", ...channelIds.map((channelId) => `* <#${channelId}>`), "", mode === "off" ? "Passive detection is currently disabled. Configured channels are preserved." : "Passive Warcraft Logs detection is active in the listed channels.");
     }
 
-    lines.push("Auto report channels:", "", ...channelIds.map((channelId) => `* <#${channelId}>`), "", mode === "off" ? "Passive detection is currently disabled. Configured channels are preserved." : "Passive Warcraft Logs detection is active in the listed channels.");
+    lines.push(
+        "",
+        "**/guildrank target:**",
+        `Guild: \`${config.wclGuildName ?? "unset"}\``,
+        `Server slug: \`${config.wclGuildServerSlug ?? "unset"}\``,
+        `Server region: \`${config.wclGuildServerRegion ?? "unset"}\``,
+        `Zone ID: \`${typeof config.wclZoneId === "number" ? String(config.wclZoneId) : "unset"}\``,
+    );
     return lines.join("\n");
 };
 
@@ -80,6 +94,10 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
     const comparePublicPostingEnabled = getBooleanOption(interaction.data?.options, "compare_public_posting");
     const rawAutoReportMode = getStringOption(interaction.data?.options, "auto_report_mode");
     const autoReportChannelId = getStringOption(interaction.data?.options, "auto_report_channel");
+    const wclGuildName = getStringOption(interaction.data?.options, "wcl_guild_name");
+    const wclGuildServerSlug = getStringOption(interaction.data?.options, "wcl_guild_server_slug");
+    const wclGuildServerRegion = getStringOption(interaction.data?.options, "wcl_guild_server_region");
+    const wclZoneId = getIntegerOption(interaction.data?.options, "wcl_zone_id");
     const compareModeDefault = rawCompareMode === undefined ? undefined : parseCompareMode(rawCompareMode);
     const compareAccessMode = rawCompareAccessMode === undefined ? undefined : parseCompareAccessMode(rawCompareAccessMode);
     const autoReportMode = rawAutoReportMode === undefined ? undefined : parseAutoReportMode(rawAutoReportMode);
@@ -140,6 +158,10 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
         const currentChannelIds = getAutoReportChannelIds(existingConfig);
         updateObject.autoReportChannelIds = currentChannelIds.includes(autoReportChannelId) ? currentChannelIds.filter((channelId) => channelId !== autoReportChannelId) : [...currentChannelIds, autoReportChannelId];
     }
+    if (wclGuildName !== undefined) updateObject.wclGuildName = wclGuildName.trim();
+    if (wclGuildServerSlug !== undefined) updateObject.wclGuildServerSlug = wclGuildServerSlug.trim();
+    if (wclGuildServerRegion !== undefined) updateObject.wclGuildServerRegion = wclGuildServerRegion.trim();
+    if (wclZoneId !== undefined) updateObject.wclZoneId = Math.trunc(wclZoneId);
     const saved = await options.guildConfigStore.saveGuildConfig(guildId, updateObject);
     const responseLines: string[] = [];
     if (compareModeDefault || Object.keys(updateObject).length === 0) {
@@ -157,6 +179,14 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
     if (autoReportChannelId) {
         const enabled = getAutoReportChannelIds(saved).includes(autoReportChannelId);
         responseLines.push(enabled ? `Auto report enabled in <#${autoReportChannelId}>.` : `Auto report disabled in <#${autoReportChannelId}>.`);
+    }
+    if (
+        wclGuildName !== undefined ||
+        wclGuildServerSlug !== undefined ||
+        wclGuildServerRegion !== undefined ||
+        wclZoneId !== undefined
+    ) {
+        responseLines.push("Updated /guildrank WCL target settings.");
     }
 
     return {

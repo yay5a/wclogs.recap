@@ -7,7 +7,6 @@ import {
     MongoGuildConfigStore,
     MongoTrendTrackingService,
     MongoWclUserAuthStore,
-    ReportCacheModel,
     connectMongo,
     migrateCharacterClaimIdentityFields,
     migrateWclUserAuthDiscordUserIndex,
@@ -15,7 +14,6 @@ import {
 import type { AutoReportSendableChannel } from "@wcl/discord";
 import { handleAutoReportMessageCreate } from "@wcl/discord";
 import { createLogger } from "@wcl/shared";
-import type { ReportCacheStore } from "@wcl/wcl-client";
 import { WclClient } from "@wcl/wcl-client";
 import { ChannelType, Client, Events, GatewayIntentBits, type Guild } from "discord.js";
 import { parseWorkerEnv } from "./config.js";
@@ -165,24 +163,10 @@ const wclUserAuthStore = new MongoWclUserAuthStore({
     encryptionKey: env.WCL_TOKEN_ENCRYPTION_KEY,
 });
 
-const reportCacheStore: ReportCacheStore = {
-    async getByReportCode(reportCode: string) {
-        return ReportCacheModel.findOne({ reportCode }).lean();
-    },
-    async upsert(entry) {
-        await ReportCacheModel.findOneAndUpdate(
-            { reportCode: entry.reportCode },
-            entry,
-            { upsert: true },
-        );
-    },
-};
-
 const wclClient = new WclClient({
     clientId: env.WCL_CLIENT_ID,
     clientSecret: env.WCL_CLIENT_SECRET,
     apiBaseUrl: env.WCL_API_BASE_URL,
-    reportCacheStore,
     wclUserAuthStore,
 });
 

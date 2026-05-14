@@ -1,72 +1,11 @@
 import mongoose from "mongoose";
-import type { NormalizedReport, TrendTrackingService } from "@wcl/domain";
+import type { TrendTrackingService } from "@wcl/domain";
 import {
     PlayerRaidSummaryModel,
-    RaidSnapshotModel,
     TrendSnapshotModel,
 } from "../index.js";
 
 export class MongoTrendTrackingService implements TrendTrackingService {
-    public async ingestRaidHistory(
-        guildId: string,
-        report: NormalizedReport,
-    ): Promise<void> {
-        await RaidSnapshotModel.findOneAndUpdate(
-            { guildId, reportCode: report.reportCode },
-            {
-                $set: {
-                    guildId,
-                    reportCode: report.reportCode,
-                    title: report.title,
-                    zoneName: report.zoneName,
-                    gameFamily: report.gameFamily,
-                    startedAt: new Date(report.startTime),
-                    endedAt: new Date(report.endTime),
-                },
-            },
-            {
-                upsert: true,
-                setDefaultsOnInsert: true,
-            },
-        );
-
-        const captures = report.players.map((player) => {
-            const setPayload: Record<string, unknown> = {
-                guildId,
-                reportCode: report.reportCode,
-                characterName: player.name,
-                capturedAt: new Date(report.endTime),
-            };
-            if (typeof player.bestParse === "number") {
-                setPayload.bestParse = player.bestParse;
-            }
-            if (typeof player.avgParse === "number") {
-                setPayload.averageParse = player.avgParse;
-            }
-            if (typeof player.executionScore === "number") {
-                setPayload.executionScore = player.executionScore;
-            }
-
-            return {
-                updateOne: {
-                    filter: {
-                        guildId,
-                        reportCode: report.reportCode,
-                        characterName: player.name,
-                    },
-                    update: {
-                        $set: setPayload,
-                    },
-                    upsert: true,
-                },
-            };
-        });
-
-        if (captures.length > 0) {
-            await PlayerRaidSummaryModel.bulkWrite(captures);
-        }
-    }
-
     public async recomputeTrendsForGuild(guildId: string): Promise<void> {
         const capturedAt = new Date();
         console.info("trend recomputation started", { guildId });

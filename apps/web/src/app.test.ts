@@ -54,7 +54,7 @@ const makeOptions = (assetRoot: string): CreateWebAppOptions => {
     return {
         env,
         logger: makeLogger(),
-        wclClient: { fetchAndNormalizeReport: vi.fn() } as never,
+        wclClient: { fetchReportSummary: vi.fn() } as never,
         guildConfigStore: dashboardGuildConfigStore,
         dashboardGuildConfigStore,
         autoReportPromptStateService: {

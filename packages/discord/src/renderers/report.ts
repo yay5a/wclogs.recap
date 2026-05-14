@@ -135,8 +135,9 @@ export const buildReportResponseBody = (
   options: { ephemeral?: boolean } = {},
 ) => {
   const ephemeral = options.ephemeral ?? true;
+  const difficultyAndSize = [summary.difficultyName, summary.sizeLabel].filter(present).join(', ');
   const title = `Report Summary - ${summary.raidName ?? summary.reportTitle}${
-    summary.difficultyName ? ` (${summary.difficultyName})` : ''
+    difficultyAndSize ? ` (${difficultyAndSize})` : ''
   }`;
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
 

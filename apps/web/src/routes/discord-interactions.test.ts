@@ -46,7 +46,7 @@ describe("registerDiscordInteractionRoutes", () => {
 
     it("passes auto report stores into handleInteraction", async () => {
         const app = Fastify({ logger: false });
-        const wclClient = { fetchAndNormalizeReport: vi.fn() } as never;
+        const wclClient = { fetchReportSummary: vi.fn() } as never;
         const guildConfigStore = { getGuildConfig: vi.fn(), saveGuildConfig: vi.fn() } as never;
         const autoReportPromptStateService = {
             savePromptState: vi.fn(),

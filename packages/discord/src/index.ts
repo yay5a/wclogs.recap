@@ -34,3 +34,4 @@ export {
     makeAutoReportPromptPreviewCustomId,
 } from "./commands/auto-report.js";
 export { buildReportResponseBody } from "./renderers/report.js";
+export { buildGuildRankResponseBody } from "./renderers/guildrank.js";

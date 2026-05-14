@@ -62,6 +62,14 @@ const compareVisibilityChoices = COMPARE_VISIBILITIES.map((visibility) => ({
     value: visibility,
 }));
 const compareAccessModeChoices = COMPARE_ACCESS_MODES.map((mode) => ({ name: mode, value: mode }));
+const guildRankDifficultyChoices = [
+    { name: "normal", value: "normal" },
+    { name: "heroic", value: "heroic" },
+];
+const guildRankSizeChoices = [
+    { name: "10man", value: "10man" },
+    { name: "25man", value: "25man" },
+];
 const validateCommandNameUniqueness = (commands: CommandDefinition[]) => {
     const seen = new Set<string>();
     for (const command of commands) {
@@ -183,6 +191,30 @@ export const commandDefinitions: CommandDefinition[] = [
                 required: false,
                 channel_types: [GUILD_TEXT_CHANNEL_TYPE, GUILD_ANNOUNCEMENT_CHANNEL_TYPE],
             },
+            {
+                name: "wcl_guild_name",
+                description: "WCL guild name for /guildrank",
+                type: STRING_OPTION_TYPE,
+                required: false,
+            },
+            {
+                name: "wcl_guild_server_slug",
+                description: "WCL server slug for /guildrank",
+                type: STRING_OPTION_TYPE,
+                required: false,
+            },
+            {
+                name: "wcl_guild_server_region",
+                description: "WCL server region for /guildrank",
+                type: STRING_OPTION_TYPE,
+                required: false,
+            },
+            {
+                name: "wcl_zone_id",
+                description: "WCL zone ID for /guildrank",
+                type: INTEGER_OPTION_TYPE,
+                required: false,
+            },
         ],
     },
     {
@@ -224,6 +256,27 @@ export const commandDefinitions: CommandDefinition[] = [
                 description: "Warcraft Logs report URL",
                 type: STRING_OPTION_TYPE,
                 required: true,
+            },
+        ],
+    },
+    {
+        name: "guildrank",
+        description: "Summarize guild rank progress, speed, and execution",
+        type: 1,
+        options: [
+            {
+                name: "difficulty",
+                description: "Raid difficulty",
+                type: STRING_OPTION_TYPE,
+                required: true,
+                choices: guildRankDifficultyChoices,
+            },
+            {
+                name: "size",
+                description: "Raid size",
+                type: STRING_OPTION_TYPE,
+                required: true,
+                choices: guildRankSizeChoices,
             },
         ],
     },

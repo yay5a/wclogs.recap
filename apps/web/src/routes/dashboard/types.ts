@@ -115,6 +115,10 @@ export type DashboardConfigPatch = Partial<
         | "autoReportChannelIds"
         | "defaultGameFamily"
         | "dashboardOfficerAccessEnabled"
+        | "wclGuildName"
+        | "wclGuildServerSlug"
+        | "wclGuildServerRegion"
+        | "wclZoneId"
     >
 >;
 

@@ -2,10 +2,8 @@ import type {
     AutoReportMode,
     BotActivityStore,
     CharacterClaimStatus,
-    ComparisonSnapshotInput,
     GameFamily,
     GuildConfigStore,
-    PreviousRaidLookup,
 } from "@wcl/domain";
 import type { WclClient } from "@wcl/wcl-client";
 
@@ -96,13 +94,13 @@ export interface AutoReportDuplicateTrackingService {
 }
 
 export interface ComparisonHistoryStore {
-    saveComparisonSnapshot(input: ComparisonSnapshotInput): Promise<unknown>;
+    saveComparisonSnapshot(input: unknown): Promise<unknown>;
     findCharacterHistory(input: {
         guildId: string;
         participantKey: string;
         before: Date;
         limit?: number;
-    }): Promise<ComparisonSnapshotInput[]>;
+    }): Promise<unknown[]>;
 }
 
 export interface CharacterClaimRecord {
@@ -194,7 +192,7 @@ export interface CharacterClaimStore {
 }
 
 export interface HandleOptions {
-    wclClient: WclClient & Partial<PreviousRaidLookup>;
+    wclClient: WclClient;
     guildConfigStore: GuildConfigStore;
     comparisonHistoryStore?: ComparisonHistoryStore;
     characterClaimStore?: CharacterClaimStore;

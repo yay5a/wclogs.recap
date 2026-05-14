@@ -36,15 +36,15 @@ export const registerReportRoutes: FastifyPluginAsync<ReportRouteOptions> = asyn
         try {
             const auth = getDashboardAuthFromRequest(request, options.env);
             const discordUserId = auth?.kind === "discord" ? auth.discordUserId : undefined;
-            const report = await options.wclClient.fetchAndNormalizeReport(
+            const summary = await options.wclClient.fetchReportSummary(
                 toWclReportUrl(reportCode),
                 discordUserId ? { discordUserId } : undefined,
             );
 
             return reply.send({
                 ok: true,
-                message: "Report payload generated",
-                payload: report,
+                message: "Report summary generated",
+                payload: summary,
             });
         } catch (error) {
             if (error instanceof WclReportFetchError) {

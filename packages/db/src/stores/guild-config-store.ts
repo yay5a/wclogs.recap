@@ -23,6 +23,10 @@ const parseStringArray = (value: unknown): string[] =>
     : [];
 const parseAutoReportChannelIds = (value: unknown): string[] => parseStringArray(value);
 const parseBoolean = (value: unknown): boolean => (typeof value === 'boolean' ? value : false);
+const parseOptionalString = (value: unknown): string | undefined =>
+  typeof value === 'string' && value.trim().length > 0 ? value.trim() : undefined;
+const parseOptionalNumber = (value: unknown): number | undefined =>
+  typeof value === 'number' && Number.isFinite(value) ? value : undefined;
 const activeGuildFilter = (guildId: string) => ({
   guildId,
   $or: [{ dashboardDeconfiguredAt: { $exists: false } }, { dashboardDeconfiguredAt: null }],
@@ -60,6 +64,14 @@ const sanitizeGuildConfigUpdate = (update: GuildConfigUpdate): GuildConfigUpdate
     ...(update.autoReportChannelIds !== undefined
       ? { autoReportChannelIds: update.autoReportChannelIds }
       : {}),
+    ...(update.wclGuildName !== undefined ? { wclGuildName: update.wclGuildName } : {}),
+    ...(update.wclGuildServerSlug !== undefined
+      ? { wclGuildServerSlug: update.wclGuildServerSlug }
+      : {}),
+    ...(update.wclGuildServerRegion !== undefined
+      ? { wclGuildServerRegion: update.wclGuildServerRegion }
+      : {}),
+    ...(update.wclZoneId !== undefined ? { wclZoneId: update.wclZoneId } : {}),
   };
 };
 
@@ -67,6 +79,10 @@ const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
   const fallback = defaultGuildConfigFor(guildId);
   const raw = doc as Record<string, unknown> | null;
   if (!raw) return fallback;
+  const wclGuildName = parseOptionalString(raw.wclGuildName);
+  const wclGuildServerSlug = parseOptionalString(raw.wclGuildServerSlug);
+  const wclGuildServerRegion = parseOptionalString(raw.wclGuildServerRegion);
+  const wclZoneId = parseOptionalNumber(raw.wclZoneId);
 
   return {
     guildId,
@@ -78,6 +94,10 @@ const toGuildConfig = (guildId: string, doc: unknown): GuildConfig => {
     compareOfficerUserIds: parseStringArray(raw.compareOfficerUserIds),
     dashboardOfficerAccessEnabled: parseBoolean(raw.dashboardOfficerAccessEnabled),
     comparePublicPostingEnabled: parseBoolean(raw.comparePublicPostingEnabled),
+    ...(typeof wclGuildName === 'string' ? { wclGuildName } : {}),
+    ...(typeof wclGuildServerSlug === 'string' ? { wclGuildServerSlug } : {}),
+    ...(typeof wclGuildServerRegion === 'string' ? { wclGuildServerRegion } : {}),
+    ...(typeof wclZoneId === 'number' ? { wclZoneId } : {}),
   };
 };
 

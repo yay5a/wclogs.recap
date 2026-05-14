@@ -21,7 +21,6 @@ import {
   AutoReportPromptStateModel,
   MongoTrendTrackingService,
   PlayerRaidSummaryModel,
-  ReportCacheModel,
   TrendSnapshotModel,
   WclUserAuthModel,
   migrateWclUserAuthDiscordUserIndex,
@@ -1510,7 +1509,6 @@ describe('MongoComparisonHistoryStore', () => {
       | { $set?: Record<string, unknown> }
       | undefined;
     expect(update?.$set).not.toHaveProperty('rawPayload');
-    expect(update?.$set).not.toHaveProperty('normalizedPayload');
   });
 
   it('can persist probe-backed participant identity fields when provided', async () => {
@@ -1653,12 +1651,8 @@ describe('MongoComparisonHistoryStore', () => {
     expect(history).toEqual([]);
   });
 
-  it('does not use ReportCacheModel, PlayerRaidSummaryModel, or trend services for comparison history', async () => {
-    const reportCacheFind = vi.spyOn(ReportCacheModel, 'find').mockReturnValue({} as never);
+  it('does not use PlayerRaidSummaryModel or trend services for comparison history', async () => {
     const playerSummaryFind = vi.spyOn(PlayerRaidSummaryModel, 'find').mockReturnValue({} as never);
-    const trendIngest = vi
-      .spyOn(MongoTrendTrackingService.prototype, 'ingestRaidHistory')
-      .mockResolvedValue(undefined);
     const trendRecompute = vi
       .spyOn(MongoTrendTrackingService.prototype, 'recomputeTrendsForGuild')
       .mockResolvedValue(undefined);
@@ -1671,9 +1665,7 @@ describe('MongoComparisonHistoryStore', () => {
       before,
     });
 
-    expect(reportCacheFind).not.toHaveBeenCalled();
     expect(playerSummaryFind).not.toHaveBeenCalled();
-    expect(trendIngest).not.toHaveBeenCalled();
     expect(trendRecompute).not.toHaveBeenCalled();
   });
 });

@@ -2,10 +2,11 @@ import { InteractionResponseType, InteractionType } from "discord-interactions";
 import { createLogger } from "@wcl/shared";
 import type { HandleOptions } from "../types.js";
 import { handleApproveCharacterCommand, handleClaimCharacterCommand, handleComparePrivacyCommand, handleMyCharactersCommand, handleRejectCharacterCommand } from "../commands/character-claims.js";
-import { handleCompareCommand } from "../commands/compare.js";
 import { handleConfigCommand } from "../commands/config.js";
 import { handleAddOfficerCommand, handleListOfficersCommand, handleRemoveOfficerCommand } from "../commands/officer-management.js";
 import { handleAutoReportComponentInteraction } from "../commands/auto-report.js";
+import { handleCompareCommand } from "../commands/compare.js";
+import { handleGuildRankCommand } from "../commands/guildrank.js";
 import { processReportInteraction } from "../commands/report.js";
 
 const logger = createLogger("discord");
@@ -91,6 +92,10 @@ export const handleInteraction = async (interaction: unknown, options: HandleOpt
                 type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
                 data: { flags: EPHEMERAL_MESSAGE_FLAG },
             };
+        }
+
+        if (typedInteraction.data?.name === "guildrank") {
+            return handleGuildRankCommand(typedInteraction, options);
         }
     }
 

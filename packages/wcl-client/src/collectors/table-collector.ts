@@ -1,0 +1,163 @@
+import type { WclGraphqlClient } from '../graphql-client.js';
+import {
+  parseTablePayloadDetailed,
+  type ParsedTableEntry,
+  type ParsedTablePayload,
+} from '../parsers/table.js';
+import type { ReportTableMetrics } from '../pipeline/types.js';
+import type { TableDataType } from '../schema-enums.js';
+
+const TABLE_QUERY = `
+query ReportTableByType(
+  $code: String!
+  $allowUnlisted: Boolean!
+  $fightIDs: [Int]
+  $dataType: TableDataType!
+  $filterExpression: String
+) {
+  reportData {
+    report(code: $code, allowUnlisted: $allowUnlisted) {
+      table(
+        dataType: $dataType
+        fightIDs: $fightIDs
+        filterExpression: $filterExpression
+        translate: false
+      )
+    }
+  }
+}`;
+
+const getTableNode = (payload: unknown): unknown => {
+  const root = payload as { data?: { reportData?: { report?: { table?: unknown } } } };
+  return root?.data?.reportData?.report?.table;
+};
+
+const sumRows = (rows: ParsedTableEntry[] | undefined): number | undefined => {
+  if (!rows) return undefined;
+  return rows.reduce((sum, row) => sum + (row.value ?? 0), 0);
+};
+
+const filterTopRows = (rows: ParsedTableEntry[] | undefined): ParsedTableEntry[] =>
+  [...(rows ?? [])]
+    .filter((row) => typeof row.value === 'number' && row.playerName)
+    .sort((left, right) => (right.value ?? 0) - (left.value ?? 0));
+
+const collectType = async (
+  client: WclGraphqlClient,
+  input: { reportCode: string; fightIds: number[]; dataType: TableDataType; filterExpression: string },
+): Promise<ParsedTablePayload> => {
+  const payload = await client.request<Record<string, unknown>>(TABLE_QUERY, {
+    code: input.reportCode,
+    allowUnlisted: true,
+    fightIDs: input.fightIds,
+    dataType: input.dataType,
+    filterExpression: input.filterExpression,
+  });
+  return parseTablePayloadDetailed(getTableNode(payload), input.dataType);
+};
+
+const TABLE_FILTERS: Record<TableDataType, string> = {
+  DamageDone:
+    '(encounterID != 0) AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
+  DamageTaken:
+    '(encounterID != 0) AND (target.disposition = "friendly")',
+  Healing:
+    '(encounterID != 0) AND (inCategory("healing") = true) AND (source.disposition = "friendly") AND (target.disposition = "friendly")',
+  Deaths: '(encounterID != 0) AND (type = "death") AND (target.disposition = "friendly") AND (feign = false)',
+  Dispels: '(encounterID != 0) AND (source.disposition = "friendly")',
+  Interrupts:
+    '(encounterID != 0) AND (type = "interrupt") AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
+  Survivability: '(encounterID != 0) AND (target.disposition = "friendly")',
+  Summary: '(encounterID != 0)',
+};
+
+export const collectTableMetrics = async (
+  client: WclGraphqlClient,
+  input: { reportCode: string; completedFightIds: number[] },
+): Promise<ReportTableMetrics> => {
+  if (input.completedFightIds.length === 0) {
+    return {
+      topDamageDone: [],
+      topHealingDone: [],
+      topDamageTaken: [],
+      topDeaths: [],
+      topInterrupts: [],
+      topDispels: [],
+      totals: {},
+      deathsByFightId: {},
+    };
+  }
+
+  const [damageDone, damageTaken, healing, deaths, interrupts, dispels] = await Promise.all([
+    collectType(client, {
+      reportCode: input.reportCode,
+      fightIds: input.completedFightIds,
+      dataType: 'DamageDone',
+      filterExpression: TABLE_FILTERS.DamageDone,
+    }),
+    collectType(client, {
+      reportCode: input.reportCode,
+      fightIds: input.completedFightIds,
+      dataType: 'DamageTaken',
+      filterExpression: TABLE_FILTERS.DamageTaken,
+    }),
+    collectType(client, {
+      reportCode: input.reportCode,
+      fightIds: input.completedFightIds,
+      dataType: 'Healing',
+      filterExpression: TABLE_FILTERS.Healing,
+    }),
+    collectType(client, {
+      reportCode: input.reportCode,
+      fightIds: input.completedFightIds,
+      dataType: 'Deaths',
+      filterExpression: TABLE_FILTERS.Deaths,
+    }),
+    collectType(client, {
+      reportCode: input.reportCode,
+      fightIds: input.completedFightIds,
+      dataType: 'Interrupts',
+      filterExpression: TABLE_FILTERS.Interrupts,
+    }),
+    collectType(client, {
+      reportCode: input.reportCode,
+      fightIds: input.completedFightIds,
+      dataType: 'Dispels',
+      filterExpression: TABLE_FILTERS.Dispels,
+    }),
+  ]);
+
+  const deathsByFightIdRows = await Promise.all(
+    input.completedFightIds.map(async (fightId) => {
+      const fightDeaths = await collectType(client, {
+        reportCode: input.reportCode,
+        fightIds: [fightId],
+        dataType: 'Deaths',
+        filterExpression: TABLE_FILTERS.Deaths,
+      });
+      return [fightId, sumRows(fightDeaths.entries) ?? 0] as const;
+    }),
+  );
+
+  const deathsByFightId = Object.fromEntries(deathsByFightIdRows);
+  const deathsTotal = sumRows(deaths.entries);
+  const damageTakenTotal = sumRows(damageTaken.entries);
+  const interruptsTotal = sumRows(interrupts.entries);
+  const dispelsTotal = sumRows(dispels.entries);
+
+  return {
+    topDamageDone: filterTopRows(damageDone.entries),
+    topHealingDone: filterTopRows(healing.entries),
+    topDamageTaken: filterTopRows(damageTaken.entries),
+    topDeaths: filterTopRows(deaths.entries),
+    topInterrupts: filterTopRows(interrupts.entries),
+    topDispels: filterTopRows(dispels.entries),
+    totals: {
+      ...(typeof deathsTotal === 'number' ? { deaths: deathsTotal } : {}),
+      ...(typeof damageTakenTotal === 'number' ? { raidDamageTaken: damageTakenTotal } : {}),
+      ...(typeof interruptsTotal === 'number' ? { interrupts: interruptsTotal } : {}),
+      ...(typeof dispelsTotal === 'number' ? { dispels: dispelsTotal } : {}),
+    },
+    deathsByFightId,
+  };
+};

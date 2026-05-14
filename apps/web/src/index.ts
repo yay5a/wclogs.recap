@@ -9,11 +9,10 @@ import {
   MongoDashboardOnboardingStore,
   MongoGuildConfigStore,
   MongoWclUserAuthStore,
-  ReportCacheModel,
   migrateWclUserAuthDiscordUserIndex,
 } from '@wcl/db';
 import { createLogger } from '@wcl/shared';
-import { WclClient, type ReportCacheStore } from '@wcl/wcl-client';
+import { WclClient } from '@wcl/wcl-client';
 import { loadEnvFile } from 'node:process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -33,17 +32,6 @@ if (existsSync(envPath)) {
 const env = parseWebEnv(process.env);
 const logger = createLogger('web');
 
-const reportCacheStore: ReportCacheStore = {
-  async getByReportCode(reportCode: string) {
-    return ReportCacheModel.findOne({ reportCode }).lean();
-  },
-  async upsert(entry) {
-    await ReportCacheModel.findOneAndUpdate({ reportCode: entry.reportCode }, entry, {
-      upsert: true,
-    });
-  },
-};
-
 const wclUserAuthStore = new MongoWclUserAuthStore({
   encryptionKey: env.WCL_TOKEN_ENCRYPTION_KEY,
 });
@@ -52,7 +40,6 @@ const wclClient = new WclClient({
   clientId: env.WCL_CLIENT_ID,
   clientSecret: env.WCL_CLIENT_SECRET,
   apiBaseUrl: env.WCL_API_BASE_URL,
-  reportCacheStore,
   wclUserAuthStore,
 });
 

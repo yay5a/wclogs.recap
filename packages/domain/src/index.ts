@@ -29,6 +29,10 @@ export interface GuildConfig {
   comparePublicPostingEnabled: boolean;
   autoReportMode: AutoReportMode;
   autoReportChannelIds: string[];
+  wclGuildName?: string;
+  wclGuildServerSlug?: string;
+  wclGuildServerRegion?: string;
+  wclZoneId?: number;
 }
 
 export interface GuildConfigStore {
@@ -52,39 +56,6 @@ export const defaultGuildConfigFor = (guildId: string): GuildConfig => ({
   autoReportMode: 'prompt',
   autoReportChannelIds: [],
 });
-
-export interface NormalizedPlayer {
-  id: string;
-  actorId?: number;
-  warcraftLogsActorId?: number;
-  warcraftLogsGuid?: number;
-  name: string;
-  nameKey?: string;
-  realm?: string;
-  server?: string;
-  region?: string;
-  className?: string;
-  specName?: string;
-  role?: string;
-  bestParse?: number;
-  avgParse?: number;
-  executionScore?: number;
-}
-
-export interface NormalizedFight {
-  id: number;
-  name: string;
-  startTime: number;
-  endTime: number;
-  kill: boolean;
-}
-
-export interface NormalizedEncounterFight extends NormalizedFight {
-  encounterId?: number;
-  difficulty?: number;
-  difficultyName?: string;
-  inProgress?: boolean;
-}
 
 export interface NormalizedLeaderboardEntry {
   scope: 'report' | 'boss';
@@ -158,150 +129,6 @@ export interface NormalizedBossPerformance {
   topSurvivability?: { playerName: string; value: number };
 }
 
-export interface NormalizedReport {
-  reportCode: string;
-  title: string;
-  startTime: number;
-  endTime: number;
-  gameFamily: GameFamily;
-  zoneName?: string;
-  fights: NormalizedFight[];
-  encounterFights?: NormalizedEncounterFight[];
-  players: NormalizedPlayer[];
-  leaderboards?: NormalizedLeaderboardEntry[];
-  bossPerformances?: NormalizedBossPerformance[];
-  reportWideSummary?: {
-    topDamageDone: Array<{
-      playerName: string;
-      value: number;
-      activeTimeMs?: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topHealingDone: Array<{
-      playerName: string;
-      value: number;
-      activeTimeMs?: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topDamageTaken?: Array<{
-      playerName: string;
-      value: number;
-      activeTimeMs?: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topDeaths?: Array<{
-      playerName: string;
-      value: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topInterrupts?: Array<{
-      playerName: string;
-      value: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topDispels?: Array<{
-      playerName: string;
-      value: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topSurvivability?: Array<{
-      playerName: string;
-      value: number;
-      className?: string;
-      specName?: string;
-    }>;
-    totals: {
-      deaths?: number;
-      raidDamageTaken?: number;
-      dispels?: number;
-      interrupts?: number;
-    };
-  };
-  reportWideEncounterSummary?: {
-    topDamageDone: Array<{
-      playerName: string;
-      value: number;
-      activeTimeMs?: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topHealingDone: Array<{
-      playerName: string;
-      value: number;
-      activeTimeMs?: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topDamageTaken?: Array<{
-      playerName: string;
-      value: number;
-      activeTimeMs?: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topDeaths?: Array<{
-      playerName: string;
-      value: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topInterrupts?: Array<{
-      playerName: string;
-      value: number;
-      className?: string;
-      specName?: string;
-    }>;
-    topDispels?: Array<{
-      playerName: string;
-      value: number;
-      className?: string;
-      specName?: string;
-    }>;
-    totals: {
-      deaths?: number;
-      raidDamageTaken?: number;
-      dispels?: number;
-      interrupts?: number;
-    };
-  };
-  reportWideRankings?: {
-    dps: NormalizedLeaderboardEntry[];
-    hps: NormalizedLeaderboardEntry[];
-    krsi?: NormalizedLeaderboardEntry[];
-  };
-}
-
-export interface PreviousRaidLookup {
-  findPreviousRaidSummaries(guildId: string, beforeDate: Date): Promise<NormalizedPlayer[]>;
-}
-
-export { buildComparisonBaseline } from './comparison/baseline.js';
-export type {
-  AvailableBaselineMetricComparison,
-  BaselineMetricComparison,
-  BaselineMetricDirection,
-  BaselineMetricLabel,
-  BaselineMetricName,
-  BaselineMetrics,
-  BaselineStatus,
-  ComparisonBaseline,
-  ComparisonBaselineRow,
-  UnavailableBaselineMetricComparison,
-  UnavailableBaselineReason,
-} from './comparison/baseline.js';
-export { extractComparisonSnapshots } from './comparison/snapshot.js';
-export type {
-  ComparisonSnapshotExtractionIssue,
-  ComparisonSnapshotExtractionResult,
-  ComparisonSnapshotInput,
-  ExtractComparisonSnapshotsInput,
-} from './comparison/snapshot.js';
 export {
   COMPARE_MODES,
   DEFAULT_COMPARE_MODE,
@@ -360,9 +187,12 @@ export type {
   ReadyCharacterComparisonIdentity,
   ReadyPlayerComparisonIdentity,
 } from './comparison/identity.js';
-export { buildReportSummary } from './report/build-report-summary.js';
 export type {
   ReportEncounterSummary,
+  GuildRankEncounterRow,
+  GuildRankMetricRow,
+  GuildRankProgressRanks,
+  GuildRankSummary,
   ReportMetricRow,
   ReportParseRow,
   ReportSummary,
@@ -378,6 +208,5 @@ export {
 } from './report-mappers.js';
 
 export interface TrendTrackingService {
-  ingestRaidHistory(guildId: string, report: NormalizedReport): Promise<void>;
   recomputeTrendsForGuild(guildId: string): Promise<void>;
 }

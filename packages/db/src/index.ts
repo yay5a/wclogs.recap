@@ -40,6 +40,18 @@ const guildSettingsSchema = new Schema(
       type: [String],
       default: [],
     },
+    wclGuildName: {
+      type: String,
+    },
+    wclGuildServerSlug: {
+      type: String,
+    },
+    wclGuildServerRegion: {
+      type: String,
+    },
+    wclZoneId: {
+      type: Number,
+    },
     compareAccessMode: {
       type: String,
       enum: ['officer_only', 'owner_or_officer', 'owner_opt_in_or_officer', 'owner_only'],
@@ -92,22 +104,6 @@ const characterIdentitySchema = new Schema(
     specHistory: [{ specName: String, firstSeenAt: Date, lastSeenAt: Date }],
     autoLinked: { type: Boolean, default: false },
     candidateLinks: [{ discordUserId: String, confidence: Number }],
-  },
-  { timestamps: true },
-);
-
-const reportCacheSchema = new Schema(
-  {
-    reportCode: { type: String, unique: true, required: true },
-    sourceUrl: { type: String, required: true },
-    gameFamily: {
-      type: String,
-      enum: ['retail', 'mop_classic'],
-      required: true,
-    },
-    rawPayload: { type: Schema.Types.Mixed, required: true },
-    normalizedPayload: { type: Schema.Types.Mixed, required: true },
-    fetchedAt: { type: Date, required: true },
   },
   { timestamps: true },
 );
@@ -283,7 +279,6 @@ autoReportDuplicateTrackingSchema.index(
 export const GuildSettingsModel = mongoose.model('GuildSettings', guildSettingsSchema);
 export const PlayerProfileModel = mongoose.model('PlayerProfile', playerProfileSchema);
 export const CharacterIdentityModel = mongoose.model('CharacterIdentity', characterIdentitySchema);
-export const ReportCacheModel = mongoose.model('ReportCache', reportCacheSchema);
 export const RaidSnapshotModel = mongoose.model('RaidSnapshot', raidSnapshotSchema);
 
 export const FightSnapshotModel = mongoose.model('FightSnapshot', fightSnapshotSchema);
