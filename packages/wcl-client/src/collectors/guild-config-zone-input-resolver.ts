@@ -17,6 +17,12 @@ query ZoneResolver($zoneId: Int!) {
         id
         name
       }
+      partitions {
+        id
+        name
+        compactName
+        default
+      }
     }
   }
 }`;
@@ -46,6 +52,8 @@ export interface ResolvedGuildRankInput extends GuildRankInput {
   sizeLabel: string;
   zoneName: string;
   totalEncounters: number;
+  partitionId?: number;
+  encounters: Array<{ id: number; name: string }>;
 }
 
 export const resolveGuildConfigZoneInput = async (
@@ -99,6 +107,7 @@ export const resolveGuildConfigZoneInput = async (
       sizeLabel: `${requestedSizeValue}man`,
       zoneName,
       totalEncounters: 0,
+      encounters: [],
     };
   }
 
@@ -127,7 +136,16 @@ export const resolveGuildConfigZoneInput = async (
     );
   }
 
-  const totalEncounters = (asArray(zone.encounters) ?? []).length;
+  const encounters = (asArray(zone.encounters) ?? []).flatMap((value) => {
+    const row = asObject(value);
+    const id = asNumber(row?.id);
+    const name = asString(row?.name);
+    return typeof id === 'number' && name ? [{ id, name }] : [];
+  });
+  const defaultPartitionId = (asArray(zone.partitions) ?? [])
+    .map((value) => asObject(value))
+    .find((row) => row?.default === true);
+  const partitionId = asNumber(defaultPartitionId?.id);
 
   return {
     ...input,
@@ -136,6 +154,8 @@ export const resolveGuildConfigZoneInput = async (
     difficultyLabel: selectedDifficulty.name,
     sizeLabel: `${requestedSizeValue}man`,
     zoneName,
-    totalEncounters,
+    totalEncounters: encounters.length,
+    ...(typeof partitionId === 'number' ? { partitionId } : {}),
+    encounters,
   };
 };

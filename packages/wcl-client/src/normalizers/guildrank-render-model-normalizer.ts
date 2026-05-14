@@ -5,6 +5,8 @@ import type {
   GuildRankMetricSet,
 } from '../pipeline/types.js';
 
+const EMPTY_METRIC_SET: GuildRankMetricSet = { perEncounter: [] };
+
 const average = (values: number[]): number | undefined => {
   if (values.length === 0) return undefined;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -154,16 +156,27 @@ export const normalizeGuildRankRenderModel = (
     typeof speedRanks.world === 'number' ||
     typeof speedRanks.region === 'number' ||
     typeof speedRanks.realm === 'number';
+  const hasOfficialSpeedMetrics = Boolean(bundle.officialRanks.speedMetrics);
+  const hasOfficialExecutionMetrics = Boolean(bundle.officialRanks.executionMetrics);
 
-  const speed = normalizeMetricSection(bundle.currentSpeed, bundle.baselineSpeed);
-  const execution = normalizeMetricSection(bundle.currentExecution, bundle.baselineExecution);
+  const speed = normalizeMetricSection(
+    bundle.officialRanks.speedMetrics ?? bundle.currentSpeed,
+    bundle.officialRanks.speedMetrics ? EMPTY_METRIC_SET : bundle.baselineSpeed,
+  );
+  const execution = normalizeMetricSection(
+    bundle.officialRanks.executionMetrics ?? bundle.currentExecution,
+    bundle.officialRanks.executionMetrics ? EMPTY_METRIC_SET : bundle.baselineExecution,
+  );
 
   const notes: string[] = [];
   if (!hasProgressOfficialRanks) {
     notes.push('Official progress ranks unavailable; showing derived clear/pull context only.');
   }
-  if (!hasSpeedOfficialRanks) {
+  if (!hasOfficialSpeedMetrics) {
     notes.push('Official speed ranks unavailable; showing derived report metrics.');
+  }
+  if (!hasOfficialExecutionMetrics) {
+    notes.push('Official execution ranks unavailable; showing derived report metrics.');
   }
   if (bundle.currentWindowDiscovery.candidateReports === 0) {
     notes.push('No current-window reports were discovered for the configured guild and zone.');
@@ -205,7 +218,7 @@ export const normalizeGuildRankRenderModel = (
     },
     speed: {
       ...speed,
-      sourceLabel: hasSpeedOfficialRanks ? 'Official WCL Rankings' : 'Derived from WCL Reports',
+      sourceLabel: hasOfficialSpeedMetrics ? 'Official WCL Rankings' : 'Derived from WCL Reports',
       ...(hasSpeedOfficialRanks
         ? {
             ranks: {
@@ -218,7 +231,7 @@ export const normalizeGuildRankRenderModel = (
     },
     execution: {
       ...execution,
-      sourceLabel: 'Derived from WCL Reports',
+      sourceLabel: hasOfficialExecutionMetrics ? 'Official WCL Rankings' : 'Derived from WCL Reports',
     },
     notes,
   };

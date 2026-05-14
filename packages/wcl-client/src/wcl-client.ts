@@ -70,7 +70,7 @@ export class WclClient {
     input: GuildRankInput,
     options: WclAuthContextOptions = {},
   ): Promise<GuildRankSummary> {
-    return this.withAuthFallback(`guildrank:${input.guildName}`, options, (authMode) =>
+    return this.withUserAuthPreferredFallback(`guildrank:${input.guildName}`, options, (authMode) =>
       collectGuildRankSummaryData(this.createGraphqlClient(authMode, input.gameFamily), input, {
         ...(this.options.fetchImpl ? { fetchImpl: this.options.fetchImpl } : {}),
       }),
@@ -104,37 +104,10 @@ export class WclClient {
         throw publicError;
       }
 
-      let linkedAuth: WclLinkedUserAuthRecord | null | undefined;
-      try {
-        linkedAuth = await this.options.wclUserAuthStore?.getByDiscordUserId(options.discordUserId);
-      } catch (linkedAuthError) {
-        throw new WclReportFetchError({
-          category: 'linked_auth_unreadable',
-          reportCode: referenceCode,
-          authMode: 'userLinked',
-          cause: linkedAuthError,
-        });
-      }
-      if (!linkedAuth?.accessToken) {
-        throw new WclReportFetchError({
-          category: 'missing_linked_auth',
-          reportCode: referenceCode,
-          authMode: 'userLinked',
-        });
-      }
-
-      if (isExpired(linkedAuth.expiresAt)) {
-        throw new WclReportFetchError({
-          category: 'expired_linked_auth',
-          reportCode: referenceCode,
-          authMode: 'userLinked',
-        });
-      }
+      const linkedAuthMode = await this.getUserLinkedAuthMode(referenceCode, options);
 
       try {
-        return await operation(
-          userLinkedAuthMode(options.discordUserId, linkedAuth.accessToken),
-        );
+        return await operation(linkedAuthMode);
       } catch (userError) {
         throw toWclReportFetchError(userError, {
           reportCode: referenceCode,
@@ -142,6 +115,75 @@ export class WclClient {
         });
       }
     }
+  }
+
+  private async withUserAuthPreferredFallback<T>(
+    referenceCode: string,
+    options: WclAuthContextOptions,
+    operation: (authMode: WclAuthMode) => Promise<T>,
+  ): Promise<T> {
+    try {
+      const linkedAuthMode = await this.getUserLinkedAuthMode(referenceCode, options);
+      try {
+        return await operation(linkedAuthMode);
+      } catch {
+        // The guild ranking path can use user-scoped WCL data when available,
+        // but public client data remains the safe fallback for public rankings.
+      }
+    } catch {
+      // No usable linked token; fall back to the public client endpoint.
+    }
+
+    try {
+      return await operation(publicClientAuthMode());
+    } catch (error) {
+      throw toWclReportFetchError(error, {
+        reportCode: referenceCode,
+        authMode: 'publicClient',
+      });
+    }
+  }
+
+  private async getUserLinkedAuthMode(
+    referenceCode: string,
+    options: WclAuthContextOptions,
+  ): Promise<WclAuthMode> {
+    if (!options.discordUserId) {
+      throw new WclReportFetchError({
+        category: 'missing_linked_auth',
+        reportCode: referenceCode,
+        authMode: 'userLinked',
+      });
+    }
+
+    let linkedAuth: WclLinkedUserAuthRecord | null | undefined;
+    try {
+      linkedAuth = await this.options.wclUserAuthStore?.getByDiscordUserId(options.discordUserId);
+    } catch (linkedAuthError) {
+      throw new WclReportFetchError({
+        category: 'linked_auth_unreadable',
+        reportCode: referenceCode,
+        authMode: 'userLinked',
+        cause: linkedAuthError,
+      });
+    }
+    if (!linkedAuth?.accessToken) {
+      throw new WclReportFetchError({
+        category: 'missing_linked_auth',
+        reportCode: referenceCode,
+        authMode: 'userLinked',
+      });
+    }
+
+    if (isExpired(linkedAuth.expiresAt)) {
+      throw new WclReportFetchError({
+        category: 'expired_linked_auth',
+        reportCode: referenceCode,
+        authMode: 'userLinked',
+      });
+    }
+
+    return userLinkedAuthMode(options.discordUserId, linkedAuth.accessToken);
   }
 
   private createGraphqlClient(authMode: WclAuthMode, gameFamily?: GameFamily): WclGraphqlClient {

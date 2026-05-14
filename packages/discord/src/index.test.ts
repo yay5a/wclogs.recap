@@ -259,6 +259,77 @@ describe('discord command surfaces', () => {
     expect(response).not.toHaveProperty('flags');
   });
 
+  it('groups /guildrank Speed and Execution encounter rankings separately', () => {
+    const response = buildGuildRankResponseBody({
+      guildName: 'Guild',
+      zoneName: 'Throne',
+      difficultyLabel: 'Heroic',
+      sizeLabel: '10man',
+      window: {
+        currentStartIso: new Date(0).toISOString(),
+        currentEndIso: new Date(1).toISOString(),
+        baselineStartIso: new Date(2).toISOString(),
+        baselineEndIso: new Date(3).toISOString(),
+      },
+      progress: {
+        clearedEncounters: 1,
+        totalEncounters: 1,
+        pulls: 4,
+        wipes: 1,
+        ranks: { world: 10, region: 3, realm: 1 },
+        ranksAvailable: true,
+        sourceLabel: 'Official WCL Rankings',
+      },
+      speed: {
+        sourceLabel: 'Official WCL Rankings',
+        overall: { bestPercentile: 91, medianPercentile: 88 },
+        encounters: [
+          {
+            encounterName: 'Jinrokh',
+            speed: { bestPercentile: 95, medianPercentile: 90 },
+            execution: {},
+          },
+        ],
+      },
+      execution: {
+        sourceLabel: 'Official WCL Rankings',
+        overall: { bestPercentile: 84, medianPercentile: 82 },
+        encounters: [
+          {
+            encounterName: 'Jinrokh',
+            speed: {},
+            execution: { bestPercentile: 86, medianPercentile: 80 },
+          },
+        ],
+      },
+      notes: [],
+    });
+
+    const fields = response.embeds[0]?.fields ?? [];
+    expect(fields.map((field) => field.name)).toEqual([
+      'Progress',
+      'Guild Rankings',
+      'Speed',
+      'Speed - Per Encounter',
+      'Execution',
+      'Execution - Per Encounter',
+      'Window',
+    ]);
+    expect(fields.find((field) => field.name === 'Speed')?.value).toContain(
+      'Source: Official WCL Rankings',
+    );
+    expect(fields.find((field) => field.name === 'Speed')?.value).not.toContain(
+      'Derived from WCL Reports',
+    );
+    expect(fields.find((field) => field.name === 'Speed - Per Encounter')?.value).toContain(
+      'Best %: 95',
+    );
+    expect(fields.find((field) => field.name === 'Execution - Per Encounter')?.value).toContain(
+      'Best %: 86',
+    );
+    expect(fields.some((field) => field.name === 'Jinrokh')).toBe(false);
+  });
+
   it('does not render raw zone IDs in /config status output', async () => {
     const options = makeHandleOptions();
     const response = await handleInteraction(

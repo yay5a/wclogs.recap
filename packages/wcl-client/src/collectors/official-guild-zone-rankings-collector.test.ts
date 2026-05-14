@@ -38,6 +38,9 @@ describe('official guild/zone rankings collector', () => {
       progress: { world: 5, region: 2, realm: 1 },
       speed: { world: 9, region: 3, realm: 1 },
       source: 'zoneRankings',
+      progressSource: 'zoneRankings',
+      speedSource: 'zoneRankings',
+      executionSource: 'unavailable',
     });
   });
 
@@ -62,6 +65,67 @@ describe('official guild/zone rankings collector', () => {
       progress: { world: 33, region: 7, realm: 3 },
       speed: {},
       source: 'progressRaceData',
+      progressSource: 'progressRaceData',
+      speedSource: 'unavailable',
+      executionSource: 'unavailable',
     });
+  });
+
+  it('queries official speed and execution fight rankings with mapped size, difficulty, and partition', async () => {
+    const seenMetrics: unknown[] = [];
+    const request = vi.fn(async (query: string, variables: Record<string, unknown>) => {
+      if (query.includes('query GuildZoneRanks')) {
+        return { data: { guildData: { guild: { zoneRankings: {} } } } };
+      }
+
+      if (query.includes('query ProgressRaceFallback')) {
+        return { data: { progressRaceData: { progressRace: null } } };
+      }
+
+      if (query.includes('query OfficialGuildEncounterRankings')) {
+        expect(variables.difficulty).toBe(4);
+        expect(variables.size).toBe(10);
+        expect(variables.partition).toBe(4);
+        expect(variables.serverSlug).toBe('stormrage');
+        expect(variables.serverRegion).toBe('US');
+        seenMetrics.push(variables.metric);
+        return {
+          data: {
+            worldData: {
+              encounter: {
+                fightRankings: {
+                  rankings: [
+                    {
+                      guild: {
+                        name: 'Guild',
+                        server: { slug: 'stormrage', region: { name: 'US' } },
+                      },
+                      percentile: variables.metric === 'speed' ? 91 : 84,
+                    },
+                  ],
+                },
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
+    });
+
+    const result = await collectOfficialGuildZoneRankings(
+      { request, getAuthModeKind: () => 'userLinked' } as never,
+      {
+        ...input,
+        partition: 4,
+        encounters: [{ id: 1, name: 'Jinrokh' }],
+      },
+    );
+
+    expect(seenMetrics).toEqual(['speed', 'execution']);
+    expect(result.speedMetrics?.overallBestPercentile).toBe(91);
+    expect(result.executionMetrics?.overallBestPercentile).toBe(84);
+    expect(result.speedSource).toBe('fightRankings');
+    expect(result.executionSource).toBe('fightRankings');
   });
 });

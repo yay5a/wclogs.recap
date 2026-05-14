@@ -277,6 +277,7 @@ export const collectGuildRankSummaryData = async (
     selectedDifficultyId: resolved.difficultyId,
     selectedSize: resolved.sizeLabel,
     selectedSizeValue: resolved.sizeValue,
+    selectedPartitionId: resolved.partitionId,
     currentWindowStartMs: windows.currentStartMs,
     currentWindowEndMs: windows.currentEndMs,
     baselineWindowStartMs: windows.baselineStartMs,
@@ -311,6 +312,8 @@ export const collectGuildRankSummaryData = async (
       zoneId: resolved.zoneId,
       difficulty: resolved.difficultyId,
       size: resolved.sizeValue,
+      ...(typeof resolved.partitionId === 'number' ? { partition: resolved.partitionId } : {}),
+      encounters: resolved.encounters,
     }),
   ]);
 

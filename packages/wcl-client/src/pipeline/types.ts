@@ -104,7 +104,12 @@ export interface GuildOfficialRanks {
     region?: number;
     realm?: number;
   };
-  source: 'zoneRankings' | 'progressRaceData' | 'unavailable';
+  speedMetrics?: GuildRankMetricSet;
+  executionMetrics?: GuildRankMetricSet;
+  source: 'zoneRankings' | 'progressRaceData' | 'fightRankings' | 'unavailable';
+  progressSource: 'zoneRankings' | 'progressRaceData' | 'unavailable';
+  speedSource: 'zoneRankings' | 'fightRankings' | 'unavailable';
+  executionSource: 'fightRankings' | 'unavailable';
 }
 
 export interface GuildRankEncounterMetric {

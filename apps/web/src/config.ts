@@ -89,6 +89,7 @@ const webEnvSchema = z.object({
     WCL_API_BASE_URL: trimmed()
         .url()
         .default("https://www.warcraftlogs.com/api/v2/client"),
+    WCL_USER_API_BASE_URL: trimmed().url().optional(),
     WCL_REDIRECT_URI: httpUrl("WCL_REDIRECT_URI").optional(),
     COOKIE_SECRET: trimmed().min(1, "COOKIE_SECRET is required"),
     DASHBOARD_ADMIN_SECRET: trimmed()

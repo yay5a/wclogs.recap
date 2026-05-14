@@ -17,6 +17,8 @@ if (!Number.isFinite(zoneId)) {
 const clientId = process.env.WCL_CLIENT_ID;
 const clientSecret = process.env.WCL_CLIENT_SECRET;
 const apiBaseUrl = process.env.WCL_API_BASE_URL ?? 'https://www.warcraftlogs.com/api/v2/client';
+const userApiBaseUrl = process.env.WCL_USER_API_BASE_URL;
+const probeUserToken = process.env.WCL_OAUTH_TOKEN;
 
 if (!clientId || !clientSecret) {
   console.error('Missing WCL_CLIENT_ID or WCL_CLIENT_SECRET');
@@ -27,6 +29,14 @@ const client = new WclClient({
   clientId,
   clientSecret,
   apiBaseUrl,
+  ...(userApiBaseUrl ? { userApiBaseUrl } : {}),
+  ...(probeUserToken
+    ? {
+        wclUserAuthStore: {
+          getByDiscordUserId: async () => ({ discordUserId: 'probe', accessToken: probeUserToken }),
+        },
+      }
+    : {}),
 });
 
 const summary = await client.fetchGuildRankSummary({
@@ -37,6 +47,6 @@ const summary = await client.fetchGuildRankSummary({
   difficulty,
   size,
   ...(gameFamily === 'retail' || gameFamily === 'mop_classic' ? { gameFamily } : {}),
-});
+}, probeUserToken ? { discordUserId: 'probe' } : undefined);
 
 console.log(JSON.stringify(summary, null, 2));

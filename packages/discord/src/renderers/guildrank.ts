@@ -12,45 +12,65 @@ const formatMetric = (best?: number, median?: number, bestDelta?: number, median
     `Median Avg %: ${typeof median === 'number' ? decimalFormatter.format(median) : 'n/a'} (${formatDelta(medianDelta)})`,
   ].join('\n');
 
+const formatPercentLine = (label: string, value?: number, delta?: number): string =>
+  `${label}: ${typeof value === 'number' ? decimalFormatter.format(value) : 'n/a'} (${formatDelta(delta)})`;
+
+const formatEncounterRankings = (
+  encounters: Array<{
+    encounterName: string;
+    speed: { bestPercentile?: number; bestDelta?: number; medianPercentile?: number; medianDelta?: number };
+    execution: { bestPercentile?: number; bestDelta?: number; medianPercentile?: number; medianDelta?: number };
+  }>,
+  metric: 'speed' | 'execution',
+): string => {
+  const rows = encounters.slice(0, 6).map((encounter) => {
+    const values = encounter[metric];
+    return [
+      encounter.encounterName,
+      formatPercentLine('Best %', values.bestPercentile, values.bestDelta),
+      formatPercentLine('Median %', values.medianPercentile, values.medianDelta),
+    ].join('\n');
+  });
+  return rows.length > 0 ? rows.join('\n\n') : 'unavailable';
+};
+
 export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
 
   fields.push({
     name: 'Progress',
     value: [
-      `Source: ${summary.progress.sourceLabel}`,
       `Cleared: ${summary.progress.clearedEncounters}/${summary.progress.totalEncounters}`,
       `World: ${typeof summary.progress.ranks.world === 'number' ? `#${summary.progress.ranks.world}` : 'unavailable'}`,
       `Region: ${typeof summary.progress.ranks.region === 'number' ? `#${summary.progress.ranks.region}` : 'unavailable'}`,
       `Realm: ${typeof summary.progress.ranks.realm === 'number' ? `#${summary.progress.ranks.realm}` : 'unavailable'}`,
-      `Pulls/Wipes: ${integerFormatter.format(summary.progress.pulls)}/${integerFormatter.format(summary.progress.wipes)}`,
     ].join('\n'),
+  });
+
+  fields.push({
+    name: 'Guild Rankings',
+    value: `Pulls/Wipes: ${integerFormatter.format(summary.progress.pulls)}/${integerFormatter.format(summary.progress.wipes)}`,
   });
 
   fields.push({
     name: 'Speed',
     value: [
       `Source: ${summary.speed.sourceLabel}`,
-      typeof summary.speed.ranks?.world === 'number' ||
-      typeof summary.speed.ranks?.region === 'number' ||
-      typeof summary.speed.ranks?.realm === 'number'
-        ? [
-            `World: ${typeof summary.speed.ranks.world === 'number' ? `#${summary.speed.ranks.world}` : 'unavailable'}`,
-            `Region: ${typeof summary.speed.ranks.region === 'number' ? `#${summary.speed.ranks.region}` : 'unavailable'}`,
-            `Realm: ${typeof summary.speed.ranks.realm === 'number' ? `#${summary.speed.ranks.realm}` : 'unavailable'}`,
-          ].join('\n')
-        : [
-            formatMetric(
-              summary.speed.overall.bestPercentile,
-              summary.speed.overall.medianPercentile,
-              summary.speed.overall.bestDelta,
-              summary.speed.overall.medianDelta,
-            ),
-            summary.speed.bestEncounterGain
-              ? `Best Encounter Gain: ${summary.speed.bestEncounterGain.encounterName} ${formatDelta(summary.speed.bestEncounterGain.delta)}`
-              : 'Best Encounter Gain: n/a',
-          ].join('\n'),
+      formatMetric(
+        summary.speed.overall.bestPercentile,
+        summary.speed.overall.medianPercentile,
+        summary.speed.overall.bestDelta,
+        summary.speed.overall.medianDelta,
+      ),
+      summary.speed.bestEncounterGain
+        ? `Best Encounter Gain: ${summary.speed.bestEncounterGain.encounterName} ${formatDelta(summary.speed.bestEncounterGain.delta)}`
+        : 'Best Encounter Gain: n/a',
     ].join('\n'),
+  });
+
+  fields.push({
+    name: 'Speed - Per Encounter',
+    value: formatEncounterRankings(summary.speed.encounters, 'speed'),
   });
 
   fields.push({
@@ -69,21 +89,10 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
     ].join('\n'),
   });
 
-  for (const encounter of summary.speed.encounters.slice(0, 6)) {
-    const executionEncounter = summary.execution.encounters.find(
-      (row) => row.encounterName === encounter.encounterName,
-    );
-    fields.push({
-      name: encounter.encounterName,
-      value: [
-        `Speed Best/Median: ${typeof encounter.speed.bestPercentile === 'number' ? decimalFormatter.format(encounter.speed.bestPercentile) : 'n/a'} / ${typeof encounter.speed.medianPercentile === 'number' ? decimalFormatter.format(encounter.speed.medianPercentile) : 'n/a'}`,
-        `Speed Δ Best/Median: ${formatDelta(encounter.speed.bestDelta)} / ${formatDelta(encounter.speed.medianDelta)}`,
-        `Execution Best/Median: ${typeof executionEncounter?.execution.bestPercentile === 'number' ? decimalFormatter.format(executionEncounter.execution.bestPercentile) : 'n/a'} / ${typeof executionEncounter?.execution.medianPercentile === 'number' ? decimalFormatter.format(executionEncounter.execution.medianPercentile) : 'n/a'}`,
-        `Execution Δ Best/Median: ${formatDelta(executionEncounter?.execution.bestDelta)} / ${formatDelta(executionEncounter?.execution.medianDelta)}`,
-      ].join('\n'),
-      inline: false,
-    });
-  }
+  fields.push({
+    name: 'Execution - Per Encounter',
+    value: formatEncounterRankings(summary.execution.encounters, 'execution'),
+  });
 
   fields.push({
     name: 'Window',
