@@ -154,14 +154,6 @@ Before opening a pull request:
 3. Include screenshots for Discord output changes when possible.
 4. Explain how the change was tested.
 
-### Self-hosting and development
-
-Normal beta testers do not need to run Docker or self-host the app.
-
-Docker is only for local development or self-hosting. The app needs running services such as the web service, worker, and database. Docker Compose is one way to run those services together.
-
-If you are only testing the hosted beta bot in Discord, use the bot commands in the beta server and report issues through GitHub.
-
 ## Repository Layout
 
 ```text
@@ -176,7 +168,6 @@ If you are only testing the hosted beta bot in Discord, use the bot commands in 
       domain/         Normalized raid types and report section builders
       shared/         Logger, Zod helpers, shared utility types
       wcl-client/     Warcraft Logs GraphQL client, cache policy, parsers
-    docker-compose.yml
     pnpm-workspace.yaml
 ```
 
@@ -204,7 +195,7 @@ Example source input:
 
 ## Environment
 
-The web app loads `.env` from the repo root when present. Docker Compose also reads root `.env` for variable substitution.
+The web app loads `.env` from the repo root when present.
 
 Required for `apps/web`:
 
@@ -311,28 +302,6 @@ pnpm --filter @wcl/web register:discord-commands
 To register commands to a guild, provide `DISCORD_GUILD_ID` in the environment or pass the guild ID as the command argument if using the app script convention.
 
 For a `401 Unauthorized` response, reset/copy the bot token from the Discord Developer Portal **Bot** page and store only the raw token in `DISCORD_BOT_TOKEN`. Do not include the `Bot ` prefix, and do not use the public key, client secret, or application ID in that variable.
-
-## Docker
-
-Build and start the beta stack:
-
-```sh
-docker compose up --build
-```
-
-When using environment loaded by another tool such as `direnv`, run Compose through that tool:
-
-```sh
-direnv exec . docker compose up --build
-```
-
-The Compose file defines:
-
-- `web`: Fastify API and Discord interactions service on port `3000`.
-- `worker`: background Mongo job worker.
-- `backend`: internal Docker network.
-
-Set `PUBLIC_APP_BASE_URL` to the public HTTPS origin for the target beta environment before deploying. The web app derives the WCL OAuth callback, Discord OAuth callback, dashboard URL, and Discord interaction webhook URL from that origin unless explicit full URL overrides are set.
 
 ## HTTP Routes
 
