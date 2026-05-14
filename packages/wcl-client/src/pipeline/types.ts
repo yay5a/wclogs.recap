@@ -99,17 +99,8 @@ export interface GuildOfficialRanks {
     region?: number;
     realm?: number;
   };
-  speed: {
-    world?: number;
-    region?: number;
-    realm?: number;
-  };
-  speedMetrics?: GuildRankMetricSet;
-  executionMetrics?: GuildRankMetricSet;
-  source: 'zoneRankings' | 'progressRaceData' | 'fightRankings' | 'unavailable';
-  progressSource: 'zoneRankings' | 'progressRaceData' | 'unavailable';
-  speedSource: 'zoneRankings' | 'fightRankings' | 'unavailable';
-  executionSource: 'fightRankings' | 'unavailable';
+  source: 'zoneRanking' | 'progressRaceData' | 'unavailable';
+  progressSource: 'zoneRanking' | 'progressRaceData' | 'unavailable';
 }
 
 export interface GuildRankEncounterMetric {

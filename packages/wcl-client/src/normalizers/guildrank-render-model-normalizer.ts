@@ -5,8 +5,6 @@ import type {
   GuildRankMetricSet,
 } from '../pipeline/types.js';
 
-const EMPTY_METRIC_SET: GuildRankMetricSet = { perEncounter: [] };
-
 const average = (values: number[]): number | undefined => {
   if (values.length === 0) return undefined;
   return values.reduce((sum, value) => sum + value, 0) / values.length;
@@ -147,37 +145,26 @@ export const normalizeGuildRankRenderModel = (
   bundle: GuildRankCollectorBundle,
 ): GuildRankSummary => {
   const progressRanks = bundle.officialRanks.progress;
-  const speedRanks = bundle.officialRanks.speed;
   const hasProgressOfficialRanks =
     typeof progressRanks.world === 'number' ||
     typeof progressRanks.region === 'number' ||
     typeof progressRanks.realm === 'number';
-  const hasSpeedOfficialRanks =
-    typeof speedRanks.world === 'number' ||
-    typeof speedRanks.region === 'number' ||
-    typeof speedRanks.realm === 'number';
-  const hasOfficialSpeedMetrics = Boolean(bundle.officialRanks.speedMetrics);
-  const hasOfficialExecutionMetrics = Boolean(bundle.officialRanks.executionMetrics);
 
   const speed = normalizeMetricSection(
-    bundle.officialRanks.speedMetrics ?? bundle.currentSpeed,
-    bundle.officialRanks.speedMetrics ? EMPTY_METRIC_SET : bundle.baselineSpeed,
+    bundle.currentSpeed,
+    bundle.baselineSpeed,
   );
   const execution = normalizeMetricSection(
-    bundle.officialRanks.executionMetrics ?? bundle.currentExecution,
-    bundle.officialRanks.executionMetrics ? EMPTY_METRIC_SET : bundle.baselineExecution,
+    bundle.currentExecution,
+    bundle.baselineExecution,
   );
 
   const notes: string[] = [];
   if (!hasProgressOfficialRanks) {
     notes.push('Official progress ranks unavailable; showing derived clear/pull context only.');
   }
-  if (!hasOfficialSpeedMetrics) {
-    notes.push('Official speed ranks unavailable; showing derived report metrics.');
-  }
-  if (!hasOfficialExecutionMetrics) {
-    notes.push('Official execution ranks unavailable; showing derived report metrics.');
-  }
+  notes.push('Official speed percent ranking values unavailable; showing derived report metrics.');
+  notes.push('Official execution percent ranking values unavailable; showing derived report metrics.');
   if (bundle.currentWindowDiscovery.candidateReports === 0) {
     notes.push('No current-window reports were discovered for the configured guild and zone.');
   } else if (bundle.currentWindowDiscovery.zoneMatchedReports === 0) {
@@ -218,20 +205,11 @@ export const normalizeGuildRankRenderModel = (
     },
     speed: {
       ...speed,
-      sourceLabel: hasOfficialSpeedMetrics ? 'Official WCL Rankings' : 'Derived from WCL Reports',
-      ...(hasSpeedOfficialRanks
-        ? {
-            ranks: {
-              ...(typeof speedRanks.world === 'number' ? { world: speedRanks.world } : {}),
-              ...(typeof speedRanks.region === 'number' ? { region: speedRanks.region } : {}),
-              ...(typeof speedRanks.realm === 'number' ? { realm: speedRanks.realm } : {}),
-            },
-          }
-        : {}),
+      sourceLabel: 'Derived from WCL Reports',
     },
     execution: {
       ...execution,
-      sourceLabel: hasOfficialExecutionMetrics ? 'Official WCL Rankings' : 'Derived from WCL Reports',
+      sourceLabel: 'Derived from WCL Reports',
     },
     notes,
   };

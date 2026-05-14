@@ -11,43 +11,57 @@ describe('official guild/zone rankings collector', () => {
     size: 10,
   };
 
-  it('prefers zoneRankings when available', async () => {
-    const request = vi.fn().mockResolvedValue({
-      data: {
-        guildData: {
-          guild: {
-            zoneRankings: {
-              progress: {
-                worldRank: { number: 5 },
-                regionRank: { number: 2 },
-                serverRank: { number: 1 },
-              },
-              speed: {
-                worldRank: { number: 9 },
-                regionRank: { number: 3 },
-                serverRank: { number: 1 },
+  it('queries zoneRanking(zoneId) and maps official progress rank positions', async () => {
+    const request = vi.fn().mockImplementation((query: string, variables: Record<string, unknown>) => {
+      expect(query).toContain('zoneRanking(zoneId: $zoneId)');
+      expect(query).not.toContain('zoneRankings');
+      expect(query).not.toContain('zoneID: $zoneId');
+      expect(variables).toEqual({
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'US',
+        zoneId: 100,
+        size: 10,
+      });
+
+      return {
+        data: {
+          guildData: {
+            guild: {
+              zoneRanking: {
+                progress: {
+                  worldRank: { number: 868 },
+                  regionRank: { number: 279 },
+                  serverRank: { number: 241 },
+                },
               },
             },
           },
         },
-      },
+      };
     });
 
     const result = await collectOfficialGuildZoneRankings({ request } as never, input);
+
     expect(result).toEqual({
-      progress: { world: 5, region: 2, realm: 1 },
-      speed: { world: 9, region: 3, realm: 1 },
-      source: 'zoneRankings',
-      progressSource: 'zoneRankings',
-      speedSource: 'zoneRankings',
-      executionSource: 'unavailable',
+      progress: { world: 868, region: 279, realm: 241 },
+      source: 'zoneRanking',
+      progressSource: 'zoneRanking',
     });
   });
 
-  it('falls back to progressRaceData when zoneRankings is unavailable', async () => {
+  it('falls back to progressRaceData when zoneRanking progress is unavailable', async () => {
     const request = vi
       .fn()
-      .mockRejectedValueOnce(new Error('missing field'))
+      .mockResolvedValueOnce({
+        data: {
+          guildData: {
+            guild: {
+              zoneRanking: {},
+            },
+          },
+        },
+      })
       .mockResolvedValueOnce({
         data: {
           progressRaceData: {
@@ -61,71 +75,11 @@ describe('official guild/zone rankings collector', () => {
       });
 
     const result = await collectOfficialGuildZoneRankings({ request } as never, input);
+
     expect(result).toEqual({
       progress: { world: 33, region: 7, realm: 3 },
-      speed: {},
       source: 'progressRaceData',
       progressSource: 'progressRaceData',
-      speedSource: 'unavailable',
-      executionSource: 'unavailable',
     });
-  });
-
-  it('queries official speed and execution fight rankings with mapped size, difficulty, and partition', async () => {
-    const seenMetrics: unknown[] = [];
-    const request = vi.fn(async (query: string, variables: Record<string, unknown>) => {
-      if (query.includes('query GuildZoneRanks')) {
-        return { data: { guildData: { guild: { zoneRankings: {} } } } };
-      }
-
-      if (query.includes('query ProgressRaceFallback')) {
-        return { data: { progressRaceData: { progressRace: null } } };
-      }
-
-      if (query.includes('query OfficialGuildEncounterRankings')) {
-        expect(variables.difficulty).toBe(4);
-        expect(variables.size).toBe(10);
-        expect(variables.partition).toBe(4);
-        expect(variables.serverSlug).toBe('stormrage');
-        expect(variables.serverRegion).toBe('US');
-        seenMetrics.push(variables.metric);
-        return {
-          data: {
-            worldData: {
-              encounter: {
-                fightRankings: {
-                  rankings: [
-                    {
-                      guild: {
-                        name: 'Guild',
-                        server: { slug: 'stormrage', region: { name: 'US' } },
-                      },
-                      percentile: variables.metric === 'speed' ? 91 : 84,
-                    },
-                  ],
-                },
-              },
-            },
-          },
-        };
-      }
-
-      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
-    });
-
-    const result = await collectOfficialGuildZoneRankings(
-      { request, getAuthModeKind: () => 'userLinked' } as never,
-      {
-        ...input,
-        partition: 4,
-        encounters: [{ id: 1, name: 'Jinrokh' }],
-      },
-    );
-
-    expect(seenMetrics).toEqual(['speed', 'execution']);
-    expect(result.speedMetrics?.overallBestPercentile).toBe(91);
-    expect(result.executionMetrics?.overallBestPercentile).toBe(84);
-    expect(result.speedSource).toBe('fightRankings');
-    expect(result.executionSource).toBe('fightRankings');
   });
 });

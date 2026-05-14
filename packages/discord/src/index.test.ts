@@ -259,7 +259,7 @@ describe('discord command surfaces', () => {
     expect(response).not.toHaveProperty('flags');
   });
 
-  it('groups /guildrank Speed and Execution encounter rankings separately', () => {
+  it('renders official Progress ranks while keeping Speed and Execution derived', () => {
     const response = buildGuildRankResponseBody({
       guildName: 'Guild',
       zoneName: 'Throne',
@@ -272,16 +272,16 @@ describe('discord command surfaces', () => {
         baselineEndIso: new Date(3).toISOString(),
       },
       progress: {
-        clearedEncounters: 1,
-        totalEncounters: 1,
+        clearedEncounters: 13,
+        totalEncounters: 13,
         pulls: 4,
         wipes: 1,
-        ranks: { world: 10, region: 3, realm: 1 },
+        ranks: { world: 868, region: 279, realm: 241 },
         ranksAvailable: true,
         sourceLabel: 'Official WCL Rankings',
       },
       speed: {
-        sourceLabel: 'Official WCL Rankings',
+        sourceLabel: 'Derived from WCL Reports',
         overall: { bestPercentile: 91, medianPercentile: 88 },
         encounters: [
           {
@@ -292,7 +292,7 @@ describe('discord command surfaces', () => {
         ],
       },
       execution: {
-        sourceLabel: 'Official WCL Rankings',
+        sourceLabel: 'Derived from WCL Reports',
         overall: { bestPercentile: 84, medianPercentile: 82 },
         encounters: [
           {
@@ -315,12 +315,18 @@ describe('discord command surfaces', () => {
       'Execution - Per Encounter',
       'Window',
     ]);
+    const progressValue = fields.find((field) => field.name === 'Progress')?.value ?? '';
+    expect(progressValue).toContain('Cleared: 13/13');
+    expect(progressValue).toContain('World: #868');
+    expect(progressValue).toContain('Region: #279');
+    expect(progressValue).toContain('Realm: #241');
     expect(fields.find((field) => field.name === 'Speed')?.value).toContain(
-      'Source: Official WCL Rankings',
+      'Source: Derived from WCL Reports',
     );
-    expect(fields.find((field) => field.name === 'Speed')?.value).not.toContain(
-      'Derived from WCL Reports',
+    expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
+      'Source: Derived from WCL Reports',
     );
+    expect(JSON.stringify(response)).not.toContain('Official progress ranks unavailable');
     expect(fields.find((field) => field.name === 'Speed - Per Encounter')?.value).toContain(
       'Best %: 95',
     );

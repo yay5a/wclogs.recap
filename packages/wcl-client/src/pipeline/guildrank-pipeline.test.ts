@@ -62,7 +62,7 @@ describe('guildrank pipeline', () => {
           data: {
             guildData: {
               guild: {
-                zoneRankings: {
+                zoneRanking: {
                   progress: {
                     worldRank: { number: 12 },
                     regionRank: { number: 4 },
@@ -173,10 +173,14 @@ describe('guildrank pipeline', () => {
     expect(summary.progress.ranks).toEqual({ world: 12, region: 4, realm: 1 });
     expect(summary.progress.ranksAvailable).toBe(true);
     expect(summary.progress.sourceLabel).toBe('Official WCL Rankings');
-    expect(summary.speed.ranks).toEqual({ world: 18, region: 6, realm: 2 });
+    expect(summary.notes).not.toContain(
+      'Official progress ranks unavailable; showing derived clear/pull context only.',
+    );
+    expect(summary.speed.sourceLabel).toBe('Derived from WCL Reports');
+    expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
   });
 
-  it('keeps official speed ranks authoritative when derived speed metrics disagree', async () => {
+  it('keeps Speed and Execution derived when official percent ranking values are unavailable', async () => {
     const now = Date.UTC(2026, 4, 14, 12, 0, 0);
     vi.useFakeTimers();
     vi.setSystemTime(now);
@@ -220,7 +224,7 @@ describe('guildrank pipeline', () => {
           data: {
             guildData: {
               guild: {
-                zoneRankings: {
+                zoneRanking: {
                   progress: {
                     worldRank: { number: 50 },
                     regionRank: { number: 20 },
@@ -231,32 +235,6 @@ describe('guildrank pipeline', () => {
                     regionRank: { number: 250 },
                     serverRank: { number: 20 },
                   },
-                },
-              },
-            },
-          },
-        };
-      }
-
-      if (query.includes('query OfficialGuildEncounterRankings')) {
-        expect(variables.difficulty).toBe(4);
-        expect(variables.size).toBe(10);
-        expect(variables.partition).toBe(4);
-        expect(variables.metric).toBeTypeOf('string');
-        return {
-          data: {
-            worldData: {
-              encounter: {
-                fightRankings: {
-                  rankings: [
-                    {
-                      guild: {
-                        name: 'Guild',
-                        server: { slug: 'stormrage', region: { name: 'US' } },
-                      },
-                      percentile: variables.metric === 'speed' ? 88 : 81,
-                    },
-                  ],
                 },
               },
             },
@@ -345,14 +323,16 @@ describe('guildrank pipeline', () => {
       },
     );
 
-    expect(summary.speed.sourceLabel).toBe('Official WCL Rankings');
-    expect(summary.speed.ranks).toEqual({ world: 999, region: 250, realm: 20 });
-    expect(summary.notes).not.toContain('Official speed ranks unavailable; showing derived report metrics.');
-    expect(summary.speed.overall.bestPercentile).toBe(88);
-    expect(summary.speed.overall.bestDelta).toBeUndefined();
-    expect(summary.execution.sourceLabel).toBe('Official WCL Rankings');
-    expect(summary.execution.overall.bestPercentile).toBe(81);
-    expect(summary.execution.overall.bestDelta).toBeUndefined();
+    expect(summary.progress.ranks).toEqual({ world: 50, region: 20, realm: 5 });
+    expect(summary.progress.sourceLabel).toBe('Official WCL Rankings');
+    expect(summary.speed.sourceLabel).toBe('Derived from WCL Reports');
+    expect(summary.speed.ranks).toBeUndefined();
+    expect(summary.notes).toContain(
+      'Official speed percent ranking values unavailable; showing derived report metrics.',
+    );
+    expect(summary.speed.overall.bestPercentile).toBe(50);
+    expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
+    expect(summary.execution.overall.bestPercentile).toBe(100);
   });
 
   it('uses derived fallback speed/execution from successful kills and excludes wipes from fallback metrics while counting wipes in progress', async () => {
@@ -502,7 +482,7 @@ describe('guildrank pipeline', () => {
       'Official progress ranks unavailable; showing derived clear/pull context only.',
     );
     expect(summary.notes).toContain(
-      'Official speed ranks unavailable; showing derived report metrics.',
+      'Official speed percent ranking values unavailable; showing derived report metrics.',
     );
 
     const speedEncounter = summary.speed.encounters.find((row) => row.encounterName === 'Jinrokh');
