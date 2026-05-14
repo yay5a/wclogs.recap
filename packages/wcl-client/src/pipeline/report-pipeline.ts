@@ -26,6 +26,7 @@ export const collectReportSummaryData = async (
     collectTableMetrics(client, {
       reportCode: input.reportCode,
       completedFightIds: index.completedBossFights.map((fight) => fight.id),
+      completedBossFights: index.completedBossFights,
     }),
   ]);
 

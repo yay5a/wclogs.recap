@@ -71,7 +71,7 @@ describe("rankings parsers", () => {
         expect(entries[0]?.bossName).toBe("Tortos");
         expect(entries[0]?.value).toBe(98.2);
         expect(entries[0]?.role).toBe("tank");
-        expect(entries[0]?.selectedMetric).toBe("DTPS");
+        expect(entries[0]?.selectedMetric).toBe("DPS");
     });
 
     it("preserves explicit metric identity when present", () => {
@@ -123,7 +123,7 @@ describe("rankings parsers", () => {
         });
 
         expect(entries[0]?.selectedMetric).toBe("HPS");
-        expect(entries[1]?.selectedMetric).toBe("DTPS");
+        expect(entries[1]?.selectedMetric).toBe("DPS");
     });
 
     it("returns empty arrays and emits warnings for invalid shape", () => {

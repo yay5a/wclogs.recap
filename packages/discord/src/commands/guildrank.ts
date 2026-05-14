@@ -11,6 +11,15 @@ import { getInteractionDiscordUserId } from './report.js';
 const logger = createLogger('discord');
 const EPHEMERAL_MESSAGE_FLAG = 64;
 
+const normalizeWclServerSlug = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
 const getStringOption = (options: unknown, name: string): string | undefined => {
   if (!Array.isArray(options)) return undefined;
   const found = options.find(
@@ -60,9 +69,9 @@ export const processGuildRankInteraction = async (
     const discordUserId = getInteractionDiscordUserId(interaction);
     const summary = await options.wclClient.fetchGuildRankSummary(
       {
-        guildName: guildConfig.wclGuildName,
-        guildServerSlug: guildConfig.wclGuildServerSlug,
-        guildServerRegion: guildConfig.wclGuildServerRegion,
+        guildName: guildConfig.wclGuildName.trim(),
+        guildServerSlug: normalizeWclServerSlug(guildConfig.wclGuildServerSlug),
+        guildServerRegion: guildConfig.wclGuildServerRegion.trim().toLowerCase(),
         zoneId: guildConfig.wclZoneId,
         difficulty,
         size,

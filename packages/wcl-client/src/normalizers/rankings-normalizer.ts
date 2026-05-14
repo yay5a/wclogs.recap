@@ -39,7 +39,7 @@ const pickBestParse = (
 export const normalizeRankings = (rankings: {
   dps: NormalizedLeaderboardEntry[];
   hps: NormalizedLeaderboardEntry[];
-  krsi: NormalizedLeaderboardEntry[];
+  tankDps: NormalizedLeaderboardEntry[];
 }): {
   highestParses: {
     dps?: ReportParseRow;
@@ -52,9 +52,8 @@ export const normalizeRankings = (rankings: {
 } => {
   const dps = pickBestParse(rankings.dps, 'DPS');
   const hps = pickBestParse(rankings.hps, 'HPS');
-  const dtpsFromKrsi = pickBestParse(rankings.krsi, 'DTPS', 'krsi');
-  const dtpsFromDps = pickBestParse(rankings.dps, 'DTPS', 'dps-fallback');
-  const dtps = dtpsFromKrsi ?? dtpsFromDps;
+  const dtpsFromTankDps = pickBestParse(rankings.tankDps, 'DTPS', 'dps-tank');
+  const dtps = dtpsFromTankDps;
 
   const perPlayer = new Map<string, { sum: number; count: number; playerName: string }>();
   for (const row of [...rankings.dps, ...rankings.hps]) {
@@ -74,11 +73,9 @@ export const normalizeRankings = (rankings: {
     })
     .slice(0, 3);
 
-  const dtpsNote = dtpsFromKrsi
-    ? 'WCL does not expose a direct DTPS parse ranking; DTPS parse uses KRSI where available.'
-    : dtpsFromDps
-      ? 'WCL does not expose a direct DTPS parse ranking; DTPS parse falls back to DPS rankings because KRSI is unavailable.'
-      : 'WCL does not expose a direct DTPS parse ranking, and KRSI/DPS fallback ranking data was unavailable.';
+  const dtpsNote = dtpsFromTankDps
+    ? 'WCL does not expose a direct DTPS parse ranking; DTPS parse uses DPS rankings for tanks.'
+    : 'WCL does not expose a direct DTPS parse ranking, and tank DPS ranking data was unavailable.';
 
   return {
     highestParses: {

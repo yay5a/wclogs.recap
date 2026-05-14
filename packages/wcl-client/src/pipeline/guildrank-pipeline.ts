@@ -16,6 +16,15 @@ import type {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+const normalizeServerSlug = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+
 const median = (values: number[]): number | undefined => {
   if (values.length === 0) return undefined;
   const sorted = [...values].sort((left, right) => left - right);
@@ -61,11 +70,35 @@ interface EncounterMetricsByReport {
   pulls: number;
   wipes: number;
   clearedEncounters: Set<string>;
+  matchesZone: boolean;
+  hasDifficultySizeFights: boolean;
 }
+
+const normalizeNameKey = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+
+const reportMatchesZone = (
+  report: { zoneId?: number; zoneName?: string },
+  target: { zoneId: number; zoneName: string },
+): boolean => {
+  if (typeof report.zoneId === 'number') {
+    return report.zoneId === target.zoneId;
+  }
+  if (report.zoneName) {
+    return normalizeNameKey(report.zoneName) === normalizeNameKey(target.zoneName);
+  }
+  return false;
+};
 
 const collectEncounterMetricsFromReport = async (
   client: WclGraphqlClient,
   reportCode: string,
+  zone: { zoneId: number; zoneName: string },
   difficultyId: number,
   sizeValue: number,
 ): Promise<EncounterMetricsByReport> => {
@@ -74,6 +107,25 @@ const collectEncounterMetricsFromReport = async (
     sourceUrl: `https://www.warcraftlogs.com/reports/${reportCode}`,
     gameFamily: 'retail',
   });
+
+  const matchesZone = reportMatchesZone(
+    {
+      ...(typeof index.zoneId === 'number' ? { zoneId: index.zoneId } : {}),
+      ...(index.zoneName ? { zoneName: index.zoneName } : {}),
+    },
+    zone,
+  );
+  if (!matchesZone) {
+    return {
+      speedByEncounter: new Map<string, number>(),
+      executionByEncounter: new Map<string, number>(),
+      pulls: 0,
+      wipes: 0,
+      clearedEncounters: new Set<string>(),
+      matchesZone: false,
+      hasDifficultySizeFights: false,
+    };
+  }
 
   const filteredFights = index.completedBossFights.filter(
     (fight) => fight.difficulty === difficultyId && fight.size === sizeValue,
@@ -120,6 +172,8 @@ const collectEncounterMetricsFromReport = async (
     pulls: filteredFights.length,
     wipes: filteredFights.filter((fight) => !fight.kill).length,
     clearedEncounters,
+    matchesZone: true,
+    hasDifficultySizeFights: filteredFights.length > 0,
   };
 };
 
@@ -178,7 +232,13 @@ export const collectGuildRankSummaryData = async (
   input: GuildRankInput,
   options: { fetchImpl?: typeof fetch } = {},
 ): Promise<GuildRankSummary> => {
-  const resolved = await resolveGuildConfigZoneInput(client, input);
+  const normalizedInput: GuildRankInput = {
+    ...input,
+    guildName: input.guildName.trim(),
+    guildServerSlug: normalizeServerSlug(input.guildServerSlug),
+    guildServerRegion: input.guildServerRegion.trim().toLowerCase(),
+  };
+  const resolved = await resolveGuildConfigZoneInput(client, normalizedInput);
   const windows = buildWindows();
 
   const [currentDiscovery, baselineDiscovery, officialRanks] = await Promise.all([
@@ -218,14 +278,21 @@ export const collectGuildRankSummaryData = async (
   let progressPulls = 0;
   let progressWipes = 0;
   const currentClears = new Set<string>();
+  let currentZoneMatchedReports = 0;
+  let currentDifficultySizeMatchedReports = 0;
 
   for (const row of currentDiscovery.rows) {
     const reportMetrics = await collectEncounterMetricsFromReport(
       client,
       row.code,
+      { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
       resolved.difficultyId,
       resolved.sizeValue,
     );
+    if (!reportMetrics.matchesZone) continue;
+    currentZoneMatchedReports += 1;
+    if (!reportMetrics.hasDifficultySizeFights) continue;
+    currentDifficultySizeMatchedReports += 1;
 
     progressPulls += reportMetrics.pulls;
     progressWipes += reportMetrics.wipes;
@@ -251,9 +318,11 @@ export const collectGuildRankSummaryData = async (
     const reportMetrics = await collectEncounterMetricsFromReport(
       client,
       row.code,
+      { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
       resolved.difficultyId,
       resolved.sizeValue,
     );
+    if (!reportMetrics.matchesZone || !reportMetrics.hasDifficultySizeFights) continue;
 
     for (const [encounterName, speedValue] of reportMetrics.speedByEncounter.entries()) {
       baselineMetricsByEncounter.set(encounterName, [
@@ -273,7 +342,7 @@ export const collectGuildRankSummaryData = async (
   const executionSets = buildMetricSet(currentExecutionByEncounter, baselineExecutionByEncounter, true);
 
   const bundle: GuildRankCollectorBundle = {
-    input,
+    input: normalizedInput,
     windows,
     officialRanks,
     currentReports: currentDiscovery.rows,
@@ -287,6 +356,11 @@ export const collectGuildRankSummaryData = async (
       wipes: progressWipes,
       clearedEncounters: currentClears.size,
       totalEncounters: resolved.totalEncounters,
+    },
+    currentWindowDiscovery: {
+      candidateReports: currentDiscovery.rows.length,
+      zoneMatchedReports: currentZoneMatchedReports,
+      difficultySizeMatchedReports: currentDifficultySizeMatchedReports,
     },
     zoneName: resolved.zoneName,
     difficultyLabel: resolved.difficultyLabel,

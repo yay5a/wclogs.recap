@@ -10,6 +10,7 @@ import {
 import { collectReportSummaryData } from './pipeline/report-pipeline.js';
 import { collectGuildRankSummaryData } from './pipeline/guildrank-pipeline.js';
 import type { GuildRankInput } from './pipeline/types.js';
+import { collectZoneName } from './collectors/zone-name-collector.js';
 
 export interface WclLinkedUserAuthRecord {
   discordUserId: string;
@@ -59,6 +60,16 @@ export class WclClient {
       collectGuildRankSummaryData(this.createGraphqlClient(authMode), input, {
         ...(this.options.fetchImpl ? { fetchImpl: this.options.fetchImpl } : {}),
       }),
+    );
+  }
+
+  public async resolveZoneName(
+    zoneId: number,
+    options: WclAuthContextOptions = {},
+  ): Promise<string | undefined> {
+    if (!Number.isFinite(zoneId)) return undefined;
+    return this.withAuthFallback(`zone:${zoneId}`, options, (authMode) =>
+      collectZoneName(this.createGraphqlClient(authMode), Math.trunc(zoneId)),
     );
   }
 

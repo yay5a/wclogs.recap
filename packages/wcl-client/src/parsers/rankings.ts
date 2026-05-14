@@ -113,7 +113,7 @@ const normalizeMetricIdentity = (value: unknown): string | undefined => {
 const inferMetricIdentityFromRole = (role: string | undefined): string => {
     const normalizedRole = role?.trim().toLowerCase();
     if (normalizedRole === "healer") return "HPS";
-    if (normalizedRole === "tank") return "DTPS";
+    if (normalizedRole === "tank") return "DPS";
     return "DPS";
 };
 

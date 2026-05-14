@@ -28,14 +28,14 @@ export const collectReportRankings = async (
 ): Promise<{
   dps: NormalizedLeaderboardEntry[];
   hps: NormalizedLeaderboardEntry[];
-  krsi: NormalizedLeaderboardEntry[];
+  tankDps: NormalizedLeaderboardEntry[];
 }> => {
   const allowedFightIds = new Set(input.killFightIds);
   if (allowedFightIds.size === 0) {
-    return { dps: [], hps: [], krsi: [] };
+    return { dps: [], hps: [], tankDps: [] };
   }
 
-  const [dpsResult, hpsResult, krsiResult] = await Promise.allSettled([
+  const [dpsResult, hpsResult] = await Promise.allSettled([
     client.request<Record<string, unknown>>(REPORT_RANKINGS_QUERY, {
       code: input.reportCode,
       allowUnlisted: true,
@@ -46,16 +46,10 @@ export const collectReportRankings = async (
       allowUnlisted: true,
       playerMetric: 'hps',
     }),
-    client.request<Record<string, unknown>>(REPORT_RANKINGS_QUERY, {
-      code: input.reportCode,
-      allowUnlisted: true,
-      playerMetric: 'krsi',
-    }),
   ]);
 
   const dpsPayload = dpsResult.status === 'fulfilled' ? dpsResult.value : undefined;
   const hpsPayload = hpsResult.status === 'fulfilled' ? hpsResult.value : undefined;
-  const krsiPayload = krsiResult.status === 'fulfilled' ? krsiResult.value : undefined;
 
   return {
     dps: filterToFightIds(
@@ -66,8 +60,8 @@ export const collectReportRankings = async (
       parseReportRankingsPayloadForRole(getRankingsNode(hpsPayload), 'healer'),
       allowedFightIds,
     ),
-    krsi: filterToFightIds(
-      parseReportRankingsPayloadForRole(getRankingsNode(krsiPayload), 'tank'),
+    tankDps: filterToFightIds(
+      parseReportRankingsPayloadForRole(getRankingsNode(dpsPayload), 'tank'),
       allowedFightIds,
     ),
   };

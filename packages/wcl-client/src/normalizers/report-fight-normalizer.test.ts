@@ -37,6 +37,9 @@ describe('report fight normalizer', () => {
       topDispels: [],
       totals: {},
       deathsByFightId: { 1: 2, 2: 4, 3: 1 },
+      encounterTopDamageDoneByEncounterId: {},
+      encounterTopHealingDoneByEncounterId: {},
+      encounterTopDamageTakenByEncounterId: {},
     };
 
     const result = normalizeReportFights(index, tableMetrics);

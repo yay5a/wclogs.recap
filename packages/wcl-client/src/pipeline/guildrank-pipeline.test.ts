@@ -479,4 +479,166 @@ describe('guildrank pipeline', () => {
     expect(speedEncounter?.speed.bestPercentile).toBe(50);
     expect(executionEncounter?.execution.bestPercentile).toBe(50);
   });
+
+  it('adds a precise note when current-window reports are discovered but filtered out by difficulty/size', async () => {
+    const now = Date.UTC(2026, 4, 14, 12, 0, 0);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const request = vi.fn(async (query: string, variables: Record<string, unknown>) => {
+      if (query.includes('query ZoneResolver')) {
+        return {
+          data: {
+            worldData: {
+              zone: {
+                id: 100,
+                name: 'Throne',
+                difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }],
+                encounters: [{ id: 1, name: 'Jinrokh' }],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildReportDiscovery')) {
+        const start = Number(variables.startTime);
+        const currentStart = now - 7 * 24 * 60 * 60 * 1000;
+        const code = start === currentStart ? 'C1' : 'B1';
+        return {
+          data: {
+            reportData: {
+              reports: {
+                data: [{ code, startTime: now - 1000, endTime: now, zone: { id: 100 } }],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildZoneRanks')) {
+        throw new Error('zone rankings unavailable');
+      }
+
+      if (query.includes('query ProgressRaceFallback')) {
+        throw new Error('progress race unavailable');
+      }
+
+      if (query.includes('query ReportIndex')) {
+        return {
+          data: {
+            reportData: {
+              report: {
+                title: 'C1',
+                startTime: now,
+                endTime: now + 1000,
+                zone: { id: 100, name: 'Throne', difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }] },
+                fights: [
+                  { id: 11, encounterID: 1, difficulty: 4, size: 25, name: 'Jinrokh', startTime: 0, endTime: 200000, kill: true },
+                ],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query ReportTableByType')) {
+        return {
+          data: {
+            reportData: {
+              report: {
+                table: {
+                  entries: [],
+                },
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
+    });
+
+    const summary = await collectGuildRankSummaryData(
+      { request } as never,
+      {
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'us',
+        zoneId: 100,
+        difficulty: 'heroic',
+        size: '10man',
+      },
+    );
+
+    expect(summary.progress.pulls).toBe(0);
+    expect(summary.progress.wipes).toBe(0);
+    expect(summary.notes).toContain(
+      'Current-window reports were discovered, but none matched the configured difficulty/size filters.',
+    );
+    expect(summary.notes).not.toContain(
+      'No current-window reports were discovered for the configured guild and zone.',
+    );
+  });
+
+  it('keeps the no-current-window note when discovery returns zero current candidates', async () => {
+    const now = Date.UTC(2026, 4, 14, 12, 0, 0);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const request = vi.fn(async (query: string) => {
+      if (query.includes('query ZoneResolver')) {
+        return {
+          data: {
+            worldData: {
+              zone: {
+                id: 100,
+                name: 'Throne',
+                difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                encounters: [{ id: 1, name: 'Jinrokh' }],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildReportDiscovery')) {
+        return {
+          data: {
+            reportData: {
+              reports: {
+                data: [],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildZoneRanks')) {
+        throw new Error('zone rankings unavailable');
+      }
+
+      if (query.includes('query ProgressRaceFallback')) {
+        throw new Error('progress race unavailable');
+      }
+
+      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
+    });
+
+    const summary = await collectGuildRankSummaryData(
+      { request } as never,
+      {
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'us',
+        zoneId: 100,
+        difficulty: 'heroic',
+        size: '10man',
+      },
+    );
+
+    expect(summary.notes).toContain(
+      'No current-window reports were discovered for the configured guild and zone.',
+    );
+  });
 });

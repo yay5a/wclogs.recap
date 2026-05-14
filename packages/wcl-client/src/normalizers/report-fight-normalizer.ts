@@ -1,4 +1,5 @@
 import type { ReportEncounterSummaryRow, ReportIndexData, ReportTableMetrics } from '../pipeline/types.js';
+import type { ReportMetricRow } from '@wcl/domain';
 
 const compareString = (left: string, right: string): number => left.localeCompare(right);
 
@@ -14,6 +15,22 @@ const pickMostCommonNumber = (values: number[]): number | undefined => {
     return left[0] - right[0];
   })[0]?.[0];
 };
+
+const toHighestRateRow = (
+  rows: Array<{ playerName?: string; value: number; activeTimeMs?: number }>,
+  fallbackDurationMs: number,
+): ReportMetricRow | undefined =>
+  [...rows]
+    .flatMap((row) => {
+      if (!row.playerName || typeof row.value !== 'number') return [];
+      const durationMs =
+        typeof row.activeTimeMs === 'number' && row.activeTimeMs > 0
+          ? row.activeTimeMs
+          : fallbackDurationMs;
+      if (durationMs <= 0) return [];
+      return [{ playerName: row.playerName, value: row.value / (durationMs / 1000) }];
+    })
+    .sort((left, right) => right.value - left.value)[0];
 
 export const normalizeReportFights = (
   index: ReportIndexData,
@@ -48,6 +65,18 @@ export const normalizeReportFights = (
         0,
       );
       const representative = [...fights].sort((left, right) => left.startTime - right.startTime)[0];
+      const highestTotalDps = toHighestRateRow(
+        tableMetrics.encounterTopDamageDoneByEncounterId[encounterId] ?? [],
+        totalDurationMs,
+      );
+      const highestHps = toHighestRateRow(
+        tableMetrics.encounterTopHealingDoneByEncounterId[encounterId] ?? [],
+        totalDurationMs,
+      );
+      const highestDamageTakenRate = toHighestRateRow(
+        tableMetrics.encounterTopDamageTakenByEncounterId[encounterId] ?? [],
+        totalDurationMs,
+      );
 
       return {
         encounterId,
@@ -59,6 +88,9 @@ export const normalizeReportFights = (
         totalDurationMs,
         ...(typeof shortestKillDurationMs === 'number' ? { shortestKillDurationMs } : {}),
         deaths,
+        ...(highestTotalDps ? { highestTotalDps } : {}),
+        ...(highestHps ? { highestHps } : {}),
+        ...(highestDamageTakenRate ? { highestDamageTakenRate } : {}),
       } as ReportEncounterSummaryRow;
     })
     .sort((left, right) => {

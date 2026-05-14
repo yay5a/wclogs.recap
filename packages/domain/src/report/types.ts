@@ -8,7 +8,7 @@ export interface ReportMetricRow {
 
 export interface ReportParseRow extends ReportMetricRow {
   metric: 'DPS' | 'HPS' | 'DTPS';
-  sourceMetric?: 'krsi' | 'dps-fallback';
+  sourceMetric?: 'dps-tank';
   bossName?: string;
   fightId?: number;
 }

@@ -15,6 +15,9 @@ export const toReportEncounterSummary = (
   totalDurationMs: row.totalDurationMs,
   ...(typeof row.shortestKillDurationMs === 'number' ? { shortestPullMs: row.shortestKillDurationMs } : {}),
   deaths: row.deaths,
+  ...(row.highestTotalDps ? { highestTotalDps: row.highestTotalDps } : {}),
+  ...(row.highestHps ? { highestHps: row.highestHps } : {}),
+  ...(row.highestDamageTakenRate ? { highestDamageTakenRate: row.highestDamageTakenRate } : {}),
   dtpsParseAvailable: false,
 });
 

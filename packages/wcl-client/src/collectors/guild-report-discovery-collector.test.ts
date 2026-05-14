@@ -16,7 +16,7 @@ describe('guild report discovery collector', () => {
       data: {
         reportData: {
           reports: {
-            data: [{ code: 'AAA', startTime: 1000, endTime: 2000, zone: { id: 100 } }],
+            data: [{ code: 'AAA', startTime: 1000, endTime: 2000, zone: { id: 100, name: 'Throne' } }],
           },
         },
       },
@@ -24,7 +24,9 @@ describe('guild report discovery collector', () => {
 
     const result = await collectGuildReportDiscovery({ request } as never, input);
     expect(result.source).toBe('v2');
-    expect(result.rows).toEqual([{ code: 'AAA', startTime: 1000, endTime: 2000, zoneId: 100 }]);
+    expect(result.rows).toEqual([
+      { code: 'AAA', startTime: 1000, endTime: 2000, zoneId: 100, zoneName: 'Throne' },
+    ]);
   });
 
   it('falls back to v1 reports when v2 is unavailable', async () => {
@@ -41,5 +43,27 @@ describe('guild report discovery collector', () => {
 
     expect(result.source).toBe('v1');
     expect(result.rows).toEqual([{ code: 'BBB', startTime: 3000, endTime: 4000, zoneId: 100 }]);
+  });
+
+  it('normalizes server slug and region before querying', async () => {
+    const request = vi.fn().mockResolvedValue({
+      data: {
+        reportData: {
+          reports: {
+            data: [],
+          },
+        },
+      },
+    });
+
+    await collectGuildReportDiscovery({ request } as never, {
+      ...input,
+      guildServerSlug: 'Galakras',
+      guildServerRegion: 'US',
+    });
+
+    const variables = request.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(variables.guildServerSlug).toBe('galakras');
+    expect(variables.guildServerRegion).toBe('us');
   });
 });

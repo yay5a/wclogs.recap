@@ -1,4 +1,4 @@
-import type { GameFamily, GuildRankSummary, ReportSummary } from '@wcl/domain';
+import type { GameFamily, GuildRankSummary, ReportMetricRow, ReportSummary } from '@wcl/domain';
 import type { ParsedPlayerDetail } from '../parsers/report-details.js';
 import type { ParsedTableEntry } from '../parsers/table.js';
 import type { NormalizedLeaderboardEntry } from '@wcl/domain';
@@ -48,6 +48,9 @@ export interface ReportTableMetrics {
     dispels?: number;
   };
   deathsByFightId: Record<number, number>;
+  encounterTopDamageDoneByEncounterId: Record<number, ParsedTableEntry[]>;
+  encounterTopHealingDoneByEncounterId: Record<number, ParsedTableEntry[]>;
+  encounterTopDamageTakenByEncounterId: Record<number, ParsedTableEntry[]>;
 }
 
 export interface ReportEncounterSummaryRow {
@@ -60,6 +63,9 @@ export interface ReportEncounterSummaryRow {
   totalDurationMs: number;
   shortestKillDurationMs?: number;
   deaths: number;
+  highestTotalDps?: ReportMetricRow;
+  highestHps?: ReportMetricRow;
+  highestDamageTakenRate?: ReportMetricRow;
 }
 
 export interface GuildRankInput {
@@ -83,6 +89,7 @@ export interface GuildReportDiscoveryRow {
   startTime: number;
   endTime?: number;
   zoneId?: number;
+  zoneName?: string;
 }
 
 export interface GuildOfficialRanks {
@@ -118,7 +125,7 @@ export interface ReportCollectorBundle {
   rankings: {
     dps: NormalizedLeaderboardEntry[];
     hps: NormalizedLeaderboardEntry[];
-    krsi: NormalizedLeaderboardEntry[];
+    tankDps: NormalizedLeaderboardEntry[];
   };
   tableMetrics: ReportTableMetrics;
 }
@@ -134,6 +141,11 @@ export interface GuildRankCollectorBundle {
   currentExecution: GuildRankMetricSet;
   baselineExecution: GuildRankMetricSet;
   progressPulls: { pulls: number; wipes: number; clearedEncounters: number; totalEncounters: number };
+  currentWindowDiscovery: {
+    candidateReports: number;
+    zoneMatchedReports: number;
+    difficultySizeMatchedReports: number;
+  };
   zoneName: string;
   difficultyLabel: string;
   sizeLabel: string;

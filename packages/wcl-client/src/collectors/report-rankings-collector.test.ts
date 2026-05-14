@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { collectReportRankings } from './report-rankings-collector.js';
 
 describe('report rankings collector', () => {
-  it('returns available metrics when one ranking metric request fails', async () => {
+  it('returns dps, healer hps, and tank dps rankings from dps/hps ranking requests', async () => {
     const request = vi
       .fn()
       .mockImplementationOnce(async () => ({
@@ -19,7 +19,9 @@ describe('report rankings collector', () => {
                         characters: [{ name: 'Damage', amount: 123, rankPercent: 90 }],
                       },
                       healers: { characters: [] },
-                      tanks: { characters: [] },
+                      tanks: {
+                        characters: [{ name: 'Tanky', amount: 100, rankPercent: 70 }],
+                      },
                     },
                   },
                 ],
@@ -50,17 +52,17 @@ describe('report rankings collector', () => {
             },
           },
         },
-      }))
-      .mockRejectedValueOnce(new Error('krsi unavailable'));
+      }));
 
     const result = await collectReportRankings(
       { request } as never,
       { reportCode: 'ABC123', killFightIds: [11] },
     );
 
-    expect(request).toHaveBeenCalledTimes(3);
+    expect(request).toHaveBeenCalledTimes(2);
     expect(result.dps).toHaveLength(1);
     expect(result.hps).toHaveLength(1);
-    expect(result.krsi).toEqual([]);
+    expect(result.tankDps).toHaveLength(1);
+    expect(result.tankDps[0]?.playerName).toBe('Tanky');
   });
 });

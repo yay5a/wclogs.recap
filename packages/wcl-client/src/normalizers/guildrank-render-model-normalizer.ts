@@ -165,8 +165,16 @@ export const normalizeGuildRankRenderModel = (
   if (!hasSpeedOfficialRanks) {
     notes.push('Official speed ranks unavailable; showing derived report metrics.');
   }
-  if (bundle.currentReports.length === 0) {
+  if (bundle.currentWindowDiscovery.candidateReports === 0) {
     notes.push('No current-window reports were discovered for the configured guild and zone.');
+  } else if (bundle.currentWindowDiscovery.zoneMatchedReports === 0) {
+    notes.push(
+      'Current-window reports were discovered, but none matched the configured zone filter.',
+    );
+  } else if (bundle.currentWindowDiscovery.difficultySizeMatchedReports === 0) {
+    notes.push(
+      'Current-window reports were discovered, but none matched the configured difficulty/size filters.',
+    );
   }
 
   return {

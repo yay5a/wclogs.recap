@@ -30,7 +30,25 @@ const getAutoReportMode = (config: Partial<GuildConfig>): AutoReportMode => conf
 
 const getAutoReportChannelIds = (config: Partial<GuildConfig>): string[] => (Array.isArray(config.autoReportChannelIds) ? [...new Set(config.autoReportChannelIds)] : []);
 
-const buildConfigStatusResponse = (config: Partial<GuildConfig>): string => {
+const normalizeWclServerSlug = (value: string): string =>
+    value
+        .trim()
+        .toLowerCase()
+        .replace(/[\s_]+/g, "-")
+        .replace(/[^a-z0-9-]/g, "")
+        .replace(/-+/g, "-")
+        .replace(/^-|-$/g, "");
+
+const toDisplayServerName = (slug: string | undefined): string =>
+    slug
+        ? slug
+              .split("-")
+              .filter(Boolean)
+              .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+              .join(" ")
+        : "unset";
+
+const buildConfigStatusResponse = (config: Partial<GuildConfig>, zoneName?: string): string => {
     const mode = getAutoReportMode(config);
     const channelIds = getAutoReportChannelIds(config);
     const lines = ["**wclogs report setup status**", "", `Auto report: \`${mode}\``];
@@ -45,11 +63,33 @@ const buildConfigStatusResponse = (config: Partial<GuildConfig>): string => {
         "",
         "**/guildrank target:**",
         `Guild: \`${config.wclGuildName ?? "unset"}\``,
-        `Server name: \`${config.wclGuildServerSlug ?? "unset"}\``,
+        `Server name: \`${toDisplayServerName(config.wclGuildServerSlug)}\``,
         `Server region: \`${config.wclGuildServerRegion ?? "unset"}\``,
-        `Zone ID: \`${typeof config.wclZoneId === "number" ? String(config.wclZoneId) : "unset"}\``,
     );
+    if (zoneName) {
+        lines.push(`Zone: \`${zoneName}\``);
+    }
     return lines.join("\n");
+};
+
+const getInteractionDiscordUserId = (interaction: DiscordInteraction): string | undefined =>
+    interaction.member?.user?.id ?? interaction.user?.id;
+
+const resolveZoneNameForStatus = async (
+    options: HandleOptions,
+    interaction: DiscordInteraction,
+    zoneId: number | undefined,
+): Promise<string | undefined> => {
+    if (typeof zoneId !== "number") return undefined;
+    const discordUserId = getInteractionDiscordUserId(interaction);
+    try {
+        return await options.wclClient.resolveZoneName(
+            zoneId,
+            discordUserId ? { discordUserId } : undefined,
+        );
+    } catch {
+        return undefined;
+    }
 };
 
 const getCompareModeResponse = (compareMode: CompareMode): string => {
@@ -95,7 +135,7 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
     const rawAutoReportMode = getStringOption(interaction.data?.options, "auto_report_mode");
     const autoReportChannelId = getStringOption(interaction.data?.options, "auto_report_channel");
     const wclGuildName = getStringOption(interaction.data?.options, "wcl_guild_name");
-    const wclGuildServerSlug = getStringOption(interaction.data?.options, "wcl_guild_server_name");
+    const wclGuildServerName = getStringOption(interaction.data?.options, "wcl_guild_server_name");
     const wclGuildServerRegion = getStringOption(interaction.data?.options, "wcl_guild_server_region");
     const wclZoneId = getIntegerOption(interaction.data?.options, "wcl_zone_id");
     const compareModeDefault = rawCompareMode === undefined ? undefined : parseCompareMode(rawCompareMode);
@@ -104,10 +144,11 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
 
     if (!hasCommandOptions(interaction.data?.options)) {
         const config = await options.guildConfigStore.getGuildConfig(guildId);
+        const zoneName = await resolveZoneNameForStatus(options, interaction, config.wclZoneId);
         return {
             type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
             data: {
-                content: buildConfigStatusResponse(config),
+                content: buildConfigStatusResponse(config, zoneName),
                 flags: 64,
             },
         };
@@ -159,7 +200,12 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
         updateObject.autoReportChannelIds = currentChannelIds.includes(autoReportChannelId) ? currentChannelIds.filter((channelId) => channelId !== autoReportChannelId) : [...currentChannelIds, autoReportChannelId];
     }
     if (wclGuildName !== undefined) updateObject.wclGuildName = wclGuildName.trim();
-    if (wclGuildServerSlug !== undefined) updateObject.wclGuildServerSlug = wclGuildServerSlug.trim();
+    if (wclGuildServerName !== undefined) {
+        const normalizedServerSlug = normalizeWclServerSlug(wclGuildServerName);
+        if (normalizedServerSlug.length > 0) {
+            updateObject.wclGuildServerSlug = normalizedServerSlug;
+        }
+    }
     if (wclGuildServerRegion !== undefined) updateObject.wclGuildServerRegion = wclGuildServerRegion.trim();
     if (wclZoneId !== undefined) updateObject.wclZoneId = Math.trunc(wclZoneId);
     const saved = await options.guildConfigStore.saveGuildConfig(guildId, updateObject);
@@ -182,17 +228,19 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
     }
     if (
         wclGuildName !== undefined ||
-        wclGuildServerSlug !== undefined ||
+        wclGuildServerName !== undefined ||
         wclGuildServerRegion !== undefined ||
         wclZoneId !== undefined
     ) {
         responseLines.push("Updated /guildrank WCL target settings.");
     }
 
+    const zoneName = await resolveZoneNameForStatus(options, interaction, saved.wclZoneId);
+
     return {
         type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
         data: {
-            content: [...responseLines, buildConfigStatusResponse(saved)].filter(Boolean).join("\n\n"),
+            content: [...responseLines, buildConfigStatusResponse(saved, zoneName)].filter(Boolean).join("\n\n"),
             flags: 64,
         },
     };

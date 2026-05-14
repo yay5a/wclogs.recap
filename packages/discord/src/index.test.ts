@@ -58,6 +58,7 @@ const makeHandleOptions = () => ({
       execution: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
       notes: [],
     }),
+    resolveZoneName: vi.fn().mockResolvedValue('Throne of Thunder'),
   },
   guildConfigStore: {
     getGuildConfig: vi.fn().mockResolvedValue({
@@ -75,7 +76,23 @@ const makeHandleOptions = () => ({
       wclGuildServerRegion: 'us',
       wclZoneId: 100,
     }),
-    saveGuildConfig: vi.fn(),
+    saveGuildConfig: vi.fn().mockImplementation(async (_guildId, update) => ({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      compareAccessMode: 'officer_only',
+      compareOfficerUserIds: [],
+      dashboardOfficerAccessEnabled: false,
+      comparePublicPostingEnabled: false,
+      autoReportMode: 'prompt',
+      autoReportChannelIds: [],
+      wclGuildName: typeof update?.wclGuildName === 'string' ? update.wclGuildName : 'Guild',
+      wclGuildServerSlug:
+        typeof update?.wclGuildServerSlug === 'string' ? update.wclGuildServerSlug : 'stormrage',
+      wclGuildServerRegion:
+        typeof update?.wclGuildServerRegion === 'string' ? update.wclGuildServerRegion : 'us',
+      wclZoneId: typeof update?.wclZoneId === 'number' ? update.wclZoneId : 100,
+    })),
   },
 }) as never;
 
@@ -175,5 +192,54 @@ describe('discord command surfaces', () => {
       data: { flags: 64 },
     });
     expect(tasks).toHaveLength(1);
+  });
+
+  it('does not render raw zone IDs in /config status output', async () => {
+    const options = makeHandleOptions();
+    const response = await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' }, permissions: '32' },
+        data: {
+          name: 'config',
+          options: [],
+        },
+      },
+      options,
+    );
+
+    expect(response).toMatchObject({
+      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    });
+    const content = (response as { data?: { content?: string } }).data?.content ?? '';
+    expect(content).toContain('Server name: `Stormrage`');
+    expect(content).toContain('Zone: `Throne of Thunder`');
+    expect(content).not.toContain('Zone ID:');
+    expect(content).not.toContain('`100`');
+  });
+
+  it('normalizes /config server name input to canonical server slug before save', async () => {
+    const options = makeHandleOptions() as Record<string, unknown>;
+    const guildConfigStore = options.guildConfigStore as {
+      saveGuildConfig: ReturnType<typeof vi.fn>;
+    };
+    await handleInteraction(
+      {
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' }, permissions: '32' },
+        data: {
+          name: 'config',
+          options: [{ name: 'wcl_guild_server_name', value: 'Galakras' }],
+        },
+      },
+      options as never,
+    );
+
+    expect(guildConfigStore.saveGuildConfig).toHaveBeenCalledWith(
+      'guild-1',
+      expect.objectContaining({ wclGuildServerSlug: 'galakras' }),
+    );
   });
 });

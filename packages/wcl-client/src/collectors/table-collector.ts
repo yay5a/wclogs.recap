@@ -5,6 +5,7 @@ import {
   type ParsedTablePayload,
 } from '../parsers/table.js';
 import type { ReportTableMetrics } from '../pipeline/types.js';
+import type { ReportIndexFightRow } from '../pipeline/types.js';
 import type { TableDataType } from '../schema-enums.js';
 
 const TABLE_QUERY = `
@@ -42,6 +43,16 @@ const filterTopRows = (rows: ParsedTableEntry[] | undefined): ParsedTableEntry[]
     .filter((row) => typeof row.value === 'number' && row.playerName)
     .sort((left, right) => (right.value ?? 0) - (left.value ?? 0));
 
+const groupFightIdsByEncounter = (
+  fights: ReportIndexFightRow[],
+): Map<number, number[]> => {
+  const byEncounterId = new Map<number, number[]>();
+  for (const fight of fights) {
+    byEncounterId.set(fight.encounterId, [...(byEncounterId.get(fight.encounterId) ?? []), fight.id]);
+  }
+  return byEncounterId;
+};
+
 const collectType = async (
   client: WclGraphqlClient,
   input: { reportCode: string; fightIds: number[]; dataType: TableDataType; filterExpression: string },
@@ -73,7 +84,11 @@ const TABLE_FILTERS: Record<TableDataType, string> = {
 
 export const collectTableMetrics = async (
   client: WclGraphqlClient,
-  input: { reportCode: string; completedFightIds: number[] },
+  input: {
+    reportCode: string;
+    completedFightIds: number[];
+    completedBossFights?: ReportIndexFightRow[];
+  },
 ): Promise<ReportTableMetrics> => {
   if (input.completedFightIds.length === 0) {
     return {
@@ -85,6 +100,9 @@ export const collectTableMetrics = async (
       topDispels: [],
       totals: {},
       deathsByFightId: {},
+      encounterTopDamageDoneByEncounterId: {},
+      encounterTopHealingDoneByEncounterId: {},
+      encounterTopDamageTakenByEncounterId: {},
     };
   }
 
@@ -139,7 +157,53 @@ export const collectTableMetrics = async (
     }),
   );
 
+  const completedBossFights = input.completedBossFights ?? [];
+  const perEncounterRows = await Promise.all(
+    [...groupFightIdsByEncounter(completedBossFights).entries()].map(
+      async ([encounterId, fightIds]) => {
+        const [encounterDamageDone, encounterHealing, encounterDamageTaken] = await Promise.all([
+          collectType(client, {
+            reportCode: input.reportCode,
+            fightIds,
+            dataType: 'DamageDone',
+            filterExpression: TABLE_FILTERS.DamageDone,
+          }),
+          collectType(client, {
+            reportCode: input.reportCode,
+            fightIds,
+            dataType: 'Healing',
+            filterExpression: TABLE_FILTERS.Healing,
+          }),
+          collectType(client, {
+            reportCode: input.reportCode,
+            fightIds,
+            dataType: 'DamageTaken',
+            filterExpression: TABLE_FILTERS.DamageTaken,
+          }),
+        ]);
+
+        return [
+          encounterId,
+          {
+            topDamageDone: filterTopRows(encounterDamageDone.entries),
+            topHealingDone: filterTopRows(encounterHealing.entries),
+            topDamageTaken: filterTopRows(encounterDamageTaken.entries),
+          },
+        ] as const;
+      },
+    ),
+  );
+
   const deathsByFightId = Object.fromEntries(deathsByFightIdRows);
+  const encounterTopDamageDoneByEncounterId = Object.fromEntries(
+    perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topDamageDone]),
+  );
+  const encounterTopHealingDoneByEncounterId = Object.fromEntries(
+    perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topHealingDone]),
+  );
+  const encounterTopDamageTakenByEncounterId = Object.fromEntries(
+    perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topDamageTaken]),
+  );
   const deathsTotal = sumRows(deaths.entries);
   const damageTakenTotal = sumRows(damageTaken.entries);
   const interruptsTotal = sumRows(interrupts.entries);
@@ -159,5 +223,8 @@ export const collectTableMetrics = async (
       ...(typeof dispelsTotal === 'number' ? { dispels: dispelsTotal } : {}),
     },
     deathsByFightId,
+    encounterTopDamageDoneByEncounterId,
+    encounterTopHealingDoneByEncounterId,
+    encounterTopDamageTakenByEncounterId,
   };
 };

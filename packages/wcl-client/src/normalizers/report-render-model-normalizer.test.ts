@@ -98,7 +98,7 @@ const baseBundle = (): ReportCollectorBundle => ({
         fightId: 1,
       },
     ],
-    krsi: [],
+    tankDps: [],
   },
   tableMetrics: {
     topDamageDone: [{ dataType: 'DamageDone', playerName: 'Alyra', value: 10_000_000 }],
@@ -109,6 +109,18 @@ const baseBundle = (): ReportCollectorBundle => ({
     topDispels: [{ dataType: 'Dispels', playerName: 'Alyra', value: 2 }],
     totals: { deaths: 8 },
     deathsByFightId: { 1: 1, 2: 2, 3: 4, 4: 1 },
+    encounterTopDamageDoneByEncounterId: {
+      1001: [{ dataType: 'DamageDone', playerName: 'Alyra', value: 4_000_000 }],
+      1002: [{ dataType: 'DamageDone', playerName: 'Bulwark', value: 7_500_000 }],
+    },
+    encounterTopHealingDoneByEncounterId: {
+      1001: [{ dataType: 'Healing', playerName: 'Alyra', value: 1_200_000 }],
+      1002: [{ dataType: 'Healing', playerName: 'Alyra', value: 2_100_000 }],
+    },
+    encounterTopDamageTakenByEncounterId: {
+      1001: [{ dataType: 'DamageTaken', playerName: 'Bulwark', value: 1_800_000 }],
+      1002: [{ dataType: 'DamageTaken', playerName: 'Bulwark', value: 4_500_000 }],
+    },
   },
 });
 
@@ -123,8 +135,14 @@ describe('report render-model normalizer', () => {
     expect(summary.sizeLabel).toBe('10man');
     expect(summary.bestExecutionEncounter?.bossName).toBe('Jinrokh');
     expect(summary.bestExecutionEncounter?.deaths).toBe(3);
+    expect(summary.bestExecutionEncounter?.highestTotalDps?.playerName).toBe('Alyra');
+    expect(summary.bestExecutionEncounter?.highestHps?.playerName).toBe('Alyra');
+    expect(summary.bestExecutionEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.bossName).toBe('Council');
     expect(summary.biggestTroubleEncounter?.wipes).toBe(2);
     expect(summary.biggestTroubleEncounter?.deaths).toBe(5);
+    expect(summary.biggestTroubleEncounter?.highestTotalDps?.playerName).toBe('Bulwark');
+    expect(summary.biggestTroubleEncounter?.highestHps?.playerName).toBe('Alyra');
+    expect(summary.biggestTroubleEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
   });
 });

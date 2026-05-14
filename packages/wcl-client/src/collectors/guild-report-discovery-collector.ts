@@ -7,7 +7,6 @@ query GuildReportDiscovery(
   $guildName: String!
   $guildServerSlug: String!
   $guildServerRegion: String!
-  $zoneId: Int!
   $startTime: Float!
   $endTime: Float!
   $limit: Int!
@@ -18,7 +17,6 @@ query GuildReportDiscovery(
       guildName: $guildName
       guildServerSlug: $guildServerSlug
       guildServerRegion: $guildServerRegion
-      zoneID: $zoneId
       startTime: $startTime
       endTime: $endTime
       limit: $limit
@@ -31,11 +29,21 @@ query GuildReportDiscovery(
         endTime
         zone {
           id
+          name
         }
       }
     }
   }
 }`;
+
+const normalizeServerSlug = (value: string): string =>
+  value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_]+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 
 const parseV2Rows = (payload: unknown): GuildReportDiscoveryRow[] => {
   const data = asObject((payload as { data?: unknown })?.data);
@@ -46,13 +54,16 @@ const parseV2Rows = (payload: unknown): GuildReportDiscoveryRow[] => {
     const startTime = asNumber(row?.startTime);
     if (!code || typeof startTime !== 'number') return [];
     const endTime = asNumber(row?.endTime);
-    const zoneId = asNumber(asObject(row?.zone)?.id);
+    const zone = asObject(row?.zone);
+    const zoneId = asNumber(zone?.id);
+    const zoneName = asString(zone?.name);
     return [
       {
         code,
         startTime,
         ...(typeof endTime === 'number' ? { endTime } : {}),
         ...(typeof zoneId === 'number' ? { zoneId } : {}),
+        ...(zoneName ? { zoneName } : {}),
       },
     ];
   });
@@ -68,12 +79,14 @@ const parseV1Rows = (payload: unknown): GuildReportDiscoveryRow[] => {
     if (!code || typeof startTime !== 'number') return [];
     const endTime = asNumber(row?.end ?? row?.endTime);
     const zoneId = asNumber(row?.zone);
+    const zoneName = asString(row?.zoneName);
     return [
       {
         code,
         startTime,
         ...(typeof endTime === 'number' ? { endTime } : {}),
         ...(typeof zoneId === 'number' ? { zoneId } : {}),
+        ...(zoneName ? { zoneName } : {}),
       },
     ];
   });
@@ -91,12 +104,13 @@ export const collectGuildReportDiscovery = async (
     fetchImpl?: typeof fetch;
   },
 ): Promise<{ rows: GuildReportDiscoveryRow[]; source: 'v2' | 'v1' | 'none' }> => {
+  const guildServerSlug = normalizeServerSlug(input.guildServerSlug);
+  const guildServerRegion = input.guildServerRegion.trim().toLowerCase();
   try {
     const payload = await client.request<Record<string, unknown>>(GUILD_REPORT_DISCOVERY_QUERY, {
       guildName: input.guildName,
-      guildServerSlug: input.guildServerSlug,
-      guildServerRegion: input.guildServerRegion,
-      zoneId: input.zoneId,
+      guildServerSlug,
+      guildServerRegion,
       startTime: input.startTimeMs,
       endTime: input.endTimeMs,
       limit: 100,
@@ -117,7 +131,7 @@ export const collectGuildReportDiscovery = async (
     const url = new URL(
       `https://www.warcraftlogs.com/v1/reports/guild/${encodeURIComponent(
         input.guildName,
-      )}/${encodeURIComponent(input.guildServerSlug)}/${encodeURIComponent(input.guildServerRegion)}`,
+      )}/${encodeURIComponent(guildServerSlug)}/${encodeURIComponent(guildServerRegion)}`,
     );
     url.searchParams.set('start', String(Math.trunc(input.startTimeMs)));
     url.searchParams.set('end', String(Math.trunc(input.endTimeMs)));

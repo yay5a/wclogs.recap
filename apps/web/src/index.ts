@@ -82,7 +82,7 @@ const start = async () => {
   await connectMongo(env.MONGODB_URI);
   await migrateCharacterClaimIdentityFields();
   await migrateWclUserAuthDiscordUserIndex();
-  await app.listen({ port: env.PORT, host: '0.0.0.0' });
+  await app.listen({ port: env.PORT, host: '127.0.0.1' });
   logger.info({ port: env.PORT }, 'web app started');
 };
 
