@@ -4,7 +4,6 @@ import {
   createFollowupInteractionResponse,
   editOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
-import { reportPathFingerprint } from './report.js';
 import {
   handleAutoReportComponentInteraction,
   handleAutoReportMessageCreate,
@@ -89,12 +88,12 @@ const summaryFixture = (): ReportSummary => ({
 
 const assertArchitectureReportBody = (
   body: Record<string, unknown>,
-  expectedPath: Parameters<typeof reportPathFingerprint>[0],
 ) => {
   const embeds = body.embeds as Array<{ fields?: Array<{ name?: string; value?: string }> }>;
   const fields = embeds[0]?.fields ?? [];
   const fieldNames = fields.map((field) => field.name);
   const flattened = fields.map((field) => `${field.name ?? ''}\n${field.value ?? ''}`).join('\n');
+  const serialized = JSON.stringify(body);
 
   expect(flattened).toContain('🗿 Encounter Highlights');
   expect(flattened).toContain('🏋️‍♂️ Top Players');
@@ -103,7 +102,9 @@ const assertArchitectureReportBody = (
   expect(fieldNames).not.toContain('Highest Total Healing');
   expect(fieldNames).not.toContain('Highest Damage Taken');
   expect(fieldNames).not.toContain('Highest DPS');
-  expect(flattened).toContain(reportPathFingerprint(expectedPath));
+  expect(serialized).not.toContain('render-fingerprint');
+  expect(serialized).not.toContain('report-runtime-canary');
+  expect(serialized).not.toContain('report-path:');
 };
 
 const baseHandleOptions = () =>
@@ -234,10 +235,7 @@ describe('auto report report embed paths', () => {
       handleOptions: handleOptions as never,
     });
 
-    assertArchitectureReportBody(
-      channel.send.mock.calls[0]?.[0] as Record<string, unknown>,
-      'passive-detection',
-    );
+    assertArchitectureReportBody(channel.send.mock.calls[0]?.[0] as Record<string, unknown>);
   });
 
   it('uses the shared report renderer for passive auto-post output', async () => {
@@ -261,10 +259,9 @@ describe('auto report report embed paths', () => {
       handleOptions: handleOptions as never,
     });
 
-    assertArchitectureReportBody(
-      channel.send.mock.calls[0]?.[0] as Record<string, unknown>,
-      'auto-post',
-    );
+    const sentBody = channel.send.mock.calls[0]?.[0] as Record<string, unknown>;
+    assertArchitectureReportBody(sentBody);
+    expect(sentBody).not.toHaveProperty('flags');
   });
 
   it('uses the shared report renderer for prompt preview output', async () => {
@@ -302,7 +299,6 @@ describe('auto report report embed paths', () => {
     await vi.waitFor(() => expect(editOriginalInteractionResponse).toHaveBeenCalled());
     assertArchitectureReportBody(
       vi.mocked(editOriginalInteractionResponse).mock.calls[0]?.[2] as Record<string, unknown>,
-      'preview-post',
     );
   });
 
@@ -344,7 +340,6 @@ describe('auto report report embed paths', () => {
     await vi.waitFor(() => expect(createFollowupInteractionResponse).toHaveBeenCalled());
     assertArchitectureReportBody(
       vi.mocked(createFollowupInteractionResponse).mock.calls[0]?.[2] as Record<string, unknown>,
-      'preview-post',
     );
   });
 });

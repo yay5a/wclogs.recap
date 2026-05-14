@@ -4,7 +4,7 @@
     "private": true,
     "type": "module",
     "scripts": {
-        "build": "tsc -p tsconfig.json",
+        "build": "pnpm --filter @wcl/shared build && pnpm --filter @wcl/domain build && pnpm --filter @wcl/wcl-client build && pnpm --filter @wcl/db build && pnpm --filter @wcl/discord build && tsc -p tsconfig.json",
         "dev": "tsx watch src/index.ts",
         "start": "node dist/apps/worker/src/index.js",
         "lint": "eslint src --ext .ts",

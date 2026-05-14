@@ -15,45 +15,6 @@ export type ReportRenderPath = 'slash-command' | 'passive-detection' | 'auto-pos
 
 export const reportPathFingerprint = (path: ReportRenderPath): string => `report-path: ${path}`;
 
-type ResponseEmbedField = { name?: string; value?: string };
-type ResponseEmbed = { fields?: ResponseEmbedField[]; footer?: { text?: string } };
-type ResponseBodyWithEmbeds = { embeds?: ResponseEmbed[] };
-
-const injectReportRuntimeFingerprint = <TBody>(
-  body: TBody,
-  reportPath: ReportRenderPath,
-): TBody => {
-  const typedBody = body as unknown as ResponseBodyWithEmbeds;
-  const embeds = Array.isArray(typedBody.embeds) ? typedBody.embeds : [];
-  const primaryEmbed = embeds[0];
-  if (!primaryEmbed) return body;
-
-  const fingerprints = [REPORT_RUNTIME_FINGERPRINT, reportPathFingerprint(reportPath)];
-  const fields = Array.isArray(primaryEmbed.fields) ? primaryEmbed.fields : [];
-  const dataSourceField = fields.find((field) => field.name === 'Data & Source');
-  if (dataSourceField && typeof dataSourceField.value === 'string') {
-    const missingFingerprints = fingerprints.filter(
-      (fingerprint) => !dataSourceField.value?.includes(fingerprint),
-    );
-    if (missingFingerprints.length > 0) {
-      dataSourceField.value = `${dataSourceField.value}\n${missingFingerprints.join('\n')}`;
-    }
-    return body;
-  }
-
-  const footerText = primaryEmbed.footer?.text ?? '';
-  const missingFooterFingerprints = fingerprints.filter(
-    (fingerprint) => !footerText.includes(fingerprint),
-  );
-  if (missingFooterFingerprints.length === 0) return body;
-  primaryEmbed.footer = {
-    text: footerText
-      ? `${footerText} | ${missingFooterFingerprints.join(' | ')}`
-      : missingFooterFingerprints.join(' | '),
-  };
-  return body;
-};
-
 export const serializeReportFetchFailureForLog = (
   error: unknown,
 ): ReturnType<typeof serializeError> | Record<string, unknown> => {
@@ -142,11 +103,8 @@ export const buildReportArtifact = async ({
 
   return {
     summary,
-    responseBody: injectReportRuntimeFingerprint(buildReportResponseBody(summary), reportPath),
-    publicBody: injectReportRuntimeFingerprint(
-      buildReportResponseBody(summary, { ephemeral: false }),
-      reportPath,
-    ),
+    responseBody: buildReportResponseBody(summary),
+    publicBody: buildReportResponseBody(summary, { ephemeral: false }),
     runtime,
   };
 };
@@ -182,8 +140,7 @@ export const processReportInteraction = async (
       reportPath: 'slash-command',
       url,
     });
-    const responseBody = artifact.responseBody;
-    await editOriginalInteractionResponse(applicationId, interactionToken, responseBody);
+    await editOriginalInteractionResponse(applicationId, interactionToken, artifact.publicBody);
   } catch (error) {
     logger.error(
       { error: serializeReportFetchFailureForLog(error), interactionId, guildId },

@@ -636,6 +636,23 @@ export const handleAutoReportMessageCreate = async ({
             return;
         }
 
+        logger.info(
+            {
+                guildId: message.guildId,
+                channelId: message.channelId,
+                sourceMessageId: message.messageId,
+                reportCode: parsed.reportCode,
+                reportRuntimeFingerprint: artifact.runtime.fingerprint,
+                reportPath: artifact.runtime.reportPath,
+                reportPathFingerprint: artifact.runtime.pathFingerprint,
+                cwd: process.cwd(),
+                packageId: artifact.runtime.packageId,
+                buildReportResponseBodyCalled: artifact.runtime.buildReportResponseBodyCalled,
+                publicBodySent: true,
+                workerAppIdentifier: "worker-gateway-auto-report",
+            },
+            "auto report public report artifact built",
+        );
         const sent = await sendChannelMessage(toPublicReportBody(artifact.publicBody));
         await duplicateService.updateTracking({
             guildId: message.guildId,

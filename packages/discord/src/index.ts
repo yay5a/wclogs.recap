@@ -33,5 +33,6 @@ export {
     makeAutoReportPromptIgnoreCustomId,
     makeAutoReportPromptPreviewCustomId,
 } from "./commands/auto-report.js";
+export { REPORT_RUNTIME_FINGERPRINT } from "./commands/report.js";
 export { buildReportResponseBody } from "./renderers/report.js";
 export { buildGuildRankResponseBody } from "./renderers/guildrank.js";

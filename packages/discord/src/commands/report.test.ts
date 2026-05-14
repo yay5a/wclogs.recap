@@ -1,10 +1,18 @@
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ReportSummary } from '@wcl/domain';
 import {
+  editOriginalInteractionResponse,
+  safeEditOriginalInteractionResponse,
+} from '../infrastructure/discord-api.js';
+import {
   buildReportArtifact,
-  reportPathFingerprint,
-  REPORT_RUNTIME_FINGERPRINT,
+  processReportInteraction,
 } from './report.js';
+
+vi.mock('../infrastructure/discord-api.js', () => ({
+  editOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
+  safeEditOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
+}));
 
 const summaryFixture = (): ReportSummary => ({
   reportCode: 'ABC123',
@@ -75,7 +83,31 @@ const summaryFixture = (): ReportSummary => ({
   partialDataNotes: [],
 });
 
+const flattenReportBody = (body: Record<string, unknown>): {
+  fieldNames: string[];
+  text: string;
+} => {
+  const embeds = body.embeds as Array<{ fields?: Array<{ name?: string; value?: string }> }>;
+  const fields = embeds[0]?.fields ?? [];
+  return {
+    fieldNames: fields.map((field) => field.name ?? ''),
+    text: fields.map((field) => `${field.name ?? ''}\n${field.value ?? ''}`).join('\n'),
+  };
+};
+
+const expectNoReportDebugOutput = (body: Record<string, unknown>): void => {
+  const serialized = JSON.stringify(body);
+  expect(serialized).not.toContain('render-fingerprint');
+  expect(serialized).not.toContain('report-runtime-canary');
+  expect(serialized).not.toContain('report-path:');
+};
+
 describe('/report command render path', () => {
+  beforeEach(() => {
+    vi.mocked(editOriginalInteractionResponse).mockClear();
+    vi.mocked(safeEditOriginalInteractionResponse).mockClear();
+  });
+
   it('builds final embed payload with architecture sections and without removed legacy blocks', async () => {
     const wclClient = {
       fetchReportSummary: vi.fn().mockResolvedValue(summaryFixture()),
@@ -103,12 +135,71 @@ describe('/report command render path', () => {
     expect(fieldNames).not.toContain('Highest Total Healing');
     expect(fieldNames).not.toContain('Highest Damage Taken');
     expect(fieldNames).not.toContain('Highest DPS');
-    expect(flattenedValues).toContain(REPORT_RUNTIME_FINGERPRINT);
-    expect(flattenedValues).toContain(reportPathFingerprint('slash-command'));
+    expectNoReportDebugOutput(artifact.responseBody as Record<string, unknown>);
     expect(flattenedValues).toContain('Highest Total DPS: Alyra - 40K/s');
     expect(flattenedValues).toContain('Highest Total HPS: Alyra - 12K/s');
     expect(flattenedValues).toContain('Highest Total DTPS: Bulwark - 18K/s');
     expect(flattenedValues).not.toContain('Highest Total HPS: unavailable');
     expect(flattenedValues).not.toContain('Highest Total DTPS: unavailable');
+  });
+
+  it('edits slash-command success with the public report body', async () => {
+    const wclClient = {
+      fetchReportSummary: vi.fn().mockResolvedValue(summaryFixture()),
+    } as never;
+
+    await processReportInteraction(
+      {
+        id: 'interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' } },
+      },
+      { wclClient } as never,
+      'https://www.warcraftlogs.com/reports/ABC123',
+    );
+
+    expect(editOriginalInteractionResponse).toHaveBeenCalledTimes(1);
+    const body = vi.mocked(editOriginalInteractionResponse).mock.calls[0]?.[2] as Record<string, unknown>;
+    expect(body).not.toHaveProperty('flags');
+
+    const { fieldNames, text } = flattenReportBody(body);
+    expect(text).toContain('🗿 Encounter Highlights');
+    expect(text).toContain('🏋️‍♂️ Top Players');
+    expectNoReportDebugOutput(body);
+    expect(fieldNames).toContain('Best Execution ⚔️');
+    expect(fieldNames).toContain('Biggest Trouble 👨‍🦼');
+    expect(fieldNames).not.toContain('Highest Total Healing');
+    expect(fieldNames).not.toContain('Highest Damage Taken');
+    expect(fieldNames).not.toContain('Highest DPS');
+  });
+
+  it('keeps slash-command failure messages ephemeral', async () => {
+    const wclClient = {
+      fetchReportSummary: vi.fn().mockRejectedValue(new Error('failed')),
+    } as never;
+
+    await processReportInteraction(
+      {
+        id: 'interaction-1',
+        application_id: 'app-1',
+        token: 'token-1',
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' } },
+      },
+      { wclClient } as never,
+      'https://www.warcraftlogs.com/reports/ABC123',
+    );
+
+    expect(editOriginalInteractionResponse).not.toHaveBeenCalled();
+    expect(safeEditOriginalInteractionResponse).toHaveBeenCalledWith(
+      'app-1',
+      'token-1',
+      expect.objectContaining({
+        flags: 64,
+        content: expect.stringContaining('Could not build a report summary'),
+      }),
+    );
   });
 });

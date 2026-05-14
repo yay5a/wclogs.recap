@@ -90,7 +90,6 @@ export const handleInteraction = async (interaction: unknown, options: HandleOpt
             }
             return {
                 type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
-                data: { flags: EPHEMERAL_MESSAGE_FLAG },
             };
         }
 

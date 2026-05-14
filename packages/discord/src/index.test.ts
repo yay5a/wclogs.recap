@@ -162,7 +162,7 @@ describe('discord command surfaces', () => {
     });
   });
 
-  it('defers /report and schedules background execution', async () => {
+  it('defers /report publicly and schedules background execution', async () => {
     const tasks: Array<() => void> = [];
     const baseOptions = makeHandleOptions() as Record<string, unknown>;
     const options = {
@@ -190,7 +190,6 @@ describe('discord command surfaces', () => {
 
     expect(response).toEqual({
       type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { flags: 64 },
     });
     expect(tasks).toHaveLength(1);
   });

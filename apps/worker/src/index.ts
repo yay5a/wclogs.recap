@@ -12,7 +12,7 @@ import {
     migrateWclUserAuthDiscordUserIndex,
 } from "@wcl/db";
 import type { AutoReportSendableChannel } from "@wcl/discord";
-import { handleAutoReportMessageCreate } from "@wcl/discord";
+import { REPORT_RUNTIME_FINGERPRINT, handleAutoReportMessageCreate } from "@wcl/discord";
 import { createLogger } from "@wcl/shared";
 import { WclClient } from "@wcl/wcl-client";
 import { ChannelType, Client, Events, GatewayIntentBits, type Guild } from "discord.js";
@@ -34,6 +34,16 @@ if (existsSync(envPath)) {
 const env = parseWorkerEnv(process.env);
 const logger = createLogger("worker");
 const SAFE_ALLOWED_MENTIONS = { parse: [] as string[] };
+const WORKER_PACKAGE_ID = "@wcl/worker@0.1.0";
+const WORKER_APP_IDENTIFIER = "worker-gateway";
+
+const resolveRuntimeModule = (specifier: string): string | undefined => {
+    try {
+        return import.meta.resolve(specifier);
+    } catch {
+        return undefined;
+    }
+};
 
 export interface Queue {
     enqueue(type: string, payload: unknown, runAt?: Date): Promise<void>;
@@ -246,6 +256,13 @@ const startDiscordGateway = async (): Promise<Client> => {
     logger.info(
         {
             intents: ["Guilds", "GuildMessages", "MessageContent"],
+            cwd: process.cwd(),
+            packageId: WORKER_PACKAGE_ID,
+            workerAppIdentifier: WORKER_APP_IDENTIFIER,
+            reportRuntimeFingerprint: REPORT_RUNTIME_FINGERPRINT,
+            reportPath: "gateway-startup",
+            publicBodySent: false,
+            discordModuleResolved: resolveRuntimeModule("@wcl/discord"),
         },
         "starting Discord Gateway; MessageContent intent requested",
     );
