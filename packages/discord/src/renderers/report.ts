@@ -87,16 +87,11 @@ const formatRankedRowsOrUnavailable = (
 const formatParseRow = (row?: ReportParseRow): string | undefined =>
   row ? `${row.playerName} - ${decimalFormatter.format(row.value)}` : undefined;
 
-const formatEncounterRateLine = (
-  label: string,
-  row: ReportMetricRow | undefined,
-): string =>
+const formatEncounterRateLine = (label: string, row: ReportMetricRow | undefined): string =>
   row ? `${label}: ${row.playerName} - ${formatRate(row.value)}` : unavailable(label);
 
-const formatEncounterParseLine = (
-  label: string,
-  row: ReportParseRow | undefined,
-): string => `${label}: ${formatParseRow(row) ?? 'unavailable'}`;
+const formatEncounterParseLine = (label: string, row: ReportParseRow | undefined): string =>
+  `${label}: ${formatParseRow(row) ?? 'unavailable'}`;
 
 const formatEncounter = (
   encounter: ReportEncounterSummary | undefined,
@@ -123,14 +118,8 @@ const formatEncounter = (
     ...(options.includeHighestParse
       ? [
           'Highest Parse:',
-          `  ${formatEncounterParseLine(
-            'DPS',
-            encounter.highestParseDps ?? highestParses.dps,
-          )}`,
-          `  ${formatEncounterParseLine(
-            'HPS',
-            encounter.highestParseHps ?? highestParses.hps,
-          )}`,
+          `  ${formatEncounterParseLine('DPS', encounter.highestParseDps ?? highestParses.dps)}`,
+          `  ${formatEncounterParseLine('HPS', encounter.highestParseHps ?? highestParses.hps)}`,
           `  ${formatEncounterParseLine('DTPS', highestParses.dtps)}`,
         ]
       : []),
@@ -187,10 +176,16 @@ export const buildReportResponseBody = (
   pushField(
     fields,
     'Total Deaths',
-    typeof summary.totalDeaths === 'number' ? integerFormatter.format(summary.totalDeaths) : 'unavailable',
+    typeof summary.totalDeaths === 'number'
+      ? integerFormatter.format(summary.totalDeaths)
+      : 'unavailable',
     true,
   );
-  pushField(fields, '🗿 Encounter Highlights', 'Best Execution ⚔️ and Biggest Trouble 👨‍🦼');
+  pushField(
+    fields,
+    '====================================================',
+    '🗿 Encounter Highlights',
+  );
   pushField(
     fields,
     'Best Execution ⚔️',
@@ -202,6 +197,7 @@ export const buildReportResponseBody = (
         ...(summary.highestParses.dtps ? { dtps: summary.highestParses.dtps } : {}),
       },
     }),
+    true,
   );
   pushField(
     fields,
@@ -209,9 +205,10 @@ export const buildReportResponseBody = (
     formatEncounter(summary.biggestTroubleEncounter, {
       includePullDurations: true,
     }),
+    true,
   );
 
-  pushField(fields, '🏋️‍♂️ Top Players', 'Architecture-approved leaderboard blocks');
+  pushField(fields, '====================================================', '🏋️‍♂️ Top Players');
   pushField(
     fields,
     'Highest Avg Parse',
@@ -241,24 +238,27 @@ export const buildReportResponseBody = (
   pushField(
     fields,
     'Most Deaths',
-    formatRankedRowsOrUnavailable(summary.topPlayers.mostDeaths, (value) =>
-      `${integerFormatter.format(value)} deaths`
+    formatRankedRowsOrUnavailable(
+      summary.topPlayers.mostDeaths,
+      (value) => `${integerFormatter.format(value)} deaths`,
     ),
     true,
   );
   pushField(
     fields,
     'Most Interrupts',
-    formatRankedRowsOrUnavailable(summary.topPlayers.mostInterrupts, (value) =>
-      `${integerFormatter.format(value)} interrupts`
+    formatRankedRowsOrUnavailable(
+      summary.topPlayers.mostInterrupts,
+      (value) => `${integerFormatter.format(value)} interrupts`,
     ),
     true,
   );
   pushField(
     fields,
     'Most Dispels',
-    formatRankedRowsOrUnavailable(summary.topPlayers.mostDispels, (value) =>
-      `${integerFormatter.format(value)} dispels`
+    formatRankedRowsOrUnavailable(
+      summary.topPlayers.mostDispels,
+      (value) => `${integerFormatter.format(value)} dispels`,
     ),
     true,
   );

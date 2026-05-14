@@ -88,10 +88,13 @@ describe('/report renderer architecture', () => {
   it('renders Encounter Highlights before Top Players and nests best/trouble blocks under highlights', () => {
     const response = buildReportResponseBody(baseSummary());
     const fieldNames = getFieldNames(response);
+    const fields = response.embeds[0]?.fields ?? [];
     const highlightsIndex = fieldNames.indexOf('🗿 Encounter Highlights');
     const bestExecutionIndex = fieldNames.indexOf('Best Execution ⚔️');
     const biggestTroubleIndex = fieldNames.indexOf('Biggest Trouble 👨‍🦼');
-    const topPlayersIndex = fieldNames.indexOf('🏋️‍♂️ Top Players');
+    const topPlayersIndex = fields.findIndex(
+      (field) => field.name === '🏋️‍♂️ Top Players' || field.value === '🏋️‍♂️ Top Players',
+    );
 
     expect(highlightsIndex).toBeGreaterThan(-1);
     expect(bestExecutionIndex).toBeGreaterThan(highlightsIndex);
@@ -101,7 +104,11 @@ describe('/report renderer architecture', () => {
     const bestExecutionField = response.embeds[0]?.fields?.find(
       (field) => field.name === 'Best Execution ⚔️',
     );
-    expect(bestExecutionField?.inline).not.toBe(true);
+    const biggestTroubleField = response.embeds[0]?.fields?.find(
+      (field) => field.name === 'Biggest Trouble 👨‍🦼',
+    );
+    expect(bestExecutionField?.inline).toBe(true);
+    expect(biggestTroubleField?.inline).toBe(true);
   });
 
   it('renders best execution highest-parse lines and biggest trouble pull-duration lines', () => {
@@ -126,8 +133,11 @@ describe('/report renderer architecture', () => {
 
   it('renders only approved Top Players blocks in architecture order', () => {
     const response = buildReportResponseBody(baseSummary());
-    const fieldNames = getFieldNames(response);
-    const topPlayerFieldNames = fieldNames.slice(fieldNames.indexOf('🏋️‍♂️ Top Players') + 1, -1);
+    const fields = response.embeds[0]?.fields ?? [];
+    const topPlayersIndex = fields.findIndex(
+      (field) => field.name === '🏋️‍♂️ Top Players' || field.value === '🏋️‍♂️ Top Players',
+    );
+    const topPlayerFieldNames = fields.slice(topPlayersIndex + 1, -1).map((field) => field.name);
 
     expect(topPlayerFieldNames).toEqual([
       'Highest Avg Parse',
@@ -139,6 +149,7 @@ describe('/report renderer architecture', () => {
       'Most Dispels',
     ]);
 
+    const fieldNames = getFieldNames(response);
     expect(fieldNames).not.toContain('Highest Total Healing');
     expect(fieldNames).not.toContain('Highest Damage Taken');
     expect(fieldNames).not.toContain('Highest DPS');

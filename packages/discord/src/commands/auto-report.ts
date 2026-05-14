@@ -536,6 +536,12 @@ export const handleAutoReportMessageCreate = async ({
 
     if (!claim.claimed) {
         if (claim.record) {
+            // Multiple gateway consumers can race on the same Discord message create event.
+            // If the existing tracking record came from this exact message, treat it as already
+            // claimed by a peer and suppress duplicate confirmation noise.
+            if (claim.record.sourceMessageId === message.messageId) {
+                return;
+            }
             await handleDuplicatePassiveDetection({
                 existing: claim.record,
                 channel,
