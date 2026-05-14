@@ -58,7 +58,6 @@ describe("registerDiscordInteractionRoutes", () => {
             getByConfirmationNonce: vi.fn(),
             updateTracking: vi.fn(),
         } as never;
-        const comparisonHistoryStore = { saveComparisonSnapshot: vi.fn() } as never;
         const characterClaimStore = { requestCharacterClaim: vi.fn() } as never;
 
         await app.register(registerDiscordInteractionRoutes, {
@@ -67,7 +66,6 @@ describe("registerDiscordInteractionRoutes", () => {
             guildConfigStore,
             autoReportPromptStateService,
             autoReportDuplicateTrackingService,
-            comparisonHistoryStore,
             characterClaimStore,
             logger: makeLogger(),
         });
@@ -97,7 +95,6 @@ describe("registerDiscordInteractionRoutes", () => {
                 guildConfigStore,
                 autoReportPromptStateService,
                 autoReportDuplicateTrackingService,
-                comparisonHistoryStore,
                 characterClaimStore,
             }),
         );

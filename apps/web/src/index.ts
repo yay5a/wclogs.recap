@@ -4,7 +4,6 @@ import {
   MongoAutoReportDuplicateTrackingStore,
   MongoAutoReportPromptStateStore,
   MongoCharacterClaimStore,
-  MongoComparisonHistoryStore,
   MongoDashboardActivityStore,
   MongoDashboardOnboardingStore,
   MongoGuildConfigStore,
@@ -47,7 +46,6 @@ const wclClient = new WclClient({
 const guildConfigStore = new MongoGuildConfigStore();
 const autoReportPromptStateService = new MongoAutoReportPromptStateStore();
 const autoReportDuplicateTrackingService = new MongoAutoReportDuplicateTrackingStore();
-const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const characterClaimStore = new MongoCharacterClaimStore();
 const dashboardActivityStore = new MongoDashboardActivityStore();
 const dashboardOnboardingStore = new MongoDashboardOnboardingStore();
@@ -70,7 +68,6 @@ const app = await createWebApp({
   dashboardOnboardingStore,
   autoReportPromptStateService,
   autoReportDuplicateTrackingService,
-  comparisonHistoryStore,
   characterClaimStore,
   wclUserAuthStore,
   dashboardStatic: {

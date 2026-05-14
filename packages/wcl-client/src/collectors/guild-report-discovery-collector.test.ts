@@ -45,7 +45,7 @@ describe('guild report discovery collector', () => {
     expect(result.rows).toEqual([{ code: 'BBB', startTime: 3000, endTime: 4000, zoneId: 100 }]);
   });
 
-  it('normalizes server slug and region before querying', async () => {
+  it('uses the provided server slug and normalizes region before querying', async () => {
     const request = vi.fn().mockResolvedValue({
       data: {
         reportData: {
@@ -60,8 +60,8 @@ describe('guild report discovery collector', () => {
       { request } as never,
       {
         ...input,
-        guildServerSlug: 'Galakras',
-        guildServerRegion: 'US',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
         fetchImpl: vi.fn().mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue([]) }),
       },
     );

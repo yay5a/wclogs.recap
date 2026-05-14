@@ -658,7 +658,7 @@ describe('guildrank pipeline', () => {
     );
   });
 
-  it('discovers a current-window Shenanigans Galakras heroic 10man report and derives metrics', async () => {
+  it('normalizes an Area 52 server name before collector calls and derives metrics', async () => {
     const now = Date.UTC(2026, 4, 14, 12, 0, 0);
     const reportStart = 1778716776327;
     vi.useFakeTimers();
@@ -685,7 +685,7 @@ describe('guildrank pipeline', () => {
 
       if (query.includes('query GuildReportDiscovery')) {
         expect(variables.guildName).toBe('Shenanigans');
-        expect(variables.guildServerSlug).toBe('galakras');
+        expect(variables.guildServerSlug).toBe('area-52');
         expect(variables.guildServerRegion).toBe('US');
         const currentStart = now - 7 * 24 * 60 * 60 * 1000;
         return {
@@ -710,6 +710,8 @@ describe('guildrank pipeline', () => {
       }
 
       if (query.includes('query GuildZoneRanks') || query.includes('query ProgressRaceFallback')) {
+        expect(variables.guildServerSlug).toBe('area-52');
+        expect(variables.guildServerRegion).toBe('US');
         throw new Error('rankings unavailable');
       }
 
@@ -781,7 +783,7 @@ describe('guildrank pipeline', () => {
       { request } as never,
       {
         guildName: 'Shenanigans',
-        guildServerSlug: 'Galakras',
+        guildServerSlug: 'Area 52',
         guildServerRegion: 'us',
         zoneId: 1046,
         difficulty: 'heroic',

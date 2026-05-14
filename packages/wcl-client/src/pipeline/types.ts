@@ -1,4 +1,4 @@
-import type { GameFamily, GuildRankSummary, ReportMetricRow, ReportSummary } from '@wcl/domain';
+import type { GameFamily, ReportMetricRow } from '@wcl/domain';
 import type { ParsedPlayerDetail } from '../parsers/report-details.js';
 import type { ParsedTableEntry } from '../parsers/table.js';
 import type { NormalizedLeaderboardEntry } from '@wcl/domain';
@@ -146,14 +146,4 @@ export interface GuildRankCollectorBundle {
   zoneName: string;
   difficultyLabel: string;
   sizeLabel: string;
-}
-
-export interface ReportPipeline {
-  collect: (url: string, reportCode: string, gameFamily: GameFamily) => Promise<ReportCollectorBundle>;
-  normalize: (bundle: ReportCollectorBundle) => ReportSummary;
-}
-
-export interface GuildRankPipeline {
-  collect: (input: GuildRankInput) => Promise<GuildRankCollectorBundle>;
-  normalize: (bundle: GuildRankCollectorBundle) => GuildRankSummary;
 }

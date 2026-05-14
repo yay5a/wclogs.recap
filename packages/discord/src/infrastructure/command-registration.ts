@@ -1,5 +1,5 @@
 import { createLogger } from "@wcl/shared";
-import { AUTO_REPORT_MODES, COMPARE_ACCESS_MODES, COMPARE_MODES, COMPARE_VISIBILITIES } from "@wcl/domain";
+import { AUTO_REPORT_MODES, COMPARE_ACCESS_MODES, COMPARE_MODES } from "@wcl/domain";
 import { discordApiRequest, getDiscordApiBaseUrl } from "./discord-api.js";
 
 const logger = createLogger("discord");
@@ -26,7 +26,7 @@ export interface DiscordCommandOption {
     options?: DiscordCommandOption[];
     channel_types?: number[];
 }
-export type ChatInputCommandDefinition = {
+export type SlashCommandDefinition = {
     type: 1;
     name: string;
     description: string;
@@ -36,31 +36,9 @@ export type ChatInputCommandDefinition = {
     default_member_permissions?: string;
     nsfw?: boolean;
 };
-export type UserCommandDefinition = {
-    type: 2;
-    name: string;
-    integration_types?: number[];
-    contexts?: number[];
-    default_member_permissions?: string;
-    nsfw?: boolean;
-};
-export type MessageCommandDefinition = {
-    type: 3;
-    name: string;
-    integration_types?: number[];
-    contexts?: number[];
-    default_member_permissions?: string;
-    nsfw?: boolean;
-};
-export type CommandDefinition = ChatInputCommandDefinition | UserCommandDefinition | MessageCommandDefinition;
 
-const commandTypeLabel = (type: CommandDefinition["type"]): string => (type === 1 ? "CHAT_INPUT" : type === 2 ? "USER" : "MESSAGE");
 const compareModeChoices = COMPARE_MODES.map((mode) => ({ name: mode, value: mode }));
 const autoReportModeChoices = AUTO_REPORT_MODES.map((mode) => ({ name: mode, value: mode }));
-const compareVisibilityChoices = COMPARE_VISIBILITIES.map((visibility) => ({
-    name: visibility,
-    value: visibility,
-}));
 const compareAccessModeChoices = COMPARE_ACCESS_MODES.map((mode) => ({ name: mode, value: mode }));
 const guildRankDifficultyChoices = [
     { name: "normal", value: "normal" },
@@ -70,12 +48,11 @@ const guildRankSizeChoices = [
     { name: "10man", value: "10man" },
     { name: "25man", value: "25man" },
 ];
-const validateCommandNameUniqueness = (commands: CommandDefinition[]) => {
+const validateCommandNameUniqueness = (commands: SlashCommandDefinition[]) => {
     const seen = new Set<string>();
     for (const command of commands) {
-        const key = `${command.type}:${command.name}`;
-        if (seen.has(key)) throw new Error(`Command validation failed for '${command.name}': duplicate command name '${command.name}' for type ${command.type}.`);
-        seen.add(key);
+        if (seen.has(command.name)) throw new Error(`Command validation failed for '${command.name}': duplicate command name '${command.name}'.`);
+        seen.add(command.name);
     }
 };
 const validateOptionChoices = (commandName: string, option: DiscordCommandOption, optionPath: string): void => {
@@ -104,19 +81,14 @@ const validateAndNormalizeOptions = (commandName: string, options: DiscordComman
     }
     return options;
 };
-const validateCommandDefinition = (command: CommandDefinition): void => {
+const validateCommandDefinition = (command: SlashCommandDefinition): void => {
     if (!command.name || command.name.trim().length === 0) throw new Error("Command validation failed: command name is required.");
-    if (command.type === 1) {
-        if (!slashCommandNameRegex.test(command.name)) throw new Error(`Command validation failed for '${command.name}': slash command names must be lowercase and use [a-z0-9_-] style characters.`);
-        if (!command.description || command.description.trim().length === 0) throw new Error(`Command validation failed for '${command.name}': description is required for chat input commands.`);
-        if (command.options) command.options = validateAndNormalizeOptions(command.name, command.options);
-        return;
-    }
-    if ("description" in (command as unknown as Record<string, unknown>) && typeof (command as unknown as { description?: unknown }).description !== "undefined") throw new Error(`Command validation failed for '${command.name}': description is not allowed for ${commandTypeLabel(command.type)} commands.`);
-    if ("options" in (command as unknown as Record<string, unknown>) && Array.isArray((command as unknown as { options?: unknown }).options)) throw new Error(`Command validation failed for '${command.name}': options are not allowed for ${commandTypeLabel(command.type)} commands.`);
+    if (!slashCommandNameRegex.test(command.name)) throw new Error(`Command validation failed for '${command.name}': slash command names must be lowercase and use [a-z0-9_-] style characters.`);
+    if (!command.description || command.description.trim().length === 0) throw new Error(`Command validation failed for '${command.name}': description is required for chat input commands.`);
+    if (command.options) command.options = validateAndNormalizeOptions(command.name, command.options);
 };
 
-export const buildDiscordCommandPayload = (command: CommandDefinition): Record<string, unknown> => {
+export const buildDiscordCommandPayload = (command: SlashCommandDefinition): Record<string, unknown> => {
     validateCommandDefinition(command);
     const basePayload = {
         name: command.name,
@@ -126,20 +98,18 @@ export const buildDiscordCommandPayload = (command: CommandDefinition): Record<s
         default_member_permissions: command.default_member_permissions,
         nsfw: command.nsfw,
     };
-    return command.type === 1
-        ? {
-              ...basePayload,
-              description: command.description,
-              ...(command.options ? { options: command.options } : {}),
-          }
-        : basePayload;
+    return {
+        ...basePayload,
+        description: command.description,
+        ...(command.options ? { options: command.options } : {}),
+    };
 };
-export const buildDiscordCommandPayloads = (commands: CommandDefinition[]): Record<string, unknown>[] => {
+export const buildDiscordCommandPayloads = (commands: SlashCommandDefinition[]): Record<string, unknown>[] => {
     validateCommandNameUniqueness(commands);
     return commands.map(buildDiscordCommandPayload);
 };
 
-export const commandDefinitions: CommandDefinition[] = [
+export const commandDefinitions: SlashCommandDefinition[] = [
     { name: "health", description: "Check bot health", type: 1 },
     {
         name: "config",
@@ -281,29 +251,6 @@ export const commandDefinitions: CommandDefinition[] = [
         ],
     },
     {
-        name: "compare",
-        description: "Privately compare one character against recent stored history",
-        type: 1,
-        options: [
-            { name: "report", description: "WCL report URL", type: 3, required: true },
-            { name: "character", description: "Character name in the report", type: 3, required: true },
-            {
-                name: "mode",
-                description: "Comparison mode",
-                type: 3,
-                required: true,
-                choices: compareModeChoices,
-            },
-            {
-                name: "visibility",
-                description: "Where to show the comparison",
-                type: STRING_OPTION_TYPE,
-                required: false,
-                choices: compareVisibilityChoices,
-            },
-        ],
-    },
-    {
         name: "claim_character",
         description: "Request officer approval for one character claim",
         type: 1,
@@ -440,7 +387,7 @@ const getRegistrationRemediation = (status: number): string | undefined => {
     return "Discord rejected DISCORD_BOT_TOKEN. Use the raw bot token for the same DISCORD_APPLICATION_ID, without a 'Bot ' prefix.";
 };
 
-const registerCommandSet = async (appId: string, botToken: string, targetScope: "global" | "guild", endpoint: string, guildId?: string): Promise<void> => {
+const registerCommandSet = async (botToken: string, targetScope: "global" | "guild", endpoint: string, guildId?: string): Promise<void> => {
     const payload = buildDiscordCommandPayloads(commandDefinitions);
     logger.info(
         {
@@ -480,9 +427,9 @@ const registerCommandSet = async (appId: string, botToken: string, targetScope: 
     }
 };
 
-export const registerGlobalCommands = async (appId: string, botToken: string): Promise<void> => registerCommandSet(appId, botToken, "global", `${getDiscordApiBaseUrl()}/applications/${appId}/commands`);
+export const registerGlobalCommands = async (appId: string, botToken: string): Promise<void> => registerCommandSet(botToken, "global", `${getDiscordApiBaseUrl()}/applications/${appId}/commands`);
 export const registerGuildCommands = async (appId: string, botToken: string, guildId: string): Promise<void> => {
     const normalizedGuildId = guildId.trim();
     if (!normalizedGuildId) throw new Error("Command validation failed: guildId is required for guild command registration.");
-    return registerCommandSet(appId, botToken, "guild", `${getDiscordApiBaseUrl()}/applications/${appId}/guilds/${normalizedGuildId}/commands`, normalizedGuildId);
+    return registerCommandSet(botToken, "guild", `${getDiscordApiBaseUrl()}/applications/${appId}/guilds/${normalizedGuildId}/commands`, normalizedGuildId);
 };

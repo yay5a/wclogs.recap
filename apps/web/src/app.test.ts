@@ -67,10 +67,6 @@ const makeOptions = (assetRoot: string): CreateWebAppOptions => {
             getByConfirmationNonce: vi.fn(),
             updateTracking: vi.fn(),
         } as never,
-        comparisonHistoryStore: {
-            saveComparisonSnapshot: vi.fn(),
-            findCharacterHistory: vi.fn(),
-        },
         characterClaimStore: {
             requestCharacterClaim: vi.fn(),
             approveCharacterClaim: vi.fn(),

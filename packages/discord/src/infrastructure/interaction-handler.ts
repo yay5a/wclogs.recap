@@ -5,7 +5,6 @@ import { handleApproveCharacterCommand, handleClaimCharacterCommand, handleCompa
 import { handleConfigCommand } from "../commands/config.js";
 import { handleAddOfficerCommand, handleListOfficersCommand, handleRemoveOfficerCommand } from "../commands/officer-management.js";
 import { handleAutoReportComponentInteraction } from "../commands/auto-report.js";
-import { handleCompareCommand } from "../commands/compare.js";
 import { handleGuildRankCommand } from "../commands/guildrank.js";
 import { processReportInteraction } from "../commands/report.js";
 
@@ -41,10 +40,6 @@ export const handleInteraction = async (interaction: unknown, options: HandleOpt
 
         if (typedInteraction.data?.name === "list_officers") {
             return handleListOfficersCommand(typedInteraction, options);
-        }
-
-        if (typedInteraction.data?.name === "compare") {
-            return handleCompareCommand(typedInteraction, options);
         }
 
         if (typedInteraction.data?.name === "claim_character") {

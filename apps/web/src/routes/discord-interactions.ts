@@ -4,7 +4,6 @@ import type {
     AutoReportDuplicateTrackingService,
     AutoReportPromptStateService,
     CharacterClaimStore,
-    ComparisonHistoryStore,
 } from "@wcl/discord";
 import type { BotActivityStore, GuildConfigStore } from "@wcl/domain";
 import { handleInteraction } from "@wcl/discord";
@@ -18,7 +17,6 @@ type DiscordInteractionRouteOptions = {
     guildConfigStore: GuildConfigStore;
     autoReportPromptStateService: AutoReportPromptStateService;
     autoReportDuplicateTrackingService: AutoReportDuplicateTrackingService;
-    comparisonHistoryStore: ComparisonHistoryStore;
     characterClaimStore: CharacterClaimStore;
     botActivityStore?: BotActivityStore | undefined;
     logger: ReturnType<typeof createLogger>;
@@ -77,7 +75,6 @@ export const registerDiscordInteractionRoutes: FastifyPluginAsync<
                     guildConfigStore: options.guildConfigStore,
                     autoReportPromptStateService: options.autoReportPromptStateService,
                     autoReportDuplicateTrackingService: options.autoReportDuplicateTrackingService,
-                    comparisonHistoryStore: options.comparisonHistoryStore,
                     characterClaimStore: options.characterClaimStore,
                     botActivityStore: options.botActivityStore,
                     scheduleBackgroundTask: (task) => {

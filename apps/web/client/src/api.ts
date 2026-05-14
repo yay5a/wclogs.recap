@@ -69,10 +69,6 @@ export type ConfigPatch = Partial<
         | "autoReportChannelIds"
         | "defaultGameFamily"
         | "dashboardOfficerAccessEnabled"
-        | "wclGuildName"
-        | "wclGuildServerSlug"
-        | "wclGuildServerRegion"
-        | "wclZoneId"
     >
 >;
 

@@ -10,20 +10,6 @@ const average = (values: number[]): number | undefined => {
   return values.reduce((sum, value) => sum + value, 0) / values.length;
 };
 
-const median = (values: number[]): number | undefined => {
-  if (values.length === 0) return undefined;
-  const sorted = [...values].sort((left, right) => left - right);
-  const middle = Math.floor(sorted.length / 2);
-  if (sorted.length % 2 === 0) {
-    const left = sorted[middle - 1];
-    const right = sorted[middle];
-    if (typeof left !== 'number' || typeof right !== 'number') return undefined;
-    return (left + right) / 2;
-  }
-  const value = sorted[middle];
-  return typeof value === 'number' ? value : undefined;
-};
-
 const toEncounterMetricMap = (
   rows: GuildRankEncounterMetric[],
 ): Map<string, GuildRankEncounterMetric> =>

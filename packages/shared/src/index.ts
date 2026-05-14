@@ -99,8 +99,6 @@ export const baseLoggerOptions: LoggerOptions = {
     },
 };
 
-export const logger = pino(baseLoggerOptions);
-
 let developmentRootLogger: Logger | undefined;
 
 const getDevelopmentRootLogger = (): Logger => {
@@ -155,9 +153,5 @@ export const serializeError = (error: unknown): SerializedError => {
 
     return { message: String(error) };
 };
-
-export type Result<T, E = Error> =
-    | { ok: true; value: T }
-    | { ok: false; error: E };
 
 export { z };

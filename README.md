@@ -162,7 +162,6 @@ Before opening a pull request:
       web/            Fastify API, Discord webhook, WCL OAuth routes
       worker/         Mongo-backed background job worker
     packages/
-      contracts/      Shared contract package placeholder
       db/             Mongoose models and Mongo stores/services
       discord/        Discord commands, interaction handling, embed rendering
       domain/         Normalized raid types and report section builders

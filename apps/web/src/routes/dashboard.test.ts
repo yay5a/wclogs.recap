@@ -1031,6 +1031,23 @@ describe("dashboard guild routes", () => {
         });
         expect(unknown.statusCode).toBe(400);
 
+        const unsupportedWclPatches: Array<Record<string, unknown>> = [
+            { wclGuildName: "Guild" },
+            { wclGuildServerSlug: "stormrage" },
+            { wclGuildServerRegion: "us" },
+            { wclZoneId: 100 },
+        ];
+        for (const payload of unsupportedWclPatches) {
+            const rejected = await app.inject({
+                method: "PATCH",
+                url: `/api/dashboard/guilds/${guildId}/config`,
+                headers: { "x-dashboard-request": "1" },
+                payload,
+            });
+            expect(rejected.statusCode).toBe(400);
+            expect(rejected.json()).toEqual({ error: "unknown_field" });
+        }
+
         const saved = await app.inject({
             method: "PATCH",
             url: `/api/dashboard/guilds/${guildId}/config`,

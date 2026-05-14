@@ -54,15 +54,6 @@ query ProgressRaceFallback(
 
 type RankPositions = { world?: number; region?: number; realm?: number };
 
-const normalizeServerSlug = (value: string): string =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_]+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-
 const normalizeRegion = (value: string): string => value.trim().toUpperCase();
 
 const parseRankNode = (value: unknown): number | undefined =>
@@ -149,7 +140,7 @@ export const collectOfficialGuildZoneRankings = async (
     encounters?: Array<{ id: number; name: string }>;
   },
 ): Promise<GuildOfficialRanks> => {
-  const guildServerSlug = normalizeServerSlug(input.guildServerSlug);
+  const guildServerSlug = input.guildServerSlug;
   const guildServerRegion = normalizeRegion(input.guildServerRegion);
   let official = emptyOfficialRanks();
 

@@ -41,15 +41,6 @@ query GuildReportDiscovery(
   }
 }`;
 
-const normalizeServerSlug = (value: string): string =>
-  value
-    .trim()
-    .toLowerCase()
-    .replace(/[\s_]+/g, '-')
-    .replace(/[^a-z0-9-]/g, '')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '');
-
 const normalizeEndpointRegion = (value: string): string => value.trim().toUpperCase();
 
 const parseV2Rows = (payload: unknown): GuildReportDiscoveryRow[] => {
@@ -126,7 +117,7 @@ export const collectGuildReportDiscovery = async (
     fetchImpl?: typeof fetch;
   },
 ): Promise<{ rows: GuildReportDiscoveryRow[]; source: 'v2' | 'v1' | 'none' }> => {
-  const guildServerSlug = normalizeServerSlug(input.guildServerSlug);
+  const guildServerSlug = input.guildServerSlug;
   const guildServerRegion = normalizeEndpointRegion(input.guildServerRegion);
   const debugBase = {
     guildName: input.guildName,

@@ -2,13 +2,11 @@ import mongoose, { Schema } from 'mongoose';
 
 export * from './models/wcl-user-auth-model.js';
 export * from './models/character-claim-model.js';
-export * from './models/comparison-snapshot-model.js';
 export * from './models/dashboard-activity-model.js';
 export * from './models/dashboard-onboarding-model.js';
 export * from './mongo-wcl-user-auth-store.js';
 export * from './wcl-token-encryption.js';
 export * from './stores/character-claim-store.js';
-export * from './stores/comparison-history-store.js';
 export * from './stores/guild-config-store.js';
 export * from './stores/dashboard-activity-store.js';
 export * from './stores/dashboard-onboarding-store.js';
@@ -76,67 +74,6 @@ const guildSettingsSchema = new Schema(
   { timestamps: true },
 );
 
-const playerProfileSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    discordUserId: { type: String, index: true },
-    displayName: { type: String, required: true },
-    characterIdentityIds: [{ type: Schema.Types.ObjectId, ref: 'CharacterIdentity' }],
-    confidenceScore: { type: Number, default: 0 },
-  },
-  { timestamps: true },
-);
-
-const characterIdentitySchema = new Schema(
-  {
-    profileId: {
-      type: Schema.Types.ObjectId,
-      ref: 'PlayerProfile',
-      index: true,
-    },
-    characterName: { type: String, required: true },
-    realm: { type: String },
-    gameFamily: {
-      type: String,
-      enum: ['retail', 'mop_classic'],
-      required: true,
-    },
-    specHistory: [{ specName: String, firstSeenAt: Date, lastSeenAt: Date }],
-    autoLinked: { type: Boolean, default: false },
-    candidateLinks: [{ discordUserId: String, confidence: Number }],
-  },
-  { timestamps: true },
-);
-
-const raidSnapshotSchema = new Schema(
-  {
-    guildId: { type: String, required: true, index: true },
-    reportCode: { type: String, required: true, index: true },
-    title: String,
-    zoneName: String,
-    gameFamily: String,
-    startedAt: Date,
-    endedAt: Date,
-  },
-  { timestamps: true },
-);
-
-const fightSnapshotSchema = new Schema(
-  {
-    raidSnapshotId: {
-      type: Schema.Types.ObjectId,
-      ref: 'RaidSnapshot',
-      index: true,
-    },
-    fightId: Number,
-    name: String,
-    kill: Boolean,
-    startedAt: Date,
-    endedAt: Date,
-  },
-  { timestamps: true },
-);
-
 const playerRaidSummarySchema = new Schema(
   {
     guildId: { type: String, required: true, index: true },
@@ -196,18 +133,6 @@ const jobSchema = new Schema(
   { timestamps: true },
 );
 jobSchema.index({ status: 1, runAt: 1, leaseExpiresAt: 1 });
-
-const auditLogSchema = new Schema(
-  {
-    actorType: { type: String, required: true },
-    actorId: { type: String, required: true },
-    action: { type: String, required: true },
-    targetType: String,
-    targetId: String,
-    metadata: Schema.Types.Mixed,
-  },
-  { timestamps: true },
-);
 
 const autoReportPromptStateSchema = new Schema(
   {
@@ -277,15 +202,9 @@ autoReportDuplicateTrackingSchema.index(
 );
 
 export const GuildSettingsModel = mongoose.model('GuildSettings', guildSettingsSchema);
-export const PlayerProfileModel = mongoose.model('PlayerProfile', playerProfileSchema);
-export const CharacterIdentityModel = mongoose.model('CharacterIdentity', characterIdentitySchema);
-export const RaidSnapshotModel = mongoose.model('RaidSnapshot', raidSnapshotSchema);
-
-export const FightSnapshotModel = mongoose.model('FightSnapshot', fightSnapshotSchema);
 export const PlayerRaidSummaryModel = mongoose.model('PlayerRaidSummary', playerRaidSummarySchema);
 export const TrendSnapshotModel = mongoose.model('TrendSnapshot', trendSnapshotSchema);
 export const JobModel = mongoose.model('Job', jobSchema);
-export const AuditLogModel = mongoose.model('AuditLog', auditLogSchema);
 export const AutoReportPromptStateModel = mongoose.model(
   'AutoReportPromptState',
   autoReportPromptStateSchema,

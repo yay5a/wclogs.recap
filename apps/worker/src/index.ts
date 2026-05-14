@@ -2,7 +2,6 @@ import {
     JobModel,
     MongoAutoReportDuplicateTrackingStore,
     MongoAutoReportPromptStateStore,
-    MongoComparisonHistoryStore,
     MongoDashboardActivityStore,
     MongoGuildConfigStore,
     MongoTrendTrackingService,
@@ -167,7 +166,6 @@ const trendTrackingService = new MongoTrendTrackingService();
 const guildConfigStore = new MongoGuildConfigStore();
 const autoReportPromptStateService = new MongoAutoReportPromptStateStore();
 const autoReportDuplicateTrackingService = new MongoAutoReportDuplicateTrackingStore();
-const comparisonHistoryStore = new MongoComparisonHistoryStore();
 const dashboardActivityStore = new MongoDashboardActivityStore();
 const wclUserAuthStore = new MongoWclUserAuthStore({
     encryptionKey: env.WCL_TOKEN_ENCRYPTION_KEY,
@@ -289,7 +287,6 @@ const startDiscordGateway = async (): Promise<Client> => {
                 guildConfigStore,
                 autoReportPromptStateService,
                 autoReportDuplicateTrackingService,
-                comparisonHistoryStore,
                 botActivityStore: dashboardActivityStore,
             },
             failureThrottle,

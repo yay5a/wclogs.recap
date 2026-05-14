@@ -1,10 +1,6 @@
 export type {
-    ChatInputCommandDefinition,
-    CommandDefinition,
     DiscordCommandOption,
     DiscordCommandOptionChoice,
-    MessageCommandDefinition,
-    UserCommandDefinition,
 } from "./infrastructure/command-registration.js";
 
 export type { AutoReportSendableChannel } from "./commands/auto-report.js";
@@ -13,7 +9,6 @@ export type {
     AutoReportPromptStateService,
     CharacterClaimStore,
     CharacterClaimRecord,
-    ComparisonHistoryStore,
     HandleOptions,
 } from "./types.js";
 

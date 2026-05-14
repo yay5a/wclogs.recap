@@ -99,6 +99,8 @@ const makeHandleOptions = () => ({
 
 describe('discord command surfaces', () => {
   it('registers report and guildrank commands with expected options', () => {
+    expect(commandDefinitions.every((command) => command.type === 1)).toBe(true);
+
     expect(commandDefinitions.find((command) => command.name === 'report')).toMatchObject({
       options: [{ name: 'wcl_report_url', type: 3, required: true }],
     });
@@ -127,39 +129,11 @@ describe('discord command surfaces', () => {
     });
 
     const configCommand = commandDefinitions.find((command) => command.name === 'config');
-    const optionNames =
-      configCommand && 'options' in configCommand
-        ? configCommand.options?.map((option) => option.name) ?? []
-        : [];
+    const optionNames = configCommand?.options?.map((option) => option.name) ?? [];
     expect(optionNames).toContain('wcl_guild_name');
     expect(optionNames).toContain('wcl_guild_server_name');
     expect(optionNames).toContain('wcl_guild_server_region');
     expect(optionNames).toContain('wcl_zone_id');
-  });
-
-  it('returns explicit temporary-unavailable response for /compare', async () => {
-    const response = await handleInteraction(
-      {
-        type: InteractionType.APPLICATION_COMMAND,
-        data: {
-          name: 'compare',
-          options: [
-            { name: 'report', value: 'https://www.warcraftlogs.com/reports/ABC123' },
-            { name: 'character', value: 'Alyra' },
-            { name: 'mode', value: 'character' },
-          ],
-        },
-      },
-      makeHandleOptions(),
-    );
-
-    expect(response).toEqual({
-      type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: {
-        content: '/compare is temporarily unavailable while the report pipeline migration is in progress.',
-        flags: 64,
-      },
-    });
   });
 
   it('defers /report publicly and schedules background execution', async () => {

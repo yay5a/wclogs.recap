@@ -93,16 +93,6 @@ export interface AutoReportDuplicateTrackingService {
     }): Promise<AutoReportDuplicateTrackingRecord | null>;
 }
 
-export interface ComparisonHistoryStore {
-    saveComparisonSnapshot(input: unknown): Promise<unknown>;
-    findCharacterHistory(input: {
-        guildId: string;
-        participantKey: string;
-        before: Date;
-        limit?: number;
-    }): Promise<unknown[]>;
-}
-
 export interface CharacterClaimRecord {
     claimId: string;
     guildId: string;
@@ -194,7 +184,6 @@ export interface CharacterClaimStore {
 export interface HandleOptions {
     wclClient: WclClient;
     guildConfigStore: GuildConfigStore;
-    comparisonHistoryStore?: ComparisonHistoryStore;
     characterClaimStore?: CharacterClaimStore;
     botActivityStore?: BotActivityStore | undefined;
     autoReportPromptStateService?: AutoReportPromptStateService;

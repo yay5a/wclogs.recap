@@ -8,7 +8,6 @@ import type {
     AutoReportDuplicateTrackingService,
     AutoReportPromptStateService,
     CharacterClaimStore,
-    ComparisonHistoryStore,
 } from "@wcl/discord";
 import type { GuildConfigStore } from "@wcl/domain";
 import type { createLogger } from "@wcl/shared";
@@ -33,7 +32,6 @@ export type CreateWebAppOptions = {
     dashboardGuildConfigStore: DashboardGuildConfigStore;
     autoReportPromptStateService: AutoReportPromptStateService;
     autoReportDuplicateTrackingService: AutoReportDuplicateTrackingService;
-    comparisonHistoryStore: ComparisonHistoryStore;
     characterClaimStore: CharacterClaimStore;
     dashboardCharacterClaimStore: DashboardCharacterClaimStore;
     dashboardActivityStore?: DashboardActivityStore;
@@ -87,7 +85,6 @@ export const createWebApp = async (options: CreateWebAppOptions): Promise<Fastif
         guildConfigStore: options.guildConfigStore,
         autoReportPromptStateService: options.autoReportPromptStateService,
         autoReportDuplicateTrackingService: options.autoReportDuplicateTrackingService,
-        comparisonHistoryStore: options.comparisonHistoryStore,
         characterClaimStore: options.characterClaimStore,
         botActivityStore: options.dashboardActivityStore,
         logger: options.logger,
