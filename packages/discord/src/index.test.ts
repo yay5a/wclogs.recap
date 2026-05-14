@@ -114,7 +114,7 @@ describe('discord command surfaces', () => {
         ? configCommand.options?.map((option) => option.name) ?? []
         : [];
     expect(optionNames).toContain('wcl_guild_name');
-    expect(optionNames).toContain('wcl_guild_server_slug');
+    expect(optionNames).toContain('wcl_guild_server_name');
     expect(optionNames).toContain('wcl_guild_server_region');
     expect(optionNames).toContain('wcl_zone_id');
   });

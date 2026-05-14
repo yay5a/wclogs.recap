@@ -52,7 +52,7 @@ export const processGuildRankInteraction = async (
       await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
         flags: EPHEMERAL_MESSAGE_FLAG,
         content:
-          'Missing /guildrank WCL target config. Set wcl_guild_name, wcl_guild_server_slug, wcl_guild_server_region, and wcl_zone_id in /config.',
+          'Missing /guildrank WCL target config. Set wcl_guild_name, wcl_guild_server_name, wcl_guild_server_region, and wcl_zone_id in /config.',
       });
       return;
     }

@@ -45,7 +45,7 @@ const buildConfigStatusResponse = (config: Partial<GuildConfig>): string => {
         "",
         "**/guildrank target:**",
         `Guild: \`${config.wclGuildName ?? "unset"}\``,
-        `Server slug: \`${config.wclGuildServerSlug ?? "unset"}\``,
+        `Server name: \`${config.wclGuildServerSlug ?? "unset"}\``,
         `Server region: \`${config.wclGuildServerRegion ?? "unset"}\``,
         `Zone ID: \`${typeof config.wclZoneId === "number" ? String(config.wclZoneId) : "unset"}\``,
     );
@@ -95,7 +95,7 @@ export const handleConfigCommand = async (interaction: DiscordInteraction, optio
     const rawAutoReportMode = getStringOption(interaction.data?.options, "auto_report_mode");
     const autoReportChannelId = getStringOption(interaction.data?.options, "auto_report_channel");
     const wclGuildName = getStringOption(interaction.data?.options, "wcl_guild_name");
-    const wclGuildServerSlug = getStringOption(interaction.data?.options, "wcl_guild_server_slug");
+    const wclGuildServerSlug = getStringOption(interaction.data?.options, "wcl_guild_server_name");
     const wclGuildServerRegion = getStringOption(interaction.data?.options, "wcl_guild_server_region");
     const wclZoneId = getIntegerOption(interaction.data?.options, "wcl_zone_id");
     const compareModeDefault = rawCompareMode === undefined ? undefined : parseCompareMode(rawCompareMode);

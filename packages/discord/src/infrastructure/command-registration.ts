@@ -198,8 +198,8 @@ export const commandDefinitions: CommandDefinition[] = [
                 required: false,
             },
             {
-                name: "wcl_guild_server_slug",
-                description: "WCL server slug for /guildrank",
+                name: "wcl_guild_server_name",
+                description: "WCL server name for /guildrank",
                 type: STRING_OPTION_TYPE,
                 required: false,
             },
