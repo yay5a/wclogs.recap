@@ -1,9 +1,9 @@
 import { WclClient } from '../src/wcl-client.js';
 
-const [guildName, serverSlug, serverRegion, zoneIdRaw, difficulty, size] = process.argv.slice(2);
+const [guildName, serverSlug, serverRegion, zoneIdRaw, difficulty, size, gameFamily] = process.argv.slice(2);
 if (!guildName || !serverSlug || !serverRegion || !zoneIdRaw || !difficulty || !size) {
   console.error(
-    'Usage: pnpm --filter @wcl/wcl-client probe:guildrank <guildName> <serverSlug> <serverRegion> <zoneId> <difficulty> <size>',
+    'Usage: pnpm --filter @wcl/wcl-client probe:guildrank <guildName> <serverSlug> <serverRegion> <zoneId> <difficulty> <size> [gameFamily]',
   );
   process.exit(1);
 }
@@ -36,6 +36,7 @@ const summary = await client.fetchGuildRankSummary({
   zoneId,
   difficulty,
   size,
+  ...(gameFamily === 'retail' || gameFamily === 'mop_classic' ? { gameFamily } : {}),
 });
 
 console.log(JSON.stringify(summary, null, 2));

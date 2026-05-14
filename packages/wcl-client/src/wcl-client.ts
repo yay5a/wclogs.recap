@@ -1,4 +1,4 @@
-import type { GuildRankSummary, ReportSummary } from '@wcl/domain';
+import type { GameFamily, GuildRankSummary, ReportSummary } from '@wcl/domain';
 import { WclGraphqlClient } from './graphql-client.js';
 import { parseReportUrl } from './report-code.js';
 import { publicClientAuthMode, userLinkedAuthMode, type WclAuthMode } from './auth-mode.js';
@@ -35,6 +35,20 @@ export interface WclAuthContextOptions {
   discordUserId?: string;
 }
 
+const toGameFamilyApiBaseUrl = (apiBaseUrl: string, gameFamily?: GameFamily): string => {
+  if (gameFamily !== 'mop_classic') return apiBaseUrl;
+  try {
+    const url = new URL(apiBaseUrl);
+    if (url.hostname === 'www.warcraftlogs.com') {
+      url.hostname = 'classic.warcraftlogs.com';
+      return url.toString();
+    }
+  } catch {
+    return apiBaseUrl;
+  }
+  return apiBaseUrl;
+};
+
 export class WclClient {
   public constructor(private readonly options: WclClientOptions) {}
 
@@ -57,7 +71,7 @@ export class WclClient {
     options: WclAuthContextOptions = {},
   ): Promise<GuildRankSummary> {
     return this.withAuthFallback(`guildrank:${input.guildName}`, options, (authMode) =>
-      collectGuildRankSummaryData(this.createGraphqlClient(authMode), input, {
+      collectGuildRankSummaryData(this.createGraphqlClient(authMode, input.gameFamily), input, {
         ...(this.options.fetchImpl ? { fetchImpl: this.options.fetchImpl } : {}),
       }),
     );
@@ -130,12 +144,15 @@ export class WclClient {
     }
   }
 
-  private createGraphqlClient(authMode: WclAuthMode): WclGraphqlClient {
+  private createGraphqlClient(authMode: WclAuthMode, gameFamily?: GameFamily): WclGraphqlClient {
+    const apiBaseUrl = toGameFamilyApiBaseUrl(this.options.apiBaseUrl, gameFamily);
     return new WclGraphqlClient({
       clientId: this.options.clientId,
       clientSecret: this.options.clientSecret,
-      apiBaseUrl: this.options.apiBaseUrl,
-      ...(this.options.userApiBaseUrl ? { userApiBaseUrl: this.options.userApiBaseUrl } : {}),
+      apiBaseUrl,
+      ...(this.options.userApiBaseUrl
+        ? { userApiBaseUrl: toGameFamilyApiBaseUrl(this.options.userApiBaseUrl, gameFamily) }
+        : {}),
       ...(this.options.fetchImpl ? { fetchImpl: this.options.fetchImpl } : {}),
       authMode,
     });

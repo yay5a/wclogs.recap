@@ -75,6 +75,7 @@ export interface GuildRankInput {
   zoneId: number;
   difficulty: string;
   size: string;
+  gameFamily?: GameFamily;
 }
 
 export interface GuildRankWindows {

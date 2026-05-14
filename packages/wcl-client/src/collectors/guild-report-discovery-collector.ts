@@ -1,6 +1,9 @@
 import type { WclGraphqlClient } from '../graphql-client.js';
+import { createLogger, serializeError } from '@wcl/shared';
 import { asArray, asNumber, asObject, asString } from '../parsers/common.js';
 import type { GuildReportDiscoveryRow } from '../pipeline/types.js';
+
+const logger = createLogger('wcl-client');
 
 const GUILD_REPORT_DISCOVERY_QUERY = `
 query GuildReportDiscovery(
@@ -9,6 +12,7 @@ query GuildReportDiscovery(
   $guildServerRegion: String!
   $startTime: Float!
   $endTime: Float!
+  $zoneID: Int!
   $limit: Int!
   $page: Int!
 ) {
@@ -19,6 +23,7 @@ query GuildReportDiscovery(
       guildServerRegion: $guildServerRegion
       startTime: $startTime
       endTime: $endTime
+      zoneID: $zoneID
       limit: $limit
       page: $page
     ) {
@@ -44,6 +49,8 @@ const normalizeServerSlug = (value: string): string =>
     .replace(/[^a-z0-9-]/g, '')
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '');
+
+const normalizeEndpointRegion = (value: string): string => value.trim().toUpperCase();
 
 const parseV2Rows = (payload: unknown): GuildReportDiscoveryRow[] => {
   const data = asObject((payload as { data?: unknown })?.data);
@@ -92,6 +99,21 @@ const parseV1Rows = (payload: unknown): GuildReportDiscoveryRow[] => {
   });
 };
 
+const filterRowsToWindow = (
+  rows: GuildReportDiscoveryRow[],
+  input: { startTimeMs: number; endTimeMs: number },
+): GuildReportDiscoveryRow[] =>
+  rows.filter((row) => row.startTime >= input.startTimeMs && row.startTime <= input.endTimeMs);
+
+const toDebugRows = (rows: GuildReportDiscoveryRow[]) =>
+  rows.map((row) => ({
+    reportCode: row.code,
+    startTime: row.startTime,
+    ...(typeof row.endTime === 'number' ? { endTime: row.endTime } : {}),
+    ...(typeof row.zoneId === 'number' ? { zoneId: row.zoneId } : {}),
+    ...(row.zoneName ? { zoneName: row.zoneName } : {}),
+  }));
+
 export const collectGuildReportDiscovery = async (
   client: WclGraphqlClient,
   input: {
@@ -105,22 +127,50 @@ export const collectGuildReportDiscovery = async (
   },
 ): Promise<{ rows: GuildReportDiscoveryRow[]; source: 'v2' | 'v1' | 'none' }> => {
   const guildServerSlug = normalizeServerSlug(input.guildServerSlug);
-  const guildServerRegion = input.guildServerRegion.trim().toLowerCase();
+  const guildServerRegion = normalizeEndpointRegion(input.guildServerRegion);
+  const debugBase = {
+    guildName: input.guildName,
+    configuredServerName: input.guildServerSlug,
+    guildServerSlug,
+    configuredRegion: input.guildServerRegion,
+    guildServerRegion,
+    zoneId: input.zoneId,
+    startTimeMs: input.startTimeMs,
+    endTimeMs: input.endTimeMs,
+  };
   try {
-    const payload = await client.request<Record<string, unknown>>(GUILD_REPORT_DISCOVERY_QUERY, {
+    const queryVariables = {
       guildName: input.guildName,
       guildServerSlug,
       guildServerRegion,
       startTime: input.startTimeMs,
       endTime: input.endTimeMs,
+      zoneID: input.zoneId,
       limit: 100,
       page: 1,
-    });
-    const rows = parseV2Rows(payload);
+    };
+    const payload = await client.request<Record<string, unknown>>(GUILD_REPORT_DISCOVERY_QUERY, queryVariables);
+    const rawRows = parseV2Rows(payload);
+    const rows = filterRowsToWindow(rawRows, input);
+    logger.info(
+      {
+        ...debugBase,
+        source: 'v2',
+        rawDiscoveryQueryParameters: queryVariables,
+        rawDiscoveredReportCount: rawRows.length,
+        rawDiscoveredReports: toDebugRows(rawRows),
+        timeWindowMatchedReportCount: rows.length,
+      },
+      'guildrank report discovery stage',
+    );
     if (rows.length > 0) {
       return { rows, source: 'v2' };
     }
-  } catch {
+  } catch (error) {
+    logger.info(
+      { ...debugBase, source: 'v2', error: serializeError(error) },
+      'guildrank report discovery stage failed',
+    );
     // fall through to v1
   }
 
@@ -136,10 +186,47 @@ export const collectGuildReportDiscovery = async (
     url.searchParams.set('start', String(Math.trunc(input.startTimeMs)));
     url.searchParams.set('end', String(Math.trunc(input.endTimeMs)));
     const response = await fetchImpl(url.toString());
-    if (!response.ok) return { rows: [], source: 'none' };
+    if (!response.ok) {
+      logger.info(
+        {
+          ...debugBase,
+          source: 'v1',
+          rawDiscoveryQueryParameters: {
+            url: url.toString(),
+            start: Math.trunc(input.startTimeMs),
+            end: Math.trunc(input.endTimeMs),
+          },
+          status: response.status,
+          statusText: response.statusText,
+        },
+        'guildrank report discovery stage failed',
+      );
+      return { rows: [], source: 'none' };
+    }
     const payload = await response.json();
-    return { rows: parseV1Rows(payload), source: 'v1' };
-  } catch {
+    const rawRows = parseV1Rows(payload);
+    const rows = filterRowsToWindow(rawRows, input);
+    logger.info(
+      {
+        ...debugBase,
+        source: 'v1',
+        rawDiscoveryQueryParameters: {
+          url: url.toString(),
+          start: Math.trunc(input.startTimeMs),
+          end: Math.trunc(input.endTimeMs),
+        },
+        rawDiscoveredReportCount: rawRows.length,
+        rawDiscoveredReports: toDebugRows(rawRows),
+        timeWindowMatchedReportCount: rows.length,
+      },
+      'guildrank report discovery stage',
+    );
+    return { rows, source: 'v1' };
+  } catch (error) {
+    logger.info(
+      { ...debugBase, source: 'v1', error: serializeError(error) },
+      'guildrank report discovery stage failed',
+    );
     return { rows: [], source: 'none' };
   }
 };

@@ -7,8 +7,8 @@ describe('guild report discovery collector', () => {
     guildServerSlug: 'stormrage',
     guildServerRegion: 'us',
     zoneId: 100,
-    startTimeMs: 1,
-    endTimeMs: 2,
+    startTimeMs: 0,
+    endTimeMs: 5000,
   };
 
   it('uses v2 report discovery first', async () => {
@@ -56,14 +56,45 @@ describe('guild report discovery collector', () => {
       },
     });
 
-    await collectGuildReportDiscovery({ request } as never, {
-      ...input,
-      guildServerSlug: 'Galakras',
-      guildServerRegion: 'US',
-    });
+    await collectGuildReportDiscovery(
+      { request } as never,
+      {
+        ...input,
+        guildServerSlug: 'Galakras',
+        guildServerRegion: 'US',
+        fetchImpl: vi.fn().mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue([]) }),
+      },
+    );
 
     const variables = request.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(variables.guildServerSlug).toBe('galakras');
-    expect(variables.guildServerRegion).toBe('us');
+    expect(variables.guildServerRegion).toBe('US');
+    expect(variables.zoneID).toBe(100);
+  });
+
+  it('uses millisecond timestamps for discovery queries and window filtering', async () => {
+    const request = vi.fn().mockResolvedValue({
+      data: {
+        reportData: {
+          reports: {
+            data: [
+              { code: 'IN', startTime: 1778716776327, endTime: 1778720000000, zone: { id: 100 } },
+              { code: 'OUT', startTime: 1778000000000, endTime: 1778000100000, zone: { id: 100 } },
+            ],
+          },
+        },
+      },
+    });
+
+    const result = await collectGuildReportDiscovery({ request } as never, {
+      ...input,
+      startTimeMs: 1778600000000,
+      endTimeMs: 1778800000000,
+    });
+
+    const variables = request.mock.calls[0]?.[1] as Record<string, unknown>;
+    expect(variables.startTime).toBe(1778600000000);
+    expect(variables.endTime).toBe(1778800000000);
+    expect(result.rows.map((row) => row.code)).toEqual(['IN']);
   });
 });

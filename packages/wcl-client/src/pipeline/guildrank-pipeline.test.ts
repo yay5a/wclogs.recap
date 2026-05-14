@@ -201,12 +201,14 @@ describe('guildrank pipeline', () => {
       if (query.includes('query GuildReportDiscovery')) {
         const start = Number(variables.startTime);
         const currentStart = now - 7 * 24 * 60 * 60 * 1000;
-        const code = start === currentStart ? 'C1' : 'B1';
+        const isCurrent = start === currentStart;
+        const code = isCurrent ? 'C1' : 'B1';
+        const reportStart = isCurrent ? now - 1000 : now - 10 * 24 * 60 * 60 * 1000;
         return {
           data: {
             reportData: {
               reports: {
-                data: [{ code, startTime: now - 1000, endTime: now, zone: { id: 100 } }],
+                data: [{ code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } }],
               },
             },
           },
@@ -347,12 +349,14 @@ describe('guildrank pipeline', () => {
       if (query.includes('query GuildReportDiscovery')) {
         const start = Number(variables.startTime);
         const currentStart = now - 7 * 24 * 60 * 60 * 1000;
-        const code = start === currentStart ? 'C1' : 'B1';
+        const isCurrent = start === currentStart;
+        const code = isCurrent ? 'C1' : 'B1';
+        const reportStart = isCurrent ? now - 1000 : now - 10 * 24 * 60 * 60 * 1000;
         return {
           data: {
             reportData: {
               reports: {
-                data: [{ code, startTime: now - 1000, endTime: now, zone: { id: 100 } }],
+                data: [{ code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } }],
               },
             },
           },
@@ -504,12 +508,14 @@ describe('guildrank pipeline', () => {
       if (query.includes('query GuildReportDiscovery')) {
         const start = Number(variables.startTime);
         const currentStart = now - 7 * 24 * 60 * 60 * 1000;
-        const code = start === currentStart ? 'C1' : 'B1';
+        const isCurrent = start === currentStart;
+        const code = isCurrent ? 'C1' : 'B1';
+        const reportStart = isCurrent ? now - 1000 : now - 10 * 24 * 60 * 60 * 1000;
         return {
           data: {
             reportData: {
               reports: {
-                data: [{ code, startTime: now - 1000, endTime: now, zone: { id: 100 } }],
+                data: [{ code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } }],
               },
             },
           },
@@ -638,6 +644,357 @@ describe('guildrank pipeline', () => {
     );
 
     expect(summary.notes).toContain(
+      'No current-window reports were discovered for the configured guild and zone.',
+    );
+  });
+
+  it('discovers a current-window Shenanigans Galakras heroic 10man report and derives metrics', async () => {
+    const now = Date.UTC(2026, 4, 14, 12, 0, 0);
+    const reportStart = 1778716776327;
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const request = vi.fn(async (query: string, variables: Record<string, unknown>) => {
+      if (query.includes('query ZoneResolver')) {
+        return {
+          data: {
+            worldData: {
+              zone: {
+                id: 1046,
+                name: 'Throne of Thunder',
+                difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }],
+                encounters: Array.from({ length: 13 }, (_, index) => ({
+                  id: index + 1,
+                  name: `Encounter ${index + 1}`,
+                })),
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildReportDiscovery')) {
+        expect(variables.guildName).toBe('Shenanigans');
+        expect(variables.guildServerSlug).toBe('galakras');
+        expect(variables.guildServerRegion).toBe('US');
+        const currentStart = now - 7 * 24 * 60 * 60 * 1000;
+        return {
+          data: {
+            reportData: {
+              reports: {
+                data:
+                  Number(variables.startTime) === currentStart
+                    ? [
+                        {
+                          code: 'XLWjxmYh37GNnyJK',
+                          startTime: reportStart,
+                          endTime: reportStart + 3_600_000,
+                          zone: { id: 1046, name: 'Throne of Thunder' },
+                        },
+                      ]
+                    : [],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildZoneRanks') || query.includes('query ProgressRaceFallback')) {
+        throw new Error('rankings unavailable');
+      }
+
+      if (query.includes('query ReportIndex')) {
+        return {
+          data: {
+            reportData: {
+              report: {
+                title: 'Heroic ToT 10M',
+                startTime: reportStart,
+                endTime: reportStart + 3_600_000,
+                zone: {
+                  id: 1046,
+                  name: 'Throne of Thunder',
+                  difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }],
+                },
+                fights: [
+                  {
+                    id: 11,
+                    encounterID: 1,
+                    difficulty: 4,
+                    size: 10,
+                    name: "Jin'rokh the Breaker",
+                    startTime: 0,
+                    endTime: 120_000,
+                    kill: true,
+                  },
+                  {
+                    id: 12,
+                    encounterID: 1,
+                    difficulty: 4,
+                    size: 10,
+                    name: "Jin'rokh the Breaker",
+                    startTime: 130_000,
+                    endTime: 200_000,
+                    kill: false,
+                  },
+                ],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query ReportTableByType')) {
+        const dataType = String(variables.dataType);
+        const fightIds = Array.isArray(variables.fightIDs) ? (variables.fightIDs as number[]) : [];
+        const fightId = fightIds[0];
+        return {
+          data: {
+            reportData: {
+              report: {
+                table: {
+                  entries:
+                    dataType === 'Deaths'
+                      ? [{ name: 'Any', deaths: fightId === 11 ? 2 : 4 }]
+                      : [],
+                },
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
+    });
+
+    const summary = await collectGuildRankSummaryData(
+      { request } as never,
+      {
+        guildName: 'Shenanigans',
+        guildServerSlug: 'Galakras',
+        guildServerRegion: 'us',
+        zoneId: 1046,
+        difficulty: 'heroic',
+        size: '10man',
+        gameFamily: 'mop_classic',
+      },
+    );
+
+    expect(summary.progress.clearedEncounters).toBe(1);
+    expect(summary.progress.totalEncounters).toBe(13);
+    expect(summary.progress.pulls).toBe(2);
+    expect(summary.progress.wipes).toBe(1);
+    expect(summary.speed.overall.bestPercentile).toBe(100);
+    expect(summary.execution.overall.bestPercentile).toBe(100);
+    expect(summary.notes).not.toContain(
+      'No current-window reports were discovered for the configured guild and zone.',
+    );
+  });
+
+  it('matches by zone name only when report zone ID is missing', async () => {
+    const now = Date.UTC(2026, 4, 14, 12, 0, 0);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const request = vi.fn(async (query: string, variables: Record<string, unknown>) => {
+      if (query.includes('query ZoneResolver')) {
+        return {
+          data: {
+            worldData: {
+              zone: {
+                id: 1046,
+                name: 'Throne of Thunder',
+                difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                encounters: [{ id: 1, name: "Jin'rokh the Breaker" }],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildReportDiscovery')) {
+        const currentStart = now - 7 * 24 * 60 * 60 * 1000;
+        return {
+          data: {
+            reportData: {
+              reports: {
+                data:
+                  Number(variables.startTime) === currentStart
+                    ? [
+                        {
+                          code: 'NAMEONLY',
+                          startTime: now - 1000,
+                          endTime: now,
+                          zone: { name: 'Throne of Thunder' },
+                        },
+                      ]
+                    : [],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildZoneRanks') || query.includes('query ProgressRaceFallback')) {
+        throw new Error('rankings unavailable');
+      }
+
+      if (query.includes('query ReportIndex')) {
+        return {
+          data: {
+            reportData: {
+              report: {
+                title: 'Name only zone report',
+                startTime: now - 1000,
+                endTime: now,
+                zone: {
+                  name: 'Throne of Thunder',
+                  difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                },
+                fights: [
+                  {
+                    id: 11,
+                    encounterID: 1,
+                    difficulty: 4,
+                    size: 10,
+                    name: "Jin'rokh the Breaker",
+                    startTime: 0,
+                    endTime: 120_000,
+                    kill: true,
+                  },
+                ],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query ReportTableByType')) {
+        return {
+          data: { reportData: { report: { table: { entries: [] } } } },
+        };
+      }
+
+      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
+    });
+
+    const summary = await collectGuildRankSummaryData(
+      { request } as never,
+      {
+        guildName: 'Shenanigans',
+        guildServerSlug: 'Galakras',
+        guildServerRegion: 'us',
+        zoneId: 1046,
+        difficulty: 'heroic',
+        size: '10man',
+      },
+    );
+
+    expect(summary.progress.pulls).toBe(1);
+    expect(summary.notes).not.toContain(
+      'Current-window reports were discovered, but none matched the configured zone filter.',
+    );
+  });
+
+  it('keeps zone ID authoritative when report zone ID and zone name disagree', async () => {
+    const now = Date.UTC(2026, 4, 14, 12, 0, 0);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const request = vi.fn(async (query: string, variables: Record<string, unknown>) => {
+      if (query.includes('query ZoneResolver')) {
+        return {
+          data: {
+            worldData: {
+              zone: {
+                id: 1046,
+                name: 'Throne of Thunder',
+                difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                encounters: [{ id: 1, name: "Jin'rokh the Breaker" }],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildReportDiscovery')) {
+        const currentStart = now - 7 * 24 * 60 * 60 * 1000;
+        return {
+          data: {
+            reportData: {
+              reports: {
+                data:
+                  Number(variables.startTime) === currentStart
+                    ? [
+                        {
+                          code: 'WRONGZONE',
+                          startTime: now - 1000,
+                          endTime: now,
+                          zone: { id: 9999, name: 'Throne of Thunder' },
+                        },
+                      ]
+                    : [],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildZoneRanks') || query.includes('query ProgressRaceFallback')) {
+        throw new Error('rankings unavailable');
+      }
+
+      if (query.includes('query ReportIndex')) {
+        return {
+          data: {
+            reportData: {
+              report: {
+                title: 'Wrong zone report',
+                startTime: now - 1000,
+                endTime: now,
+                zone: {
+                  id: 9999,
+                  name: 'Throne of Thunder',
+                  difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                },
+                fights: [
+                  {
+                    id: 11,
+                    encounterID: 1,
+                    difficulty: 4,
+                    size: 10,
+                    name: "Jin'rokh the Breaker",
+                    startTime: 0,
+                    endTime: 120_000,
+                    kill: true,
+                  },
+                ],
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
+    });
+
+    const summary = await collectGuildRankSummaryData(
+      { request } as never,
+      {
+        guildName: 'Shenanigans',
+        guildServerSlug: 'Galakras',
+        guildServerRegion: 'us',
+        zoneId: 1046,
+        difficulty: 'heroic',
+        size: '10man',
+      },
+    );
+
+    expect(summary.progress.pulls).toBe(0);
+    expect(summary.notes).toContain(
+      'Current-window reports were discovered, but none matched the configured zone filter.',
+    );
+    expect(summary.notes).not.toContain(
       'No current-window reports were discovered for the configured guild and zone.',
     );
   });

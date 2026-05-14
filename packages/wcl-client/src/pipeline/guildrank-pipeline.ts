@@ -1,4 +1,5 @@
-import type { GuildRankSummary } from '@wcl/domain';
+import type { GameFamily, GuildRankSummary } from '@wcl/domain';
+import { createLogger, serializeError } from '@wcl/shared';
 import type { WclGraphqlClient } from '../graphql-client.js';
 import { collectGuildReportDiscovery } from '../collectors/guild-report-discovery-collector.js';
 import { resolveGuildConfigZoneInput } from '../collectors/guild-config-zone-input-resolver.js';
@@ -15,6 +16,7 @@ import type {
 } from './types.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const logger = createLogger('wcl-client');
 
 const normalizeServerSlug = (value: string): string =>
   value
@@ -101,11 +103,12 @@ const collectEncounterMetricsFromReport = async (
   zone: { zoneId: number; zoneName: string },
   difficultyId: number,
   sizeValue: number,
+  gameFamily: GameFamily,
 ): Promise<EncounterMetricsByReport> => {
   const index = await collectReportIndex(client, {
     reportCode,
     sourceUrl: `https://www.warcraftlogs.com/reports/${reportCode}`,
-    gameFamily: 'retail',
+    gameFamily,
   });
 
   const matchesZone = reportMatchesZone(
@@ -177,6 +180,29 @@ const collectEncounterMetricsFromReport = async (
   };
 };
 
+const logDiscoveryFilterStage = (
+  context: Record<string, unknown>,
+  counts: {
+    currentRawReports: number;
+    currentZoneMatchedReports: number;
+    currentDifficultySizeMatchedReports: number;
+    baselineRawReports: number;
+  },
+): void => {
+  logger.info(
+    {
+      ...context,
+      rawDiscoveredReportCount: counts.currentRawReports,
+      timeWindowMatchedReportCount: counts.currentRawReports,
+      guildServerRegionMatchedReportCount: counts.currentRawReports,
+      zoneMatchedReportCount: counts.currentZoneMatchedReports,
+      difficultySizeFightMatchedReportCount: counts.currentDifficultySizeMatchedReports,
+      baselineRawDiscoveredReportCount: counts.baselineRawReports,
+    },
+    'guildrank report discovery filter counts',
+  );
+};
+
 const buildMetricSet = (
   currentRows: Map<string, number[]>,
   baselineRows: Map<string, number[]>,
@@ -240,6 +266,24 @@ export const collectGuildRankSummaryData = async (
   };
   const resolved = await resolveGuildConfigZoneInput(client, normalizedInput);
   const windows = buildWindows();
+  const debugContext = {
+    guildName: normalizedInput.guildName,
+    configuredServerName: input.guildServerSlug,
+    configuredServerSlug: normalizedInput.guildServerSlug,
+    configuredRegion: normalizedInput.guildServerRegion,
+    configuredZoneId: normalizedInput.zoneId,
+    resolvedZoneName: resolved.zoneName,
+    selectedDifficulty: resolved.difficultyLabel,
+    selectedDifficultyId: resolved.difficultyId,
+    selectedSize: resolved.sizeLabel,
+    selectedSizeValue: resolved.sizeValue,
+    currentWindowStartMs: windows.currentStartMs,
+    currentWindowEndMs: windows.currentEndMs,
+    baselineWindowStartMs: windows.baselineStartMs,
+    baselineWindowEndMs: windows.baselineEndMs,
+  };
+
+  logger.info(debugContext, 'guildrank report discovery input');
 
   const [currentDiscovery, baselineDiscovery, officialRanks] = await Promise.all([
     collectGuildReportDiscovery(client, {
@@ -282,13 +326,23 @@ export const collectGuildRankSummaryData = async (
   let currentDifficultySizeMatchedReports = 0;
 
   for (const row of currentDiscovery.rows) {
-    const reportMetrics = await collectEncounterMetricsFromReport(
-      client,
-      row.code,
-      { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
-      resolved.difficultyId,
-      resolved.sizeValue,
-    );
+    let reportMetrics: EncounterMetricsByReport;
+    try {
+      reportMetrics = await collectEncounterMetricsFromReport(
+        client,
+        row.code,
+        { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
+        resolved.difficultyId,
+        resolved.sizeValue,
+        normalizedInput.gameFamily ?? 'retail',
+      );
+    } catch (error) {
+      logger.info(
+        { ...debugContext, reportCode: row.code, error: serializeError(error) },
+        'guildrank report indexing failed during current-window filtering',
+      );
+      continue;
+    }
     if (!reportMetrics.matchesZone) continue;
     currentZoneMatchedReports += 1;
     if (!reportMetrics.hasDifficultySizeFights) continue;
@@ -315,13 +369,23 @@ export const collectGuildRankSummaryData = async (
   }
 
   for (const row of baselineDiscovery.rows) {
-    const reportMetrics = await collectEncounterMetricsFromReport(
-      client,
-      row.code,
-      { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
-      resolved.difficultyId,
-      resolved.sizeValue,
-    );
+    let reportMetrics: EncounterMetricsByReport;
+    try {
+      reportMetrics = await collectEncounterMetricsFromReport(
+        client,
+        row.code,
+        { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
+        resolved.difficultyId,
+        resolved.sizeValue,
+        normalizedInput.gameFamily ?? 'retail',
+      );
+    } catch (error) {
+      logger.info(
+        { ...debugContext, reportCode: row.code, error: serializeError(error) },
+        'guildrank report indexing failed during baseline filtering',
+      );
+      continue;
+    }
     if (!reportMetrics.matchesZone || !reportMetrics.hasDifficultySizeFights) continue;
 
     for (const [encounterName, speedValue] of reportMetrics.speedByEncounter.entries()) {
@@ -340,6 +404,13 @@ export const collectGuildRankSummaryData = async (
 
   const speedSets = buildMetricSet(currentMetricsByEncounter, baselineMetricsByEncounter, true);
   const executionSets = buildMetricSet(currentExecutionByEncounter, baselineExecutionByEncounter, true);
+
+  logDiscoveryFilterStage(debugContext, {
+    currentRawReports: currentDiscovery.rows.length,
+    currentZoneMatchedReports,
+    currentDifficultySizeMatchedReports,
+    baselineRawReports: baselineDiscovery.rows.length,
+  });
 
   const bundle: GuildRankCollectorBundle = {
     input: normalizedInput,

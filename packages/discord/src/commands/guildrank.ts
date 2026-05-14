@@ -9,7 +9,6 @@ import { buildGuildRankResponseBody } from '../renderers/guildrank.js';
 import { getInteractionDiscordUserId } from './report.js';
 
 const logger = createLogger('discord');
-const EPHEMERAL_MESSAGE_FLAG = 64;
 
 const normalizeWclServerSlug = (value: string): string =>
   value
@@ -44,7 +43,6 @@ export const processGuildRankInteraction = async (
 
   if (!difficulty || !size) {
     await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
-      flags: EPHEMERAL_MESSAGE_FLAG,
       content: 'Missing required difficulty or size.',
     });
     return;
@@ -59,7 +57,6 @@ export const processGuildRankInteraction = async (
       typeof guildConfig.wclZoneId !== 'number'
     ) {
       await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
-        flags: EPHEMERAL_MESSAGE_FLAG,
         content:
           'Missing /guildrank WCL target config. Set wcl_guild_name, wcl_guild_server_name, wcl_guild_server_region, and wcl_zone_id in /config.',
       });
@@ -75,6 +72,7 @@ export const processGuildRankInteraction = async (
         zoneId: guildConfig.wclZoneId,
         difficulty,
         size,
+        gameFamily: guildConfig.defaultGameFamily,
       },
       discordUserId ? { discordUserId } : undefined,
     );
@@ -90,7 +88,6 @@ export const processGuildRankInteraction = async (
       'guildrank processing failed',
     );
     await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
-      flags: EPHEMERAL_MESSAGE_FLAG,
       content: 'Could not build guild rankings right now. Verify /config WCL target values and try again.',
     });
   }
@@ -111,6 +108,5 @@ export const handleGuildRankCommand = (
 
   return {
     type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
-    data: { flags: EPHEMERAL_MESSAGE_FLAG },
   };
 };

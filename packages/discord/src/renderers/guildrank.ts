@@ -1,6 +1,5 @@
 import type { GuildRankSummary } from '@wcl/domain';
 
-const EPHEMERAL_MESSAGE_FLAG = 64;
 const integerFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 const decimalFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 
@@ -13,10 +12,7 @@ const formatMetric = (best?: number, median?: number, bestDelta?: number, median
     `Median Avg %: ${typeof median === 'number' ? decimalFormatter.format(median) : 'n/a'} (${formatDelta(medianDelta)})`,
   ].join('\n');
 
-export const buildGuildRankResponseBody = (
-  summary: GuildRankSummary,
-  options: { ephemeral?: boolean } = {},
-) => {
+export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
 
   fields.push({
@@ -99,7 +95,6 @@ export const buildGuildRankResponseBody = (
   });
 
   return {
-    ...(options.ephemeral ?? true ? { flags: EPHEMERAL_MESSAGE_FLAG } : {}),
     embeds: [
       {
         title: `Guild Rank - ${summary.guildName}`,

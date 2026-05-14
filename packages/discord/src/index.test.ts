@@ -4,6 +4,7 @@ import {
   commandDefinitions,
   handleInteraction,
 } from './index.js';
+import { buildGuildRankResponseBody } from './renderers/guildrank.js';
 
 const makeHandleOptions = () => ({
   wclClient: {
@@ -192,6 +193,70 @@ describe('discord command surfaces', () => {
       data: { flags: 64 },
     });
     expect(tasks).toHaveLength(1);
+  });
+
+  it('defers /guildrank publicly and schedules background execution', async () => {
+    const tasks: Array<() => void> = [];
+    const baseOptions = makeHandleOptions() as Record<string, unknown>;
+    const options = {
+      ...baseOptions,
+      scheduleBackgroundTask: (task: () => void) => {
+        tasks.push(task);
+      },
+    } as never;
+
+    const response = await handleInteraction(
+      {
+        id: 'i1',
+        application_id: 'app',
+        token: 'tok',
+        type: InteractionType.APPLICATION_COMMAND,
+        guild_id: 'guild-1',
+        member: { user: { id: 'user-1' }, permissions: '32' },
+        data: {
+          name: 'guildrank',
+          options: [
+            { name: 'difficulty', value: 'heroic' },
+            { name: 'size', value: '10man' },
+          ],
+        },
+      },
+      options,
+    );
+
+    expect(response).toEqual({
+      type: InteractionResponseType.DEFERRED_CHANNEL_MESSAGE_WITH_SOURCE,
+    });
+    expect(tasks).toHaveLength(1);
+  });
+
+  it('renders /guildrank response bodies without ephemeral flags', () => {
+    const response = buildGuildRankResponseBody({
+      guildName: 'Guild',
+      zoneName: 'Throne',
+      difficultyLabel: 'Heroic',
+      sizeLabel: '10man',
+      window: {
+        currentStartIso: new Date(0).toISOString(),
+        currentEndIso: new Date(1).toISOString(),
+        baselineStartIso: new Date(2).toISOString(),
+        baselineEndIso: new Date(3).toISOString(),
+      },
+      progress: {
+        clearedEncounters: 1,
+        totalEncounters: 1,
+        pulls: 1,
+        wipes: 0,
+        ranks: {},
+        ranksAvailable: false,
+        sourceLabel: 'Progress Only: Ranking Unavailable',
+      },
+      speed: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
+      execution: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
+      notes: [],
+    });
+
+    expect(response).not.toHaveProperty('flags');
   });
 
   it('does not render raw zone IDs in /config status output', async () => {
