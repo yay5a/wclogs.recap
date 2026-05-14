@@ -1,6 +1,10 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { ReportSummary } from '@wcl/domain';
-import { buildReportArtifact, REPORT_RUNTIME_FINGERPRINT } from './report.js';
+import {
+  buildReportArtifact,
+  reportPathFingerprint,
+  REPORT_RUNTIME_FINGERPRINT,
+} from './report.js';
 
 const summaryFixture = (): ReportSummary => ({
   reportCode: 'ABC123',
@@ -81,6 +85,7 @@ describe('/report command render path', () => {
       options: {
         wclClient,
       } as never,
+      reportPath: 'slash-command',
       url: 'https://www.warcraftlogs.com/reports/ABC123',
     });
 
@@ -91,7 +96,7 @@ describe('/report command render path', () => {
       (field) => field.name === '🏋️‍♂️ Top Players' || field.value === '🏋️‍♂️ Top Players',
     );
 
-    expect(fieldNames).toContain('🗿 Encounter Highlights');
+    expect(flattenedValues).toContain('🗿 Encounter Highlights');
     expect(hasTopPlayersSection).toBe(true);
     expect(fieldNames).toContain('Best Execution ⚔️');
     expect(fieldNames).toContain('Biggest Trouble 👨‍🦼');
@@ -99,6 +104,7 @@ describe('/report command render path', () => {
     expect(fieldNames).not.toContain('Highest Damage Taken');
     expect(fieldNames).not.toContain('Highest DPS');
     expect(flattenedValues).toContain(REPORT_RUNTIME_FINGERPRINT);
+    expect(flattenedValues).toContain(reportPathFingerprint('slash-command'));
     expect(flattenedValues).toContain('Highest Total DPS: Alyra - 40K/s');
     expect(flattenedValues).toContain('Highest Total HPS: Alyra - 12K/s');
     expect(flattenedValues).toContain('Highest Total DTPS: Bulwark - 18K/s');

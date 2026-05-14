@@ -280,8 +280,14 @@ const runPromptPreview = async (
         const artifact = await buildReportArtifact({
             ...(discordUserId ? { discordUserId } : {}),
             guildId: promptState.guildId,
-            ...(interaction.id ? { interactionId: interaction.id } : {}),
+            logContext: {
+                interactionId: interaction.id,
+                guildId: promptState.guildId,
+                channelId: promptState.channelId,
+                sourceMessageId,
+            },
             options,
+            reportPath: "preview-post",
             url: promptState.sourceUrl,
         });
         await editOriginalInteractionResponse(
@@ -353,8 +359,14 @@ const runDuplicatePreview = async (
         const artifact = await buildReportArtifact({
             ...(discordUserId ? { discordUserId } : {}),
             guildId: duplicateState.guildId,
-            ...(interaction.id ? { interactionId: interaction.id } : {}),
+            logContext: {
+                interactionId: interaction.id,
+                guildId: duplicateState.guildId,
+                channelId: duplicateState.channelId,
+                confirmationNonce,
+            },
             options,
+            reportPath: "preview-post",
             url: duplicateState.sourceUrl,
         });
 
@@ -589,7 +601,14 @@ export const handleAutoReportMessageCreate = async ({
         const artifact = await buildReportArtifact({
             discordUserId: message.authorId,
             guildId: message.guildId,
+            logContext: {
+                guildId: message.guildId,
+                channelId: message.channelId,
+                sourceMessageId: message.messageId,
+            },
             options: handleOptions,
+            reportPath:
+                guildConfig.autoReportMode === "auto_post" ? "auto-post" : "passive-detection",
             url: parsed.rawUrl,
         });
 

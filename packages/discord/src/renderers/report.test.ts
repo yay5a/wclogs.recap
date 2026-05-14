@@ -89,7 +89,10 @@ describe('/report renderer architecture', () => {
     const response = buildReportResponseBody(baseSummary());
     const fieldNames = getFieldNames(response);
     const fields = response.embeds[0]?.fields ?? [];
-    const highlightsIndex = fieldNames.indexOf('🗿 Encounter Highlights');
+    const highlightsIndex = fields.findIndex(
+      (field) =>
+        field.name === '🗿 Encounter Highlights' || field.value === '🗿 Encounter Highlights',
+    );
     const bestExecutionIndex = fieldNames.indexOf('Best Execution ⚔️');
     const biggestTroubleIndex = fieldNames.indexOf('Biggest Trouble 👨‍🦼');
     const topPlayersIndex = fields.findIndex(

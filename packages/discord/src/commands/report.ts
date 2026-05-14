@@ -11,30 +11,45 @@ const logger = createLogger('discord');
 const EPHEMERAL_MESSAGE_FLAG = 64;
 const DISCORD_PACKAGE_ID = '@wcl/discord@0.1.0';
 export const REPORT_RUNTIME_FINGERPRINT = 'render-fingerprint: report-runtime-canary-2026-05-14-A';
+export type ReportRenderPath = 'slash-command' | 'passive-detection' | 'auto-post' | 'preview-post';
+
+export const reportPathFingerprint = (path: ReportRenderPath): string => `report-path: ${path}`;
 
 type ResponseEmbedField = { name?: string; value?: string };
 type ResponseEmbed = { fields?: ResponseEmbedField[]; footer?: { text?: string } };
 type ResponseBodyWithEmbeds = { embeds?: ResponseEmbed[] };
 
-const injectReportRuntimeFingerprint = <TBody>(body: TBody): TBody => {
+const injectReportRuntimeFingerprint = <TBody>(
+  body: TBody,
+  reportPath: ReportRenderPath,
+): TBody => {
   const typedBody = body as unknown as ResponseBodyWithEmbeds;
   const embeds = Array.isArray(typedBody.embeds) ? typedBody.embeds : [];
   const primaryEmbed = embeds[0];
   if (!primaryEmbed) return body;
 
+  const fingerprints = [REPORT_RUNTIME_FINGERPRINT, reportPathFingerprint(reportPath)];
   const fields = Array.isArray(primaryEmbed.fields) ? primaryEmbed.fields : [];
   const dataSourceField = fields.find((field) => field.name === 'Data & Source');
   if (dataSourceField && typeof dataSourceField.value === 'string') {
-    if (!dataSourceField.value.includes(REPORT_RUNTIME_FINGERPRINT)) {
-      dataSourceField.value = `${dataSourceField.value}\n${REPORT_RUNTIME_FINGERPRINT}`;
+    const missingFingerprints = fingerprints.filter(
+      (fingerprint) => !dataSourceField.value?.includes(fingerprint),
+    );
+    if (missingFingerprints.length > 0) {
+      dataSourceField.value = `${dataSourceField.value}\n${missingFingerprints.join('\n')}`;
     }
     return body;
   }
 
   const footerText = primaryEmbed.footer?.text ?? '';
-  if (footerText.includes(REPORT_RUNTIME_FINGERPRINT)) return body;
+  const missingFooterFingerprints = fingerprints.filter(
+    (fingerprint) => !footerText.includes(fingerprint),
+  );
+  if (missingFooterFingerprints.length === 0) return body;
   primaryEmbed.footer = {
-    text: footerText ? `${footerText} | ${REPORT_RUNTIME_FINGERPRINT}` : REPORT_RUNTIME_FINGERPRINT,
+    text: footerText
+      ? `${footerText} | ${missingFooterFingerprints.join(' | ')}`
+      : missingFooterFingerprints.join(' | '),
   };
   return body;
 };
@@ -87,28 +102,52 @@ export const getReportFailureMessage = (error: unknown): string => {
 export const buildReportArtifact = async ({
   discordUserId,
   guildId: _guildId,
+  logContext = {},
   options,
+  reportPath,
   url,
 }: {
   discordUserId?: string;
   guildId?: string;
+  logContext?: Record<string, unknown>;
   options: HandleOptions;
+  reportPath: ReportRenderPath;
   url: string;
 }) => {
   const summary = await options.wclClient.fetchReportSummary(
     url,
     discordUserId ? { discordUserId } : undefined,
   );
+  const runtime = {
+    fingerprint: REPORT_RUNTIME_FINGERPRINT,
+    pathFingerprint: reportPathFingerprint(reportPath),
+    reportPath,
+    packageId: DISCORD_PACKAGE_ID,
+    buildReportResponseBodyCalled: true as const,
+  };
+  const resolvedLogContext = { ...(_guildId ? { guildId: _guildId } : {}), ...logContext };
+
+  logger.info(
+    {
+      ...resolvedLogContext,
+      reportRuntimeFingerprint: runtime.fingerprint,
+      reportPath: runtime.reportPath,
+      reportPathFingerprint: runtime.pathFingerprint,
+      cwd: process.cwd(),
+      packageId: runtime.packageId,
+      buildReportResponseBodyCalled: runtime.buildReportResponseBodyCalled,
+    },
+    'report runtime fingerprint',
+  );
 
   return {
     summary,
-    responseBody: injectReportRuntimeFingerprint(buildReportResponseBody(summary)),
-    publicBody: injectReportRuntimeFingerprint(buildReportResponseBody(summary, { ephemeral: false })),
-    runtime: {
-      fingerprint: REPORT_RUNTIME_FINGERPRINT,
-      packageId: DISCORD_PACKAGE_ID,
-      buildReportResponseBodyCalled: true as const,
-    },
+    responseBody: injectReportRuntimeFingerprint(buildReportResponseBody(summary), reportPath),
+    publicBody: injectReportRuntimeFingerprint(
+      buildReportResponseBody(summary, { ephemeral: false }),
+      reportPath,
+    ),
+    runtime,
   };
 };
 
@@ -138,21 +177,12 @@ export const processReportInteraction = async (
     const discordUserId = getInteractionDiscordUserId(interaction);
     const artifact = await buildReportArtifact({
       ...(discordUserId ? { discordUserId } : {}),
+      logContext: { interactionId, guildId },
       options,
+      reportPath: 'slash-command',
       url,
     });
-    const responseBody = injectReportRuntimeFingerprint(artifact.responseBody);
-    logger.info(
-      {
-        interactionId,
-        guildId,
-        reportRuntimeFingerprint: artifact.runtime.fingerprint,
-        cwd: process.cwd(),
-        packageId: artifact.runtime.packageId,
-        buildReportResponseBodyCalled: artifact.runtime.buildReportResponseBodyCalled,
-      },
-      'report runtime fingerprint',
-    );
+    const responseBody = artifact.responseBody;
     await editOriginalInteractionResponse(applicationId, interactionToken, responseBody);
   } catch (error) {
     logger.error(
@@ -166,6 +196,5 @@ export const processReportInteraction = async (
   }
 };
 
-export const getInteractionDiscordUserId = (
-  interaction: DiscordInteraction,
-): string | undefined => interaction.member?.user?.id ?? interaction.user?.id;
+export const getInteractionDiscordUserId = (interaction: DiscordInteraction): string | undefined =>
+  interaction.member?.user?.id ?? interaction.user?.id;
