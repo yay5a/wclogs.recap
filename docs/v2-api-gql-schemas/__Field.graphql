@@ -1,0 +1,24 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: __Field.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type __Field {
+
+
+name: String!
+description: String
+
+
+# Arguments
+# includeDeprecated: [Not documented]
+
+
+args(includeDeprecated: Boolean): [__InputValue!]!
+
+
+type: __Type!
+
+
+isDeprecated: Boolean!
+deprecationReason: String
+}

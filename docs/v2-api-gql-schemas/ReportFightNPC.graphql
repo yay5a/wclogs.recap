@@ -1,0 +1,27 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportFightNPC.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportFightNPC {
+# The game ID of the actor. This ID is used in events to identify sources and
+# targets.
+gameID: Int
+
+
+# The report ID of the actor. This ID is used in events to identify sources and
+# targets.
+id: Int
+
+
+# How many instances of the NPC were seen during the fight.
+instanceCount: Int
+
+
+# How many packs of the NPC were seen during the fight.
+groupCount: Int
+
+
+# The report ID of the actor that owns this NPC (if it is a pet). This ID is used
+# in events to identify sources and targets.
+petOwner: Int
+}

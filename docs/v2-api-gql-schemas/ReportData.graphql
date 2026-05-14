@@ -1,0 +1,76 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportData.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportData {
+# Obtain a specific report by its code.
+#
+# Arguments
+# code: Required. The code of a single report to retrieve.
+# allowUnlisted: Optional. Whether to allow viewing of unlisted
+# logs. If you have a multi-user application where you cache codes, set this to
+# true to avoid accidentally giving away unlisted codes to unauthorized users.
+report(code: String, allowUnlisted: Boolean): Report
+
+
+# A set of reports for a specific guild, guild tag, or user.
+#
+# Arguments
+# endTime: Optional. A UNIX timestamp with millisecond precision
+# representing the end time for a report range. If omitted, defaults to the
+# current time in milliseconds.
+# guildID: Optional. The ID of a specific guild. Reports from
+# that guild will be fetched.
+# guildName: Optional. The name of a specific guild. Must be used
+# in conjunction with guildServerSlug and guildServerRegion to uniquely identify a
+# guild.
+# guildServerSlug: Optional. The name of a specific guild. Must
+# be used in conjunction with guildName and guildServerRegion to uniquely identify
+# a guild.
+# guildServerRegion: Optional. The region for a specific guild.
+# Must be used in conjunction with guildName and guildServerRegion to uniquely
+# identify a guild.
+# guildTagID: Optional. The ID of a specific guild tag. Reports
+# from that guild tag will be fetched. This will take precedence over all other
+# guild arguments.
+# userID: Optional. The ID of a specific user. Reports from that
+# user's personal logs will be fetched.
+# limit: Optional. The number of characters to retrieve per page.
+# If omitted, defaults to 100. The maximum allowed value is 100, and minimum
+# allowed value is 1.
+# page: Optional. The page of paginated data to retrieve. If
+# omitted, defaults to the first page.
+# startTime: Optional. A UNIX timestamp with millisecond
+# precision representing a start time for a report range. If omitted, defaults to
+# 0.
+# zoneID: Optional. The ID of a specific zone to filter to.
+# Reports with that zone as their default will be included.
+# gameZoneID: Optional. The ID of a specific game zone to filter
+# reports to.
+
+reports(
+
+endTime: Float,
+
+guildID: Int,
+
+guildName: String,
+
+guildServerSlug: String,
+
+guildServerRegion: String,
+
+guildTagID: Int,
+
+userID: Int,
+
+limit: Int,
+
+page: Int,
+
+startTime: Float,
+
+zoneID: Int,
+gameZoneID: Int
+): ReportPagination
+}

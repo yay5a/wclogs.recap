@@ -1,0 +1,173 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Encounter.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Encounter {
+# The ID of the encounter.
+
+
+id: Int!
+# The localized name of the encounter.
+
+
+name: String!
+# Player rankings information for a zone. This data is not considered frozen, and
+# it can change without notice. Use at your own risk.
+#
+# Arguments
+# bracket: Optional. A specific bracket (e.g., item level range)
+# to use instead of overall rankings. For WoW, brackets are item levels or
+# keystones. For FF, brackets are patches.
+# difficulty: Optional. A specific difficulty to fetch rankings
+# for. If omitted, the highest difficulty is used.
+# filter: Optional. A filter string for advanced searching. The
+# syntax matches the one used on the web site exactly, so you can filter encounter
+# rankings on the site to figure out the string to use.
+# page: Optional. Which page of rankings to fetch. By default the
+# first page is used.
+# partition: Optional. Whether or not to filter the rankings to a
+# specific partition. By default, the latest partition is chosen.
+# serverRegion: Optional. The short name of a region to filter
+# to. If paired with a server slug, will uniquely identify a server. If used by
+# itself, rankings for that specific region will be fetched.
+# serverSlug: Optional. The slug for a specific server. Whether
+# or not to filter rankings to a specific server. If omitted, data for all servers
+# will be used.
+# size: Optional. Whether or not to filter rankings to a specific
+# size. If omitted, the first valid raid size will be used.
+# leaderboard: Optional. Controls whether to include ranks
+# without backing logs in games & content types that support this. Ignored if
+# unsupported.
+# hardModeLevel: Optional. Filters ranks to a specific hard mode
+# (0-5) or any hard mode level (-1). Most encounters do not have variable hard
+# mode levels. Use `difficulty` for ESO Veteran Hard Modes.
+# metric: Optional. You can filter to a specific player metric
+# like dps or hps. If omitted, an appropriate default player metric for the zone
+# will be chosen.
+# includeCombatantInfo: Optional. Whether or not to include
+# detailed combatant info such as gear in the results.
+# includeOtherPlayers: Optional. Whether to include the other
+# characters cleared with in the results.
+# className: Optional. The slug for a specific class. Whether or
+# not to filter rankings to a specific class. If omitted, data for all classes
+# will be used.
+# specName: Optional. The slug for a specific spec. Whether or
+# not to filter rankings to a specific spec. If omitted, data for all specs will
+# be used.
+# externalBuffs: Optional. Controls whether to include ranks
+# with/without external buffs. Most games and zones do not support this filter and
+# will quietly ignore it.
+# covenantID: Optional. The covenant ID to filter to if viewing
+# Shadowlands rankings.
+# soulbindID: Optional. The soulbind ID to filter to if viewing
+# Shadowlands rankings.
+
+characterRankings(
+
+bracket: Int,
+
+difficulty: Int,
+
+filter: String,
+
+page: Int,
+
+partition: Int,
+
+serverRegion: String,
+
+serverSlug: String,
+
+size: Int,
+
+leaderboard: LeaderboardRank,
+
+hardModeLevel: HardModeLevelRankFilter,
+
+metric: CharacterRankingMetricType,
+includeCombatantInfo: Boolean,
+
+includeOtherPlayers: Boolean,
+
+className: String,
+
+specName: String,
+
+externalBuffs: ExternalBuffRankFilter,
+
+covenantID: Int,
+soulbindID: Int
+): JSON
+
+
+# Fight rankings information for a zone. This data is not considered frozen, and
+# it can change without notice. Use at your own risk.
+#
+# Arguments
+# bracket: Optional. A specific bracket (e.g., item level range)
+# to use instead of overall rankings. For WoW, brackets are item levels or
+# keystones. For FF, brackets are patches.
+# difficulty: Optional. A specific difficulty to fetch rankings
+# for. If omitted, the highest difficulty is used.
+# filter: Optional. A filter string for advanced searching. The
+# syntax matches the one used on the web site exactly, so you can filter encounter
+# rankings on the site to figure out the string to use.
+# page: Optional. Which page of rankings to fetch. By default the
+# first page is used.
+# partition: Optional. Whether or not to filter the rankings to a
+# specific partition. By default, the latest partition is chosen.
+# serverRegion: Optional. The short name of a region to filter
+# to. If paired with a server slug, will uniquely identify a server. If used by
+# itself, rankings for that specific region will be fetched.
+# serverSlug: Optional. The slug for a specific server. Whether
+# or not to filter rankings to a specific server. If omitted, data for all servers
+# will be used.
+# size: Optional. Whether or not to filter rankings to a specific
+# size. If omitted, the first valid raid size will be used.
+# leaderboard: Optional. Controls whether to include ranks
+# without backing logs in games & content types that support this. Ignored if
+# unsupported.
+# hardModeLevel: Optional. Filters ranks to a specific hard mode
+# (0-5) or any hard mode level (-1). Most encounters do not have variable hard
+# mode levels. Use `difficulty` for ESO Veteran Hard Modes.
+# metric: Optional. You can filter to a specific fight metric
+# like speed or execution. If omitted, an appropriate default fight metric for the
+# zone will be chosen.
+# includeOtherPlayers: Optional. Whether to include the other
+# characters cleared with in the results.
+
+fightRankings(
+
+bracket: Int,
+
+difficulty: Int,
+
+filter: String,
+
+page: Int,
+
+partition: Int,
+
+serverRegion: String,
+
+serverSlug: String,
+
+size: Int,
+
+leaderboard: LeaderboardRank,
+
+hardModeLevel: HardModeLevelRankFilter,
+
+metric: FightRankingMetricType,
+includeOtherPlayers: Boolean
+): JSON
+
+
+# The zone that this encounter is found in.
+
+
+zone: Zone!
+# The Blizzard journal ID, used as the identifier in the encounter journal and
+# various Blizzard APIs like progression.
+journalID: Int!
+}

@@ -1,0 +1,16 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: RateLimitData.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type RateLimitData {
+# The total amount of points this API key can spend per hour.
+
+
+limitPerHour: Int!
+# The total amount of points spent during this hour.
+
+
+pointsSpentThisHour: Float!
+# The number of seconds remaining until the points reset.
+pointsResetIn: Int!
+}

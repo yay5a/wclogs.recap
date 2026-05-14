@@ -1,0 +1,35 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportComponentData.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportComponentData {
+# List all report components attached to the user owning the current API key.
+
+
+list: [ReportComponent!]!
+# Get a report component by its ID.
+#
+# Arguments
+# key: The report component ID
+get(key: String!): ReportComponent
+
+
+# Evaluate a report component script directly, without creating an object first.
+#
+# Arguments
+# contents: [Not documented]
+# filter: [Not documented]
+# debug: [Not documented]
+# reportCode: [Not documented]
+
+evaluateScript(
+
+contents: String!,
+
+filter: ReportComponentFilter,
+
+debug: Boolean,
+):
+reportCode: String!
+ReportComponentResult
+}

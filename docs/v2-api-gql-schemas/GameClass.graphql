@@ -1,0 +1,20 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: GameClass.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type GameClass {
+# An integer used to identify the class.
+
+
+id: Int!
+# The localized name of the class.
+
+
+name: String!
+# A slug used to identify the class.
+
+
+slug: String!
+# The specs supported by the class.
+specs: [GameSpec]
+}

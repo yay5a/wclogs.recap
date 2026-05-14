@@ -1,0 +1,35 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Region.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Region {
+# The ID of the region.
+
+
+id: Int!
+# The localized compact name of the region, e.g., US for United States.
+
+
+compactName: String!
+# The localized name of the region.
+
+
+name: String!
+# The slug for the region, usable when looking up characters and guilds by server.
+
+
+slug: String!
+# The subregions found within this region.
+
+
+subregions: [Subregion]
+# The servers found within this region.
+#
+# Arguments
+# limit: Optional. The number of servers to retrieve per page. If
+# omitted, defaults to 100. The maximum allowed value is 5000, and minimum allowed
+# value is 1.
+# page: Optional. The page of paginated data to retrieve. If
+# omitted, defaults to the first page.
+servers(limit: Int, page: Int): ServerPagination
+}

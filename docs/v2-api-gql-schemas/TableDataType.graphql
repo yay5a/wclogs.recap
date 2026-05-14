@@ -1,0 +1,60 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: TableDataType.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+enum TableDataType {
+# Summary Overview
+Summary
+
+
+# Buffs.
+Buffs
+
+
+# Casts.
+Casts
+
+
+# Damage done.
+DamageDone
+
+
+# Damage taken.
+DamageTaken
+
+
+# Deaths.
+Deaths
+
+
+# Debuffs.
+Debuffs
+
+
+# Dispels.
+Dispels
+
+
+# Healing done.
+Healing
+
+
+# Interrupts.
+Interrupts
+
+
+# Resources.
+Resources
+
+
+# Summons
+Summons
+
+
+# Survivability (death info across multiple pulls).
+Survivability
+
+
+# Threat.
+Threat
+}

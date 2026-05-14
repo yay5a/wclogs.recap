@@ -1,0 +1,117 @@
+{
+    "method": "GET",
+    "path": "/rankings/character/{characterName}/{serverName}/{serverRegion}",
+    "pathParams": {
+        "characterName": {
+            "type": "string",
+            "required": true,
+            "description": "The name of the character to collect rankings for."
+        },
+        "serverName": {
+            "type": "string",
+            "required": true,
+            "description": "The server slug/name that the character is found on."
+        },
+        "serverRegion": {
+            "type": "string",
+            "required": true,
+            "description": "The short region name for the server.",
+            "enum": [
+                "US",
+                "EU",
+                "KR",
+                "TW",
+                "CN"
+            ]
+        }
+    },
+    "queryParams": {
+        "zone": {
+            "type": "string",
+            "required": false,
+            "description": "The zone to fetch rankings for. If omitted, the latest open raid zone is used.",
+            "validValuesSource": "/zones",
+            "defaultBehavior": "latest_open_raid_zone"
+        },
+        "encounter": {
+            "type": "string",
+            "required": false,
+            "description": "An encounter within the zone to fetch rankings for. If omitted, all encounters in the zone are checked.",
+            "validValuesSource": "/zones/{zone}/encounters",
+            "dependsOn": [
+                "zone"
+            ],
+            "defaultBehavior": "all_encounters_in_zone"
+        },
+        "metric": {
+            "type": "string",
+            "required": false,
+            "description": "The metric to query rankings for.",
+            "enum": [
+                "dps",
+                "hps",
+                "bossdps",
+                "tankhps",
+                "playerspeed",
+                "krsi"
+            ]
+        },
+        "bracket": {
+            "type": "integer",
+            "required": false,
+            "description": "The bracket to query for. If omitted or set to 0, all brackets are examined.",
+            "validValuesSource": "/zones",
+            "defaultBehavior": "all_brackets"
+        },
+        "partition": {
+            "type": "integer",
+            "required": false,
+            "description": "The partition group to query for. Most zones have one partition and this can usually be omitted.",
+            "validValuesSource": "/zones",
+            "defaultBehavior": "default_partition"
+        },
+        "timeframe": {
+            "type": "string",
+            "required": false,
+            "description": "Whether to compare against today's rankings or return historical ranking information.",
+            "enum": [
+                "today",
+                "historical"
+            ],
+            "default": "today"
+        },
+        "includeCombatantInfo": {
+            "type": "boolean",
+            "required": false,
+            "description": "Whether to include extra combatant information in the response.",
+            "enum": [
+                true,
+                false
+            ],
+            "default": false
+        }
+    },
+    "responseBody": [
+        {
+            "encounterID": "integer",
+            "encounterName": "string",
+            "class": "string",
+            "spec": "string",
+            "rank": "integer",
+            "outOf": "integer",
+            "duration": "integer",
+            "startTime": "integer",
+            "reportID": "string",
+            "fightID": "integer",
+            "difficulty": "integer",
+            "size": "integer",
+            "characterID": "integer",
+            "characterName": "string",
+            "server": "string",
+            "percentile": "integer",
+            "ilvlKeyOrPatch": "integer",
+            "total": "integer",
+            "estimated": "boolean"
+        }
+    ]
+}

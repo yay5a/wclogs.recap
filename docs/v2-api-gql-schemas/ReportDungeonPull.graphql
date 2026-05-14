@@ -1,0 +1,60 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportDungeonPull.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportDungeonPull {
+# The bounding box that encloses the positions of all players/enemies in the
+# fight.
+boundingBox: ReportMapBoundingBox
+
+
+# The encounter ID of the fight. If the ID is 0, the fight is considered a trash
+# fight.
+
+
+encounterID: Int!
+# The end time of the fight. This is a timestamp with millisecond precision that
+# is relative to the start of the report, i.e., the start of the report is
+# considered time 0.
+
+
+endTime: Float!
+# Information about enemies involved in the fight. Includes report IDs, instance
+# counts, and instance group counts for each NPC.
+
+
+enemyNPCs: [ReportDungeonPullNPC]
+# The report ID of the fight. This ID can be used to fetch only events, tables or
+# graphs for this fight.
+
+
+id: Int!
+# Whether or not the fight was a boss kill, i.e., successful. If this field is
+# false, it means the fight was an incomplete run, etc..
+kill: Boolean
+
+
+# All the maps that were involved in a pull.
+
+maps: [ReportMap]
+# The name of the fight.
+
+
+name: String!
+# The start time of the fight. This is a timestamp with millisecond precision that
+# is relative to the start of the report, i.e., the start of the report is
+# considered time 0.
+
+
+startTime: Float!
+# The x position of the first mob damaged in the pull at the time this damage
+# happens. Used to establish a marker position to represent where the pull took
+# place.
+
+
+x: Int!
+# The y position of the first mob damaged in the pull at the time this damage
+# happens. Used to establish a marker position to represent where the pull took
+# place.
+y: Int!
+}

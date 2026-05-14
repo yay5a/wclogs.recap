@@ -1,0 +1,34 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportMasterData.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportMasterData {
+# The version of the client parser that was used to parse and upload this log
+# file.
+
+
+logVersion: Int!
+# The version of the game that generated the log file. Used to distinguish Classic
+# and Retail Warcraft primarily.
+gameVersion: Int
+
+
+# The auto-detected locale of the report. This is the source language of the
+# original log file.
+lang: String
+
+
+# A list of every ability that occurs in the report.
+
+
+abilities: [ReportAbility]
+# A list of every actor (player, NPC, pet) that occurs in the report.
+#
+# Arguments
+# type: Optional. A filter on the actors in a report. If the type
+# field of the actor matches the specified type field, it will be included.
+# subType: Optional. A filter on the actors in a report. If the
+# subType field of the actor matches the specified subType field, it will be
+# included.
+actors(type: String, subType: String): [ReportActor]
+}

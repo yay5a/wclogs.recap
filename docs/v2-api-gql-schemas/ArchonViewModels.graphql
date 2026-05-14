@@ -1,0 +1,441 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ArchonViewModels.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ArchonViewModels {
+user: JSON
+
+
+# Arguments
+# desktopClientToken: [Not documented]
+
+userFromDesktopClientToken(
+):
+desktopClientToken: String!
+JSON
+
+
+googleAnalytics: JSON
+
+
+# Arguments
+# buildsZoneTypeSlug: [Not documented]
+game(buildsZoneTypeSlug: String): JSON
+
+
+# Arguments
+# keys: [Not documented]
+translations(keys: [String]): JSON
+
+
+# Arguments
+# gameSlug: [Not documented]
+header(gameSlug: String): JSON
+
+
+headerTitle: JSON
+
+
+footer: JSON
+
+
+indexPage: JSON
+
+
+signInPage: JSON
+
+
+signOutPage: JSON
+
+
+authErrorPage: JSON
+
+
+accountPage: JSON
+
+
+gamePage: JSON
+
+
+contactPage: JSON
+
+
+downloadPage: JSON
+
+
+privacyPolicyPage: JSON
+
+
+aboutPage: JSON
+
+
+announcementPage: JSON
+
+
+gameSlugs: JSON
+
+
+buildsZonePageSlugs: JSON
+
+
+# Arguments
+# gameSlug: [Not documented]
+# rankingsSlug: [Not documented]
+# zoneTypeSlug: [Not documented]
+# difficultySlug: [Not documented]
+# encounterSlug: [Not documented]
+# affixesSlug: [Not documented]
+
+buildsZonePage(
+
+gameSlug: String,
+
+rankingsSlug: String,
+
+zoneTypeSlug: String,
+
+difficultySlug: String,
+
+encounterSlug: String,
+affixesSlug: String
+): JSON
+
+
+buildsSpecPageSlugs: JSON
+
+# Arguments
+# gameSlug: [Not documented]
+# classSlug: [Not documented]
+# specSlug: [Not documented]
+# zoneTypeSlug: [Not documented]
+# categorySlug: [Not documented]
+# difficultySlug: [Not documented]
+# encounterSlug: [Not documented]
+# affixesSlug: [Not documented]
+
+buildsSpecPage(
+
+gameSlug: String,
+
+classSlug: String,
+
+specSlug: String,
+
+zoneTypeSlug: String,
+
+categorySlug: String,
+
+difficultySlug: String,
+
+encounterSlug: String,
+affixesSlug: String
+): JSON
+
+
+# Arguments
+# gameSlug: [Not documented]
+buildsClassesAndSpecsPage(gameSlug: String): JSON
+
+
+# Arguments
+# id: [Not documented]
+ability(id: Int): JSON
+
+
+# Arguments
+# articleCategorySlug: [Not documented]
+articleCategory(articleCategorySlug: String): JSON
+
+
+articleCategories: JSON
+
+
+# Arguments
+# articleCategorySlug: [Not documented]
+# siteName: [Not documented]
+articleSlugs(articleCategorySlug: String, siteName: String): JSON
+
+
+# Arguments
+# articleSlug: [Not documented]
+# articleCategorySlug: [Not documented]
+# siteName: [Not documented]
+article(articleSlug: String, articleCategorySlug: String, siteName: String): JSON
+
+
+# Arguments
+# currentSlug: [Not documented]
+cmsNavigation(currentSlug: String): JSON
+
+
+# Arguments
+# articleCategorySlug: [Not documented]
+# pageNumber: [Not documented]
+# siteName: [Not documented]
+
+pageOfArticlePreviews(
+
+articleCategorySlug: String,
+
+pageNumber: Int,
+siteName: String
+): JSON
+
+
+# Arguments
+# snippetSlugs: [Not documented]
+snippets(snippetSlugs: [String]): JSON
+
+
+articleIndexPage: JSON
+
+
+playwireAds: JSON
+
+
+adPlacements: JSON
+
+
+# Arguments
+# userId: [Not documented]
+# gameSlug: [Not documented]
+# reportSlug: [Not documented]
+reportPage(userId: Int, gameSlug: String!, reportSlug: String!): JSON
+
+
+# Arguments
+# userId: [Not documented]
+# gameSlug: [Not documented]
+# reportSlug: [Not documented]
+# fightSlug: [Not documented]
+# categorySlug: [Not documented]
+# phaseSlug: [Not documented]
+# playerSlug: [Not documented]
+# cutoffSlug: [Not documented]
+# throughputSlug: [Not documented]
+# deathSlug: [Not documented]
+# pullSlug: [Not documented]
+
+fightPage(
+
+userId: Int,
+
+gameSlug: String!,
+
+reportSlug: String!,
+
+fightSlug: String!,
+
+categorySlug: String!,
+
+phaseSlug: String,
+
+playerSlug: String,
+
+cutoffSlug: Int,
+
+throughputSlug: String,
+
+deathSlug: Int,
+pullSlug: String
+): JSON
+
+
+# Arguments
+# sectionComponentNames: [Not documented]
+# userId: [Not documented]
+# gameSlug: [Not documented]
+# reportSlug: [Not documented]
+# fightSlug: [Not documented]
+# categorySlug: [Not documented]
+# phaseSlug: [Not documented]
+# playerSlug: [Not documented]
+# cutoffSlug: [Not documented]
+# throughputSlug: [Not documented]
+# deathSlug: [Not documented]
+# pullSlug: [Not documented]
+
+fightPageContent(
+
+sectionComponentNames: [String!]!,
+
+userId: Int,
+
+gameSlug: String!,
+
+reportSlug: String!,
+
+fightSlug: String!,
+
+categorySlug: String!,
+
+phaseSlug: String,
+playerSlug: String,
+
+cutoffSlug: Int,
+
+throughputSlug: String,
+
+deathSlug: Int,
+pullSlug: String
+): JSON
+
+
+# Arguments
+# userId: [Not documented]
+# gameSlug: [Not documented]
+# searchTerm: [Not documented]
+
+characterIndexPage(
+
+userId: Int,
+
+gameSlug: String!,
+searchTerm: String
+): JSON
+
+
+# Arguments
+# userId: [Not documented]
+# gameSlug: [Not documented]
+# characterSlug: [Not documented]
+# categorySlug: [Not documented]
+# partitionSlug: [Not documented]
+# metricSlug: [Not documented]
+# difficultySlug: [Not documented]
+# sizeSlug: [Not documented]
+# specSlug: [Not documented]
+# byBracketSlug: [Not documented]
+# privateSlug: [Not documented]
+# loadoutSourceTypeSlug: [Not documented]
+# loadoutSourceSlug: [Not documented]
+
+characterPage(
+
+userId: Int,
+
+gameSlug: String!,
+
+characterSlug: String!,
+
+categorySlug: String!,
+
+partitionSlug: String,
+
+metricSlug: String,
+
+difficultySlug: String,
+
+sizeSlug: String,
+
+specSlug: String,
+byBracketSlug: String,
+
+privateSlug: String,
+
+loadoutSourceTypeSlug: String,
+loadoutSourceSlug: String
+): JSON
+
+
+# Arguments
+# sectionComponentNames: [Not documented]
+# userId: [Not documented]
+# gameSlug: [Not documented]
+# characterSlug: [Not documented]
+# categorySlug: [Not documented]
+# partitionSlug: [Not documented]
+# metricSlug: [Not documented]
+# difficultySlug: [Not documented]
+# sizeSlug: [Not documented]
+# specSlug: [Not documented]
+# byBracketSlug: [Not documented]
+# privateSlug: [Not documented]
+# loadoutSourceTypeSlug: [Not documented]
+# loadoutSourceSlug: [Not documented]
+
+characterPageContent(
+
+sectionComponentNames: [String!]!,
+
+userId: Int,
+
+gameSlug: String!,
+
+characterSlug: String!,
+
+categorySlug: String!,
+
+partitionSlug: String,
+
+metricSlug: String,
+
+difficultySlug: String,
+
+sizeSlug: String,
+
+specSlug: String,
+
+byBracketSlug: String,
+
+privateSlug: String,
+
+loadoutSourceTypeSlug: String,
+loadoutSourceSlug: String
+): JSON
+
+
+# Arguments
+# userId: [Not documented]
+# characterSlug: [Not documented]
+characterCustomizationOptions(
+
+userId: Int,
+):
+characterSlug: String!
+JSON
+
+
+# Arguments
+# userId: [Not documented]
+# gameSlug: [Not documented]
+# characterSlug: [Not documented]
+# categorySlug: [Not documented]
+# partitionSlug: [Not documented]
+# metricSlug: [Not documented]
+# difficultySlug: [Not documented]
+# sizeSlug: [Not documented]
+# specSlug: [Not documented]
+# byBracketSlug: [Not documented]
+# privateSlug: [Not documented]
+# aggregateEncounterId: [Not documented]
+# showMore: [Not documented]
+
+characterEncounterRankings(
+
+userId: Int,
+
+gameSlug: String!,
+
+characterSlug: String!,
+
+categorySlug: String!,
+
+partitionSlug: String,
+
+metricSlug: String,
+
+difficultySlug: String,
+
+sizeSlug: String,
+
+specSlug: String,
+
+byBracketSlug: String,
+
+privateSlug: String,
+
+aggregateEncounterId: String!,
+showMore: Boolean
+): JSON
+}

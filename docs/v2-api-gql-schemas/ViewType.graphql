@@ -1,0 +1,21 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ViewType.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+enum ViewType {
+# Use the same default that the web site picks based off the other selected
+# parameters.
+Default
+
+
+# View by ability.
+Ability
+
+
+# View. by source.
+Source
+
+
+# View by target.
+Target
+}

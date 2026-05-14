@@ -1,0 +1,22 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Partition.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Partition {
+# An integer representing a specific partition within a zone.
+
+
+id: Int!
+# The localized name for partition.
+
+
+name: String!
+# The compact localized name for the partition. Typically an abbreviation to
+# conserve space.
+
+
+compactName: String!
+# Whether or not the partition is the current default when viewing rankings or
+# statistics for the zone.
+default: Boolean!
+}

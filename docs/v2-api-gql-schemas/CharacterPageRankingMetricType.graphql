@@ -1,0 +1,162 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: CharacterPageRankingMetricType.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+enum CharacterPageRankingMetricType {
+# Boss cDPS is unique to FFXIV and is damage done to the boss adjusted for
+# raid-contributing buffs and debuffs.
+bosscdps
+
+
+# Boss damage per second.
+bossdps
+
+
+# Boss nDPS is unique to FFXIV and is damage done to the boss adjusted for
+# raid-contributing buffs and debuffs.
+bossndps
+
+
+# Boss rDPS is unique to FFXIV and is damage done to the boss adjusted for
+# raid-contributing buffs and debuffs.
+bossrdps
+
+
+# Choose an appropriate default depending on the other selected parameters.
+default
+
+
+# Damage per second.
+dps
+
+
+# Healing per second.
+hps
+
+
+# Survivability ranking for tanks. Deprecated. Only supported for some older WoW
+# zones.
+krsi
+
+# Score. Used by WoW Mythic dungeons and by ESO trials.
+playerscore
+
+
+# Speed. Not supported by every zone.
+playerspeed
+
+
+# cDPS is unique to FFXIV and is damage done adjusted for raid-contributing buffs
+# and debuffs.
+cdps
+
+
+# nDPS is unique to FFXIV and is damage done adjusted for raid-contributing buffs
+# and debuffs.
+ndps
+
+
+# rDPS is unique to FFXIV and is damage done adjusted for raid-contributing buffs
+# and debuffs.
+rdps
+
+
+# Healing done per second to tanks.
+tankhps
+
+
+# Weighted damage per second. Unique to WoW currently. Used to remove pad damage
+# and reward damage done to high priority targets.
+wdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of healers in eight
+# player content.
+healercombineddps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of healers in eight
+# player content.
+healercombinedbossdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of healers in eight
+# player content.
+healercombinedcdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of healers in eight
+# player content.
+healercombinedbosscdps
+
+# Unique to FFXIV. Represents the combined ranking for a pair of healers in eight
+# player content.
+healercombinedndps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of healers in eight
+# player content.
+healercombinedbossndps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of healers in eight
+# player content.
+healercombinedrdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of healers in eight
+# player content.
+healercombinedbossrdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of tanks in eight
+# player content.
+tankcombineddps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of tanks in eight
+# player content.
+tankcombinedbossdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of tanks in eight
+# player content.
+tankcombinedcdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of tanks in eight
+# player content.
+tankcombinedbosscdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of tanks in eight
+# player content.
+tankcombinedndps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of tanks in eight
+# player content.
+tankcombinedbossndps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of tanks in eight
+# player content.
+tankcombinedrdps
+
+
+# Unique to FFXIV. Represents the combined ranking for a pair of tanks in eight
+# player content.
+tankcombinedbossrdps
+
+
+# Combined score and damage. Used by WoW Mythic+ and Fellowship. Returns score
+# rankings plus an additional throughputRankings field with damage data filtered
+# by key and item level.
+points_and_damage
+
+
+# Combined score and healing. Used by WoW Mythic+ and Fellowship. Returns score
+# rankings plus an additional throughputRankings field with healing data filtered
+# by key and item level.
+points_and_healing
+}

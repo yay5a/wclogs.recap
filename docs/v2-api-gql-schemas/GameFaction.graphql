@@ -1,0 +1,12 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: GameFaction.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type GameFaction {
+# An integer representing the faction id.
+
+
+id: Int!
+# The localized name of the faction.
+name: String!
+}

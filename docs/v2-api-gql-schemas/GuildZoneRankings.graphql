@@ -1,0 +1,31 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: GuildZoneRankings.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type GuildZoneRankings {
+# The progress ranks for the guild. Always uses the highest difficulty.
+#
+# Arguments
+# size: Raid size. Only used for Classic WoW and certain old
+# Retail WoW zones.
+progress(size: Int): WorldRegionServerRankPositions
+
+
+# The all-star based speed rank for the guild.
+#
+# Arguments
+# size: Raid size. Only used for Classic WoW and certain old
+# Retail WoW zones.
+# difficulty: Raid difficulty.
+speed(size: Int, difficulty: Int): WorldRegionServerRankPositions
+
+
+# The complete raid speed ranks for the guild. Most non-Classic WoW zones do not
+# support complete raid ranks.
+#
+# Arguments
+# size: Raid size. Only used for Classic WoW and certain old
+# Retail WoW zones.
+# difficulty: Raid difficulty.
+completeRaidSpeed(size: Int, difficulty: Int): WorldRegionServerRankPositions
+}

@@ -1,0 +1,64 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Server.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Server {
+# The ID of the server.
+
+
+id: Int!
+# The name of the server in the locale of the subregion that the server belongs
+# to.
+
+
+name: String!
+# The normalized name is a transformation of the name, dropping spaces. It is how
+# the server appears in a World of Warcraft log file.
+
+
+normalizedName: String!
+# The server slug, also a transformation of the name following Blizzard rules. For
+# retail World of Warcraft realms, this slug will be in English. For all other
+# games, the slug is just a transformation of the name field.
+
+
+slug: String!
+# The region that this server belongs to.
+
+
+region: Region!
+# The subregion that this server belongs to.
+
+
+subregion: Subregion!
+# The guilds found on this server (and any servers connected to this one.
+#
+# Arguments
+# limit: Optional. The number of guilds to retrieve per page. The
+# maximum allowed value is 100, and minimum allowed value is 1.
+# page: Optional. The page of paginated data to retrieve. If
+# omitted, defaults to the first page.
+guilds(limit: Int, page: Int): GuildPagination
+
+
+# The characters found on this server (and any servers connected to this one.
+#
+# Arguments
+# limit: Optional. The number of characters to retrieve per page.
+# The maximum allowed value is 100, and minimum allowed value is 1.
+# page: Optional. The page of paginated data to retrieve. If
+# omitted, defaults to the first page.
+characters(limit: Int, page: Int): CharacterPagination
+
+
+# The Blizzard ID of the server.
+
+
+blizzardID: Int!
+# The connected realm ID of the server.
+
+
+connectedRealmID: Int!
+# The season ID of the server.
+seasonID: Int!
+}

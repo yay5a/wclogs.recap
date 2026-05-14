@@ -1,0 +1,14 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: PhaseTransition.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type PhaseTransition {
+# The 1-indexed id of the phase. Phase IDs are absolute within a fight: phases
+# with the same ID correspond to the same semantic phase.
+
+
+id: Int!
+# The report-relative timestamp of the transition into the phase. The phase ends
+# at the beginning of the next phase, or at the end of the fight.
+startTime: Int!
+}

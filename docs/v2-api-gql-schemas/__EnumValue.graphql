@@ -1,0 +1,16 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: __EnumValue.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type __EnumValue {
+
+
+name: String!
+description: String
+
+
+
+
+isDeprecated: Boolean!
+deprecationReason: String
+}

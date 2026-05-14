@@ -1,0 +1,21 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportAbility.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportAbility {
+# The game ID of the ability.
+gameID: Float
+
+
+# An icon to use for the ability.
+icon: String
+
+
+# The name of the actor.
+name: String
+
+
+# The type of the ability. This represents the type of damage (e.g., the spell
+# school in WoW).
+type: String
+}

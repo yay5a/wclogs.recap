@@ -1,0 +1,29 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: FightRankingMetricType.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+enum FightRankingMetricType {
+# Choose an appropriate default depending on the other selected parameters.
+default
+
+
+# A metric that rewards minimizing deaths and damage taken.
+execution
+
+
+# Feats of strength in WoW or Challenges in FF.
+feats
+
+
+# For Mythic+ dungeons in WoW, represents the team's score. Used for ESO trials
+# and dungeons also.
+score
+
+
+# Speed metric, based off the duration of the fight.
+speed
+
+
+# Progress metric, based off when the fight was defeated.
+progress
+}

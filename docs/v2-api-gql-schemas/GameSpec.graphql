@@ -1,0 +1,20 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: GameSpec.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type GameSpec {
+# An integer used to identify the spec.
+
+
+id: Int!
+# The player class that the spec belongs to.
+class: GameClass
+
+
+# The localized name of the class.
+
+
+name: String!
+# A slug used to identify the spec.
+slug: String!
+}

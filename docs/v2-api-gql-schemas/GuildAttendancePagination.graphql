@@ -1,0 +1,36 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: GuildAttendancePagination.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type GuildAttendancePagination {
+# List of items on the current page
+
+
+data: [GuildAttendance]
+# Number of total items selected by the query
+
+
+total: Int!
+# Number of items returned per page
+
+
+per_page: Int!
+# Current page of the cursor
+
+
+current_page: Int!
+# Number of the first item returned
+from: Int
+
+
+# Number of the last item returned
+to: Int
+
+
+# The last page (number of pages)
+
+
+last_page: Int!
+# Determines if cursor has more pages after the current page
+has_more_pages: Boolean!
+}

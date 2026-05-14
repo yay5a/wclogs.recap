@@ -1,0 +1,168 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Character.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Character {
+# The canonical ID of the character. If a character renames or transfers, then the
+# canonical id can be used to identify the most recent version of the character.
+
+
+canonicalID: Int!
+# Whether this character is claimed by the current user. Only accessible if
+# accessed via the user API with the "view-user-profile" scope.
+claimed: Boolean
+
+
+# The class id of the character.
+
+
+classID: Int!
+# Encounter rankings information for a character, filterable to specific zones,
+# bosses, metrics, etc. This data is not considered frozen, and it can change
+# without notice. Use at your own risk.
+#
+# Arguments
+# byBracket: Optional. Whether or not to use bracket rankings
+# instead of overall rankings. For WoW, brackets are item levels or keystones. For
+# FF, brackets are patches.
+# className: Optional. The slug for a specific class. Whether or
+# not to filter rankings to a specific class. Only used by games that support
+# multiple classes on a single character..
+# compare: Optional. Whether or not to compare against rankings
+# (best scores across the entire tier) or two weeks worth of parses (more
+# representative of real-world performance).
+# difficulty: Optional. Whether or not to filter the rankings to
+# a specific difficulty. If omitted, the highest difficulty is used.
+# encounterID: Required. The specific encounter whose rankings
+# should be fetched.
+# includeCombatantInfo: Optional. Whether or not to include
+# detailed combatant info such as gear in the results.
+# includeOtherPlayers: Optional. Whether to include the other
+# characters you cleared with in the results.
+# includeHistoricalGraph: Optional. Whether to include the
+# historical graph with the results.
+# includePrivateLogs: Optional. Whether or not to include private
+# logs in the results. This option is only available if using the user GraphQL
+# endpoint.
+# metric: Optional. You can filter to a specific character metric
+# like dps or hps. If omitted, an appropriate default metric for the zone will be
+# chosen.
+# partition: Optional. Whether or not to filter the rankings to a
+# specific partition. By default, the latest partition is chosen. A special value
+# of -1 can be passed to fetch data from all partitions.
+# role: Optional. The slug for a specific role. This allow you to
+# only fetch ranks for the healing role, dps role or tank role.
+# size: Optional. Whether or not to filter rankings to a specific
+# size. If omitted, the first valid raid size will be used.
+# specName: Optional. The slug for a specific spec. Whether or
+# not to filter rankings to a specific spec. If omitted, data for all specs will
+# be used.
+# timeframe: Optional. Whether or not the returned report
+# rankings should be compared against today's rankings or historical rankings
+# around the time the fight occurred.
+
+encounterRankings(
+
+byBracket: Boolean,
+
+className: String,
+
+compare: RankingCompareType,
+
+difficulty: Int,
+
+encounterID: Int,
+
+includeCombatantInfo: Boolean,
+
+includeOtherPlayers: Boolean,
+
+includeHistoricalGraph: Boolean,
+
+includePrivateLogs: Boolean,
+
+metric: CharacterRankingMetricType,
+
+partition: Int,
+
+role: RoleType,
+
+size: Int,
+specName: String,
+# Arguments
+# limit: Optional. The number of recent reports to retrieve. If
+# omitted, defaults to 10. The maximum allowed value is 100, and minimum allowed
+# value is 1.
+# page: Optional. The page of paginated data to retrieve. If
+# omitted, defaults to the first page.
+recentReports(limit: Int, page: Int): ReportPagination
+
+
+# The server that the character belongs to.
+
+
+server: Server!
+# Rankings information for a character, filterable to specific zones, bosses,
+# metrics, etc. This data is not considered frozen, and it can change without
+# notice. Use at your own risk.
+#
+# Arguments
+# byBracket: Optional. Whether or not to use bracket rankings
+# instead of overall rankings. For WoW, brackets are item levels or keystones. For
+# FF, brackets are patches.
+# className: Optional. The slug for a specific class. Whether or
+# not to filter rankings to a specific class. Only used by games that support
+# multiple classes on a single character..
+# compare: Optional. Whether or not to compare against rankings
+# (best scores across the entire tier) or two weeks worth of parses (more
+# representative of real-world performance).
+# difficulty: Optional. Whether or not to filter the rankings to
+# a specific difficulty. If omitted, the highest difficulty is used.
+# includePrivateLogs: Optional. Whether or not to include private
+# logs in the results. This option is only available if using the user GraphQL
+# endpoint.
+# metric: Optional. You can filter to a specific character metric
+# like dps or hps. If omitted, an appropriate default metric for the zone will be
+# chosen.
+# partition: Optional. Whether or not to filter the rankings to a
+# specific partition. By default, the latest partition is chosen. A special value
+# of -1 can be passed to fetch data from all partitions.
+# role: Optional. The slug for a specific role. This allow you to
+# only fetch ranks for the healing role, dps role or tank role.
+# size: Optional. Whether or not to filter rankings to a specific
+# size. If omitted, the first valid raid size will be used.
+# specName: Optional. The slug for a specific spec. Whether or
+# not to filter rankings to a specific spec. If omitted, data for all specs will
+# be used.
+# timeframe: Optional. Whether or not the returned report
+# rankings should be compared against today's rankings or historical rankings
+# around the time the fight occurred.
+# zoneID: Optional. If not specified, the latest unfrozen zone
+# will be used.
+
+zoneRankings(
+
+byBracket: Boolean,
+
+className: String,
+
+compare: RankingCompareType,
+
+difficulty: Int,
+
+includePrivateLogs: Boolean,
+
+metric: CharacterPageRankingMetricType,
+
+partition: Int,
+
+role: RoleType,
+
+size: Int,
+
+specName: String,
+
+timeframe: RankingTimeframeType,
+zoneID: Int
+): JSON
+}

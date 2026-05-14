@@ -1,0 +1,70 @@
+{
+  "method": "GET",
+  "path": "/reports/guild/{guildName}/{serverName}/{serverRegion}",
+  "pathParams": {
+    "guildName": {
+      "type": "string",
+      "required": true,
+      "description": "The name of the guild to collect reports for."
+    },
+    "serverName": {
+      "type": "string",
+      "required": true,
+      "description": "The server slug/name that the guild is found on."
+    },
+    "type": "string",
+    "required": true,
+    "description": "The short region name for the server.",
+    "enum": [
+      "US",
+      "EU",
+      "KR",
+      "TW",
+      "CN"
+    ]
+  },
+  "queryParams": {
+    "start": {
+      "type": "integer",
+      "required": false,
+      "description": "Optional start time as a Unix timestamp in milliseconds. If omitted, 0 is assumed.",
+      "default": 0,
+      "semanticType": "unixTimestampMs"
+    },
+    "end": {
+      "type": "integer",
+      "required": false,
+      "description": "Optional end time as a Unix timestamp in milliseconds. If omitted, the current time is assumed.",
+      "defaultBehavior": "current_time",
+      "semanticType": "unixTimestampMs"
+    }
+  },
+  "responseBody": [
+    {
+      "id": {
+        "type": "string",
+        "description": "The Warcraft Logs report code."
+      },
+      "title": {
+        "type": "string",
+        "description": "The report title."
+      },
+      "owner": {
+        "type": "string",
+        "description": "The user that uploaded the report."
+      },
+      "zone": {
+        "type": "integer",
+        "description": "The zone ID for the report. A value of -1 means the zone is not known."
+      },
+      "start": {
+        "type": "number",
+        "description": "The report start time as a Unix timestamp in milliseconds."
+      },
+      "end": {
+        "type": "number",
+        "description": "The report end time as a Unix timestamp in milliseconds."
+      }
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: UserData.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type UserData {
+# Obtain a specific user by id.
+#
+# Arguments
+# id: Required. Specify a single user ID to retrieve.
+user(id: Int): User
+
+
+# Obtain the current user (only works with user endpoint).
+currentUser: User
+}

@@ -1,0 +1,30 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: User.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type User {
+# The ID of the user.
+
+
+id: Int!
+# The name of the user.
+
+
+name: String!
+# The avatar of the user, typically the main character avatar.
+
+
+avatar: String!
+# The list of guilds to which the user belongs. Only accessible via user
+# authentication when you have the "view-user-profile" scope.
+
+
+guilds: [Guild]
+# The characters claimed by this user. Only accessible via user authentication
+# when you have the "view-user-profile" scope.
+
+
+characters: [Character]
+# The battle tag of the user if they have linked it.
+battleTag: String
+}

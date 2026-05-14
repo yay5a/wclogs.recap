@@ -1,0 +1,19 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: __Directive.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type __Directive {
+
+
+name: String!
+description: String
+
+
+
+
+isRepeatable: Boolean!
+
+
+locations: [__DirectiveLocation!]!
+args: [__InputValue!]!
+}

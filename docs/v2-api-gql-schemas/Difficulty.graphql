@@ -1,0 +1,18 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Difficulty.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Difficulty {
+# An integer representing a specific difficulty level within a zone. For example,
+# in World of Warcraft, this could be Mythic. In FF, it could be Savage, etc.
+
+
+id: Int!
+# The localized name for the difficulty level.
+
+
+name: String!
+# A list of supported sizes for the difficulty level. An empty result means that
+# the difficulty level has a flexible raid size.
+sizes: [Int]
+}

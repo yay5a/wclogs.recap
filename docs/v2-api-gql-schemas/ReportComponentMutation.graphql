@@ -1,0 +1,42 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportComponentMutation.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportComponentMutation {
+# Create a new (possibly empty) report component. If successful, the KEY of the
+# new component will be returned.
+#
+# Arguments
+# name: A human-readable name for the component.
+# contents: The (optional) initial contents of the component.
+# Evaluating an empty component will produce an error.
+create(name: String!, contents: String): String
+
+
+# Update the script contents of a report component, replacing the old contents.
+# True is returned on success, errors are thrown on failure.
+#
+# Arguments
+# key: [Not documented]
+# contents: The new script contents, in JavaScript.
+updateContents(key: String!, contents: String!): Boolean
+
+
+# Mark (or un-mark) a component as "deletion protected" to prevent accidental
+# deletion. This is a quality of life feature to prevent oopsies, not a security
+# feature.
+#
+# Arguments
+# key: [Not documented]
+# protected: Whether the component is protected from deletion.
+# Default is `true`.
+setDeletionProtected(key: String!, protected: Boolean): Boolean
+
+
+# Delete a report component. Since this is an API call, there is NO CONFIRMATION.
+# Protected components may not be deleted.
+#
+# Arguments
+# key: [Not documented]
+delete(key: String!): Boolean
+}

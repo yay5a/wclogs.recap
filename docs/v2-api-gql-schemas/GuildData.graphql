@@ -1,0 +1,48 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: GuildData.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type GuildData {
+# Obtain a specific guild either by id or by name/serverSlug/serverRegion.
+#
+# Arguments
+# id: Optional. The ID of a single guild to retrieve.
+# name: Optional. The name of a specific guild. Must be used in
+# conjunction with serverSlug and serverRegion to uniquely identify a guild.
+# serverSlug: Optional. The name of a specific guild. Must be
+# used in conjunction with name and serverRegion to uniquely identify a guild.
+# serverRegion: Optional. The region for a specific guild. Must
+# be used in conjunction with name and serverRegion to uniquely identify a guild.
+guild(id: Int, name: String, serverSlug: String, serverRegion: String): Guild
+
+
+# The set of all guilds supported by the site. Can be optionally filtered to a
+# specific server id.
+#
+# Arguments
+# limit: Optional. The number of guilds to retrieve per page. If
+# omitted, defaults to 100. The maximum allowed value is 100, and minimum allowed
+# value is 1.
+# page: Optional. The page of paginated data to retrieve. If
+# omitted, defaults to the first page.
+# serverID: Optional. The ID of a specific server. If present,
+# only guilds from that server (and any connected servers) will be fetched.
+# serverSlug: Optional. The slug for a specific server. Must be
+# used in conjunction with serverRegion to uniquely identify a server. Only guilds
+# from that server (and any connected servers) will be fetched.
+# serverRegion: Optional. The region for a specific server. Must
+# be used in conjunction with serverSlug to uniquely identify a server. Only
+# guilds from that server (and any connected servers) will be fetched.
+
+guilds(
+
+limit: Int,
+
+page: Int,
+
+serverID: Int,
+
+serverSlug: String,
+serverRegion: String
+): GuildPagination
+}

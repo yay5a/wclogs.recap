@@ -1,0 +1,47 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportComponentFilter.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+input ReportComponentFilter {
+# Filter input events to those from these fight IDs.
+
+
+fightIDs: [Int!]
+# Filter input events to those that include the `actorID` and their pets.
+actorID: Int
+
+
+# Filter input events to those within this range.
+timestampRange: ReportComponentRangeFilter
+
+
+# Filter input events to those from fights having this encounter ID. 0 is used for
+# trash fights and very short boss pulls (typically less than 20s).
+encounterID: Int
+
+
+# Filter input events to a specific phase index. Note that if multiple different
+# encounters are included, the phase index will be applied to *each encounter
+# separately* which is probably not what you want.
+phase: Int
+
+
+# Filter input events to only those prior to the `deathCutoff`-th death in each
+# fight.
+#
+# ## Special Values
+#
+# - End after a Called Wipe: -1
+#
+deathCutoff: Int
+
+# Filter to only include kills, wipes, encounters, or trash. Note: if set to
+# `Trash`, this will override `encounterID`.
+killType: KillType
+
+
+# Filter to fights that have the specified difficulty ID. Difficulty IDs are game-
+# and sometimes zone-specific. Use the `difficulties` field of a `Zone` object to
+# retrieve a list of all valid IDs. Trash does not have a difficulty.
+difficulty: Int
+}

@@ -1,0 +1,20 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: GuildAttendance.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type GuildAttendance {
+# The code of the report for the raid night.
+
+
+code: String!
+# The players that attended that raid night.
+
+
+players: [PlayerAttendance]
+# The start time of the raid night.
+startTime: Float
+
+
+# The principal zone of the raid night.
+zone: Zone
+}

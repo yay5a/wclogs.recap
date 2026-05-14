@@ -1,0 +1,548 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Report.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Report {
+# The report code, a unique value used to identify the report.
+
+
+code: String!
+# The end time of the report. This is a UNIX timestamp representing the timestamp
+# of the last event contained in the report.
+
+
+endTime: Float!
+# A set of paginated report events, filterable via arguments like type, source,
+# target, ability, etc. This data is not considered frozen, and it can change
+# without notice. Use at your own risk.
+#
+# Arguments
+# abilityID: Optional. The game id of a specific ability to
+# filter to.
+# dataType: Optional. You can filter to a specific subset of
+# events.
+# death: Optional. If viewing death events, a specific death to
+# obtain information for.
+# difficulty: Optional. Whether or not to filter the fights to a
+# specific difficulty. By default all fights are included.
+# encounterID: Optional. Whether or not to filter the fights to a
+# specific boss. By default all fights are included.
+# endTime: Optional. The end time of the events range to fetch.
+# fightIDs: Optional. A list of fight ids to include. Fights with
+# any other id will be excluded.
+# filterExpression: Optional. An expression in the site's query
+# language that will be applied as a filter to the events.
+# hostilityType: Optional. A hostility of 0 indicates a
+# friendlies view. A hostility of 1 represents enemies.
+# includeResources: Optional. Whether or not to include detailed
+# unit resources for actors. Adds substantially to bandwidth, so defaults to off.
+# killType: Optional. A filter to only include kills, wipes,
+# encounters or trash.
+# limit: Optional. How many events to retrieve. Allowed value
+# ranges are 100-10000. The default value is 300.
+# sourceAurasAbsent: A comma-separated list of auras that must be
+# absent on the source for the event to be included.
+# sourceAurasPresent: A comma-separated list of auras that must
+# be present on the source for the event to be included.
+# sourceClass: Optional. Whether or not to filter the fights to a
+# specific source class. The argument here is the class slug, obtainable from game
+# data.
+# sourceID: Optional. Whether or not to filter the fights to a
+# specific source actor ID. By default all sources are included.
+# sourceInstanceID: Optional. Whether or not to filter the fights
+# to a specific source actor instance ID. By default all instances of an actor are
+# included.
+# startTime: Optional. The start time of the events range to
+# fetch.
+# targetAurasAbsent: A comma-separated list of auras that must be
+# absent on the target for the event to be included.
+# targetAurasPresent: A comma-separated list of auras that must
+# be present on the target for the event to be included.
+# targetClass: Optional. Whether or not to filter the fights to a
+# specific target class. The argument here is the class slug, obtainable from game
+# data.
+# targetID: Optional. Whether or not to filter the fights to a
+# specific target actor ID. By default all targets are included.
+# targetInstanceID: Optional. Whether or not to filter the fights
+# to a specific target actor instance ID. By default all instances of an actor are
+# included.
+# translate: Optional. Whether or not the fight data should be
+# auto-translated. Defaults to true. Set to false if is a priority, and you do not
+# care about the names.
+# useAbilityIDs: Optional. Whether or not to include detailed
+# ability information. Adds substantially to bandwidth, so defaults to true. Set
+# to false if you do not want to fetch the master data of the report.
+# useActorIDs: Optional. Whether or not to include detailed actor
+# information. Adds substantially to bandwidth, so defaults to true. Set to false
+# if you do not want to fetch the master data of the report.
+# viewOptions: Optional. A bitfield set of options used in the
+# site UI. You can experiment in each view with the options to see what these
+# values are.
+# wipeCutoff: Optional. The number of deaths after which all
+# subsequent events should be ignored.
+
+events(
+
+abilityID: Float,
+
+dataType: EventDataType,
+
+death: Int,
+
+difficulty: Int,
+
+encounterID: Int,
+
+endTime: Float,
+
+fightIDs: [Int],
+
+filterExpression: String,
+
+hostilityType: HostilityType,
+
+includeResources: Boolean,
+
+killType: KillType,
+
+limit: Int,
+
+sourceAurasAbsent: String,
+
+sourceAurasPresent: String,
+
+sourceClass: String,
+
+sourceID: Int,
+
+sourceInstanceID: Int,
+
+startTime: Float,
+
+targetAurasAbsent: String,
+
+targetAurasPresent: String,
+
+targetClass: String,
+
+targetID: Int,
+
+targetInstanceID: Int,
+
+translate: Boolean,
+
+useAbilityIDs: Boolean,
+
+useActorIDs: Boolean,
+
+viewOptions: Int,
+wipeCutoff: Int
+): ReportEventPaginator
+
+
+# The number of exported segments in the report. This is how many segments have
+# been processed for rankings.
+
+exportedSegments: Int!
+# A set of fights with details about participating players.
+#
+# Arguments
+# difficulty: Optional. Whether or not to filter the fights to a
+# specific difficulty. By default all fights are included.
+# encounterID: Optional. Whether or not to filter the fights to a
+# specific boss. By default all fights are included.
+# fightIDs: Optional. A list of fight ids to include. Fights with
+# any other id will be excluded.
+# killType: Optional. A filter to only include kills, wipes,
+# encounters or trash.
+# translate: Optional. Whether or not the fight data should be
+# auto-translated. Defaults to true. Set to false if speed is a priority, and you
+# do not care about the names.
+
+fights(
+
+difficulty: Int,
+
+encounterID: Int,
+
+fightIDs: [Int],
+
+killType: KillType,
+translate: Boolean
+
+
+): [ReportFight]
+# A graph of information for a report, filterable via arguments like type, source,
+# target, ability, etc. This data is not considered frozen, and it can change
+# without notice. Use at your own risk.
+#
+# Arguments
+# abilityID: Optional. The game id of a specific ability to
+# filter to.
+# dataType: Optional. You can filter to a specific subset of
+# events.
+# death: Optional. If viewing death events, a specific death to
+# obtain information for.
+# difficulty: Optional. Whether or not to filter the fights to a
+# specific difficulty. By default all fights are included.
+# encounterID: Optional. Whether or not to filter the fights to a
+# specific boss. By default all fights are included.
+# endTime: Optional. The end time of the events range to fetch.
+# fightIDs: Optional. A list of fight ids to include. Fights with
+# any other id will be excluded.
+# filterExpression: Optional. An expression in the site's query
+# language that will be applied as a filter to the events.
+# hostilityType: Optional. A hostility of 0 indicates a
+# friendlies view. A hostility of 1 represents enemies.
+# killType: Optional. A filter to only include kills, wipes,
+# encounters or trash.
+# sourceAurasAbsent: A comma-separated list of auras that must be
+# absent on the source for the event to be included.
+# sourceAurasPresent: A comma-separated list of auras that must
+# be present on the source for the event to be included.
+# sourceClass: Optional. Whether or not to filter the fights to a
+# specific source class. The argument here is the class slug, obtainable from game
+# data.
+# sourceID: Optional. Whether or not to filter the fights to a
+# specific source actor ID. By default all sources are included.
+# sourceInstanceID: Optional. Whether or not to filter the fights
+# to a specific source actor instance ID. By default all instances of an actor are
+# included.
+# startTime: Optional. The start time of the events range to
+# fetch.
+# targetAurasAbsent: A comma-separated list of auras that must be
+# absent on the target for the event to be included.
+# targetAurasPresent: A comma-separated list of auras that must
+# be present on the target for the event to be included.
+# targetClass: Optional. Whether or not to filter the fights to a
+# specific target class. The argument here is the class slug, obtainable from game
+# data.
+# targetID: Optional. Whether or not to filter the fights to a
+# specific target actor ID. By default all targets are included.
+# targetInstanceID: Optional. Whether or not to filter the fights
+# to a specific target actor instance ID. By default all instances of an actor are
+# included.
+# translate: Optional. Whether or not the fight data should be
+# auto-translated. Defaults to true. Set to false if speed is a priority, and you
+# do not care about the names.
+# viewOptions: Optional. A bitfield set of options used in the
+# site UI. You can experiment in each view with the options to see what these
+# values are.
+# viewBy: Optional. Whether to view by source, by target or by
+# ability.
+# wipeCutoff: Optional. The number of deaths after which all
+# subsequent events should be ignored.
+
+graph(
+
+abilityID: Float,
+
+dataType: GraphDataType,
+
+death: Int,
+
+difficulty: Int,
+
+encounterID: Int,
+
+endTime: Float,
+
+fightIDs: [Int],
+
+filterExpression: String,
+
+hostilityType: HostilityType,
+
+killType: KillType,
+
+sourceAurasAbsent: String,
+
+sourceAurasPresent: String,
+
+sourceClass: String,
+
+sourceID: Int,
+
+sourceInstanceID: Int,
+
+startTime: Float,
+
+targetAurasAbsent: String,
+
+targetAurasPresent: String,
+
+targetClass: String,
+
+targetID: Int,
+
+targetInstanceID: Int,
+
+translate: Boolean,
+
+viewOptions: Int,
+
+viewBy: ViewType,
+wipeCutoff: Int
+): JSON
+
+
+# The guild that the report belongs to. If this is null, then the report was
+# uploaded to the user's personal logs.
+guild: Guild
+
+
+# The guild tag that the report belongs to. If this is null, then the report was
+# not tagged.
+guildTag: GuildTag
+
+
+# The user that uploaded the report.
+owner: User
+
+
+# Data from the report's master file. This includes version info, all of the
+# players, NPCs and pets that occur in the report, and all the game abilities used
+# in the report.
+#
+# Arguments
+# translate: Optional. Whether or not the actors and abilities in
+# the master data should be auto-translated. Defaults to true. Set to false if
+# speed is a priority, and you do not care about the names of abilities and
+# actors.
+masterData(translate: Boolean): ReportMasterData
+
+
+# A table of information for the players of a report, including their specs,
+# talents, gear, etc. This data is not considered frozen, and it can change
+# without notice. Use at your own risk.
+#
+# Arguments
+# difficulty: Optional. Whether or not to filter the fights to a
+# specific difficulty. By default all fights are included.
+# encounterID: Optional. Whether or not to filter the fights to a
+# specific boss. By default all fights are included.
+# endTime: Optional. The end time of the events range to fetch.
+# fightIDs: Optional. A list of fight ids to include. Fights with
+# any other id will be excluded.
+# killType: Optional. A filter to only include kills, wipes,
+# encounters or trash.
+# startTime: Optional. The start time of the events range to
+# fetch.
+# translate: Optional. Whether or not the fight data should be
+# auto-translated. Defaults to true. Set to false if speed is a priority, and you
+# do not care about the names.
+# includeCombatantInfo: Optional. Whether or not to include
+# detailed combatant info such as gear in the results.
+
+playerDetails(
+
+difficulty: Int,
+
+encounterID: Int,
+
+endTime: Float,
+
+fightIDs: [Int],
+
+killType: KillType,
+
+startTime: Float,
+
+translate: Boolean,
+includeCombatantInfo: Boolean
+): JSON
+
+# A list of all characters that ranked on kills in the report.
+
+
+rankedCharacters: [Character]
+# Rankings information for a report, filterable to specific fights, bosses,
+# metrics, etc. This data is not considered frozen, and it can change without
+# notice. Use at your own risk.
+#
+# Arguments
+# compare: Optional. Whether or not to compare against rankings
+# (best scores across the entire tier) or two weeks worth of parses (more
+# representative of real-world performance).
+# difficulty: Optional. Whether or not to filter the fights to a
+# specific difficulty. By default all fights are included.
+# encounterID: Optional. Whether or not to filter the fights to a
+# specific boss. By default all fights are included.
+# fightIDs: Optional. A list of fight ids to include. Fights with
+# any other id will be excluded.
+# playerMetric: Optional. You can filter to a specific player
+# metric like dps or hps.
+# timeframe: Optional. Whether or not the returned report
+# rankings should be compared against today's rankings or historical rankings
+# around the time the fight occurred.
+
+rankings(
+
+compare: RankingCompareType,
+
+difficulty: Int,
+
+encounterID: Int,
+
+fightIDs: [Int],
+
+playerMetric: ReportRankingMetricType,
+timeframe: RankingTimeframeType
+): JSON
+
+
+# The region of the report.
+region: Region
+
+
+# The revision of the report. This number is increased when reports get
+# re-exported.
+
+
+revision: Int!
+# The number of uploaded segments in the report.
+
+segments: Int!
+# The start time of the report. This is a UNIX timestamp representing the
+# timestamp of the first event contained in the report.
+
+
+startTime: Float!
+# A table of information for a report, filterable via arguments like type, source,
+# target, ability, etc. This data is not considered frozen, and it can change
+# without notice. Use at your own risk.
+#
+# Arguments
+# abilityID: Optional. The game id of a specific ability to
+# filter to.
+# dataType: Optional. You can filter to a specific subset of
+# events.
+# death: Optional. If viewing death events, a specific death to
+# obtain information for.
+# difficulty: Optional. Whether or not to filter the fights to a
+# specific difficulty. By default all fights are included.
+# encounterID: Optional. Whether or not to filter the fights to a
+# specific boss. By default all fights are included.
+# endTime: Optional. The end time of the events range to fetch.
+# fightIDs: Optional. A list of fight ids to include. Fights with
+# any other id will be excluded.
+# filterExpression: Optional. An expression in the site's query
+# language that will be applied as a filter to the events.
+# hostilityType: Optional. A hostility of 0 indicates a
+# friendlies view. A hostility of 1 represents enemies.
+# killType: Optional. A filter to only include kills, wipes,
+# encounters or trash.
+# sourceAurasAbsent: A comma-separated list of auras that must be
+# absent on the source for the event to be included.
+# sourceAurasPresent: A comma-separated list of auras that must
+# be present on the source for the event to be included.
+# sourceClass: Optional. Whether or not to filter the fights to a
+# specific source class. The argument here is the class slug, obtainable from game
+# data.
+# sourceID: Optional. Whether or not to filter the fights to a
+# specific source actor ID. By default all sources are included.
+# sourceInstanceID: Optional. Whether or not to filter the fights
+# to a specific source actor instance ID. By default all instances of an actor are
+# included.
+# startTime: Optional. The start time of the events range to
+# fetch.
+# targetAurasAbsent: A comma-separated list of auras that must be
+# absent on the target for the event to be included.
+# targetAurasPresent: A comma-separated list of auras that must
+# be present on the target for the event to be included.
+# targetClass: Optional. Whether or not to filter the fights to a
+# specific target class. The argument here is the class slug, obtainable from game
+# data.
+# targetID: Optional. Whether or not to filter the fights to a
+# specific target actor ID. By default all targets are included.
+# targetInstanceID: Optional. Whether or not to filter the fights
+# to a specific target actor instance ID. By default all instances of an actor are
+# included.
+# translate: Optional. Whether or not the fight data should be
+# auto-translated. Defaults to true. Set to false if speed is a priority, and you
+# do not care about the names.
+# viewOptions: Optional. A bitfield set of options used in the
+# site UI. You can experiment in each view with the options to see what these
+# values are.
+# viewBy: Optional. Whether to view by source, by target or by
+# ability.
+# wipeCutoff: Optional. The number of deaths after which all
+# subsequent events should be ignored.
+
+table(
+
+abilityID: Float,
+
+dataType: TableDataType,
+
+death: Int,
+
+difficulty: Int,
+
+encounterID: Int,
+
+endTime: Float,
+
+fightIDs: [Int],
+
+filterExpression: String,
+
+hostilityType: HostilityType,
+
+killType: KillType,
+
+sourceAurasAbsent: String,
+
+sourceAurasPresent: String,
+
+sourceClass: String,
+
+sourceID: Int,
+
+sourceInstanceID: Int,
+
+startTime: Float,
+targetAurasAbsent: String,
+
+targetAurasPresent: String,
+
+targetClass: String,
+
+targetID: Int,
+
+targetInstanceID: Int,
+
+translate: Boolean,
+
+viewOptions: Int,
+
+viewBy: ViewType,
+wipeCutoff: Int
+): JSON
+
+
+# A title for the report.
+
+
+title: String!
+# The visibility level of the report. The possible values are 'public', 'private',
+# and 'unlisted'.
+
+
+visibility: String!
+# The principal zone that the report contains fights for. Null if no supported
+# zone exists.
+zone: Zone
+
+
+# Whether this report has been archived. Events, tables, and graphs for archived
+# reports are inaccessible unless the retrieving user has a subscription including
+# archive access.
+archiveStatus: ReportArchiveStatus
+
+
+# Phase information for all boss encounters observed in this report. This requires
+# loading fight data, but does not double-charge API points if you load fights and
+# phases.
+phases: [EncounterPhases!]
+}

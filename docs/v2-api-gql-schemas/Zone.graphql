@@ -1,0 +1,39 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Zone.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Zone {
+# The ID of the zone.
+
+
+id: Int!
+# The bracket information for this zone. This field will be null if the zone does
+# not support brackets.
+brackets: Bracket
+
+
+# A list of all the difficulties supported for this zone.
+
+
+difficulties: [Difficulty]
+# The encounters found within this zone.
+
+
+encounters: [Encounter]
+# The expansion that this zone belongs to.
+
+
+expansion: Expansion!
+# Whether or not the entire zone (including all its partitions) is permanently
+# frozen. When a zone is frozen, data involving that zone will never change and
+# can be cached forever.
+
+
+frozen: Boolean!
+# The name of the zone.
+
+
+name: String!
+# A list of all the partitions supported for this zone.
+partitions: [Partition]
+}

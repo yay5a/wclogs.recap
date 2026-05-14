@@ -1,0 +1,71 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportRankingMetricType.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+enum ReportRankingMetricType {
+# Boss cDPS is unique to FFXIV and is damage done to the boss adjusted for
+# raid-contributing buffs and debuffs.
+bosscdps
+
+
+# Boss damage per second.
+bossdps
+
+
+# Boss nDPS is unique to FFXIV and is damage done to the boss adjusted for
+# raid-contributing buffs and debuffs.
+bossndps
+
+
+# Boss rDPS is unique to FFXIV and is damage done to the boss adjusted for
+# raid-contributing buffs and debuffs.
+bossrdps
+
+
+# Choose an appropriate default depending on the other selected parameters.
+default
+
+
+# Damage per second.
+dps
+
+
+# Healing per second.
+hps
+
+
+# Survivability ranking for tanks. Deprecated. Only supported for some older WoW
+# zones.
+krsi
+
+# Score. Used by WoW Mythic dungeons and by ESO trials.
+playerscore
+
+
+# Speed. Not supported by every zone.
+playerspeed
+
+
+# cDPS is unique to FFXIV and is damage done adjusted for raid-contributing buffs
+# and debuffs.
+cdps
+
+
+# nDPS is unique to FFXIV and is damage done adjusted for raid-contributing buffs
+# and debuffs.
+ndps
+
+
+# rDPS is unique to FFXIV and is damage done adjusted for raid-contributing buffs
+# and debuffs.
+rdps
+
+
+# Healing done per second to tanks.
+tankhps
+
+
+# Weighted damage per second. Unique to WoW currently. Used to remove pad damage
+# and reward damage done to high priority targets.
+wdps
+}

@@ -1,0 +1,12 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportEventPaginator.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportEventPaginator {
+# The list of events obtained.
+data: JSON
+
+
+# A timestamp to pass in as the start time when fetching the next page of data.
+nextPageTimestamp: Float
+}

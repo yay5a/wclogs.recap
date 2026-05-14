@@ -1,0 +1,29 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportDungeonPullNPC.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportDungeonPullNPC {
+# The report ID of the actor. This ID is used in events to identify sources and
+# targets.
+id: Int
+
+
+# The game ID of the actor, e.g., so it can be looked up on external Web sites.
+gameID: Int
+
+
+# The lowest instance ID seen during the pull.
+minimumInstanceID: Int
+
+
+# The highest instance ID seen during the pull.
+maximumInstanceID: Int
+
+
+# The lowest instance group ID seen during the pull.
+minimumInstanceGroupID: Int
+
+
+# The highest instance group ID seen during the pull.
+maximumInstanceGroupID: Int
+}

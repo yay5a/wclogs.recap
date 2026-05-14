@@ -1,0 +1,88 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ProgressRaceData.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ProgressRaceData {
+# Progress race information including best percentages, pull counts and streams
+# for top guilds. This API is only active when there is an ongoing race. The
+# format of this JSON may change without notice and is not considered frozen.
+#
+# Arguments
+# serverRegion: Optional. The short name of a region to filter
+# to. If paired with a server slug, will uniquely identify a server. If used by
+# itself, rankings for that specific region will be fetched.
+# serverSubregion: Optional. The short name of a subregion to
+# filter to. Must be paired with serverRegion. Rankings for that specific
+# subregion will be fetched.
+# serverSlug: Optional. The slug for a specific server. Whether
+# or not to filter rankings to a specific server. If omitted, data for all servers
+# will be used.
+# zoneID: Optional. If not specified, the latest zone will be
+# used.
+# competitionID: Optional. If not specified, the race to world
+# first competition will be used.
+# difficulty: Optional. If not specified, the highest difficulty
+# will be used.
+# size: Optional. If not specified, the default size for the
+# highest difficulty will be used.
+# guildID: Optional. The ID of a single guild to retrieve.
+# guildName: Optional. The name of a specific guild. Must be used
+# in conjunction with serverSlug and serverRegion to uniquely identify a guild.
+
+progressRace(
+
+serverRegion: String,
+serverSubregion: String,
+
+serverSlug: String,
+
+zoneID: Int,
+
+competitionID: Int,
+
+difficulty: Int,
+
+size: Int,
+
+guildID: Int,
+guildName: String
+): JSON
+
+
+# Detailed composition data for a given guild and encounter.
+#
+# Arguments
+# competitionID: Optional. If not specified, the race to world
+# first competition will be used.
+# guildID: Optional. The ID of a single guild to retrieve.
+# guildName: Optional. The name of a specific guild. Must be used
+# in conjunction with serverSlug and serverRegion to uniquely identify a guild.
+# serverSlug: Optional. The name of a specific guild. Must be
+# used in conjunction with name and serverRegion to uniquely identify a guild.
+# serverRegion: Optional. The region for a specific guild. Must
+# be used in conjunction with name and serverRegion to uniquely identify a guild.
+# encounterID: Optional. If not specified, the current boss that
+# is being pulled will be used.
+# difficulty: Optional. If not specified, the highest difficulty
+# will be used.
+# size: Optional. If not specified, the default size for the
+# highest difficulty will be used.
+
+detailedComposition(
+
+competitionID: Int,
+
+guildID: Int,
+
+guildName: String,
+
+serverSlug: String,
+
+serverRegion: String,
+
+encounterID: Int,
+
+difficulty: Int,
+size: Int
+): JSON
+}

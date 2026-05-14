@@ -1,0 +1,24 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: KillType.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+enum KillType {
+# Include trash and encounters.
+All
+
+
+# Only include encounters (kills and wipes).
+Encounters
+
+
+# Only include encounters that end in a kill.
+Kills
+
+
+# Only include trash.
+Trash
+
+
+# Only include encounters that end in a wipe.
+Wipes
+}

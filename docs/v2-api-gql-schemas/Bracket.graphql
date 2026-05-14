@@ -1,0 +1,22 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Bracket.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Bracket {
+# An integer representing the minimum value used by bracket number 1, etc.
+
+
+min: Float!
+# An integer representing the value used by bracket N when there are a total of N
+# brackets, etc.
+
+
+max: Float!
+# A float representing the value to increment when moving from bracket 1 to
+# bracket N, etc.
+
+
+bucket: Float!
+# The localized name of the bracket type.
+type: String
+}

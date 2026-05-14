@@ -1,0 +1,30 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: ReportComponent.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type ReportComponent {
+# The component's unique key.
+
+
+key: String!
+# The human-readable name of the component
+
+
+name: String!
+# Whether the component is currently protected from deletion.
+
+
+deletionProtected: Boolean!
+# The contents of the component script.
+contents: String
+
+
+# Evaluate a report component against report data, returning the result.
+#
+# Arguments
+# filter: [Not documented]
+# debug: [Not documented]
+# reportCode: [Not documented]
+evaluate(filter: ReportComponentFilter, debug: Boolean, reportCode: String!):
+ReportComponentResult
+}

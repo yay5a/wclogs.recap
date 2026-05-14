@@ -1,0 +1,12 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: LeaderboardRank.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+enum LeaderboardRank {
+# All ranks are included.
+Any
+
+
+# Only include ranks with a backing log.
+LogsOnly
+}

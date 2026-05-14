@@ -1,0 +1,39 @@
+# Generated from WCL GraphQL schema PDF.
+# Source: Guild.pdf
+# Extracted: 2026-05-06T22:39:08+00:00
+
+type Guild {
+# Arguments
+# guildTagID: Optional. Whether or not to filter the attendance
+# to a specific guild tag.
+# limit: Optional. The number of reports to retrieve per page. If
+# omitted, defaults to 16. The maximum allowed value is 25, and minimum allowed
+# value is 1.
+# page: Optional. The page of paginated data to retrieve. If
+# omitted, defaults to the first page.
+# zoneID: Optional. Whether or not to filter the attendance table
+# to a specific zone.
+attendance(guildTagID: Int, limit: Int, page: Int, zoneID: Int):
+
+
+GuildAttendancePagination!
+# Whether or not the guild has competition mode enabled.
+
+
+competitionMode: Boolean!
+# The description for the guild that is displayed with the guild name on the site.
+
+
+description: String!
+# The faction of the guild.
+
+
+faction: GameFaction!
+# The ID of the guild.
+
+
+id: Int!
+# The name of the guild.
+name: String!
+teams: [Guild]!
+}
