@@ -1,99 +1,101 @@
 import { describe, expect, it, vi } from 'vitest';
 import { InteractionResponseType, InteractionType } from 'discord-interactions';
-import { commandDefinitions, handleInteraction } from './index.js';
+import {
+  commandDefinitions,
+  handleInteraction,
+} from './index.js';
 import { buildGuildRankResponseBody } from './renderers/guildrank.js';
 
-const makeHandleOptions = () =>
-  ({
-    wclClient: {
-      fetchReportSummary: vi.fn().mockResolvedValue({
-        reportCode: 'ABC123',
-        reportTitle: 'Raid',
-        reportLink: 'https://www.warcraftlogs.com/reports/ABC123',
-        dateISO: new Date(0).toISOString(),
-        startTimeISO: new Date(0).toISOString(),
-        endTimeISO: new Date(1).toISOString(),
-        durationMs: 1,
-        bossPulls: 1,
-        totalKills: 1,
-        totalWipes: 0,
-        encounters: [],
-        highestParses: { dtpsAvailable: false },
-        topPlayers: {
-          highestAverageParse: [],
-          highestTotalDamage: [],
-          highestTotalHealing: [],
-          highestTotalDamageTaken: [],
-          highestTotalDps: [],
-          highestHps: [],
-          highestDamageTakenRate: [],
-          mostDeaths: [],
-          mostInterrupts: [],
-          mostDispels: [],
-        },
-        partialDataNotes: [],
-      }),
-      fetchGuildRankSummary: vi.fn().mockResolvedValue({
-        guildName: 'Guild',
-        zoneName: 'Throne',
-        difficultyLabel: 'Heroic',
-        sizeLabel: '10man',
-        window: {
-          currentStartIso: new Date(0).toISOString(),
-          currentEndIso: new Date(1).toISOString(),
-          baselineStartIso: new Date(2).toISOString(),
-          baselineEndIso: new Date(3).toISOString(),
-        },
-        progress: {
-          clearedEncounters: 1,
-          totalEncounters: 1,
-          pulls: 1,
-          wipes: 0,
-          ranks: {},
-          ranksAvailable: false,
-          sourceLabel: 'Progress Only: Ranking Unavailable',
-        },
-        speed: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
-        execution: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
-        notes: [],
-      }),
-      resolveZoneName: vi.fn().mockResolvedValue('Throne of Thunder'),
-    },
-    guildConfigStore: {
-      getGuildConfig: vi.fn().mockResolvedValue({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'character',
-        compareAccessMode: 'officer_only',
-        compareOfficerUserIds: [],
-        dashboardOfficerAccessEnabled: false,
-        comparePublicPostingEnabled: false,
-        autoReportMode: 'prompt',
-        autoReportChannelIds: [],
-        wclGuildName: 'Guild',
-        wclGuildServerSlug: 'stormrage',
-        wclGuildServerRegion: 'us',
-        wclZoneId: 100,
-      }),
-      saveGuildConfig: vi.fn().mockImplementation(async (_guildId, update) => ({
-        guildId: 'guild-1',
-        defaultGameFamily: 'retail',
-        compareModeDefault: 'character',
-        compareAccessMode: 'officer_only',
-        compareOfficerUserIds: [],
-        dashboardOfficerAccessEnabled: false,
-        comparePublicPostingEnabled: false,
-        autoReportMode: 'prompt',
-        autoReportChannelIds: [],
-        wclGuildName: typeof update?.wclGuildName === 'string' ? update.wclGuildName : 'Guild',
-        wclGuildServerSlug:
-          typeof update?.wclGuildServerSlug === 'string' ? update.wclGuildServerSlug : 'stormrage',
-        wclGuildServerRegion:
-          typeof update?.wclGuildServerRegion === 'string' ? update.wclGuildServerRegion : 'us',
-        wclZoneId: typeof update?.wclZoneId === 'number' ? update.wclZoneId : 100,
-      })),
-    },
-  }) as never;
+const makeHandleOptions = () => ({
+  wclClient: {
+    fetchReportSummary: vi.fn().mockResolvedValue({
+      reportCode: 'ABC123',
+      reportTitle: 'Raid',
+      reportLink: 'https://www.warcraftlogs.com/reports/ABC123',
+      dateISO: new Date(0).toISOString(),
+      startTimeISO: new Date(0).toISOString(),
+      endTimeISO: new Date(1).toISOString(),
+      durationMs: 1,
+      bossPulls: 1,
+      totalKills: 1,
+      totalWipes: 0,
+      encounters: [],
+      highestParses: { dtpsAvailable: false },
+      topPlayers: {
+        highestAverageParse: [],
+        highestTotalDamage: [],
+        highestTotalHealing: [],
+        highestTotalDamageTaken: [],
+        highestTotalDps: [],
+        highestHps: [],
+        highestDamageTakenRate: [],
+        mostDeaths: [],
+        mostInterrupts: [],
+        mostDispels: [],
+      },
+      partialDataNotes: [],
+    }),
+    fetchGuildRankSummary: vi.fn().mockResolvedValue({
+      guildName: 'Guild',
+      zoneName: 'Throne',
+      difficultyLabel: 'Heroic',
+      sizeLabel: '10man',
+      window: {
+        currentStartIso: new Date(0).toISOString(),
+        currentEndIso: new Date(1).toISOString(),
+        baselineStartIso: new Date(2).toISOString(),
+        baselineEndIso: new Date(3).toISOString(),
+      },
+      progress: {
+        clearedEncounters: 1,
+        totalEncounters: 1,
+        pulls: 1,
+        wipes: 0,
+        ranks: {},
+        ranksAvailable: false,
+        sourceLabel: 'Progress Only: Ranking Unavailable',
+      },
+      speed: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
+      execution: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
+      notes: [],
+    }),
+    resolveZoneName: vi.fn().mockResolvedValue('Throne of Thunder'),
+  },
+  guildConfigStore: {
+    getGuildConfig: vi.fn().mockResolvedValue({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      compareAccessMode: 'officer_only',
+      compareOfficerUserIds: [],
+      dashboardOfficerAccessEnabled: false,
+      comparePublicPostingEnabled: false,
+      autoReportMode: 'prompt',
+      autoReportChannelIds: [],
+      wclGuildName: 'Guild',
+      wclGuildServerSlug: 'stormrage',
+      wclGuildServerRegion: 'us',
+      wclZoneId: 100,
+    }),
+    saveGuildConfig: vi.fn().mockImplementation(async (_guildId, update) => ({
+      guildId: 'guild-1',
+      defaultGameFamily: 'retail',
+      compareModeDefault: 'character',
+      compareAccessMode: 'officer_only',
+      compareOfficerUserIds: [],
+      dashboardOfficerAccessEnabled: false,
+      comparePublicPostingEnabled: false,
+      autoReportMode: 'prompt',
+      autoReportChannelIds: [],
+      wclGuildName: typeof update?.wclGuildName === 'string' ? update.wclGuildName : 'Guild',
+      wclGuildServerSlug:
+        typeof update?.wclGuildServerSlug === 'string' ? update.wclGuildServerSlug : 'stormrage',
+      wclGuildServerRegion:
+        typeof update?.wclGuildServerRegion === 'string' ? update.wclGuildServerRegion : 'us',
+      wclZoneId: typeof update?.wclZoneId === 'number' ? update.wclZoneId : 100,
+    })),
+  },
+}) as never;
 
 describe('discord command surfaces', () => {
   it('registers report and guildrank commands with expected options', () => {
@@ -154,9 +156,7 @@ describe('discord command surfaces', () => {
         member: { user: { id: 'user-1' }, permissions: '32' },
         data: {
           name: 'report',
-          options: [
-            { name: 'wcl_report_url', value: 'https://www.warcraftlogs.com/reports/ABC123' },
-          ],
+          options: [{ name: 'wcl_report_url', value: 'https://www.warcraftlogs.com/reports/ABC123' }],
         },
       },
       options,
@@ -257,43 +257,23 @@ describe('discord command surfaces', () => {
         sourceLabel: 'Derived from WCL Reports',
         ranks: { world: 1273, region: 489, realm: 296 },
         completeRaidRanks: { world: 389, region: 136, realm: 120 },
-        overall: {
-          bestDerivedPercentile: 91,
-          bestDerivedPercentileDelta: 3,
-          medianDerivedPercentile: 88,
-          medianDerivedPercentileDelta: -2,
-        },
+        overall: { bestScore: 91, bestScoreDelta: 3, medianScore: 88, medianScoreDelta: -2 },
         encounters: [
           {
             encounterName: 'Jinrokh',
-            speed: {
-              bestDerivedPercentile: 95,
-              bestDerivedPercentileDelta: 5,
-              medianDerivedPercentile: 90,
-              medianDerivedPercentileDelta: -1,
-            },
+            speed: { bestScore: 95, bestScoreDelta: 5, medianScore: 90, medianScoreDelta: -1 },
             execution: {},
           },
         ],
       },
       execution: {
         sourceLabel: 'Derived from WCL Reports',
-        overall: {
-          bestDerivedPercentile: 84,
-          bestDerivedPercentileDelta: 4,
-          medianDerivedPercentile: 82,
-          medianDerivedPercentileDelta: 2,
-        },
+        overall: { bestScore: 84, bestScoreDelta: 4, medianScore: 82, medianScoreDelta: 2 },
         encounters: [
           {
             encounterName: 'Jinrokh',
             speed: {},
-            execution: {
-              bestDerivedPercentile: 86,
-              bestDerivedPercentileDelta: 6,
-              medianDerivedPercentile: 80,
-              medianDerivedPercentileDelta: -3,
-            },
+            execution: { bestScore: 86, bestScoreDelta: 6, medianScore: 80, medianScoreDelta: -3 },
           },
         ],
       },
@@ -327,25 +307,21 @@ describe('discord command surfaces', () => {
     expect(speedValue).toContain('World 🌍 #389');
     expect(speedValue).toContain('Region 🗾 #136');
     expect(speedValue).toContain('Realm 🪐 #120');
-    expect(speedValue).toContain('Best Derived Relative Percentile: 91 (prev 88, +3)');
-    expect(speedValue).toContain('Median Derived Relative Percentile: 88 (prev 90, -2)');
+    expect(speedValue).toContain('Best Avg Score: 91 (prev 88, +3)');
+    expect(speedValue).toContain('Median Avg Score: 88 (prev 90, -2)');
     expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
       'Source: Derived from WCL Reports',
     );
     expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
-      'Best Derived Relative Percentile: 84 (prev 80, +4)',
+      'Best Avg Score: 84 (prev 80, +4)',
     );
     expect(JSON.stringify(response)).not.toContain('Official progress ranks unavailable');
-    const speedEncounterValue =
-      fields.find((field) => field.name === 'Speed - Per Encounter')?.value ?? '';
+    const speedEncounterValue = fields.find((field) => field.name === 'Speed - Per Encounter')?.value ?? '';
     expect(speedEncounterValue).toContain('• Jinrokh');
-    expect(speedEncounterValue).toContain('  Best Derived Relative Percentile: 95 (prev 90, +5)');
-    const executionEncounterValue =
-      fields.find((field) => field.name === 'Execution - Per Encounter')?.value ?? '';
+    expect(speedEncounterValue).toContain('  Best Score: 95 (prev 90, +5)');
+    const executionEncounterValue = fields.find((field) => field.name === 'Execution - Per Encounter')?.value ?? '';
     expect(executionEncounterValue).toContain('• Jinrokh');
-    expect(executionEncounterValue).toContain(
-      '  Best Derived Relative Percentile: 86 (prev 80, +6)',
-    );
+    expect(executionEncounterValue).toContain('  Best Score: 86 (prev 80, +6)');
     expect(fields.some((field) => field.name === 'Jinrokh')).toBe(false);
   });
 

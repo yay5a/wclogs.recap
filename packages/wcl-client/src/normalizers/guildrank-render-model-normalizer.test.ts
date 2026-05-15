@@ -28,14 +28,14 @@ const baseBundle = (): GuildRankCollectorBundle => ({
   baselineReports: [],
   currentSpeed: {
     perEncounter: [
-      { encounterName: 'Jinrokh', bestDerivedPercentile: 80 },
-      { encounterName: 'Council', bestDerivedPercentile: 70 },
+      { encounterName: 'Jinrokh', bestScore: 80 },
+      { encounterName: 'Council', bestScore: 70 },
     ],
   },
   baselineSpeed: {
     perEncounter: [
-      { encounterName: 'Jinrokh', bestDerivedPercentile: 70 },
-      { encounterName: 'Council', bestDerivedPercentile: 60 },
+      { encounterName: 'Jinrokh', bestScore: 70 },
+      { encounterName: 'Council', bestScore: 60 },
     ],
   },
   currentExecution: { perEncounter: [] },
@@ -58,7 +58,7 @@ describe('guildrank render-model normalizer', () => {
     expect(summary.speed.bestEncounterGain).toEqual({ encounterName: 'Council', delta: 10 });
   });
 
-  it('maps official speed rank positions separately from derived percentiles', () => {
+  it('maps official speed rank positions separately from derived scores', () => {
     const bundle = baseBundle();
     bundle.officialRanks.speed = { world: 1273, region: 489, realm: 296 };
     bundle.officialRanks.completeRaidSpeed = { world: 389, region: 136, realm: 120 };
@@ -67,29 +67,6 @@ describe('guildrank render-model normalizer', () => {
 
     expect(summary.speed.ranks).toEqual({ world: 1273, region: 489, realm: 296 });
     expect(summary.speed.completeRaidRanks).toEqual({ world: 389, region: 136, realm: 120 });
-    expect(summary.speed.overall.bestDerivedPercentile).toBe(75);
-  });
-
-  it('keeps speed and execution derived percentiles on separate encounter fields', () => {
-    const bundle = baseBundle();
-    bundle.currentExecution = {
-      perEncounter: [{ encounterName: 'Jinrokh', bestDerivedPercentile: 40 }],
-    };
-    bundle.baselineExecution = {
-      perEncounter: [{ encounterName: 'Jinrokh', bestDerivedPercentile: 30 }],
-    };
-
-    const summary = normalizeGuildRankRenderModel(bundle);
-
-    expect(summary.speed.encounters.find((row) => row.encounterName === 'Jinrokh')).toMatchObject({
-      speed: { bestDerivedPercentile: 80 },
-      execution: {},
-    });
-    expect(
-      summary.execution.encounters.find((row) => row.encounterName === 'Jinrokh'),
-    ).toMatchObject({
-      speed: {},
-      execution: { bestDerivedPercentile: 40 },
-    });
+    expect(summary.speed.overall.bestScore).toBe(75);
   });
 });

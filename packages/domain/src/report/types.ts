@@ -101,10 +101,10 @@ export interface ReportSummary {
 }
 
 export interface GuildRankMetricRow {
-  bestDerivedPercentile?: number;
-  bestDerivedPercentileDelta?: number;
-  medianDerivedPercentile?: number;
-  medianDerivedPercentileDelta?: number;
+  bestScore?: number;
+  bestScoreDelta?: number;
+  medianScore?: number;
+  medianScoreDelta?: number;
 }
 
 export interface GuildRankEncounterRow {

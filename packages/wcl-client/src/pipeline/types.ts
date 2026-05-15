@@ -90,14 +90,14 @@ export interface GuildOfficialRanks {
     region?: number;
     realm?: number;
   };
-  source: 'zoneRankings' | 'progressRaceData' | 'unavailable';
-  progressSource: 'zoneRankings' | 'progressRaceData' | 'unavailable';
+  source: 'zoneRanking' | 'unavailable';
+  progressSource: 'zoneRanking' | 'unavailable';
 }
 
 export interface GuildRankEncounterMetric {
   encounterName: string;
-  bestDerivedPercentile?: number;
-  medianDerivedPercentile?: number;
+  bestScore?: number;
+  medianScore?: number;
 }
 
 export interface GuildRankMetricSet {
@@ -125,12 +125,7 @@ export interface GuildRankCollectorBundle {
   baselineSpeed: GuildRankMetricSet;
   currentExecution: GuildRankMetricSet;
   baselineExecution: GuildRankMetricSet;
-  progressPulls: {
-    pulls: number;
-    wipes: number;
-    clearedEncounters: number;
-    totalEncounters: number;
-  };
+  progressPulls: { pulls: number; wipes: number; clearedEncounters: number; totalEncounters: number };
   currentWindowDiscovery: {
     candidateReports: number;
     zoneMatchedReports: number;

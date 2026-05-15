@@ -46,7 +46,7 @@ const median = (values: number[]): number | undefined => {
   return typeof value === 'number' ? value : undefined;
 };
 
-const toDerivedPercentile = (
+const toDerivedScore = (
   value: number,
   allValues: number[],
   lowerIsBetter: boolean,
@@ -277,15 +277,15 @@ const buildMetricSet = (
       const baselineValues = peerRows.get(encounterName) ?? [];
       const allValuesRaw = [...currentValues, ...baselineValues];
       const scores = currentValues.map((value) =>
-        toDerivedPercentile(value, allValuesRaw, lowerIsBetter),
+        toDerivedScore(value, allValuesRaw, lowerIsBetter),
       );
-      const bestDerivedPercentile = scores.length > 0 ? Math.max(...scores) : undefined;
-      const medianDerivedPercentile = median(scores);
+      const bestScore = scores.length > 0 ? Math.max(...scores) : undefined;
+      const medianScore = median(scores);
 
       perEncounter.push({
         encounterName,
-        ...(typeof bestDerivedPercentile === 'number' ? { bestDerivedPercentile } : {}),
-        ...(typeof medianDerivedPercentile === 'number' ? { medianDerivedPercentile } : {}),
+        ...(typeof bestScore === 'number' ? { bestScore } : {}),
+        ...(typeof medianScore === 'number' ? { medianScore } : {}),
       });
     }
 
@@ -455,11 +455,7 @@ export const collectGuildRankSummaryData = async (
   }
 
   const speedSets = buildMetricSet(currentMetricsByEncounter, baselineMetricsByEncounter, true);
-  const executionSets = buildMetricSet(
-    currentExecutionByEncounter,
-    baselineExecutionByEncounter,
-    true,
-  );
+  const executionSets = buildMetricSet(currentExecutionByEncounter, baselineExecutionByEncounter, true);
 
   logDiscoveryFilterStage(debugContext, {
     currentCandidateReports: currentCandidates.length,
