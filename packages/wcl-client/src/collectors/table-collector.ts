@@ -48,7 +48,12 @@ const groupFightIdsByEncounter = (
 ): Map<number, number[]> => {
   const byEncounterId = new Map<number, number[]>();
   for (const fight of fights) {
-    byEncounterId.set(fight.encounterId, [...(byEncounterId.get(fight.encounterId) ?? []), fight.id]);
+    const fightIds = byEncounterId.get(fight.encounterId);
+    if (fightIds) {
+      fightIds.push(fight.id);
+    } else {
+      byEncounterId.set(fight.encounterId, [fight.id]);
+    }
   }
   return byEncounterId;
 };

@@ -141,29 +141,47 @@ const collectEncounterMetricsFromReport = async (
 
   const byEncounter = new Map<string, typeof filteredFights>();
   for (const fight of filteredFights) {
-    byEncounter.set(fight.name, [...(byEncounter.get(fight.name) ?? []), fight]);
+    const fights = byEncounter.get(fight.name);
+    if (fights) {
+      fights.push(fight);
+    } else {
+      byEncounter.set(fight.name, [fight]);
+    }
   }
 
   const speedByEncounter = new Map<string, number>();
   const executionByEncounter = new Map<string, number>();
   const clearedEncounters = new Set<string>();
+  let wipes = 0;
 
   for (const [encounterName, fights] of byEncounter.entries()) {
-    const killFights = fights.filter((fight) => fight.kill);
-    if (killFights.length === 0) continue;
+    let hasKill = false;
+    let fastestDuration: number | undefined;
+    let lowestDeaths: number | undefined;
+    for (const fight of fights) {
+      if (!fight.kill) {
+        wipes += 1;
+        continue;
+      }
+      hasKill = true;
+      const durationMs = Math.max(0, fight.endTime - fight.startTime);
+      if (typeof fastestDuration !== 'number' || durationMs < fastestDuration) {
+        fastestDuration = durationMs;
+      }
+      const deaths = tableMetrics.deathsByFightId[fight.id] ?? 0;
+      if (typeof lowestDeaths !== 'number' || deaths < lowestDeaths) {
+        lowestDeaths = deaths;
+      }
+    }
+
+    if (!hasKill) continue;
 
     clearedEncounters.add(encounterName);
 
-    const fastestDuration = killFights
-      .map((fight) => Math.max(0, fight.endTime - fight.startTime))
-      .sort((left, right) => left - right)[0];
     if (typeof fastestDuration === 'number') {
       speedByEncounter.set(encounterName, fastestDuration);
     }
 
-    const lowestDeaths = killFights
-      .map((fight) => tableMetrics.deathsByFightId[fight.id] ?? 0)
-      .sort((left, right) => left - right)[0];
     if (typeof lowestDeaths === 'number') {
       executionByEncounter.set(encounterName, lowestDeaths);
     }
@@ -173,7 +191,7 @@ const collectEncounterMetricsFromReport = async (
     speedByEncounter,
     executionByEncounter,
     pulls: filteredFights.length,
-    wipes: filteredFights.filter((fight) => !fight.kill).length,
+    wipes,
     clearedEncounters,
     matchesZone: true,
     hasDifficultySizeFights: filteredFights.length > 0,

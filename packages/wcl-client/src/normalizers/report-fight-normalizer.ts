@@ -6,31 +6,40 @@ const compareString = (left: string, right: string): number => left.localeCompar
 const pickMostCommonNumber = (values: number[]): number | undefined => {
   if (values.length === 0) return undefined;
   const counts = new Map<number, number>();
+  let bestValue: number | undefined;
+  let bestCount = 0;
   for (const value of values) {
-    counts.set(value, (counts.get(value) ?? 0) + 1);
+    const count = (counts.get(value) ?? 0) + 1;
+    counts.set(value, count);
+    if (
+      count > bestCount ||
+      (count === bestCount && (typeof bestValue !== 'number' || value < bestValue))
+    ) {
+      bestValue = value;
+      bestCount = count;
+    }
   }
 
-  return [...counts.entries()].sort((left, right) => {
-    if (right[1] !== left[1]) return right[1] - left[1];
-    return left[0] - right[0];
-  })[0]?.[0];
+  return bestValue;
 };
 
 const toHighestRateRow = (
   rows: Array<{ playerName?: string; value: number; activeTimeMs?: number }>,
   fallbackDurationMs: number,
-): ReportMetricRow | undefined =>
-  [...rows]
-    .flatMap((row) => {
-      if (!row.playerName || typeof row.value !== 'number') return [];
-      const durationMs =
-        typeof row.activeTimeMs === 'number' && row.activeTimeMs > 0
-          ? row.activeTimeMs
-          : fallbackDurationMs;
-      if (durationMs <= 0) return [];
-      return [{ playerName: row.playerName, value: row.value / (durationMs / 1000) }];
-    })
-    .sort((left, right) => right.value - left.value)[0];
+): ReportMetricRow | undefined => {
+  let highest: ReportMetricRow | undefined;
+  for (const row of rows) {
+    if (!row.playerName || typeof row.value !== 'number') continue;
+    const durationMs =
+      typeof row.activeTimeMs === 'number' && row.activeTimeMs > 0
+        ? row.activeTimeMs
+        : fallbackDurationMs;
+    if (durationMs <= 0) continue;
+    const candidate = { playerName: row.playerName, value: row.value / (durationMs / 1000) };
+    if (!highest || candidate.value > highest.value) highest = candidate;
+  }
+  return highest;
+};
 
 export const normalizeReportFights = (
   index: ReportIndexData,
@@ -45,7 +54,12 @@ export const normalizeReportFights = (
 } => {
   const groups = new Map<number, typeof index.completedBossFights>();
   for (const fight of index.completedBossFights) {
-    groups.set(fight.encounterId, [...(groups.get(fight.encounterId) ?? []), fight]);
+    const fights = groups.get(fight.encounterId);
+    if (fights) {
+      fights.push(fight);
+    } else {
+      groups.set(fight.encounterId, [fight]);
+    }
   }
 
   const difficultyById = new Map(index.zoneDifficulties.map((row) => [row.id, row.name]));
@@ -53,18 +67,29 @@ export const normalizeReportFights = (
   const encounters = [...groups.entries()]
     .map(([encounterId, fights]) => {
       const pulls = fights.length;
-      const kills = fights.filter((fight) => fight.kill).length;
+      let kills = 0;
+      let totalDurationMs = 0;
+      let shortestKillDurationMs: number | undefined;
+      let deaths = 0;
+      let representative = fights[0];
+      for (const fight of fights) {
+        const durationMs = Math.max(0, fight.endTime - fight.startTime);
+        totalDurationMs += durationMs;
+        if (fight.kill) {
+          kills += 1;
+          if (
+            typeof shortestKillDurationMs !== 'number' ||
+            durationMs < shortestKillDurationMs
+          ) {
+            shortestKillDurationMs = durationMs;
+          }
+        }
+        deaths += tableMetrics.deathsByFightId[fight.id] ?? 0;
+        if (!representative || fight.startTime < representative.startTime) {
+          representative = fight;
+        }
+      }
       const wipes = pulls - kills;
-      const totalDurationMs = fights.reduce((sum, fight) => sum + Math.max(0, fight.endTime - fight.startTime), 0);
-      const shortestKillDurationMs = fights
-        .filter((fight) => fight.kill)
-        .map((fight) => Math.max(0, fight.endTime - fight.startTime))
-        .sort((left, right) => left - right)[0];
-      const deaths = fights.reduce(
-        (sum, fight) => sum + (tableMetrics.deathsByFightId[fight.id] ?? 0),
-        0,
-      );
-      const representative = [...fights].sort((left, right) => left.startTime - right.startTime)[0];
       const highestTotalDps = toHighestRateRow(
         tableMetrics.encounterTopDamageDoneByEncounterId[encounterId] ?? [],
         totalDurationMs,

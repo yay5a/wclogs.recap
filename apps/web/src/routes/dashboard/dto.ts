@@ -84,11 +84,15 @@ const parseAutoReportChannelIds = (value: unknown): string[] | "invalid" => {
     if (!Array.isArray(value)) return "invalid";
 
     const deduped: string[] = [];
+    const seen = new Set<string>();
     for (const rawEntry of value) {
         if (typeof rawEntry !== "string") return "invalid";
         const channelId = rawEntry.trim();
         if (!isValidSnowflake(channelId)) return "invalid";
-        if (!deduped.includes(channelId)) deduped.push(channelId);
+        if (!seen.has(channelId)) {
+            seen.add(channelId);
+            deduped.push(channelId);
+        }
     }
     return deduped;
 };

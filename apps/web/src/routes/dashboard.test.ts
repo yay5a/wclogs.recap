@@ -21,6 +21,7 @@ const guildId = "123456789012345678";
 const otherGuildId = "223456789012345678";
 const discordUserId = "323456789012345678";
 const channelId = "423456789012345678";
+const otherChannelId = "523456789012345678";
 
 const makeEnv = (
     overrides: Partial<Record<string, string | number | boolean | undefined>> = {},
@@ -1057,7 +1058,7 @@ describe("dashboard guild routes", () => {
                 compareAccessMode: "owner_only",
                 comparePublicPostingEnabled: true,
                 autoReportMode: "auto_preview",
-                autoReportChannelIds: [` ${channelId} `, channelId],
+                autoReportChannelIds: [` ${channelId} `, otherChannelId, channelId],
                 defaultGameFamily: "mop_classic",
             },
         });
@@ -1068,7 +1069,7 @@ describe("dashboard guild routes", () => {
             compareAccessMode: "owner_only",
             comparePublicPostingEnabled: true,
             autoReportMode: "auto_preview",
-            autoReportChannelIds: [channelId],
+            autoReportChannelIds: [channelId, otherChannelId],
             defaultGameFamily: "mop_classic",
         });
         expect(store.saveExistingGuildConfig).toHaveBeenCalledWith(guildId, {
@@ -1076,7 +1077,7 @@ describe("dashboard guild routes", () => {
             compareAccessMode: "owner_only",
             comparePublicPostingEnabled: true,
             autoReportMode: "auto_preview",
-            autoReportChannelIds: [channelId],
+            autoReportChannelIds: [channelId, otherChannelId],
             defaultGameFamily: "mop_classic",
         });
 

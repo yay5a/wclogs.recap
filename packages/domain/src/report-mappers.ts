@@ -165,12 +165,14 @@ export const pickEncounterSummaryFight = (
 ): FightSummaryRow | undefined => {
     if (fights.length === 0) return undefined;
 
-    const kills = fights
-        .filter((fight) => fight.kill)
-        .sort((left, right) => right.endTime - left.endTime);
-    if (kills.length > 0) return kills[0];
+    let latestKill: FightSummaryRow | undefined;
+    for (const fight of fights) {
+        if (!fight.kill) continue;
+        if (!latestKill || fight.endTime > latestKill.endTime) latestKill = fight;
+    }
+    if (latestKill) return latestKill;
 
-    return [...fights].sort((left, right) => {
+    const compareWipeCandidate = (left: FightSummaryRow, right: FightSummaryRow): number => {
         const leftProgress = left.fightPercentage ?? -Infinity;
         const rightProgress = right.fightPercentage ?? -Infinity;
         if (leftProgress !== rightProgress) return rightProgress - leftProgress;
@@ -186,7 +188,13 @@ export const pickEncounterSummaryFight = (
         if (leftDuration !== rightDuration) return rightDuration - leftDuration;
 
         return right.endTime - left.endTime;
-    })[0];
+    };
+
+    let bestWipe: FightSummaryRow | undefined;
+    for (const fight of fights) {
+        if (!bestWipe || compareWipeCandidate(fight, bestWipe) < 0) bestWipe = fight;
+    }
+    return bestWipe;
 };
 
 export interface TableValueEntry {
@@ -207,12 +215,13 @@ export const summarizeBossTables = (
     parsedTables: Partial<Record<string, TableValueEntry[]>>,
     parseEntry?: NormalizedLeaderboardEntry,
 ): NormalizedBossPerformance => {
-    const topByValue = (entries?: TableValueEntry[]) =>
-        (entries ?? [])
-            .slice()
-            .sort((left, right) => (right.value ?? 0) - (left.value ?? 0))[0] as
-            | TableValueEntry
-            | undefined;
+    const topByValue = (entries?: TableValueEntry[]): TableValueEntry | undefined => {
+        let top: TableValueEntry | undefined;
+        for (const entry of entries ?? []) {
+            if (!top || (entry.value ?? 0) > (top.value ?? 0)) top = entry;
+        }
+        return top;
+    };
 
     const topDamageEntry = topByValue(parsedTables.DamageDone);
     const topHealingEntry = topByValue(parsedTables.Healing);

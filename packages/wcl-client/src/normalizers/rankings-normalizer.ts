@@ -25,16 +25,21 @@ const pickBestParse = (
   entries: NormalizedLeaderboardEntry[],
   metric: ReportParseRow['metric'],
   sourceMetric?: ReportParseRow['sourceMetric'],
-): ReportParseRow | undefined =>
-  entries
-    .flatMap((entry) => {
-      const row = toParseRow(entry, metric, sourceMetric);
-      return row ? [row] : [];
-    })
-    .sort((left, right) => {
-      if (right.value !== left.value) return right.value - left.value;
-      return compareString(left.playerName, right.playerName);
-    })[0];
+): ReportParseRow | undefined => {
+  let best: ReportParseRow | undefined;
+  for (const entry of entries) {
+    const row = toParseRow(entry, metric, sourceMetric);
+    if (!row) continue;
+    if (
+      !best ||
+      row.value > best.value ||
+      (row.value === best.value && compareString(row.playerName, best.playerName) < 0)
+    ) {
+      best = row;
+    }
+  }
+  return best;
+};
 
 export const normalizeRankings = (rankings: {
   dps: NormalizedLeaderboardEntry[];

@@ -68,6 +68,46 @@ describe("report mappers", () => {
         expect(picked?.id).toBe(2);
     });
 
+    it("pickEncounterSummaryFight preserves wipe tie-break order", () => {
+        const picked = pickEncounterSummaryFight([
+            {
+                id: 1,
+                encounterID: 100,
+                name: "Boss",
+                startTime: 0,
+                endTime: 100,
+                kill: false,
+                fightPercentage: 80,
+                bossPercentage: 40,
+                phaseTransitions: [],
+            },
+            {
+                id: 2,
+                encounterID: 100,
+                name: "Boss",
+                startTime: 10,
+                endTime: 160,
+                kill: false,
+                fightPercentage: 80,
+                bossPercentage: 40,
+                phaseTransitions: [],
+            },
+            {
+                id: 3,
+                encounterID: 100,
+                name: "Boss",
+                startTime: 20,
+                endTime: 170,
+                kill: false,
+                fightPercentage: 80,
+                bossPercentage: 40,
+                phaseTransitions: [],
+            },
+        ]);
+
+        expect(picked?.id).toBe(3);
+    });
+
     it("sumTableValues sums values and tolerates undefined", () => {
         expect(sumTableValues([{ value: 1 }, { value: 2 }, {}])).toBe(3);
         expect(sumTableValues(undefined)).toBeUndefined();
@@ -78,7 +118,10 @@ describe("report mappers", () => {
             "Boss",
             10,
             {
-                DamageDone: [{ playerName: "A", value: 100 }],
+                DamageDone: [
+                    { playerName: "A", value: 100 },
+                    { playerName: "Z", value: 100 },
+                ],
                 Healing: [{ playerName: "B", value: 50 }],
                 Deaths: [{ playerName: "C", value: 2 }],
             },

@@ -85,13 +85,16 @@ const normalizeMetricSection = (
     };
   });
 
-  const bestEncounterGain = encounters
-    .flatMap((encounter) =>
-      typeof encounter.speed.bestDelta === 'number'
-        ? [{ encounterName: encounter.encounterName, delta: encounter.speed.bestDelta }]
-        : [],
-    )
-    .sort((left, right) => right.delta - left.delta)[0];
+  let bestEncounterGain: { encounterName: string; delta: number } | undefined;
+  for (const encounter of encounters) {
+    if (typeof encounter.speed.bestDelta !== 'number') continue;
+    if (!bestEncounterGain || encounter.speed.bestDelta > bestEncounterGain.delta) {
+      bestEncounterGain = {
+        encounterName: encounter.encounterName,
+        delta: encounter.speed.bestDelta,
+      };
+    }
+  }
 
   const currentBestRows = current.perEncounter.flatMap((row) =>
     typeof row.bestPercentile === 'number' ? [row.bestPercentile] : [],
