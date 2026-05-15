@@ -174,6 +174,18 @@ describe("parseWebEnv WCL token encryption config", () => {
     });
 });
 
+describe("parseWebEnv WCL v1 config", () => {
+    it("accepts an optional server-side WCL v1 client key", () => {
+        const env = parseWebEnv({
+            ...baseEnv,
+            NODE_ENV: "test",
+            WCL_V1_CLIENT_KEY: "v1-client-key",
+        });
+
+        expect(env.WCL_V1_CLIENT_KEY).toBe("v1-client-key");
+    });
+});
+
 describe("parseWebEnv public URL config", () => {
     it("parses and normalizes PUBLIC_APP_BASE_URL-derived URLs", () => {
         const envWithoutLegacyWcl: Partial<typeof baseEnv> = { ...baseEnv };

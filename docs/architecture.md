@@ -89,8 +89,8 @@ End Time: HH:MM
 
 - ## Scope:
 
-Summarize current guild rankings with historical data for comparison with deltas:
-_Parses compared against all parses uploaded in two week window_
+Summarize current guild progress ranks with historical derived report scores for comparison with deltas:
+_Progress, speed, and complete-raid speed rank positions come from WCL guild rankings when available; score rows are derived from discovered reports._
 
 - 📈 Progress
   - Cleared:
@@ -100,42 +100,50 @@ _Parses compared against all parses uploaded in two week window_
 
 - Guild Rankings
   - Speed
-    - Best Avg %: _percentile_ (± _delta_)
-    - Median Avg %: _percentile_ (± _delta_)
+    - All-Star Ranks:
+      - World:
+      - Region:
+      - Realm:
+    - Complete Raid Ranks:
+      - World:
+      - Region:
+      - Realm:
+    - Best Avg Score: _score_ (± _delta_)
+    - Median Avg Score: _score_ (± _delta_)
     - Best Encounter Gain
       - <Encounter Name> +_delta_
     - Per Encounter
       - <Encounter Name>
-        - Best %: _percentile_ (± _delta_)
-        - Median %: _percentile_ (± _delta_)
+        - Best Score: _score_ (± _delta_)
+        - Median Score: _score_ (± _delta_)
       - <Encounter Name>
-        - Best %: _percentile_ (± _delta_)
-        - Median %: _percentile_ (± _delta_)
+        - Best Score: _score_ (± _delta_)
+        - Median Score: _score_ (± _delta_)
       - <Encounter Name>
-        - Best %: _percentile_ (± _delta_)
-        - Median %: _percentile_ (± _delta_)
+        - Best Score: _score_ (± _delta_)
+        - Median Score: _score_ (± _delta_)
       - <Encounter Name>
-        - Best %: _percentile_ (± _delta_)
-        - Median %: _percentile_ (± _delta_)
+        - Best Score: _score_ (± _delta_)
+        - Median Score: _score_ (± _delta_)
 
   - Execution
-    - Best Avg %: _percentile_ (± _delta_)
-    - Median Avg %: _percentile_ (± _delta_)
+    - Best Avg Score: _score_ (± _delta_)
+    - Median Avg Score: _score_ (± _delta_)
     - Best Encounter Gain
       - <Encounter Name> +_delta_
     - Per Encounter
       - <Encounter Name>
-        - Best %: _percentile_ (± _delta_)
-        - Median %: _percentile_ (± _delta_)
+        - Best Score: _score_ (± _delta_)
+        - Median Score: _score_ (± _delta_)
       - <Encounter Name>
-        - Best %: _percentile_ (± _delta_)
-        - Median %: _percentile_ (± _delta_)
+        - Best Score: _score_ (± _delta_)
+        - Median Score: _score_ (± _delta_)
       - <Encounter Name>
-        - Best %: _percentile_ (± _delta_)
-        - Median %: _percentile_ (± _delta_)
+        - Best Score: _score_ (± _delta_)
+        - Median Score: _score_ (± _delta_)
       - <Encounter Name>
-        - Best %: _percentile_ (± _delta_)
-        - Median %: _percentile_ (± _delta_)
+        - Best Score: _score_ (± _delta_)
+        - Median Score: _score_ (± _delta_)
 
 - Most Improved Characters
   - Damage

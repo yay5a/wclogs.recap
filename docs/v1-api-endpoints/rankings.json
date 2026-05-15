@@ -1,7 +1,7 @@
 {
     "method": "GET",
-    "path": "/rankings/character/{characterName}/{serverName}/{serverRegion}",
-    "pathParams": {
+    "path{character}": "/rankings/character/{characterName}/{serverName}/{serverRegion}",
+    "pathParams{character}": {
         "characterName": {
             "type": "string",
             "required": true,

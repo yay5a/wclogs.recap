@@ -26,6 +26,7 @@ const workerEnvSchema = z.object({
         .url()
         .default("https://www.warcraftlogs.com/api/v2/client"),
     WCL_USER_API_BASE_URL: trimmed().url().optional(),
+    WCL_V1_CLIENT_KEY: trimmed().optional(),
 });
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;

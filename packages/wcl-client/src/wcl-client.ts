@@ -11,6 +11,11 @@ import { collectReportSummaryData } from './pipeline/report-pipeline.js';
 import { collectGuildRankSummaryData } from './pipeline/guildrank-pipeline.js';
 import type { GuildRankInput } from './pipeline/types.js';
 import { collectZoneName } from './collectors/zone-name-collector.js';
+import {
+  collectGuildReportIndex,
+  type GuildReportIndexInput,
+  type GuildReportIndexResult,
+} from './collectors/guild-report-index-collector.js';
 
 export interface WclLinkedUserAuthRecord {
   discordUserId: string;
@@ -27,6 +32,7 @@ export interface WclClientOptions {
   clientSecret: string;
   apiBaseUrl: string;
   userApiBaseUrl?: string;
+  v1ClientKey?: string;
   fetchImpl?: typeof fetch;
   wclUserAuthStore?: WclLinkedUserAuthStore;
 }
@@ -85,6 +91,21 @@ export class WclClient {
     return this.withAuthFallback(`zone:${zoneId}`, options, (authMode) =>
       collectZoneName(this.createGraphqlClient(authMode), Math.trunc(zoneId)),
     );
+  }
+
+  public async fetchGuildReportIndex(
+    input: GuildReportIndexInput,
+  ): Promise<GuildReportIndexResult> {
+    const v1ClientKey = this.options.v1ClientKey?.trim();
+    if (!v1ClientKey) {
+      throw new Error('fetchGuildReportIndex requires WCL_V1_CLIENT_KEY');
+    }
+
+    return collectGuildReportIndex({
+      ...input,
+      v1ClientKey,
+      ...(this.options.fetchImpl ? { fetchImpl: this.options.fetchImpl } : {}),
+    });
   }
 
   private async withAuthFallback<T>(

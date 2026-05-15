@@ -55,6 +55,7 @@ const wclClient = new WclClient({
     clientSecret: env.WCL_CLIENT_SECRET,
     apiBaseUrl: env.WCL_API_BASE_URL,
     ...(env.WCL_USER_API_BASE_URL ? { userApiBaseUrl: env.WCL_USER_API_BASE_URL } : {}),
+    ...(env.WCL_V1_CLIENT_KEY ? { v1ClientKey: env.WCL_V1_CLIENT_KEY } : {}),
     wclUserAuthStore,
 });
 

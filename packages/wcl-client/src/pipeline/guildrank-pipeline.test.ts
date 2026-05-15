@@ -73,6 +73,11 @@ describe('guildrank pipeline', () => {
                     regionRank: { number: 6 },
                     serverRank: { number: 2 },
                   },
+                  completeRaidSpeed: {
+                    worldRank: { number: 8 },
+                    regionRank: { number: 3 },
+                    serverRank: { number: 1 },
+                  },
                 },
               },
             },
@@ -171,6 +176,8 @@ describe('guildrank pipeline', () => {
     expect(summary.window.baselineStartIso).toBe(new Date(now - 21 * 24 * 60 * 60 * 1000).toISOString());
     expect(summary.window.baselineEndIso).toBe(new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString());
     expect(summary.progress.ranks).toEqual({ world: 12, region: 4, realm: 1 });
+    expect(summary.speed.ranks).toEqual({ world: 18, region: 6, realm: 2 });
+    expect(summary.speed.completeRaidRanks).toEqual({ world: 8, region: 3, realm: 1 });
     expect(summary.progress.ranksAvailable).toBe(true);
     expect(summary.progress.sourceLabel).toBe('Official WCL Rankings');
     expect(summary.notes).not.toContain(
@@ -180,7 +187,7 @@ describe('guildrank pipeline', () => {
     expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
   });
 
-  it('keeps Speed and Execution derived when official percent ranking values are unavailable', async () => {
+  it('keeps Speed and Execution as derived report scores when guild rank scores are unavailable', async () => {
     const now = Date.UTC(2026, 4, 14, 12, 0, 0);
     vi.useFakeTimers();
     vi.setSystemTime(now);
@@ -234,6 +241,11 @@ describe('guildrank pipeline', () => {
                     worldRank: { number: 999 },
                     regionRank: { number: 250 },
                     serverRank: { number: 20 },
+                  },
+                  completeRaidSpeed: {
+                    worldRank: { number: 389 },
+                    regionRank: { number: 136 },
+                    serverRank: { number: 120 },
                   },
                 },
               },
@@ -326,13 +338,14 @@ describe('guildrank pipeline', () => {
     expect(summary.progress.ranks).toEqual({ world: 50, region: 20, realm: 5 });
     expect(summary.progress.sourceLabel).toBe('Official WCL Rankings');
     expect(summary.speed.sourceLabel).toBe('Derived from WCL Reports');
-    expect(summary.speed.ranks).toBeUndefined();
+    expect(summary.speed.ranks).toEqual({ world: 999, region: 250, realm: 20 });
+    expect(summary.speed.completeRaidRanks).toEqual({ world: 389, region: 136, realm: 120 });
     expect(summary.notes).toContain(
-      'Official speed percent ranking values unavailable; showing derived report metrics.',
+      'WCL guild rank percentiles unavailable; showing speed/execution scores derived from reports.',
     );
-    expect(summary.speed.overall.bestPercentile).toBe(50);
+    expect(summary.speed.overall.bestScore).toBe(50);
     expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
-    expect(summary.execution.overall.bestPercentile).toBe(100);
+    expect(summary.execution.overall.bestScore).toBe(100);
   });
 
   it('uses derived fallback speed/execution from successful kills and excludes wipes from fallback metrics while counting wipes in progress', async () => {
@@ -375,10 +388,6 @@ describe('guildrank pipeline', () => {
 
       if (query.includes('query GuildZoneRanks')) {
         throw new Error('zone rankings unavailable');
-      }
-
-      if (query.includes('query ProgressRaceFallback')) {
-        throw new Error('progress race unavailable');
       }
 
       if (query.includes('query ReportIndex')) {
@@ -482,7 +491,7 @@ describe('guildrank pipeline', () => {
       'Official progress ranks unavailable; showing derived clear/pull context only.',
     );
     expect(summary.notes).toContain(
-      'Official speed percent ranking values unavailable; showing derived report metrics.',
+      'WCL guild rank percentiles unavailable; showing speed/execution scores derived from reports.',
     );
 
     const speedEncounter = summary.speed.encounters.find((row) => row.encounterName === 'Jinrokh');
@@ -490,8 +499,8 @@ describe('guildrank pipeline', () => {
       (row) => row.encounterName === 'Jinrokh',
     );
 
-    expect(speedEncounter?.speed.bestPercentile).toBe(50);
-    expect(executionEncounter?.execution.bestPercentile).toBe(50);
+    expect(speedEncounter?.speed.bestScore).toBe(50);
+    expect(executionEncounter?.execution.bestScore).toBe(50);
   });
 
   it('adds a precise note when current-window reports are discovered but filtered out by difficulty/size', async () => {
@@ -534,10 +543,6 @@ describe('guildrank pipeline', () => {
 
       if (query.includes('query GuildZoneRanks')) {
         throw new Error('zone rankings unavailable');
-      }
-
-      if (query.includes('query ProgressRaceFallback')) {
-        throw new Error('progress race unavailable');
       }
 
       if (query.includes('query ReportIndex')) {
@@ -634,10 +639,6 @@ describe('guildrank pipeline', () => {
         throw new Error('zone rankings unavailable');
       }
 
-      if (query.includes('query ProgressRaceFallback')) {
-        throw new Error('progress race unavailable');
-      }
-
       throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
     });
 
@@ -709,7 +710,7 @@ describe('guildrank pipeline', () => {
         };
       }
 
-      if (query.includes('query GuildZoneRanks') || query.includes('query ProgressRaceFallback')) {
+      if (query.includes('query GuildZoneRanks')) {
         expect(variables.guildServerSlug).toBe('area-52');
         expect(variables.guildServerRegion).toBe('US');
         throw new Error('rankings unavailable');
@@ -796,8 +797,8 @@ describe('guildrank pipeline', () => {
     expect(summary.progress.totalEncounters).toBe(13);
     expect(summary.progress.pulls).toBe(2);
     expect(summary.progress.wipes).toBe(1);
-    expect(summary.speed.overall.bestPercentile).toBe(100);
-    expect(summary.execution.overall.bestPercentile).toBe(100);
+    expect(summary.speed.overall.bestScore).toBe(100);
+    expect(summary.execution.overall.bestScore).toBe(100);
     expect(summary.notes).not.toContain(
       'No current-window reports were discovered for the configured guild and zone.',
     );
@@ -847,7 +848,7 @@ describe('guildrank pipeline', () => {
         };
       }
 
-      if (query.includes('query GuildZoneRanks') || query.includes('query ProgressRaceFallback')) {
+      if (query.includes('query GuildZoneRanks')) {
         throw new Error('rankings unavailable');
       }
 
@@ -952,7 +953,7 @@ describe('guildrank pipeline', () => {
         };
       }
 
-      if (query.includes('query GuildZoneRanks') || query.includes('query ProgressRaceFallback')) {
+      if (query.includes('query GuildZoneRanks')) {
         throw new Error('rankings unavailable');
       }
 

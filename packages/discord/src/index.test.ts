@@ -255,23 +255,25 @@ describe('discord command surfaces', () => {
       },
       speed: {
         sourceLabel: 'Derived from WCL Reports',
-        overall: { bestPercentile: 91, medianPercentile: 88 },
+        ranks: { world: 1273, region: 489, realm: 296 },
+        completeRaidRanks: { world: 389, region: 136, realm: 120 },
+        overall: { bestScore: 91, medianScore: 88 },
         encounters: [
           {
             encounterName: 'Jinrokh',
-            speed: { bestPercentile: 95, medianPercentile: 90 },
+            speed: { bestScore: 95, medianScore: 90 },
             execution: {},
           },
         ],
       },
       execution: {
         sourceLabel: 'Derived from WCL Reports',
-        overall: { bestPercentile: 84, medianPercentile: 82 },
+        overall: { bestScore: 84, medianScore: 82 },
         encounters: [
           {
             encounterName: 'Jinrokh',
             speed: {},
-            execution: { bestPercentile: 86, medianPercentile: 80 },
+            execution: { bestScore: 86, medianScore: 80 },
           },
         ],
       },
@@ -293,18 +295,19 @@ describe('discord command surfaces', () => {
     expect(progressValue).toContain('World: #868');
     expect(progressValue).toContain('Region: #279');
     expect(progressValue).toContain('Realm: #241');
-    expect(fields.find((field) => field.name === 'Speed')?.value).toContain(
-      'Source: Derived from WCL Reports',
-    );
+    const speedValue = fields.find((field) => field.name === 'Speed')?.value ?? '';
+    expect(speedValue).toContain('Source: Derived from WCL Reports');
+    expect(speedValue).toContain('All-Star Ranks: World #1273 / Region #489 / Realm #296');
+    expect(speedValue).toContain('Complete Raid Ranks: World #389 / Region #136 / Realm #120');
     expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
       'Source: Derived from WCL Reports',
     );
     expect(JSON.stringify(response)).not.toContain('Official progress ranks unavailable');
     expect(fields.find((field) => field.name === 'Speed - Per Encounter')?.value).toContain(
-      'Best %: 95',
+      'Best Score: 95',
     );
     expect(fields.find((field) => field.name === 'Execution - Per Encounter')?.value).toContain(
-      'Best %: 86',
+      'Best Score: 86',
     );
     expect(fields.some((field) => field.name === 'Jinrokh')).toBe(false);
   });

@@ -11,9 +11,12 @@ describe('official guild/zone rankings collector', () => {
     size: 10,
   };
 
-  it('queries zoneRanking(zoneId) and maps official progress rank positions', async () => {
+  it('queries zoneRanking(zoneId) and maps official rank positions', async () => {
     const request = vi.fn().mockImplementation((query: string, variables: Record<string, unknown>) => {
       expect(query).toContain('zoneRanking(zoneId: $zoneId)');
+      expect(query).toContain('speed(size: $size, difficulty: $difficulty)');
+      expect(query).toContain('completeRaidSpeed(size: $size, difficulty: $difficulty)');
+      expect(query).not.toContain('percentile');
       expect(query).not.toContain('zoneRankings');
       expect(query).not.toContain('zoneID: $zoneId');
       expect(variables).toEqual({
@@ -21,6 +24,7 @@ describe('official guild/zone rankings collector', () => {
         guildServerSlug: 'stormrage',
         guildServerRegion: 'US',
         zoneId: 100,
+        difficulty: 4,
         size: 10,
       });
 
@@ -34,6 +38,16 @@ describe('official guild/zone rankings collector', () => {
                   regionRank: { number: 279 },
                   serverRank: { number: 241 },
                 },
+                speed: {
+                  worldRank: { number: 1273 },
+                  regionRank: { number: 489 },
+                  serverRank: { number: 296 },
+                },
+                completeRaidSpeed: {
+                  worldRank: { number: 389 },
+                  regionRank: { number: 136 },
+                  serverRank: { number: 120 },
+                },
               },
             },
           },
@@ -45,41 +59,33 @@ describe('official guild/zone rankings collector', () => {
 
     expect(result).toEqual({
       progress: { world: 868, region: 279, realm: 241 },
+      speed: { world: 1273, region: 489, realm: 296 },
+      completeRaidSpeed: { world: 389, region: 136, realm: 120 },
       source: 'zoneRanking',
       progressSource: 'zoneRanking',
     });
   });
 
-  it('falls back to progressRaceData when zoneRanking progress is unavailable', async () => {
-    const request = vi
-      .fn()
-      .mockResolvedValueOnce({
-        data: {
-          guildData: {
-            guild: {
-              zoneRanking: {},
-            },
+  it('returns unavailable ranks when zoneRanking progress is unavailable', async () => {
+    const request = vi.fn().mockResolvedValueOnce({
+      data: {
+        guildData: {
+          guild: {
+            zoneRanking: {},
           },
         },
-      })
-      .mockResolvedValueOnce({
-        data: {
-          progressRaceData: {
-            progressRace: {
-              worldRank: 33,
-              regionRank: 7,
-              serverRank: 3,
-            },
-          },
-        },
-      });
+      },
+    });
 
     const result = await collectOfficialGuildZoneRankings({ request } as never, input);
 
     expect(result).toEqual({
-      progress: { world: 33, region: 7, realm: 3 },
-      source: 'progressRaceData',
-      progressSource: 'progressRaceData',
+      progress: {},
+      speed: {},
+      completeRaidSpeed: {},
+      source: 'unavailable',
+      progressSource: 'unavailable',
     });
+    expect(request).toHaveBeenCalledTimes(1);
   });
 });

@@ -213,6 +213,7 @@ Optional web variables:
 | `PORT`                       | `3000`                                       | HTTP port for the Fastify web service.                                                 |
 | `WCL_API_BASE_URL`           | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint.                                                              |
 | `WCL_REDIRECT_URI`           | derived from `PUBLIC_APP_BASE_URL`           | Transitional full callback URL override for WCL user OAuth routes.                     |
+| `WCL_V1_CLIENT_KEY`          | unset                                        | Server-side WCL v1 REST API key for guild report metadata indexing.                    |
 | `DISCORD_CLIENT_SECRET`      | unset                                        | Enables Discord OAuth dashboard login when set.                                        |
 | `DISCORD_OAUTH_REDIRECT_URI` | derived from `PUBLIC_APP_BASE_URL`           | Transitional full callback URL override for Discord OAuth dashboard login.             |
 | `DISCORD_INTERACTIONS_URL`   | derived from `PUBLIC_APP_BASE_URL`           | Transitional full URL override for the Discord interaction webhook endpoint.           |
@@ -252,16 +253,18 @@ Useful WCL client toggles:
 | `WCL_BYPASS_CACHE=true` | Force report fetches to bypass cached payloads.                 |
 | `WCL_USE_FIXTURES=true` | Use local fixture mode in targeted development paths.           |
 
-Optional future WCL v1 variables:
+Optional WCL v1 variables:
 
 | Variable             | Purpose                                                                |
 | -------------------- | ---------------------------------------------------------------------- |
 | `WCL_V1_CLIENT_NAME` | Descriptive Warcraft Logs v1 client name from the WCL client settings. |
 | `WCL_V1_CLIENT_KEY`  | Warcraft Logs v1 REST API client key. Keep it server-only.             |
 
-The current report flow uses WCL v2 GraphQL. WCL v1 variables are reserved for
-documented v1 REST endpoints such as guild reports, character rankings, and
-parses if a future feature needs them.
+The current report flow uses WCL v2 GraphQL. The WCL v1 key is used only for
+documented REST paths that v2 cannot cover, starting with guild report metadata
+indexing through `/v1/reports/guild/{guildName}/{serverName}/{serverRegion}`.
+That index provides report codes, titles, owners, zones, and start/end times;
+it does not provide fight details, parses, percentiles, or boss rankings.
 
 ## Install
 

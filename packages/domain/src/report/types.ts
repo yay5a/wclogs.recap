@@ -75,10 +75,10 @@ export interface ReportSummary {
 }
 
 export interface GuildRankMetricRow {
-  bestPercentile?: number;
-  bestDelta?: number;
-  medianPercentile?: number;
-  medianDelta?: number;
+  bestScore?: number;
+  bestScoreDelta?: number;
+  medianScore?: number;
+  medianScoreDelta?: number;
 }
 
 export interface GuildRankEncounterRow {
@@ -116,6 +116,7 @@ export interface GuildRankSummary {
   speed: {
     sourceLabel: 'Official WCL Rankings' | 'Derived from WCL Reports';
     ranks?: GuildRankProgressRanks;
+    completeRaidRanks?: GuildRankProgressRanks;
     overall: GuildRankMetricRow;
     bestEncounterGain?: { encounterName: string; delta: number };
     encounters: GuildRankEncounterRow[];

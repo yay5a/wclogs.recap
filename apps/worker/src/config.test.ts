@@ -54,4 +54,15 @@ describe("parseWorkerEnv", () => {
             WCL_TOKEN_ENCRYPTION_KEY: validEnv.WCL_TOKEN_ENCRYPTION_KEY,
         });
     });
+
+    it("accepts an optional server-side WCL v1 client key", () => {
+        expect(
+            parseWorkerEnv({
+                ...validEnv,
+                WCL_V1_CLIENT_KEY: "v1-client-key",
+            }),
+        ).toMatchObject({
+            WCL_V1_CLIENT_KEY: "v1-client-key",
+        });
+    });
 });

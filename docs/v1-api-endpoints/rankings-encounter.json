@@ -1,0 +1,352 @@
+{
+    "method": "GET",
+    "path": "/v1/rankings/encounter/{encounterID}",
+    "url": "https://www.warcraftlogs.com/v1/rankings/encounter/{encounterID}&api_key={v1ClientKey}",
+    "description": "Gets an object that contains a total count and an array of EncounterRanking objects for a single encounter. Each EncounterRanking corresponds to a single character or guild/team.",
+    "recommendedGuildUsage": {
+        "primaryMetric": "progress",
+        "supportedGuildMetrics": [
+            "progress",
+            "speed",
+            "execution",
+            "feats"
+        ],
+        "omitForGuildQueries": [
+            "class",
+            "spec"
+        ],
+        "notes": [
+            "Use metric=progress for guild progress info.",
+            "Use metric=speed, execution, or feats for guild/team encounter leaderboards.",
+            "The endpoint does not expose a direct guild query parameter.",
+            "To find a specific guild, query by server and region, then filter locally by name or guild.",
+            "If server is provided, region must also be provided.",
+            "Use bracket=0 or omit bracket to examine all brackets.",
+            "Use page=1 for the first page.",
+            "Use excludeLeaderboard=true only when results must have a backing log."
+        ]
+    },
+    "exampleRequests": {
+        "guildProgress": {
+            "method": "GET",
+            "url": "https://www.warcraftlogs.com/v1/rankings/encounter/{encounterID}?metric=progress&difficulty=5&bracket=0&page=1&api_key={apiKey}"
+        },
+        "guildProgressByRealm": {
+            "method": "GET",
+            "url": "https://www.warcraftlogs.com/v1/rankings/encounter/{encounterID}?metric=progress&difficulty=5&bracket=0&server={serverSlug}&region={region}&page=1&api_key={apiKey}"
+        },
+        "guildSpeedByRealm": {
+            "method": "GET",
+            "url": "https://www.warcraftlogs.com/v1/rankings/encounter/{encounterID}?metric=speed&difficulty=5&bracket=0&server={serverSlug}&region={region}&page=1&api_key={apiKey}"
+        }
+    },
+    "parameters": [
+        {
+            "name": "encounterID",
+            "in": "path",
+            "required": true,
+            "dataType": "integer",
+            "description": "The encounter to collect rankings for. Encounter IDs can be obtained using a /zones request."
+        },
+        {
+            "name": "metric",
+            "in": "query",
+            "required": true,
+            "dataType": "string",
+            "recommendedForGuilds": true,
+            "allowedValues": [
+                "progress",
+                "speed",
+                "execution",
+                "feats",
+                "dps",
+                "hps",
+                "bossdps",
+                "tankhps",
+                "playerspeed",
+                "krsi"
+            ],
+            "guildValues": [
+                "progress",
+                "speed",
+                "execution",
+                "feats"
+            ],
+            "description": "The metric to query for. Valid fight metrics are speed, execution, and feats. Valid character metrics are dps, hps, bossdps, tankhps, or playerspeed. For WoW only, krsi can be used for tank survivability ranks and progress can be used for guild progress info."
+        },
+        {
+            "name": "size",
+            "in": "query",
+            "required": false,
+            "dataType": "string",
+            "description": "The raid size to query for. This is only valid for fixed size raids. Raids with flexible sizing must omit this parameter."
+        },
+        {
+            "name": "difficulty",
+            "in": "query",
+            "required": false,
+            "dataType": "string",
+            "allowedValues": [
+                "1",
+                "2",
+                "3",
+                "4",
+                "5",
+                "10",
+                "100"
+            ],
+            "valueMap": {
+                "1": "LFR",
+                "2": "Flex",
+                "3": "Normal",
+                "4": "Heroic",
+                "5": "Mythic",
+                "10": "Challenge Mode",
+                "100": "WildStar/FF"
+            },
+            "description": "The difficulty setting to query for. Can be omitted for encounters with only one difficulty setting."
+        },
+        {
+            "name": "partition",
+            "in": "query",
+            "required": false,
+            "dataType": "integer",
+            "description": "The partition group to query for. Most zones have only one partition and this can be omitted. Hellfire Citadel has two partitions, 1 for original and 2 for pre-patch. Highmaul and BRF have two partitions, 1 for US/EU and 2 for Asia."
+        },
+        {
+            "name": "class",
+            "in": "query",
+            "required": false,
+            "dataType": "integer",
+            "useForGuildQueries": false,
+            "description": "The class to query for if a character metric is specified. Valid class IDs can be obtained from a /classes API request. Optional."
+        },
+        {
+            "name": "spec",
+            "in": "query",
+            "required": false,
+            "dataType": "integer",
+            "useForGuildQueries": false,
+            "description": "The spec to query for if a character metric is specified. Valid spec IDs can be obtained from a /classes API request. Optional."
+        },
+        {
+            "name": "bracket",
+            "in": "query",
+            "required": false,
+            "dataType": "integer",
+            "default": 0,
+            "description": "The bracket to query for. If omitted or if a value of 0 is specified, then all brackets are examined. Brackets can be obtained from a /zones API request."
+        },
+        {
+            "name": "server",
+            "in": "query",
+            "required": false,
+            "dataType": "string",
+            "description": "A server to filter on. If set, the region must also be specified. This is the slug field in Blizzard terminology."
+        },
+        {
+            "name": "region",
+            "in": "query",
+            "required": false,
+            "dataType": "string",
+            "description": "The short name of a region to filter on, such as US, NA, or EU."
+        },
+        {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "dataType": "integer",
+            "default": 1,
+            "description": "The page to examine, starting from 1. If omitted, 1 is assumed. For example, page 2 with a limit of 300 fetches rankings 301-600."
+        },
+        {
+            "name": "filter",
+            "in": "query",
+            "required": false,
+            "dataType": "string",
+            "description": "A search filter string, limiting the search to specific classes, specs, fight durations, raid sizes, etc. The format should match the string used on the public rankings pages."
+        },
+        {
+            "name": "includeCombatantInfo",
+            "in": "query",
+            "required": false,
+            "dataType": "boolean",
+            "default": false,
+            "allowedValues": [
+                true,
+                false
+            ],
+            "description": "Whether or not to include combatant info like gear and talents. Optional. Defaults to false."
+        },
+        {
+            "name": "excludeLeaderboard",
+            "in": "query",
+            "required": false,
+            "dataType": "boolean",
+            "allowedValues": [
+                true,
+                false
+            ],
+            "description": "When true, only include ranks that have a backing log. Otherwise include ranks that came from an official leaderboard."
+        },
+        {
+            "name": "hardModeLevel",
+            "in": "query",
+            "required": false,
+            "dataType": "integer",
+            "allowedValues": [
+                -1,
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "description": "Hard mode level for WoW Classic. Ignored if unsupported. -1 for any hard mode including normal mode, 0 for normal mode, and 1-4 for varying hard modes."
+        },
+        {
+            "name": "externalBuffs",
+            "in": "query",
+            "required": false,
+            "dataType": "integer",
+            "allowedValues": [
+                0,
+                1,
+                2
+            ],
+            "description": "External buff filter. Most games and zones do not support this. 0 for any externals, 1 to require externals, 2 to exclude externals."
+        }
+    ],
+    "response": {
+        "contentType": "application/json",
+        "schema": {
+            "type": "object",
+            "properties": {
+                "total": {
+                    "type": "integer",
+                    "description": "Total number of rankings available for the request."
+                },
+                "rankings": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "name": {
+                                "type": "string",
+                                "description": "Character name or guild/team name, depending on the selected metric."
+                            },
+                            "total": {
+                                "type": "number",
+                                "description": "Ranking value or score for the selected metric."
+                            },
+                            "class": {
+                                "type": "integer",
+                                "description": "Character class ID. Usually relevant for character metrics."
+                            },
+                            "spec": {
+                                "type": "integer",
+                                "description": "Character spec ID. Usually relevant for character metrics."
+                            },
+                            "guild": {
+                                "type": "string",
+                                "description": "Guild name. More commonly useful when the row represents a character."
+                            },
+                            "server": {
+                                "type": "string",
+                                "description": "Server name or slug."
+                            },
+                            "region": {
+                                "type": "string",
+                                "description": "Region short name."
+                            },
+                            "duration": {
+                                "type": "integer",
+                                "description": "Fight duration."
+                            },
+                            "startTime": {
+                                "type": "integer",
+                                "description": "Fight start time."
+                            },
+                            "damageTaken": {
+                                "type": "integer",
+                                "description": "Damage taken value."
+                            },
+                            "deaths": {
+                                "type": "integer",
+                                "description": "Number of deaths."
+                            },
+                            "itemLevel": {
+                                "type": "integer",
+                                "description": "Item level. Usually relevant for character metrics."
+                            },
+                            "patch": {
+                                "type": "integer",
+                                "description": "Patch identifier."
+                            },
+                            "reportID": {
+                                "type": "string",
+                                "description": "Backing report ID when available."
+                            },
+                            "fightID": {
+                                "type": "integer",
+                                "description": "Backing fight ID when available."
+                            },
+                            "team": {
+                                "type": "array",
+                                "description": "Team members for a guild/team ranking.",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string"
+                                        },
+                                        "class": {
+                                            "type": "integer"
+                                        },
+                                        "spec": {
+                                            "type": "integer"
+                                        }
+                                    }
+                                }
+                            },
+                            "size": {
+                                "type": "integer",
+                                "description": "Raid size."
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "example": {
+            "total": 0,
+            "rankings": [
+                {
+                    "name": "string",
+                    "total": 0,
+                    "class": 0,
+                    "spec": 0,
+                    "guild": "string",
+                    "server": "string",
+                    "region": "string",
+                    "duration": 0,
+                    "startTime": 0,
+                    "damageTaken": 0,
+                    "deaths": 0,
+                    "itemLevel": 0,
+                    "patch": 0,
+                    "reportID": "string",
+                    "fightID": 0,
+                    "team": [
+                        {
+                            "name": "string",
+                            "class": 0,
+                            "spec": 0
+                        }
+                    ],
+                    "size": 0
+                }
+            ]
+        }
+    }
+}

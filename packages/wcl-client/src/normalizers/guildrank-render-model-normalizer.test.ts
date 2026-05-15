@@ -19,6 +19,8 @@ const baseBundle = (): GuildRankCollectorBundle => ({
   },
   officialRanks: {
     progress: {},
+    speed: {},
+    completeRaidSpeed: {},
     source: 'unavailable',
     progressSource: 'unavailable',
   },
@@ -26,14 +28,14 @@ const baseBundle = (): GuildRankCollectorBundle => ({
   baselineReports: [],
   currentSpeed: {
     perEncounter: [
-      { encounterName: 'Jinrokh', bestPercentile: 80 },
-      { encounterName: 'Council', bestPercentile: 70 },
+      { encounterName: 'Jinrokh', bestScore: 80 },
+      { encounterName: 'Council', bestScore: 70 },
     ],
   },
   baselineSpeed: {
     perEncounter: [
-      { encounterName: 'Jinrokh', bestPercentile: 70 },
-      { encounterName: 'Council', bestPercentile: 60 },
+      { encounterName: 'Jinrokh', bestScore: 70 },
+      { encounterName: 'Council', bestScore: 60 },
     ],
   },
   currentExecution: { perEncounter: [] },
@@ -54,5 +56,17 @@ describe('guildrank render-model normalizer', () => {
     const summary = normalizeGuildRankRenderModel(baseBundle());
 
     expect(summary.speed.bestEncounterGain).toEqual({ encounterName: 'Council', delta: 10 });
+  });
+
+  it('maps official speed rank positions separately from derived scores', () => {
+    const bundle = baseBundle();
+    bundle.officialRanks.speed = { world: 1273, region: 489, realm: 296 };
+    bundle.officialRanks.completeRaidSpeed = { world: 389, region: 136, realm: 120 };
+
+    const summary = normalizeGuildRankRenderModel(bundle);
+
+    expect(summary.speed.ranks).toEqual({ world: 1273, region: 489, realm: 296 });
+    expect(summary.speed.completeRaidRanks).toEqual({ world: 389, region: 136, realm: 120 });
+    expect(summary.speed.overall.bestScore).toBe(75);
   });
 });

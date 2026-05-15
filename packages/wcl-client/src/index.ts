@@ -9,6 +9,13 @@ export type {
   WclLinkedUserAuthStore,
 } from './wcl-client.js';
 
+export { collectGuildReportIndex } from './collectors/guild-report-index-collector.js';
+export type {
+  GuildReportIndexInput,
+  GuildReportIndexResult,
+  GuildReportIndexRow,
+} from './collectors/guild-report-index-collector.js';
+
 export type { GuildRankInput } from './pipeline/types.js';
 
 export {

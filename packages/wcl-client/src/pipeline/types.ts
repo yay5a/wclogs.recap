@@ -101,19 +101,27 @@ export interface GuildOfficialRanks {
     region?: number;
     realm?: number;
   };
-  source: 'zoneRanking' | 'progressRaceData' | 'unavailable';
-  progressSource: 'zoneRanking' | 'progressRaceData' | 'unavailable';
+  speed: {
+    world?: number;
+    region?: number;
+    realm?: number;
+  };
+  completeRaidSpeed: {
+    world?: number;
+    region?: number;
+    realm?: number;
+  };
+  source: 'zoneRanking' | 'unavailable';
+  progressSource: 'zoneRanking' | 'unavailable';
 }
 
 export interface GuildRankEncounterMetric {
   encounterName: string;
-  bestPercentile?: number;
-  medianPercentile?: number;
+  bestScore?: number;
+  medianScore?: number;
 }
 
 export interface GuildRankMetricSet {
-  overallBestPercentile?: number;
-  overallMedianPercentile?: number;
   perEncounter: GuildRankEncounterMetric[];
 }
 

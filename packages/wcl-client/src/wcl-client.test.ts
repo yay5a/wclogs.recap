@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const collectGuildRankSummaryData = vi.hoisted(() => vi.fn());
+const collectGuildReportIndex = vi.hoisted(() => vi.fn());
 
 vi.mock('./pipeline/guildrank-pipeline.js', () => ({
   collectGuildRankSummaryData,
+}));
+
+vi.mock('./collectors/guild-report-index-collector.js', () => ({
+  collectGuildReportIndex,
 }));
 
 import { WclClient } from './wcl-client.js';
@@ -45,6 +50,7 @@ const summary = (guildName: string) => ({
 describe('WclClient guildrank auth order', () => {
   beforeEach(() => {
     collectGuildRankSummaryData.mockReset();
+    collectGuildReportIndex.mockReset();
   });
 
   it('prefers linked user auth for guildrank when available', async () => {
@@ -87,5 +93,65 @@ describe('WclClient guildrank auth order', () => {
 
     expect(result.guildName).toBe('publicClient');
     expect(collectGuildRankSummaryData).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('WclClient guild report index', () => {
+  beforeEach(() => {
+    collectGuildRankSummaryData.mockReset();
+    collectGuildReportIndex.mockReset();
+  });
+
+  it('passes the server-side v1 key to the guild report index collector', async () => {
+    collectGuildReportIndex.mockResolvedValue({
+      rows: [],
+      windowsQueried: 0,
+      complexity: { apiCalls: 'O(W)', parseAndDedupe: 'O(N)', memory: 'O(U)' },
+    });
+    const fetchImpl = vi.fn();
+    const client = new WclClient({
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
+      v1ClientKey: 'server-side-v1-key',
+      fetchImpl,
+    });
+
+    await client.fetchGuildReportIndex({
+      guildName: 'Guild',
+      guildServerSlug: 'stormrage',
+      guildServerRegion: 'us',
+      startTimeMs: 0,
+      endTimeMs: 1000,
+    });
+
+    expect(collectGuildReportIndex).toHaveBeenCalledWith({
+      guildName: 'Guild',
+      guildServerSlug: 'stormrage',
+      guildServerRegion: 'us',
+      startTimeMs: 0,
+      endTimeMs: 1000,
+      v1ClientKey: 'server-side-v1-key',
+      fetchImpl,
+    });
+  });
+
+  it('fails clearly when the v1 key is not configured', async () => {
+    const client = new WclClient({
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
+    });
+
+    await expect(
+      client.fetchGuildReportIndex({
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'us',
+        startTimeMs: 0,
+        endTimeMs: 1000,
+      }),
+    ).rejects.toThrow(/WCL_V1_CLIENT_KEY/);
+    expect(collectGuildReportIndex).not.toHaveBeenCalled();
   });
 });

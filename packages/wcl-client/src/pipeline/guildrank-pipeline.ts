@@ -41,7 +41,7 @@ const median = (values: number[]): number | undefined => {
   return typeof value === 'number' ? value : undefined;
 };
 
-const toPercentile = (
+const toDerivedScore = (
   value: number,
   allValues: number[],
   lowerIsBetter: boolean,
@@ -238,29 +238,20 @@ const buildMetricSet = (
       const currentValues = rows.get(encounterName) ?? [];
       const baselineValues = peerRows.get(encounterName) ?? [];
       const allValuesRaw = [...currentValues, ...baselineValues];
-      const percentiles = currentValues.map((value) =>
-        toPercentile(value, allValuesRaw, lowerIsBetter),
+      const scores = currentValues.map((value) =>
+        toDerivedScore(value, allValuesRaw, lowerIsBetter),
       );
-      const bestPercentile = percentiles.length > 0 ? Math.max(...percentiles) : undefined;
-      const medianPercentile = median(percentiles);
+      const bestScore = scores.length > 0 ? Math.max(...scores) : undefined;
+      const medianScore = median(scores);
 
       perEncounter.push({
         encounterName,
-        ...(typeof bestPercentile === 'number' ? { bestPercentile } : {}),
-        ...(typeof medianPercentile === 'number' ? { medianPercentile } : {}),
+        ...(typeof bestScore === 'number' ? { bestScore } : {}),
+        ...(typeof medianScore === 'number' ? { medianScore } : {}),
       });
     }
 
-    const overallBestPercentile = median(
-      perEncounter.flatMap((row) => (typeof row.bestPercentile === 'number' ? [row.bestPercentile] : [])),
-    );
-    const overallMedianPercentile = median(
-      perEncounter.flatMap((row) => (typeof row.medianPercentile === 'number' ? [row.medianPercentile] : [])),
-    );
-
     return {
-      ...(typeof overallBestPercentile === 'number' ? { overallBestPercentile } : {}),
-      ...(typeof overallMedianPercentile === 'number' ? { overallMedianPercentile } : {}),
       perEncounter,
     };
   };
