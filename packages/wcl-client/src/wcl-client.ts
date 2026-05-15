@@ -71,7 +71,7 @@ export class WclClient {
       collectReportSummaryData(
         this.createGraphqlClient(authMode),
         {
-          sourceUrl: url,
+          sourceUrl: parsed.rawUrl,
           reportCode: parsed.reportCode,
           gameFamily: parsed.gameFamily,
         },

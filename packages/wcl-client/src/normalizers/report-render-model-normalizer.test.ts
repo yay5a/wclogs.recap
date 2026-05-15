@@ -128,6 +128,7 @@ describe('report render-model normalizer', () => {
   it('selects best execution by fewest deaths then shortest kill and biggest trouble by wipes then deaths', () => {
     const summary = normalizeReportRenderModel(baseBundle());
 
+    expect(summary.reportLink).toBe('https://www.warcraftlogs.com/reports/ABC123');
     expect(summary.bossPulls).toBe(4);
     expect(summary.totalKills).toBe(1);
     expect(summary.totalWipes).toBe(3);
@@ -146,6 +147,15 @@ describe('report render-model normalizer', () => {
     expect(summary.biggestTroubleEncounter?.highestTotalDps?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.highestHps?.playerName).toBe('Alyra');
     expect(summary.biggestTroubleEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
+  });
+
+  it('keeps the source report URL for the rendered data source', () => {
+    const bundle = baseBundle();
+    bundle.index.sourceUrl = 'https://classic.warcraftlogs.com/reports/ABC123';
+
+    const summary = normalizeReportRenderModel(bundle);
+
+    expect(summary.reportLink).toBe('https://classic.warcraftlogs.com/reports/ABC123');
   });
 
   it('aggregates player leaderboards and filters non-player actors before ranking', () => {

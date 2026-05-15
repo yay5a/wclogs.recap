@@ -250,6 +250,71 @@ describe('collectReportSummaryData report index cache', () => {
     );
   });
 
+  it('uses the dominant difficulty and size for mixed-mode report summaries', async () => {
+    const heroicKill = {
+      id: 11,
+      encounterId: 100,
+      name: 'Jinrokh',
+      startTime: 100,
+      endTime: 200,
+      kill: true,
+      difficulty: 4,
+      size: 10,
+    };
+    const heroicWipe = {
+      id: 12,
+      encounterId: 101,
+      name: 'Council',
+      startTime: 300,
+      endTime: 400,
+      kill: false,
+      difficulty: 4,
+      size: 10,
+    };
+    const normalKill = {
+      id: 13,
+      encounterId: 101,
+      name: 'Council',
+      startTime: 500,
+      endTime: 600,
+      kill: true,
+      difficulty: 3,
+      size: 10,
+    };
+    const index = reportIndexFixture({
+      completedBossFights: [heroicKill, heroicWipe, normalKill],
+      killBossFights: [heroicKill, normalKill],
+      allBossFights: [heroicKill, heroicWipe, normalKill],
+    });
+    collectReportIndex.mockResolvedValue(index);
+
+    await collectReportSummaryData({} as never, {
+      sourceUrl: index.sourceUrl,
+      reportCode: index.reportCode,
+      gameFamily: index.gameFamily,
+    });
+
+    expect(collectPlayerDetails).toHaveBeenCalledWith({} as never, {
+      reportCode: 'ABC123',
+      completedFightIds: [11, 12],
+    });
+    expect(collectReportRankings).toHaveBeenCalledWith({} as never, {
+      reportCode: 'ABC123',
+      killFightIds: [11],
+    });
+    expect(collectTableMetrics).toHaveBeenCalledWith({} as never, {
+      reportCode: 'ABC123',
+      completedFightIds: [11, 12],
+      completedBossFights: [heroicKill, heroicWipe],
+    });
+    const renderBundle = normalizeReportRenderModel.mock.calls[0]?.[0] as
+      | { index: ReportIndexData }
+      | undefined;
+    expect(renderBundle?.index.completedBossFights).toEqual([heroicKill, heroicWipe]);
+    expect(renderBundle?.index.killBossFights).toEqual([heroicKill]);
+    expect(renderBundle?.index.allBossFights).toEqual([heroicKill, heroicWipe]);
+  });
+
   it('uses a short expiration for in-progress report indexes', () => {
     const now = new Date('2026-05-15T00:00:00.000Z');
     const index = reportIndexFixture({

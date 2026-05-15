@@ -112,7 +112,7 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
       ? { difficultyName: fightSummary.inferredDifficultyName }
       : {}),
     ...(fightSummary.inferredSizeLabel ? { sizeLabel: fightSummary.inferredSizeLabel } : {}),
-    reportLink: `https://www.warcraftlogs.com/reports/${bundle.index.reportCode}`,
+    reportLink: bundle.index.sourceUrl,
     dateISO: new Date(bundle.index.startTime).toISOString(),
     startTimeISO: new Date(bundle.index.startTime).toISOString(),
     endTimeISO: new Date(bundle.index.endTime).toISOString(),

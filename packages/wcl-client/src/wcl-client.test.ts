@@ -3,6 +3,7 @@ import type { GuildRankPipelineOptions } from './pipeline/guildrank-pipeline.js'
 
 const collectGuildRankSummaryData = vi.hoisted(() => vi.fn());
 const collectGuildReportIndex = vi.hoisted(() => vi.fn());
+const collectReportSummaryData = vi.hoisted(() => vi.fn());
 
 vi.mock('./pipeline/guildrank-pipeline.js', () => ({
   collectGuildRankSummaryData,
@@ -10,6 +11,10 @@ vi.mock('./pipeline/guildrank-pipeline.js', () => ({
 
 vi.mock('./collectors/guild-report-index-collector.js', () => ({
   collectGuildReportIndex,
+}));
+
+vi.mock('./pipeline/report-pipeline.js', () => ({
+  collectReportSummaryData,
 }));
 
 import { WclClient } from './wcl-client.js';
@@ -48,10 +53,37 @@ const summary = (guildName: string) => ({
   notes: [],
 });
 
+describe('WclClient report summary', () => {
+  beforeEach(() => {
+    collectReportSummaryData.mockReset().mockResolvedValue({ reportCode: 'ABC123' });
+  });
+
+  it('passes the normalized source URL and classic game family to the report pipeline', async () => {
+    const client = new WclClient({
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
+    });
+
+    await client.fetchReportSummary('<https://classic.warcraftlogs.com/reports/ABC123?fight=last>');
+
+    expect(collectReportSummaryData).toHaveBeenCalledWith(
+      expect.anything(),
+      {
+        sourceUrl: 'https://classic.warcraftlogs.com/reports/ABC123?fight=last',
+        reportCode: 'ABC123',
+        gameFamily: 'mop_classic',
+      },
+      {},
+    );
+  });
+});
+
 describe('WclClient guildrank auth order', () => {
   beforeEach(() => {
     collectGuildRankSummaryData.mockReset();
     collectGuildReportIndex.mockReset();
+    collectReportSummaryData.mockReset();
   });
 
   it('prefers linked user auth for guildrank when available', async () => {
