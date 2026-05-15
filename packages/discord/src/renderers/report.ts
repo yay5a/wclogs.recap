@@ -72,7 +72,7 @@ const formatRankedRows = (
 ): string | undefined => {
   const lines = rows.slice(0, 3).map((row, index) => {
     const classSpec = [row.specName, row.className].filter(present).join(' ');
-    return `${index + 1}. ${row.playerName} - ${formatter(row.value)}${
+    return `${index + 1}. ${row.playerName} ↦ ${formatter(row.value)}${
       classSpec ? ` (${classSpec})` : ''
     }`;
   });
@@ -85,10 +85,10 @@ const formatRankedRowsOrUnavailable = (
 ): string => formatRankedRows(rows, formatter) ?? 'unavailable';
 
 const formatParseRow = (row?: ReportParseRow): string | undefined =>
-  row ? `${row.playerName} - ${decimalFormatter.format(row.value)}` : undefined;
+  row ? `${row.playerName} ↦ ${decimalFormatter.format(row.value)}` : undefined;
 
 const formatEncounterRateLine = (label: string, row: ReportMetricRow | undefined): string =>
-  row ? `${label}: ${row.playerName} - ${formatRate(row.value)}` : unavailable(label);
+  row ? `${label}: ${row.playerName} ↦ ${formatRate(row.value)}` : unavailable(label);
 
 const formatEncounterParseLine = (label: string, row: ReportParseRow | undefined): string =>
   `${label}: ${formatParseRow(row) ?? 'unavailable'}`;
@@ -117,7 +117,7 @@ const formatEncounter = (
       : unavailable('Deaths'),
     ...(options.includeHighestParse
       ? [
-          'Highest Parse:',
+          'Highest Parse 🏅:',
           `  ${formatEncounterParseLine('DPS', encounter.highestParseDps ?? highestParses.dps)}`,
           `  ${formatEncounterParseLine('HPS', encounter.highestParseHps ?? highestParses.hps)}`,
           `  ${formatEncounterParseLine('DTPS', highestParses.dtps)}`,
@@ -129,9 +129,9 @@ const formatEncounter = (
           shortestPull ? `Shortest Pull: ${shortestPull}` : unavailable('Shortest Pull'),
         ]
       : []),
-    formatEncounterRateLine('Highest Total DPS', encounter.highestTotalDps),
-    formatEncounterRateLine('Highest Total HPS', encounter.highestHps),
-    formatEncounterRateLine('Highest Total DTPS', encounter.highestDamageTakenRate),
+    formatEncounterRateLine('Highest Total DPS ⚔️', encounter.highestTotalDps),
+    formatEncounterRateLine('Highest Total HPS 🍃', encounter.highestHps),
+    formatEncounterRateLine('Highest Total DTPS 🛡️', encounter.highestDamageTakenRate),
   ].join('\n');
 };
 
@@ -164,18 +164,18 @@ export const buildReportResponseBody = (
     fields,
     'Report Details',
     [
-      `Date: ${formatDate(summary.dateISO)}`,
-      `Start Time: ${formatTime(summary.startTimeISO)}`,
-      `End Time: ${formatTime(summary.endTimeISO)}`,
+      `Date 📆: ${formatDate(summary.dateISO)}`,
+      `Start Time 🕛: ${formatTime(summary.startTimeISO)}`,
+      `End Time 🕒: ${formatTime(summary.endTimeISO)}`,
     ].join('\n'),
   );
-  pushField(fields, 'Duration', formatDuration(summary.durationMs), true);
-  pushField(fields, 'Boss Pulls', integerFormatter.format(summary.bossPulls), true);
-  pushField(fields, 'Total Kills', integerFormatter.format(summary.totalKills), true);
-  pushField(fields, 'Total Wipes', integerFormatter.format(summary.totalWipes), true);
+  pushField(fields, 'Duration ⌛', formatDuration(summary.durationMs), true);
+  pushField(fields, 'Boss Pulls 👹', integerFormatter.format(summary.bossPulls), true);
+  pushField(fields, 'Total Kills 🤺', integerFormatter.format(summary.totalKills), true);
+  pushField(fields, 'Total Wipes 🧻', integerFormatter.format(summary.totalWipes), true);
   pushField(
     fields,
-    'Total Deaths',
+    'Total Deaths ☠️',
     typeof summary.totalDeaths === 'number'
       ? integerFormatter.format(summary.totalDeaths)
       : 'unavailable',
@@ -184,7 +184,7 @@ export const buildReportResponseBody = (
   pushField(
     fields,
     '====================================================',
-    '🗿 Encounter Highlights',
+    'Encounter Highlights 🗿 ',
   );
   pushField(
     fields,
@@ -201,17 +201,17 @@ export const buildReportResponseBody = (
   );
   pushField(
     fields,
-    'Biggest Trouble 👨‍🦼',
+    'Biggest Trouble 🙎‍♂️',
     formatEncounter(summary.biggestTroubleEncounter, {
       includePullDurations: true,
     }),
     true,
   );
 
-  pushField(fields, '====================================================', '🏋️‍♂️ Top Players');
+  pushField(fields, '====================================================', 'Top Players 🏋️‍♂️');
   pushField(
     fields,
-    'Highest Avg Parse',
+    'Highest Avg Parse 🏆',
     formatRankedRowsOrUnavailable(summary.topPlayers.highestAverageParse, (value) =>
       decimalFormatter.format(value),
     ),
@@ -219,25 +219,25 @@ export const buildReportResponseBody = (
   );
   pushField(
     fields,
-    'Highest Total DPS',
+    'Highest Total DPS ⚔️',
     formatRankedRowsOrUnavailable(summary.topPlayers.highestTotalDps, formatRate),
     true,
   );
   pushField(
     fields,
-    'Highest HPS',
+    'Highest HPS 🍃',
     formatRankedRowsOrUnavailable(summary.topPlayers.highestHps, formatRate),
     true,
   );
   pushField(
     fields,
-    'Highest DTPS',
+    'Highest DTPS 🛡️',
     formatRankedRowsOrUnavailable(summary.topPlayers.highestDamageTakenRate, formatRate),
     true,
   );
   pushField(
     fields,
-    'Most Deaths',
+    'Most Deaths 😵',
     formatRankedRowsOrUnavailable(
       summary.topPlayers.mostDeaths,
       (value) => `${integerFormatter.format(value)} deaths`,
@@ -246,7 +246,7 @@ export const buildReportResponseBody = (
   );
   pushField(
     fields,
-    'Most Interrupts',
+    'Most Interrupts 🙅‍♂️',
     formatRankedRowsOrUnavailable(
       summary.topPlayers.mostInterrupts,
       (value) => `${integerFormatter.format(value)} interrupts`,
@@ -255,7 +255,7 @@ export const buildReportResponseBody = (
   );
   pushField(
     fields,
-    'Most Dispels',
+    'Most Dispels 🪄',
     formatRankedRowsOrUnavailable(
       summary.topPlayers.mostDispels,
       (value) => `${integerFormatter.format(value)} dispels`,
