@@ -1,12 +1,17 @@
 import type { GameFamily, GuildRankSummary } from '@wcl/domain';
 import { createLogger, serializeError } from '@wcl/shared';
 import type { WclGraphqlClient } from '../graphql-client.js';
-import { collectGuildReportDiscovery } from '../collectors/guild-report-discovery-collector.js';
 import { resolveGuildConfigZoneInput } from '../collectors/guild-config-zone-input-resolver.js';
 import { collectOfficialGuildZoneRankings } from '../collectors/official-guild-zone-rankings-collector.js';
 import { collectReportIndex } from '../collectors/report-index-collector.js';
 import { collectTableMetrics } from '../collectors/table-collector.js';
 import { normalizeGuildRankRenderModel } from '../normalizers/guildrank-render-model-normalizer.js';
+import {
+  selectGuildRankCandidateReports,
+  type GuildRankLiveReportIndexFetcher,
+  type GuildRankReportCandidate,
+  type GuildRankReportMetadataReader,
+} from './guildrank-candidate-selector.js';
 import type {
   GuildRankCollectorBundle,
   GuildRankEncounterMetric,
@@ -74,6 +79,12 @@ interface EncounterMetricsByReport {
   clearedEncounters: Set<string>;
   matchesZone: boolean;
   hasDifficultySizeFights: boolean;
+}
+
+export interface GuildRankPipelineOptions {
+  metadataReader?: GuildRankReportMetadataReader;
+  liveReportIndexFetcher: GuildRankLiveReportIndexFetcher;
+  maxReports?: number;
 }
 
 const normalizeNameKey = (value: string): string =>
@@ -201,25 +212,52 @@ const collectEncounterMetricsFromReport = async (
 const logDiscoveryFilterStage = (
   context: Record<string, unknown>,
   counts: {
-    currentRawReports: number;
+    currentCandidateReports: number;
     currentZoneMatchedReports: number;
     currentDifficultySizeMatchedReports: number;
-    baselineRawReports: number;
+    baselineCandidateReports: number;
+    mongoIndexCandidateReports: number;
+    liveWclCandidateReports: number;
   },
 ): void => {
   logger.info(
     {
       ...context,
-      rawDiscoveredReportCount: counts.currentRawReports,
-      timeWindowMatchedReportCount: counts.currentRawReports,
-      guildServerRegionMatchedReportCount: counts.currentRawReports,
+      candidateReportCount: counts.currentCandidateReports,
+      timeWindowMatchedReportCount: counts.currentCandidateReports,
+      guildServerRegionMatchedReportCount: counts.currentCandidateReports,
       zoneMatchedReportCount: counts.currentZoneMatchedReports,
       difficultySizeFightMatchedReportCount: counts.currentDifficultySizeMatchedReports,
-      baselineRawDiscoveredReportCount: counts.baselineRawReports,
+      baselineCandidateReportCount: counts.baselineCandidateReports,
+      mongoIndexCandidateReportCount: counts.mongoIndexCandidateReports,
+      liveWclCandidateReportCount: counts.liveWclCandidateReports,
     },
-    'guildrank report discovery filter counts',
+    'guildrank candidate report filter counts',
   );
 };
+
+const isInCurrentWindow = (
+  candidate: GuildRankReportCandidate,
+  windows: GuildRankWindows,
+): boolean =>
+  candidate.startTime >= windows.currentStartMs && candidate.startTime <= windows.currentEndMs;
+
+const isInBaselineWindow = (
+  candidate: GuildRankReportCandidate,
+  windows: GuildRankWindows,
+): boolean =>
+  candidate.startTime >= windows.baselineStartMs &&
+  candidate.startTime <= windows.baselineEndMs &&
+  candidate.startTime < windows.currentStartMs;
+
+const toDiscoveryRows = (candidates: GuildRankReportCandidate[]) =>
+  candidates.map((candidate) => ({
+    code: candidate.reportCode,
+    startTime: candidate.startTime,
+    ...(typeof candidate.endTime === 'number' ? { endTime: candidate.endTime } : {}),
+    ...(typeof candidate.zoneId === 'number' ? { zoneId: candidate.zoneId } : {}),
+    ...(candidate.zoneName ? { zoneName: candidate.zoneName } : {}),
+  }));
 
 const buildMetricSet = (
   currentRows: Map<string, number[]>,
@@ -265,7 +303,7 @@ const buildMetricSet = (
 export const collectGuildRankSummaryData = async (
   client: WclGraphqlClient,
   input: GuildRankInput,
-  options: { fetchImpl?: typeof fetch } = {},
+  options: GuildRankPipelineOptions,
 ): Promise<GuildRankSummary> => {
   const normalizedInput: GuildRankInput = {
     ...input,
@@ -293,26 +331,22 @@ export const collectGuildRankSummaryData = async (
     baselineWindowEndMs: windows.baselineEndMs,
   };
 
-  logger.info(debugContext, 'guildrank report discovery input');
+  logger.info(debugContext, 'guildrank candidate report input');
 
-  const [currentDiscovery, baselineDiscovery, officialRanks] = await Promise.all([
-    collectGuildReportDiscovery(client, {
+  const [candidateReports, officialRanks] = await Promise.all([
+    selectGuildRankCandidateReports({
+      gameFamily: normalizedInput.gameFamily ?? 'retail',
       guildName: resolved.guildName,
       guildServerSlug: resolved.guildServerSlug,
       guildServerRegion: resolved.guildServerRegion,
       zoneId: resolved.zoneId,
-      startTimeMs: windows.currentStartMs,
-      endTimeMs: windows.currentEndMs,
-      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
-    }),
-    collectGuildReportDiscovery(client, {
-      guildName: resolved.guildName,
-      guildServerSlug: resolved.guildServerSlug,
-      guildServerRegion: resolved.guildServerRegion,
-      zoneId: resolved.zoneId,
-      startTimeMs: windows.baselineStartMs,
-      endTimeMs: windows.baselineEndMs,
-      ...(options.fetchImpl ? { fetchImpl: options.fetchImpl } : {}),
+      currentWindowStartMs: windows.currentStartMs,
+      currentWindowEndMs: windows.currentEndMs,
+      previousWindowStartMs: windows.baselineStartMs,
+      previousWindowEndMs: windows.baselineEndMs,
+      ...(typeof options.maxReports === 'number' ? { maxReports: options.maxReports } : {}),
+      ...(options.metadataReader ? { metadataReader: options.metadataReader } : {}),
+      liveReportIndexFetcher: options.liveReportIndexFetcher,
     }),
     collectOfficialGuildZoneRankings(client, {
       guildName: resolved.guildName,
@@ -325,6 +359,12 @@ export const collectGuildRankSummaryData = async (
       encounters: resolved.encounters,
     }),
   ]);
+  const currentCandidates = candidateReports.filter((candidate) =>
+    isInCurrentWindow(candidate, windows),
+  );
+  const baselineCandidates = candidateReports.filter((candidate) =>
+    isInBaselineWindow(candidate, windows),
+  );
 
   const currentMetricsByEncounter = new Map<string, number[]>();
   const baselineMetricsByEncounter = new Map<string, number[]>();
@@ -337,12 +377,12 @@ export const collectGuildRankSummaryData = async (
   let currentZoneMatchedReports = 0;
   let currentDifficultySizeMatchedReports = 0;
 
-  for (const row of currentDiscovery.rows) {
+  for (const row of currentCandidates) {
     let reportMetrics: EncounterMetricsByReport;
     try {
       reportMetrics = await collectEncounterMetricsFromReport(
         client,
-        row.code,
+        row.reportCode,
         { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
         resolved.difficultyId,
         resolved.sizeValue,
@@ -350,7 +390,7 @@ export const collectGuildRankSummaryData = async (
       );
     } catch (error) {
       logger.info(
-        { ...debugContext, reportCode: row.code, error: serializeError(error) },
+        { ...debugContext, reportCode: row.reportCode, error: serializeError(error) },
         'guildrank report indexing failed during current-window filtering',
       );
       continue;
@@ -380,12 +420,12 @@ export const collectGuildRankSummaryData = async (
     }
   }
 
-  for (const row of baselineDiscovery.rows) {
+  for (const row of baselineCandidates) {
     let reportMetrics: EncounterMetricsByReport;
     try {
       reportMetrics = await collectEncounterMetricsFromReport(
         client,
-        row.code,
+        row.reportCode,
         { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
         resolved.difficultyId,
         resolved.sizeValue,
@@ -393,7 +433,7 @@ export const collectGuildRankSummaryData = async (
       );
     } catch (error) {
       logger.info(
-        { ...debugContext, reportCode: row.code, error: serializeError(error) },
+        { ...debugContext, reportCode: row.reportCode, error: serializeError(error) },
         'guildrank report indexing failed during baseline filtering',
       );
       continue;
@@ -418,18 +458,23 @@ export const collectGuildRankSummaryData = async (
   const executionSets = buildMetricSet(currentExecutionByEncounter, baselineExecutionByEncounter, true);
 
   logDiscoveryFilterStage(debugContext, {
-    currentRawReports: currentDiscovery.rows.length,
+    currentCandidateReports: currentCandidates.length,
     currentZoneMatchedReports,
     currentDifficultySizeMatchedReports,
-    baselineRawReports: baselineDiscovery.rows.length,
+    baselineCandidateReports: baselineCandidates.length,
+    mongoIndexCandidateReports: candidateReports.filter(
+      (candidate) => candidate.source === 'mongo-index',
+    ).length,
+    liveWclCandidateReports: candidateReports.filter((candidate) => candidate.source === 'live-wcl')
+      .length,
   });
 
   const bundle: GuildRankCollectorBundle = {
     input: normalizedInput,
     windows,
     officialRanks,
-    currentReports: currentDiscovery.rows,
-    baselineReports: baselineDiscovery.rows,
+    currentReports: toDiscoveryRows(currentCandidates),
+    baselineReports: toDiscoveryRows(baselineCandidates),
     currentSpeed: speedSets.current,
     baselineSpeed: speedSets.baseline,
     currentExecution: executionSets.current,
@@ -441,7 +486,7 @@ export const collectGuildRankSummaryData = async (
       totalEncounters: resolved.totalEncounters,
     },
     currentWindowDiscovery: {
-      candidateReports: currentDiscovery.rows.length,
+      candidateReports: currentCandidates.length,
       zoneMatchedReports: currentZoneMatchedReports,
       difficultySizeMatchedReports: currentDifficultySizeMatchedReports,
     },

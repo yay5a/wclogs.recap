@@ -18,6 +18,17 @@ export type {
 
 export type { GuildRankInput } from './pipeline/types.js';
 export {
+  selectGuildRankCandidateReports,
+} from './pipeline/guildrank-candidate-selector.js';
+export type {
+  GuildRankLiveReportIndexFetcher,
+  GuildRankReportCandidate,
+  GuildRankReportCandidateSource,
+  GuildRankReportMetadataReader,
+  GuildRankReportMetadataRow,
+  SelectGuildRankCandidateReportsInput,
+} from './pipeline/guildrank-candidate-selector.js';
+export {
   getReportIndexCacheExpiresAt,
 } from './report-index-cache.js';
 export type {

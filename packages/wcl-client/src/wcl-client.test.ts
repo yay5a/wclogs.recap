@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import type { GuildRankPipelineOptions } from './pipeline/guildrank-pipeline.js';
 
 const collectGuildRankSummaryData = vi.hoisted(() => vi.fn());
 const collectGuildReportIndex = vi.hoisted(() => vi.fn());
@@ -153,5 +154,74 @@ describe('WclClient guild report index', () => {
       }),
     ).rejects.toThrow(/WCL_V1_CLIENT_KEY/);
     expect(collectGuildReportIndex).not.toHaveBeenCalled();
+  });
+
+  it('wires guildrank metadata reader and maps live report index rows', async () => {
+    const metadataReader = {
+      summarizeReports: vi.fn().mockResolvedValue([]),
+    };
+    collectGuildReportIndex.mockResolvedValue({
+      rows: [
+        {
+          code: 'ABC123',
+          title: 'Raid Night',
+          owner: 'Logger',
+          zoneId: 1046,
+          startTime: 100,
+          endTime: 200,
+        },
+      ],
+      windowsQueried: 1,
+      complexity: { apiCalls: 'O(W)', parseAndDedupe: 'O(N)', memory: 'O(U)' },
+    });
+    collectGuildRankSummaryData.mockImplementationOnce(
+      async (_client: unknown, _input: unknown, options: GuildRankPipelineOptions) => {
+        expect(options.metadataReader).toBe(metadataReader);
+        await expect(
+          options.liveReportIndexFetcher({
+            guildName: 'Guild',
+            guildServerSlug: 'stormrage',
+            guildServerRegion: 'us',
+            gameFamily: 'mop_classic',
+            startTimeMs: 0,
+            endTimeMs: 1000,
+            limit: 30,
+          }),
+        ).resolves.toEqual([
+          {
+            reportCode: 'ABC123',
+            title: 'Raid Night',
+            owner: 'Logger',
+            zoneId: 1046,
+            startTime: 100,
+            endTime: 200,
+          },
+        ]);
+        return summary('wired');
+      },
+    );
+    const client = new WclClient({
+      clientId: 'client-id',
+      clientSecret: 'client-secret',
+      apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
+      v1ClientKey: 'server-side-v1-key',
+      guildReportMetadataStore: metadataReader,
+    });
+
+    const result = await client.fetchGuildRankSummary({
+      ...guildRankInput,
+      gameFamily: 'mop_classic',
+    });
+
+    expect(result.guildName).toBe('wired');
+    expect(collectGuildReportIndex).toHaveBeenCalledWith({
+      guildName: 'Guild',
+      guildServerSlug: 'stormrage',
+      guildServerRegion: 'us',
+      gameFamily: 'mop_classic',
+      startTimeMs: 0,
+      endTimeMs: 1000,
+      v1ClientKey: 'server-side-v1-key',
+    });
   });
 });

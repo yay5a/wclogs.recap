@@ -7,12 +7,17 @@ import {
   MongoDashboardActivityStore,
   MongoDashboardOnboardingStore,
   MongoGuildConfigStore,
+  MongoGuildReportMetadataStore,
   MongoReportIndexCacheStore,
   MongoWclUserAuthStore,
   migrateWclUserAuthDiscordUserIndex,
 } from '@wcl/db';
 import { createLogger } from '@wcl/shared';
-import { WclClient } from '@wcl/wcl-client';
+import {
+  WclClient,
+  type GuildRankReportMetadataReader,
+  type GuildRankReportMetadataRow,
+} from '@wcl/wcl-client';
 import { loadEnvFile } from 'node:process';
 import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -32,10 +37,43 @@ if (existsSync(envPath)) {
 const env = parseWebEnv(process.env);
 const logger = createLogger('web');
 
+class GuildRankMongoMetadataReader implements GuildRankReportMetadataReader {
+  public constructor(private readonly store: MongoGuildReportMetadataStore) {}
+
+  public async summarizeReports(
+    input: Parameters<GuildRankReportMetadataReader['summarizeReports']>[0],
+  ): Promise<GuildRankReportMetadataRow[]> {
+    const summary = await this.store.summarizeReports({
+      scope: {
+        guildName: input.guildName,
+        guildServerSlug: input.guildServerSlug,
+        guildServerRegion: input.guildServerRegion,
+        gameFamily: input.gameFamily,
+      },
+      startTimeMs: input.startTimeMs,
+      endTimeMs: input.endTimeMs,
+      ...(typeof input.limit === 'number' ? { limit: input.limit } : {}),
+    });
+
+    return summary.raidNights.flatMap((raidNight) =>
+      raidNight.reports.map((report) => ({
+        reportCode: report.reportCode,
+        ...(report.title ? { title: report.title } : {}),
+        ...(report.owner ? { owner: report.owner } : {}),
+        ...(typeof report.zoneId === 'number' ? { zoneId: report.zoneId } : {}),
+        startTime: report.startTime,
+        ...(typeof report.endTime === 'number' ? { endTime: report.endTime } : {}),
+        raidNightKey: String(raidNight.startTime),
+      })),
+    );
+  }
+}
+
 const wclUserAuthStore = new MongoWclUserAuthStore({
   encryptionKey: env.WCL_TOKEN_ENCRYPTION_KEY,
 });
 const reportIndexCacheStore = new MongoReportIndexCacheStore();
+const guildReportMetadataStore = new MongoGuildReportMetadataStore();
 
 const wclClient = new WclClient({
   clientId: env.WCL_CLIENT_ID,
@@ -45,6 +83,7 @@ const wclClient = new WclClient({
   ...(env.WCL_V1_CLIENT_KEY ? { v1ClientKey: env.WCL_V1_CLIENT_KEY } : {}),
   wclUserAuthStore,
   reportIndexCacheStore,
+  guildReportMetadataStore: new GuildRankMongoMetadataReader(guildReportMetadataStore),
 });
 
 const guildConfigStore = new MongoGuildConfigStore();

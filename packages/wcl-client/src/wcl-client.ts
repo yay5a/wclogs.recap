@@ -10,6 +10,7 @@ import {
 import { collectReportSummaryData } from './pipeline/report-pipeline.js';
 import { collectGuildRankSummaryData } from './pipeline/guildrank-pipeline.js';
 import type { GuildRankInput } from './pipeline/types.js';
+import type { GuildRankReportMetadataReader } from './pipeline/guildrank-candidate-selector.js';
 import { collectZoneName } from './collectors/zone-name-collector.js';
 import {
   collectGuildReportIndex,
@@ -37,6 +38,7 @@ export interface WclClientOptions {
   fetchImpl?: typeof fetch;
   wclUserAuthStore?: WclLinkedUserAuthStore;
   reportIndexCacheStore?: ReportIndexCacheStore;
+  guildReportMetadataStore?: GuildRankReportMetadataReader;
 }
 
 export interface WclAuthContextOptions {
@@ -88,7 +90,27 @@ export class WclClient {
   ): Promise<GuildRankSummary> {
     return this.withUserAuthPreferredFallback(`guildrank:${input.guildName}`, options, (authMode) =>
       collectGuildRankSummaryData(this.createGraphqlClient(authMode, input.gameFamily), input, {
-        ...(this.options.fetchImpl ? { fetchImpl: this.options.fetchImpl } : {}),
+        ...(this.options.guildReportMetadataStore
+          ? { metadataReader: this.options.guildReportMetadataStore }
+          : {}),
+        liveReportIndexFetcher: async (fetchInput) => {
+          const result = await this.fetchGuildReportIndex({
+            guildName: fetchInput.guildName,
+            guildServerSlug: fetchInput.guildServerSlug,
+            guildServerRegion: fetchInput.guildServerRegion,
+            gameFamily: fetchInput.gameFamily,
+            startTimeMs: fetchInput.startTimeMs,
+            endTimeMs: fetchInput.endTimeMs,
+          });
+          return result.rows.map((row) => ({
+            reportCode: row.code,
+            ...(row.title ? { title: row.title } : {}),
+            ...(row.owner ? { owner: row.owner } : {}),
+            ...(typeof row.zoneId === 'number' ? { zoneId: row.zoneId } : {}),
+            startTime: row.startTime,
+            ...(typeof row.endTime === 'number' ? { endTime: row.endTime } : {}),
+          }));
+        },
       }),
     );
   }

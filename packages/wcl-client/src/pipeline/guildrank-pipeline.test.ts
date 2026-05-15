@@ -1,5 +1,15 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { collectGuildRankSummaryData } from './guildrank-pipeline.js';
+import type {
+  GuildRankLiveReportIndexFetcher,
+  GuildRankReportMetadataRow,
+} from './guildrank-candidate-selector.js';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+const pipelineOptionsFor = (rows: GuildRankReportMetadataRow[]) => ({
+  liveReportIndexFetcher: vi.fn(async () => rows),
+});
 
 afterEach(() => {
   vi.useRealTimers();
@@ -158,7 +168,6 @@ describe('guildrank pipeline', () => {
 
       throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
     });
-
     const summary = await collectGuildRankSummaryData(
       { request } as never,
       {
@@ -169,6 +178,20 @@ describe('guildrank pipeline', () => {
         difficulty: 'heroic',
         size: '10man',
       },
+      pipelineOptionsFor([
+        {
+          reportCode: 'C1',
+          zoneId: 100,
+          startTime: now - 2 * DAY_MS,
+          endTime: now - 2 * DAY_MS + 3600000,
+        },
+        {
+          reportCode: 'B1',
+          zoneId: 100,
+          startTime: now - 10 * DAY_MS,
+          endTime: now - 10 * DAY_MS + 3600000,
+        },
+      ]),
     );
 
     expect(summary.window.currentStartIso).toBe(new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString());
@@ -322,7 +345,6 @@ describe('guildrank pipeline', () => {
 
       throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
     });
-
     const summary = await collectGuildRankSummaryData(
       { request } as never,
       {
@@ -333,6 +355,20 @@ describe('guildrank pipeline', () => {
         difficulty: 'heroic',
         size: '10man',
       },
+      pipelineOptionsFor([
+        {
+          reportCode: 'C1',
+          zoneId: 100,
+          startTime: now - 1000,
+          endTime: now,
+        },
+        {
+          reportCode: 'B1',
+          zoneId: 100,
+          startTime: now - 10 * DAY_MS,
+          endTime: now - 10 * DAY_MS + 1000,
+        },
+      ]),
     );
 
     expect(summary.progress.ranks).toEqual({ world: 50, region: 20, realm: 5 });
@@ -468,7 +504,6 @@ describe('guildrank pipeline', () => {
 
       throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
     });
-
     const summary = await collectGuildRankSummaryData(
       { request } as never,
       {
@@ -479,6 +514,20 @@ describe('guildrank pipeline', () => {
         difficulty: 'heroic',
         size: '10man',
       },
+      pipelineOptionsFor([
+        {
+          reportCode: 'C1',
+          zoneId: 100,
+          startTime: now - 1000,
+          endTime: now,
+        },
+        {
+          reportCode: 'B1',
+          zoneId: 100,
+          startTime: now - 10 * DAY_MS,
+          endTime: now - 10 * DAY_MS + 1000,
+        },
+      ]),
     );
 
     expect(summary.progress.ranksAvailable).toBe(false);
@@ -590,6 +639,20 @@ describe('guildrank pipeline', () => {
         difficulty: 'heroic',
         size: '10man',
       },
+      pipelineOptionsFor([
+        {
+          reportCode: 'C1',
+          zoneId: 100,
+          startTime: now - 1000,
+          endTime: now,
+        },
+        {
+          reportCode: 'B1',
+          zoneId: 100,
+          startTime: now - 10 * DAY_MS,
+          endTime: now - 10 * DAY_MS + 1000,
+        },
+      ]),
     );
 
     expect(summary.progress.pulls).toBe(0);
@@ -652,6 +715,7 @@ describe('guildrank pipeline', () => {
         difficulty: 'heroic',
         size: '10man',
       },
+      pipelineOptionsFor([]),
     );
 
     expect(summary.notes).toContain(
@@ -780,6 +844,22 @@ describe('guildrank pipeline', () => {
       throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
     });
 
+    const liveReportIndexFetcher: GuildRankLiveReportIndexFetcher = vi.fn(async (input) => {
+      expect(input.guildName).toBe('Shenanigans');
+      expect(input.guildServerSlug).toBe('area-52');
+      expect(input.guildServerRegion).toBe('us');
+      expect(input.gameFamily).toBe('mop_classic');
+      return [
+        {
+          reportCode: 'XLWjxmYh37GNnyJK',
+          zoneId: 1046,
+          zoneName: 'Throne of Thunder',
+          startTime: reportStart,
+          endTime: reportStart + 3_600_000,
+        },
+      ];
+    });
+
     const summary = await collectGuildRankSummaryData(
       { request } as never,
       {
@@ -791,6 +871,7 @@ describe('guildrank pipeline', () => {
         size: '10man',
         gameFamily: 'mop_classic',
       },
+      { liveReportIndexFetcher },
     );
 
     expect(summary.progress.clearedEncounters).toBe(1);
@@ -901,6 +982,14 @@ describe('guildrank pipeline', () => {
         difficulty: 'heroic',
         size: '10man',
       },
+      pipelineOptionsFor([
+        {
+          reportCode: 'NAMEONLY',
+          zoneName: 'Throne of Thunder',
+          startTime: now - 1000,
+          endTime: now,
+        },
+      ]),
     );
 
     expect(summary.progress.pulls).toBe(1);
@@ -1001,6 +1090,14 @@ describe('guildrank pipeline', () => {
         difficulty: 'heroic',
         size: '10man',
       },
+      pipelineOptionsFor([
+        {
+          reportCode: 'WRONGZONE',
+          zoneName: 'Throne of Thunder',
+          startTime: now - 1000,
+          endTime: now,
+        },
+      ]),
     );
 
     expect(summary.progress.pulls).toBe(0);
