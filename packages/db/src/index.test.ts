@@ -331,6 +331,89 @@ describe('MongoGuildReportMetadataStore', () => {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   });
+
+  it('summarizes indexed metadata without report detail reads', async () => {
+    vi.spyOn(GuildReportMetadataModel, 'countDocuments').mockResolvedValue(3 as never);
+    const lean = vi.fn().mockResolvedValue([
+      {
+        guildName: 'Shenanigans',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
+        gameFamily: 'mop_classic',
+        reportCode: 'LATEST',
+        title: 'Latest Raid',
+        owner: 'Logger',
+        zoneId: 1046,
+        startTime: 300,
+        endTime: 400,
+        indexedAt: new Date('2026-05-15T12:00:00.000Z'),
+      },
+      {
+        guildName: 'Shenanigans',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
+        gameFamily: 'mop_classic',
+        reportCode: 'DUP-A',
+        zoneId: 1046,
+        startTime: 100,
+        endTime: 200,
+        indexedAt: new Date('2026-05-15T12:00:00.000Z'),
+      },
+      {
+        guildName: 'Shenanigans',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
+        gameFamily: 'mop_classic',
+        reportCode: 'DUP-B',
+        zoneId: 1046,
+        startTime: 100,
+        endTime: 250,
+        indexedAt: new Date('2026-05-15T12:00:00.000Z'),
+      },
+    ]);
+    const limit = vi.fn().mockReturnValue({ lean });
+    const sort = vi.fn().mockReturnValue({ limit });
+    const find = vi.spyOn(GuildReportMetadataModel, 'find').mockReturnValue({ sort } as never);
+
+    const store = new MongoGuildReportMetadataStore();
+
+    await expect(
+      store.summarizeReports({ scope, startTimeMs: 0, endTimeMs: 999 }),
+    ).resolves.toEqual({
+      reportsIndexed: 3,
+      summarizedRows: 3,
+      latestReport: {
+        reportCode: 'LATEST',
+        title: 'Latest Raid',
+        owner: 'Logger',
+        zoneId: 1046,
+        startTime: 300,
+        endTime: 400,
+      },
+      zonesSeen: [{ zoneId: 1046, reportCount: 3 }],
+      unknownZoneReportCount: 0,
+      likelyDuplicateWindows: [
+        {
+          startTime: 100,
+          endTime: 250,
+          reportCount: 2,
+          reports: [
+            { reportCode: 'DUP-A', zoneId: 1046, startTime: 100, endTime: 200 },
+            { reportCode: 'DUP-B', zoneId: 1046, startTime: 100, endTime: 250 },
+          ],
+        },
+      ],
+    });
+    expect(find).toHaveBeenCalledWith({
+      guildName: 'Shenanigans',
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      gameFamily: 'mop_classic',
+      startTime: { $gte: 0, $lte: 999 },
+    });
+    expect(sort).toHaveBeenCalledWith({ startTime: -1 });
+    expect(limit).toHaveBeenCalledWith(500);
+  });
 });
 
 describe('MongoWclUserAuthStore', () => {

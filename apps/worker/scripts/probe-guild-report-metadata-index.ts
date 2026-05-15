@@ -12,7 +12,7 @@ import { syncGuildReportMetadataIndex } from "../src/guild-report-metadata-sync.
 const RESET_WEEK_START_DAY = 2; // Tuesday
 const usage = [
     "Usage:",
-    "  pnpm --filter @wcl/worker probe:guild-report-metadata-index <guildName> <serverSlug> <serverRegion> [gameFamily] [maxReports] [windowSizeMs]",
+    "  pnpm --filter @wcl/worker probe:guild-report-metadata-index <guildName> <serverSlug> <serverRegion> [gameFamily] [maxReports] [windowSizeMs] [--summary-only]",
 ].join("\n");
 
 for (const envPath of [".env", "../../.env"].map((path) => resolve(process.cwd(), path))) {
@@ -22,13 +22,22 @@ for (const envPath of [".env", "../../.env"].map((path) => resolve(process.cwd()
     }
 }
 
+const rawArgs = process.argv.slice(2);
+const supportedFlags = new Set(["--summary-only", "--read-only-summary"]);
+const unknownFlag = rawArgs.find((arg) => arg.startsWith("--") && !supportedFlags.has(arg));
+const summaryOnly = rawArgs.includes("--summary-only") || rawArgs.includes("--read-only-summary");
+const positionalArgs = rawArgs.filter((arg) => !arg.startsWith("--"));
 const [guildNameRaw, serverSlugRaw, serverRegionRaw, gameFamilyRaw, maxReportsRaw, windowSizeMsRaw] =
-    process.argv.slice(2);
+    positionalArgs;
 
 const fail = (message: string): never => {
     console.error(message);
     process.exit(1);
 };
+
+if (unknownFlag) {
+    fail(`Unknown option: ${unknownFlag}\n${usage}`);
+}
 
 if (!guildNameRaw || !serverSlugRaw || !serverRegionRaw) {
     fail(usage);
@@ -106,13 +115,19 @@ const mongoUri = process.env.MONGODB_URI;
 const v1ClientKey = process.env.WCL_V1_CLIENT_KEY;
 
 if (!mongoUri) fail("Missing MONGODB_URI");
-if (!v1ClientKey) fail("Missing WCL_V1_CLIENT_KEY");
+if (!summaryOnly && !v1ClientKey) fail("Missing WCL_V1_CLIENT_KEY");
 if (maxReports !== undefined && maxReports < 1) fail("maxReports must be a positive integer");
 if (windowSizeMs !== undefined && windowSizeMs < 1) fail("windowSizeMs must be a positive integer");
 
 const window = await promptForWindow();
 const logger = createLogger("worker");
 const connection = await connectMongo(mongoUri);
+const scope = {
+    guildName: guildNameRaw.trim(),
+    guildServerSlug: serverSlugRaw,
+    guildServerRegion: serverRegionRaw,
+    gameFamily: gameFamily ?? "retail",
+};
 
 try {
     console.error(
@@ -121,23 +136,36 @@ try {
         ).toISOString()}`,
     );
 
-    const result = await syncGuildReportMetadataIndex({
-        wclClient: {
-            fetchGuildReportIndex: (input) => collectGuildReportIndex({ ...input, v1ClientKey }),
-        },
-        store: new MongoGuildReportMetadataStore(),
-        guildName: guildNameRaw.trim(),
-        guildServerSlug: serverSlugRaw,
-        guildServerRegion: serverRegionRaw,
-        ...(gameFamily ? { gameFamily } : {}),
+    if (summaryOnly) {
+        console.error("Summary only: skipping WCL sync");
+    }
+
+    const store = new MongoGuildReportMetadataStore();
+    const sync = summaryOnly
+        ? undefined
+        : await syncGuildReportMetadataIndex({
+              wclClient: {
+                  fetchGuildReportIndex: (input) =>
+                      collectGuildReportIndex({
+                          ...input,
+                          v1ClientKey: v1ClientKey ?? fail("Missing WCL_V1_CLIENT_KEY"),
+                      }),
+              },
+              store,
+              ...scope,
+              startTimeMs: window.startTimeMs,
+              endTimeMs: window.endTimeMs,
+              ...(maxReports !== undefined ? { maxReports } : {}),
+              ...(windowSizeMs !== undefined ? { windowSizeMs } : {}),
+              logger,
+          });
+    const summary = await store.summarizeReports({
+        scope,
         startTimeMs: window.startTimeMs,
         endTimeMs: window.endTimeMs,
-        ...(maxReports !== undefined ? { maxReports } : {}),
-        ...(windowSizeMs !== undefined ? { windowSizeMs } : {}),
-        logger,
     });
 
-    console.log(JSON.stringify(result, null, 2));
+    console.log(JSON.stringify(summaryOnly ? { summaryOnly, summary } : { sync, summary }, null, 2));
 } catch (error) {
     console.error(error instanceof Error ? error.message : String(error));
     process.exitCode = 1;

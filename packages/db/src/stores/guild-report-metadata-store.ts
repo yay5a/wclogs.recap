@@ -30,6 +30,31 @@ export type GuildReportMetadataCursor = GuildReportMetadataScope & {
     lastIndexedAt: Date;
 };
 
+export interface GuildReportMetadataSummaryReport {
+    reportCode: string;
+    title?: string;
+    owner?: string;
+    zoneId?: number;
+    startTime: number;
+    endTime?: number;
+}
+
+export interface GuildReportMetadataDuplicateWindow {
+    startTime: number;
+    endTime?: number;
+    reportCount: number;
+    reports: GuildReportMetadataSummaryReport[];
+}
+
+export interface GuildReportMetadataSummary {
+    reportsIndexed: number;
+    summarizedRows: number;
+    latestReport?: GuildReportMetadataSummaryReport;
+    zonesSeen: Array<{ zoneId: number; reportCount: number }>;
+    unknownZoneReportCount: number;
+    likelyDuplicateWindows: GuildReportMetadataDuplicateWindow[];
+}
+
 export interface GuildReportMetadataUpsertResult {
     processedRows: number;
     upsertedRows: number;
@@ -136,6 +161,67 @@ const dedupeRows = (rows: GuildReportMetadataInputRow[]): GuildReportMetadataInp
     return [...rowsByCode.values()];
 };
 
+const toSummaryReport = (record: GuildReportMetadataRecord): GuildReportMetadataSummaryReport => ({
+    reportCode: record.reportCode,
+    ...(record.title ? { title: record.title } : {}),
+    ...(record.owner ? { owner: record.owner } : {}),
+    ...(typeof record.zoneId === "number" ? { zoneId: record.zoneId } : {}),
+    startTime: record.startTime,
+    ...(typeof record.endTime === "number" ? { endTime: record.endTime } : {}),
+});
+
+const summarizeZones = (
+    reports: GuildReportMetadataSummaryReport[],
+): { zonesSeen: Array<{ zoneId: number; reportCount: number }>; unknownZoneReportCount: number } => {
+    let unknownZoneReportCount = 0;
+    const countsByZone = new Map<number, number>();
+    for (const report of reports) {
+        if (typeof report.zoneId !== "number") {
+            unknownZoneReportCount += 1;
+            continue;
+        }
+        countsByZone.set(report.zoneId, (countsByZone.get(report.zoneId) ?? 0) + 1);
+    }
+
+    return {
+        zonesSeen: [...countsByZone.entries()]
+            .map(([zoneId, reportCount]) => ({ zoneId, reportCount }))
+            .sort((left, right) => right.reportCount - left.reportCount || left.zoneId - right.zoneId),
+        unknownZoneReportCount,
+    };
+};
+
+const summarizeDuplicateWindows = (
+    reports: GuildReportMetadataSummaryReport[],
+): GuildReportMetadataDuplicateWindow[] => {
+    const reportsByStartTime = new Map<number, GuildReportMetadataSummaryReport[]>();
+    for (const report of reports) {
+        const existing = reportsByStartTime.get(report.startTime) ?? [];
+        existing.push(report);
+        reportsByStartTime.set(report.startTime, existing);
+    }
+
+    return [...reportsByStartTime.entries()]
+        .flatMap(([startTime, windowReports]) => {
+            if (windowReports.length < 2) return [];
+            const endTimes = windowReports
+                .map((report) => report.endTime)
+                .filter((value): value is number => typeof value === "number");
+            return [
+                {
+                    startTime,
+                    ...(endTimes.length > 0 ? { endTime: Math.max(...endTimes) } : {}),
+                    reportCount: windowReports.length,
+                    reports: windowReports,
+                },
+            ];
+        })
+        .sort((left, right) => right.startTime - left.startTime);
+};
+
+const toSummaryLimit = (value: number | undefined): number =>
+    Math.min(Math.max(value ?? 500, 1), 500);
+
 export class MongoGuildReportMetadataStore implements GuildReportMetadataStore {
     public async upsertReports(input: {
         scope: GuildReportMetadataScope;
@@ -219,5 +305,39 @@ export class MongoGuildReportMetadataStore implements GuildReportMetadataStore {
                   .map((doc) => parseMetadataRecord(doc))
                   .filter((doc): doc is GuildReportMetadataRecord => doc !== null)
             : [];
+    }
+
+    public async summarizeReports(input: {
+        scope: GuildReportMetadataScope;
+        startTimeMs: number;
+        endTimeMs: number;
+        limit?: number;
+    }): Promise<GuildReportMetadataSummary> {
+        const scope = normalizeScope(input.scope);
+        const filter = {
+            ...scope,
+            startTime: { $gte: Math.trunc(input.startTimeMs), $lte: Math.trunc(input.endTimeMs) },
+        };
+        const limit = toSummaryLimit(input.limit);
+        const [reportsIndexed, found] = await Promise.all([
+            GuildReportMetadataModel.countDocuments(filter),
+            GuildReportMetadataModel.find(filter).sort({ startTime: -1 }).limit(limit).lean(),
+        ]);
+        const reports = Array.isArray(found)
+            ? found
+                  .map((doc) => parseMetadataRecord(doc))
+                  .filter((doc): doc is GuildReportMetadataRecord => doc !== null)
+                  .map((doc) => toSummaryReport(doc))
+            : [];
+        const { zonesSeen, unknownZoneReportCount } = summarizeZones(reports);
+
+        return {
+            reportsIndexed,
+            summarizedRows: reports.length,
+            ...(reports[0] ? { latestReport: reports[0] } : {}),
+            zonesSeen,
+            unknownZoneReportCount,
+            likelyDuplicateWindows: summarizeDuplicateWindows(reports),
+        };
     }
 }
