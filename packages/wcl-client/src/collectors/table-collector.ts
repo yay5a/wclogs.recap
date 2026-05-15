@@ -1,3 +1,4 @@
+import { createLogger } from '@wcl/shared';
 import type { WclGraphqlClient } from '../graphql-client.js';
 import {
   parseTablePayloadDetailed,
@@ -7,6 +8,9 @@ import {
 import type { ReportTableMetrics } from '../pipeline/types.js';
 import type { ReportIndexFightRow } from '../pipeline/types.js';
 import type { TableDataType } from '../schema-enums.js';
+
+const logger = createLogger('wcl-client');
+const RETRYABLE_WCL_STATUSES = new Set([429, 502, 503, 504]);
 
 const TABLE_QUERY = `
 query ReportTableByType(
@@ -27,6 +31,61 @@ query ReportTableByType(
     }
   }
 }`;
+
+const asObject = (value: unknown): Record<string, unknown> | undefined =>
+  value && typeof value === 'object' ? (value as Record<string, unknown>) : undefined;
+
+const readWclErrorStatus = (error: unknown): number | undefined => {
+  const root = asObject(error);
+  const response = asObject(root?.response);
+  const status = response?.status ?? root?.status;
+  if (typeof status === 'number') return status;
+
+  if (error instanceof Error) {
+    const match = error.message.match(/(?:Code:|"status":)\s*(\d{3})/);
+    if (match?.[1]) return Number(match[1]);
+  }
+
+  return undefined;
+};
+
+export const isRetryableWclError = (error: unknown): boolean => {
+  const status = readWclErrorStatus(error);
+  return typeof status === 'number' && RETRYABLE_WCL_STATUSES.has(status);
+};
+
+const delay = (ms: number): Promise<void> =>
+  new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+
+const withBackoff = async <T>(
+  operation: () => Promise<T>,
+  options: {
+    baseMs: number;
+    maxMs: number;
+    retries: number;
+    shouldRetry: (error: unknown) => boolean;
+    onRetry?: (input: { error: unknown; attempt: number; delayMs: number }) => void;
+  },
+): Promise<T> => {
+  let attempts = 0;
+
+  while (true) {
+    try {
+      return await operation();
+    } catch (error) {
+      if (attempts >= options.retries || !options.shouldRetry(error)) {
+        throw error;
+      }
+
+      const delayMs = Math.min(options.maxMs, options.baseMs * 2 ** attempts);
+      attempts += 1;
+      options.onRetry?.({ error, attempt: attempts, delayMs });
+      await delay(delayMs);
+    }
+  }
+};
 
 const getTableNode = (payload: unknown): unknown => {
   const root = payload as { data?: { reportData?: { report?: { table?: unknown } } } };
@@ -60,13 +119,34 @@ const collectType = async (
   client: WclGraphqlClient,
   input: { reportCode: string; fightIds: number[]; dataType: TableDataType; filterExpression: string },
 ): Promise<ParsedTablePayload> => {
-  const payload = await client.request<Record<string, unknown>>(TABLE_QUERY, {
+  const variables = {
     code: input.reportCode,
     allowUnlisted: true,
     fightIDs: input.fightIds,
     dataType: input.dataType,
     filterExpression: input.filterExpression,
-  });
+  };
+  const payload = await withBackoff(
+    () => client.request<Record<string, unknown>>(TABLE_QUERY, variables),
+    {
+      baseMs: 2_000,
+      maxMs: 60_000,
+      retries: 3,
+      shouldRetry: isRetryableWclError,
+      onRetry: ({ error, attempt, delayMs }) => {
+        logger.warn(
+          {
+            reportCode: input.reportCode,
+            dataType: input.dataType,
+            attempt,
+            status: readWclErrorStatus(error),
+            delayMs,
+          },
+          'wcl table request retrying',
+        );
+      },
+    },
+  );
   return parseTablePayloadDetailed(getTableNode(payload), input.dataType);
 };
 
