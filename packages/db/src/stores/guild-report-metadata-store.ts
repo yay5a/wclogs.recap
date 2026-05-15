@@ -46,10 +46,19 @@ export interface GuildReportMetadataDuplicateWindow {
     reports: GuildReportMetadataSummaryReport[];
 }
 
+export interface GuildReportMetadataRaidNight {
+    startTime: number;
+    endTime?: number;
+    reportCount: number;
+    canonicalReport: GuildReportMetadataSummaryReport;
+    reports: GuildReportMetadataSummaryReport[];
+}
+
 export interface GuildReportMetadataSummary {
     reportsIndexed: number;
     summarizedRows: number;
     latestReport?: GuildReportMetadataSummaryReport;
+    raidNights: GuildReportMetadataRaidNight[];
     zonesSeen: Array<{ zoneId: number; reportCount: number }>;
     unknownZoneReportCount: number;
     likelyDuplicateWindows: GuildReportMetadataDuplicateWindow[];
@@ -192,8 +201,33 @@ const summarizeZones = (
 };
 
 const summarizeDuplicateWindows = (
-    reports: GuildReportMetadataSummaryReport[],
+    raidNights: GuildReportMetadataRaidNight[],
 ): GuildReportMetadataDuplicateWindow[] => {
+    return raidNights
+        .filter((raidNight) => raidNight.reportCount > 1)
+        .map((raidNight) => ({
+            startTime: raidNight.startTime,
+            ...(typeof raidNight.endTime === "number" ? { endTime: raidNight.endTime } : {}),
+            reportCount: raidNight.reportCount,
+            reports: raidNight.reports,
+        }));
+};
+
+const toReportEndTime = (report: GuildReportMetadataSummaryReport): number =>
+    report.endTime ?? report.startTime;
+
+const sortReportsByCanonicalOrder = (
+    reports: GuildReportMetadataSummaryReport[],
+): GuildReportMetadataSummaryReport[] =>
+    [...reports].sort(
+        (left, right) =>
+            toReportEndTime(right) - toReportEndTime(left) ||
+            left.reportCode.localeCompare(right.reportCode),
+    );
+
+const summarizeRaidNights = (
+    reports: GuildReportMetadataSummaryReport[],
+): GuildReportMetadataRaidNight[] => {
     const reportsByStartTime = new Map<number, GuildReportMetadataSummaryReport[]>();
     for (const report of reports) {
         const existing = reportsByStartTime.get(report.startTime) ?? [];
@@ -203,16 +237,19 @@ const summarizeDuplicateWindows = (
 
     return [...reportsByStartTime.entries()]
         .flatMap(([startTime, windowReports]) => {
-            if (windowReports.length < 2) return [];
-            const endTimes = windowReports
+            const sortedReports = sortReportsByCanonicalOrder(windowReports);
+            const canonicalReport = sortedReports[0];
+            if (!canonicalReport) return [];
+            const endTimes = sortedReports
                 .map((report) => report.endTime)
                 .filter((value): value is number => typeof value === "number");
             return [
                 {
                     startTime,
                     ...(endTimes.length > 0 ? { endTime: Math.max(...endTimes) } : {}),
-                    reportCount: windowReports.length,
-                    reports: windowReports,
+                    reportCount: sortedReports.length,
+                    canonicalReport,
+                    reports: sortedReports,
                 },
             ];
         })
@@ -330,14 +367,16 @@ export class MongoGuildReportMetadataStore implements GuildReportMetadataStore {
                   .map((doc) => toSummaryReport(doc))
             : [];
         const { zonesSeen, unknownZoneReportCount } = summarizeZones(reports);
+        const raidNights = summarizeRaidNights(reports);
 
         return {
             reportsIndexed,
             summarizedRows: reports.length,
-            ...(reports[0] ? { latestReport: reports[0] } : {}),
+            ...(raidNights[0] ? { latestReport: raidNights[0].canonicalReport } : {}),
+            raidNights,
             zonesSeen,
             unknownZoneReportCount,
-            likelyDuplicateWindows: summarizeDuplicateWindows(reports),
+            likelyDuplicateWindows: summarizeDuplicateWindows(raidNights),
         };
     }
 }

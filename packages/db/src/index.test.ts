@@ -390,6 +390,46 @@ describe('MongoGuildReportMetadataStore', () => {
         startTime: 300,
         endTime: 400,
       },
+      raidNights: [
+        {
+          startTime: 300,
+          endTime: 400,
+          reportCount: 1,
+          canonicalReport: {
+            reportCode: 'LATEST',
+            title: 'Latest Raid',
+            owner: 'Logger',
+            zoneId: 1046,
+            startTime: 300,
+            endTime: 400,
+          },
+          reports: [
+            {
+              reportCode: 'LATEST',
+              title: 'Latest Raid',
+              owner: 'Logger',
+              zoneId: 1046,
+              startTime: 300,
+              endTime: 400,
+            },
+          ],
+        },
+        {
+          startTime: 100,
+          endTime: 250,
+          reportCount: 2,
+          canonicalReport: {
+            reportCode: 'DUP-B',
+            zoneId: 1046,
+            startTime: 100,
+            endTime: 250,
+          },
+          reports: [
+            { reportCode: 'DUP-B', zoneId: 1046, startTime: 100, endTime: 250 },
+            { reportCode: 'DUP-A', zoneId: 1046, startTime: 100, endTime: 200 },
+          ],
+        },
+      ],
       zonesSeen: [{ zoneId: 1046, reportCount: 3 }],
       unknownZoneReportCount: 0,
       likelyDuplicateWindows: [
@@ -398,8 +438,8 @@ describe('MongoGuildReportMetadataStore', () => {
           endTime: 250,
           reportCount: 2,
           reports: [
-            { reportCode: 'DUP-A', zoneId: 1046, startTime: 100, endTime: 200 },
             { reportCode: 'DUP-B', zoneId: 1046, startTime: 100, endTime: 250 },
+            { reportCode: 'DUP-A', zoneId: 1046, startTime: 100, endTime: 200 },
           ],
         },
       ],
