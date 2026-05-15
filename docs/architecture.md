@@ -28,10 +28,8 @@ End Time: HH:MM
     - Highest Parse
       - DPS: PlayerA - _percentile_
       - HPS: PlayerB - _percentile_
-      - DTPS: PlayerC - _percentile_
     - Highest Total DPS:
     - Highest Total HPS:
-    - Highest Total DTPS:
 
 - Biggest Trouble 👨‍🦼:
   - Council of Elders (Heroic)
@@ -42,7 +40,6 @@ End Time: HH:MM
     - Shortest Pull: 1:19
     - Highest Total DPS: 200,576
     - Highest Total HPS: 122,500
-    - Highest Total DTPS:
 
 🏋️‍♂️ Top Players:
 
@@ -60,11 +57,6 @@ End Time: HH:MM
   1. HealerA - 112.4k avg HPS
   2. HealerB - 108.7k avg HPS
   3. HealerC - 95.1k avg HPS
-
-- Highest DTPS:
-  1. TankA - 87.2k DTPS
-  2. TankB - 81.5k DTPS
-  3. PlayerA - 42.8k DTPS
 
 - Most Deaths:
   1. PlayerX - 9 deaths

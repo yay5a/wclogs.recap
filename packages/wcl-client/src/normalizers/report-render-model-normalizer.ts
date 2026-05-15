@@ -17,11 +17,9 @@ export const REPORT_SUMMARY_SOURCE_MAP = {
   fights: 'Report.fights(killType: All), excluding only inProgress fights',
   rankings:
     'Report.rankings(fightIDs: kill fight IDs, playerMetric: dps/hps, timeframe: Today, compare: Rankings)',
-  dtpsParse:
-    'Unavailable: local ReportRankingMetricType exposes krsi survivability, not a direct DTPS parse ranking',
   playerMetadata: 'Report.masterData(actors: Player) and Report.playerDetails(fightIDs)',
   tables:
-    'Report.table(dataType: DamageDone/DamageTaken/Healing/Deaths/Interrupts/Dispels, fightIDs: completed fight IDs)',
+    'Report.table(dataType: DamageDone/Healing/Deaths/Interrupts/Dispels, fightIDs: completed fight IDs)',
   rates:
     'Report.table row totals divided by the selected completed boss-fight duration; table activeTimeMs/activeTime is ignored for WCL table parity',
 } as const;
@@ -84,15 +82,8 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
     bundle.playerDetails,
     bundle.tableMetrics.topHealingDone.length,
   );
-  const damageTakenRows = normalizeTableMetricRows(
-    bundle.tableMetrics.topDamageTaken,
-    bundle.masterData,
-    bundle.playerDetails,
-    bundle.tableMetrics.topDamageTaken.length,
-  );
   const topDamage = damageRows.slice(0, 3);
   const topHealing = healingRows.slice(0, 3);
-  const topDamageTaken = damageTakenRows.slice(0, 3);
   const topDeaths = normalizeTableMetricRows(
     bundle.tableMetrics.topDeaths,
     bundle.masterData,
@@ -112,8 +103,6 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
     (sum, encounter) => sum + encounter.totalDurationMs,
     0,
   );
-
-  const notes: string[] = [rankingSummary.dtpsNote];
 
   return {
     reportCode: bundle.index.reportCode,
@@ -144,14 +133,12 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
       highestAverageParse: rankingSummary.highestAverageParse,
       highestTotalDamage: topDamage,
       highestTotalHealing: topHealing,
-      highestTotalDamageTaken: topDamageTaken,
       highestTotalDps: mapRateRows(damageRows, selectedDurationMs),
       highestHps: mapRateRows(healingRows, selectedDurationMs),
-      highestDamageTakenRate: mapRateRows(damageTakenRows, selectedDurationMs),
       mostDeaths: topDeaths,
       mostInterrupts: topInterrupts,
       mostDispels: topDispels,
     },
-    partialDataNotes: notes,
+    partialDataNotes: [],
   };
 };

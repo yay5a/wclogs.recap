@@ -14,8 +14,5 @@ describe('rankings normalizer', () => {
 
     expect(result.highestParses.dps).toMatchObject({ playerName: 'Alyra', value: 95 });
     expect(result.highestParses.hps).toBeUndefined();
-    expect(result.highestParses.dtps).toBeUndefined();
-    expect(result.highestParses.dtpsAvailable).toBe(false);
-    expect(result.dtpsNote).toContain('Direct DTPS parse ranking is not available');
   });
 });

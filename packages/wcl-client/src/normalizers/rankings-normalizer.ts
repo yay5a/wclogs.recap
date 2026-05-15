@@ -45,11 +45,8 @@ export const normalizeRankings = (rankings: {
   highestParses: {
     dps?: ReportParseRow;
     hps?: ReportParseRow;
-    dtps?: ReportParseRow;
-    dtpsAvailable: boolean;
   };
   highestAverageParse: ReportMetricRow[];
-  dtpsNote: string;
 } => {
   const dps = pickBestParse(rankings.dps, 'DPS');
   const hps = pickBestParse(rankings.hps, 'HPS');
@@ -76,10 +73,7 @@ export const normalizeRankings = (rankings: {
     highestParses: {
       ...(dps ? { dps } : {}),
       ...(hps ? { hps } : {}),
-      dtpsAvailable: false,
     },
     highestAverageParse,
-    dtpsNote:
-      'Direct DTPS parse ranking is not available from the local WCL Report.rankings schema; Discord leaves DTPS parse unavailable instead of deriving it.',
   };
 };

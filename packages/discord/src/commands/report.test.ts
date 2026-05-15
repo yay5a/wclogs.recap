@@ -45,10 +45,8 @@ const summaryFixture = (): ReportSummary => ({
     deaths: 3,
     highestTotalDps: { playerName: 'Alyra', value: 40_000 },
     highestHps: { playerName: 'Alyra', value: 12_000 },
-    highestDamageTakenRate: { playerName: 'Bulwark', value: 18_000 },
     highestParseDps: { metric: 'DPS', playerName: 'Alyra', value: 95 },
     highestParseHps: { metric: 'HPS', playerName: 'Alyra', value: 82 },
-    dtpsParseAvailable: false,
   },
   biggestTroubleEncounter: {
     bossName: 'Council',
@@ -63,23 +61,17 @@ const summaryFixture = (): ReportSummary => ({
     deaths: 5,
     highestTotalDps: { playerName: 'Bulwark', value: 27_000 },
     highestHps: { playerName: 'Alyra', value: 15_500 },
-    highestDamageTakenRate: { playerName: 'Bulwark', value: 22_000 },
-    dtpsParseAvailable: false,
   },
   highestParses: {
     dps: { metric: 'DPS', playerName: 'Alyra', value: 85 },
     hps: { metric: 'HPS', playerName: 'Alyra', value: 80 },
-    dtps: { metric: 'DTPS', playerName: 'Bulwark', value: 77 },
-    dtpsAvailable: true,
   },
   topPlayers: {
     highestAverageParse: [{ playerName: 'Alyra', value: 88 }],
     highestTotalDamage: [{ playerName: 'Damagey', value: 9_900_000 }],
     highestTotalHealing: [{ playerName: 'Healz', value: 8_800_000 }],
-    highestTotalDamageTaken: [{ playerName: 'Tanky', value: 7_700_000 }],
     highestTotalDps: [{ playerName: 'Alyra', value: 40_000 }],
     highestHps: [{ playerName: 'Alyra', value: 12_000 }],
-    highestDamageTakenRate: [{ playerName: 'Bulwark', value: 18_000 }],
     mostDeaths: [{ playerName: 'Floorroller', value: 5 }],
     mostInterrupts: [{ playerName: 'Kickbot', value: 7 }],
     mostDispels: [{ playerName: 'Cleanse', value: 4 }],
@@ -139,14 +131,11 @@ describe('/report command render path', () => {
     expect(fieldNames).toContain('Best Execution ⚔️');
     expect(fieldNames).toContain(BIGGEST_TROUBLE_FIELD);
     expect(fieldNames).not.toContain('Highest Total Healing');
-    expect(fieldNames).not.toContain('Highest Damage Taken');
     expect(fieldNames).not.toContain('Highest DPS');
     expectNoReportDebugOutput(artifact.responseBody as Record<string, unknown>);
     expect(flattenedValues).toContain('Highest Total DPS ⚔️: Alyra ⇨ 40K/s');
     expect(flattenedValues).toContain('Highest Total HPS 🍃: Alyra ⇨ 12K/s');
-    expect(flattenedValues).toContain('Highest Total DTPS 🛡️: Bulwark ⇨ 18K/s');
     expect(flattenedValues).not.toContain('Highest Total HPS 🍃: unavailable');
-    expect(flattenedValues).not.toContain('Highest Total DTPS 🛡️: unavailable');
   });
 
   it('edits slash-command success with the public report body', async () => {
@@ -177,7 +166,6 @@ describe('/report command render path', () => {
     expect(fieldNames).toContain('Best Execution ⚔️');
     expect(fieldNames).toContain(BIGGEST_TROUBLE_FIELD);
     expect(fieldNames).not.toContain('Highest Total Healing');
-    expect(fieldNames).not.toContain('Highest Damage Taken');
     expect(fieldNames).not.toContain('Highest DPS');
   });
 

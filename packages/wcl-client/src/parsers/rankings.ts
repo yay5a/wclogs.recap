@@ -104,7 +104,7 @@ const collectFightRows = (parsed: unknown): Record<string, unknown>[] => {
 const normalizeMetricIdentity = (value: unknown): string | undefined => {
   const normalized = asString(value)?.trim().toUpperCase();
   if (!normalized) return undefined;
-  if (normalized === 'DPS' || normalized === 'HPS' || normalized === 'DTPS') {
+  if (normalized === 'DPS' || normalized === 'HPS') {
     return normalized;
   }
   return undefined;

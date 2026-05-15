@@ -34,7 +34,7 @@ export interface ReportIndexData {
 }
 
 export interface ReportParseRow extends ReportMetricRow {
-  metric: 'DPS' | 'HPS' | 'DTPS';
+  metric: 'DPS' | 'HPS';
   bossName?: string;
   fightId?: number;
 }
@@ -52,13 +52,10 @@ export interface ReportEncounterSummary {
   deaths?: number;
   totalDamage?: number;
   totalHealing?: number;
-  totalDamageTaken?: number;
   highestTotalDps?: ReportMetricRow;
   highestHps?: ReportMetricRow;
-  highestDamageTakenRate?: ReportMetricRow;
   highestParseDps?: ReportParseRow;
   highestParseHps?: ReportParseRow;
-  dtpsParseAvailable: false;
 }
 
 export interface ReportSummary {
@@ -82,17 +79,13 @@ export interface ReportSummary {
   highestParses: {
     dps?: ReportParseRow;
     hps?: ReportParseRow;
-    dtps?: ReportParseRow;
-    dtpsAvailable: boolean;
   };
   topPlayers: {
     highestAverageParse: ReportMetricRow[];
     highestTotalDamage: ReportMetricRow[];
     highestTotalHealing: ReportMetricRow[];
-    highestTotalDamageTaken: ReportMetricRow[];
     highestTotalDps: ReportMetricRow[];
     highestHps: ReportMetricRow[];
-    highestDamageTakenRate: ReportMetricRow[];
     mostDeaths: ReportMetricRow[];
     mostInterrupts: ReportMetricRow[];
     mostDispels: ReportMetricRow[];

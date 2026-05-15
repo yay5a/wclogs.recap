@@ -142,11 +142,6 @@ export const normalizeReportFights = (
         totalDurationMs,
         playerContext,
       );
-      const highestDamageTakenRate = toHighestRateRow(
-        tableMetrics.encounterTopDamageTakenByEncounterId[encounterId] ?? [],
-        totalDurationMs,
-        playerContext,
-      );
 
       return {
         encounterId,
@@ -164,7 +159,6 @@ export const normalizeReportFights = (
         deaths,
         ...(highestTotalDps ? { highestTotalDps } : {}),
         ...(highestHps ? { highestHps } : {}),
-        ...(highestDamageTakenRate ? { highestDamageTakenRate } : {}),
       } as ReportEncounterSummaryRow;
     })
     .sort((left, right) => {

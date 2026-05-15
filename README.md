@@ -16,7 +16,7 @@ Currently working:
 - Discord interaction webhook handling with signature verification.
 - `/report` flow for Warcraft Logs URLs.
 - Report sections for metadata, summary stats, encounter highlights, top players, and source details.
-- Report-wide leaderboard for damage, healing, and damage taken parses, plus total deaths, dispels, and interrupts.
+- Report-wide leaderboard for damage and healing parses, plus total deaths, dispels, and interrupts.
 
 Known beta limitations:
 

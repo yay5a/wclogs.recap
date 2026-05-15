@@ -106,14 +106,6 @@ const baseBundle = (): ReportCollectorBundle => ({
     topHealingDone: [
       { dataType: 'Healing', playerName: 'Alyra', value: 5_000_000, activeTimeMs: 250_000 },
     ],
-    topDamageTaken: [
-      {
-        dataType: 'DamageTaken',
-        playerName: 'Bulwark',
-        value: 3_000_000,
-        activeTimeMs: 250_000,
-      },
-    ],
     topDeaths: [{ dataType: 'Deaths', playerName: 'Alyra', value: 3 }],
     topInterrupts: [{ dataType: 'Interrupts', playerName: 'Alyra', value: 4 }],
     topDispels: [{ dataType: 'Dispels', playerName: 'Alyra', value: 2 }],
@@ -140,24 +132,6 @@ const baseBundle = (): ReportCollectorBundle => ({
         { dataType: 'Healing', playerName: 'Alyra', value: 2_100_000, activeTimeMs: 250_000 },
       ],
     },
-    encounterTopDamageTakenByEncounterId: {
-      1001: [
-        {
-          dataType: 'DamageTaken',
-          playerName: 'Bulwark',
-          value: 1_800_000,
-          activeTimeMs: 100_000,
-        },
-      ],
-      1002: [
-        {
-          dataType: 'DamageTaken',
-          playerName: 'Bulwark',
-          value: 4_500_000,
-          activeTimeMs: 250_000,
-        },
-      ],
-    },
   },
 });
 
@@ -175,7 +149,6 @@ describe('report render-model normalizer', () => {
     expect(summary.bestExecutionEncounter?.deaths).toBe(3);
     expect(summary.bestExecutionEncounter?.highestTotalDps?.playerName).toBe('Alyra');
     expect(summary.bestExecutionEncounter?.highestHps?.playerName).toBe('Alyra');
-    expect(summary.bestExecutionEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.bossName).toBe('Council');
     expect(summary.biggestTroubleEncounter?.wipes).toBe(2);
     expect(summary.biggestTroubleEncounter?.deaths).toBe(5);
@@ -183,7 +156,6 @@ describe('report render-model normalizer', () => {
     expect(summary.biggestTroubleEncounter?.shortestPullMs).toBe(130_000);
     expect(summary.biggestTroubleEncounter?.highestTotalDps?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.highestHps?.playerName).toBe('Alyra');
-    expect(summary.biggestTroubleEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
   });
 
   it('keeps the source report URL for the rendered data source', () => {
@@ -204,7 +176,6 @@ describe('report render-model normalizer', () => {
     });
     expect(summary.topPlayers.highestTotalDps[0]?.value).toBeCloseTo(10_000_000 / 460);
     expect(summary.topPlayers.highestHps[0]?.value).toBeCloseTo(5_000_000 / 460);
-    expect(summary.topPlayers.highestDamageTakenRate[0]?.value).toBeCloseTo(3_000_000 / 460);
   });
 
   it('aggregates player leaderboards and filters non-player actors before ranking', () => {
@@ -253,21 +224,6 @@ describe('report render-model normalizer', () => {
         playerId: 1,
         playerName: 'Alyra',
         value: 5_000_000,
-        activeTimeMs: 200_000,
-      },
-    ];
-    bundle.tableMetrics.topDamageTaken = [
-      {
-        dataType: 'DamageTaken',
-        playerName: 'Skull Banner',
-        actorType: 'Object',
-        value: 999_000_000,
-      },
-      {
-        dataType: 'DamageTaken',
-        playerId: 2,
-        playerName: 'Bulwark',
-        value: 3_000_000,
         activeTimeMs: 200_000,
       },
     ];
@@ -352,39 +308,6 @@ describe('report render-model normalizer', () => {
         },
       ],
     };
-    bundle.tableMetrics.encounterTopDamageTakenByEncounterId = {
-      1001: [
-        {
-          dataType: 'DamageTaken',
-          playerName: 'Skull Banner',
-          actorType: 'Object',
-          value: 999_000_000,
-        },
-        {
-          dataType: 'DamageTaken',
-          playerId: 2,
-          playerName: 'Bulwark',
-          value: 1_800_000,
-          activeTimeMs: 100_000,
-        },
-      ],
-      1002: [
-        {
-          dataType: 'DamageTaken',
-          playerName: 'Stormlash Totem',
-          actorType: 'Pet',
-          value: 999_000_000,
-        },
-        {
-          dataType: 'DamageTaken',
-          playerId: 2,
-          playerName: 'Bulwark',
-          value: 4_500_000,
-          activeTimeMs: 250_000,
-        },
-      ],
-    };
-
     const summary = normalizeReportRenderModel(bundle);
 
     expect(summary.totalDeaths).toBe(136);
@@ -422,19 +345,11 @@ describe('report render-model normalizer', () => {
     expect(summary.topPlayers.highestTotalHealing.map((row) => row.playerName)).not.toContain(
       'Skull Banner',
     );
-    expect(summary.topPlayers.highestTotalDamageTaken.map((row) => row.playerName)).not.toContain(
-      'Skull Banner',
-    );
     expect(summary.topPlayers.highestTotalDps.map((row) => row.playerName)).toEqual(['Alyra']);
     expect(summary.topPlayers.highestHps.map((row) => row.playerName)).toEqual(['Alyra']);
-    expect(summary.topPlayers.highestDamageTakenRate.map((row) => row.playerName)).toEqual([
-      'Bulwark',
-    ]);
     expect(summary.bestExecutionEncounter?.highestTotalDps?.playerName).toBe('Alyra');
     expect(summary.bestExecutionEncounter?.highestHps?.playerName).toBe('Alyra');
-    expect(summary.bestExecutionEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.highestTotalDps?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.highestHps?.playerName).toBe('Alyra');
-    expect(summary.biggestTroubleEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
   });
 });

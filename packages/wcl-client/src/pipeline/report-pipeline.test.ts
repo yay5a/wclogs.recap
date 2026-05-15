@@ -106,7 +106,6 @@ describe('collectReportSummaryData report index cache', () => {
     collectTableMetrics.mockReset().mockResolvedValue({
       topDamageDone: [],
       topHealingDone: [],
-      topDamageTaken: [],
       topDeaths: [],
       topInterrupts: [],
       topDispels: [],
@@ -114,7 +113,6 @@ describe('collectReportSummaryData report index cache', () => {
       deathsByFightId: {},
       encounterTopDamageDoneByEncounterId: {},
       encounterTopHealingDoneByEncounterId: {},
-      encounterTopDamageTakenByEncounterId: {},
     });
     normalizeReportRenderModel.mockReset().mockReturnValue(reportSummary);
     loggerInfo.mockReset();

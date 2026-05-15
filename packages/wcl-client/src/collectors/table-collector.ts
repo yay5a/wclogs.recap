@@ -150,11 +150,9 @@ const collectType = async (
   return parseTablePayloadDetailed(getTableNode(payload), input.dataType);
 };
 
-const TABLE_FILTERS: Record<TableDataType, string> = {
+const TABLE_FILTERS = {
   DamageDone:
     '(encounterID != 0) AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
-  DamageTaken:
-    '(encounterID != 0) AND (target.disposition = "friendly")',
   Healing:
     '(encounterID != 0) AND (inCategory("healing") = true) AND (source.disposition = "friendly") AND (target.disposition = "friendly")',
   Deaths: '(encounterID != 0) AND (type = "death") AND (target.disposition = "friendly") AND (feign = false)',
@@ -163,7 +161,7 @@ const TABLE_FILTERS: Record<TableDataType, string> = {
     '(encounterID != 0) AND (type = "interrupt") AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
   Survivability: '(encounterID != 0) AND (target.disposition = "friendly")',
   Summary: '(encounterID != 0)',
-};
+} satisfies Partial<Record<TableDataType, string>>;
 
 export const collectTableMetrics = async (
   client: WclGraphqlClient,
@@ -177,7 +175,6 @@ export const collectTableMetrics = async (
     return {
       topDamageDone: [],
       topHealingDone: [],
-      topDamageTaken: [],
       topDeaths: [],
       topInterrupts: [],
       topDispels: [],
@@ -185,22 +182,15 @@ export const collectTableMetrics = async (
       deathsByFightId: {},
       encounterTopDamageDoneByEncounterId: {},
       encounterTopHealingDoneByEncounterId: {},
-      encounterTopDamageTakenByEncounterId: {},
     };
   }
 
-  const [damageDone, damageTaken, healing, deaths, interrupts, dispels] = await Promise.all([
+  const [damageDone, healing, deaths, interrupts, dispels] = await Promise.all([
     collectType(client, {
       reportCode: input.reportCode,
       fightIds: input.completedFightIds,
       dataType: 'DamageDone',
       filterExpression: TABLE_FILTERS.DamageDone,
-    }),
-    collectType(client, {
-      reportCode: input.reportCode,
-      fightIds: input.completedFightIds,
-      dataType: 'DamageTaken',
-      filterExpression: TABLE_FILTERS.DamageTaken,
     }),
     collectType(client, {
       reportCode: input.reportCode,
@@ -244,7 +234,7 @@ export const collectTableMetrics = async (
   const perEncounterRows = await Promise.all(
     [...groupFightIdsByEncounter(completedBossFights).entries()].map(
       async ([encounterId, fightIds]) => {
-        const [encounterDamageDone, encounterHealing, encounterDamageTaken] = await Promise.all([
+        const [encounterDamageDone, encounterHealing] = await Promise.all([
           collectType(client, {
             reportCode: input.reportCode,
             fightIds,
@@ -257,12 +247,6 @@ export const collectTableMetrics = async (
             dataType: 'Healing',
             filterExpression: TABLE_FILTERS.Healing,
           }),
-          collectType(client, {
-            reportCode: input.reportCode,
-            fightIds,
-            dataType: 'DamageTaken',
-            filterExpression: TABLE_FILTERS.DamageTaken,
-          }),
         ]);
 
         return [
@@ -270,7 +254,6 @@ export const collectTableMetrics = async (
           {
             topDamageDone: filterMetricRows(encounterDamageDone.entries),
             topHealingDone: filterMetricRows(encounterHealing.entries),
-            topDamageTaken: filterMetricRows(encounterDamageTaken.entries),
           },
         ] as const;
       },
@@ -284,30 +267,23 @@ export const collectTableMetrics = async (
   const encounterTopHealingDoneByEncounterId = Object.fromEntries(
     perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topHealingDone]),
   );
-  const encounterTopDamageTakenByEncounterId = Object.fromEntries(
-    perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topDamageTaken]),
-  );
   const deathsTotal = sumRows(deaths.entries);
-  const damageTakenTotal = sumRows(damageTaken.entries);
   const interruptsTotal = sumRows(interrupts.entries);
   const dispelsTotal = sumRows(dispels.entries);
 
   return {
     topDamageDone: filterMetricRows(damageDone.entries),
     topHealingDone: filterMetricRows(healing.entries),
-    topDamageTaken: filterMetricRows(damageTaken.entries),
     topDeaths: filterMetricRows(deaths.entries),
     topInterrupts: filterMetricRows(interrupts.entries),
     topDispels: filterMetricRows(dispels.entries),
     totals: {
       ...(typeof deathsTotal === 'number' ? { deaths: deathsTotal } : {}),
-      ...(typeof damageTakenTotal === 'number' ? { raidDamageTaken: damageTakenTotal } : {}),
       ...(typeof interruptsTotal === 'number' ? { interrupts: interruptsTotal } : {}),
       ...(typeof dispelsTotal === 'number' ? { dispels: dispelsTotal } : {}),
     },
     deathsByFightId,
     encounterTopDamageDoneByEncounterId,
     encounterTopHealingDoneByEncounterId,
-    encounterTopDamageTakenByEncounterId,
   };
 };

@@ -24,7 +24,6 @@ export type TableDataType = (typeof TABLE_DATA_TYPES)[number];
 // Subset currently used by this client for report/encounter table calls.
 export const REPORT_TABLE_DATA_TYPES = [
     "DamageDone",
-    "DamageTaken",
     "Healing",
     "Deaths",
     "Dispels",
@@ -34,7 +33,6 @@ export const REPORT_TABLE_DATA_TYPES = [
 
 export const REPORT_SUMMARY_TABLE_DATA_TYPES = [
     "DamageDone",
-    "DamageTaken",
     "Healing",
     "Deaths",
     "Dispels",

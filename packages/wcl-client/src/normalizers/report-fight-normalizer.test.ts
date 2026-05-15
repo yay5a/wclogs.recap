@@ -31,7 +31,6 @@ describe('report fight normalizer', () => {
     const tableMetrics: ReportTableMetrics = {
       topDamageDone: [],
       topHealingDone: [],
-      topDamageTaken: [],
       topDeaths: [],
       topInterrupts: [],
       topDispels: [],
@@ -39,7 +38,6 @@ describe('report fight normalizer', () => {
       deathsByFightId: { 1: 2, 2: 4, 3: 1 },
       encounterTopDamageDoneByEncounterId: {},
       encounterTopHealingDoneByEncounterId: {},
-      encounterTopDamageTakenByEncounterId: {},
     };
 
     const result = normalizeReportFights(index, tableMetrics);
@@ -73,7 +71,6 @@ describe('report fight normalizer', () => {
     const tableMetrics: ReportTableMetrics = {
       topDamageDone: [],
       topHealingDone: [],
-      topDamageTaken: [],
       topDeaths: [],
       topInterrupts: [],
       topDispels: [],
@@ -86,7 +83,6 @@ describe('report fight normalizer', () => {
         ],
       },
       encounterTopHealingDoneByEncounterId: {},
-      encounterTopDamageTakenByEncounterId: {},
     };
 
     const result = normalizeReportFights(index, tableMetrics);
@@ -168,7 +164,6 @@ describe('report fight normalizer', () => {
     const tableMetrics: ReportTableMetrics = {
       topDamageDone: [],
       topHealingDone: [],
-      topDamageTaken: [],
       topDeaths: [],
       topInterrupts: [],
       topDispels: [],
@@ -176,7 +171,6 @@ describe('report fight normalizer', () => {
       deathsByFightId: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1 },
       encounterTopDamageDoneByEncounterId: {},
       encounterTopHealingDoneByEncounterId: {},
-      encounterTopDamageTakenByEncounterId: {},
     };
 
     const result = normalizeReportFights(index, tableMetrics);

@@ -62,14 +62,13 @@ describe('table collector retry handling', () => {
     await expect(promise).resolves.toMatchObject({
       topDamageDone: [],
       topHealingDone: [],
-      topDamageTaken: [],
       topDeaths: [],
       topInterrupts: [],
       topDispels: [],
       totals: {},
       deathsByFightId: { 1: 0 },
     });
-    expect(request).toHaveBeenCalledTimes(8);
+    expect(request).toHaveBeenCalledTimes(7);
     expect(loggerWarn).toHaveBeenCalledWith(
       {
         reportCode: 'ABC123',
@@ -93,7 +92,7 @@ describe('table collector retry handling', () => {
       }),
     ).rejects.toBe(error);
 
-    expect(request).toHaveBeenCalledTimes(6);
+    expect(request).toHaveBeenCalledTimes(5);
     expect(loggerWarn).not.toHaveBeenCalled();
   });
 });

@@ -104,12 +104,6 @@ export interface NormalizedBossPerformance {
     className?: string;
     specName?: string;
   }>;
-  topDamageTaken?: Array<{
-    playerName: string;
-    value: number;
-    className?: string;
-    specName?: string;
-  }>;
   topHealers?: Array<{
     playerName: string;
     value: number;
@@ -117,7 +111,6 @@ export interface NormalizedBossPerformance {
     specName?: string;
   }>;
   deaths?: number;
-  raidDamageTaken?: number;
   dispels?: number;
   battleRezzes?: number;
   kicks?: number;

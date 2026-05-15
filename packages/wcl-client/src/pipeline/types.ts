@@ -16,20 +16,17 @@ export interface ReportMasterData {
 export interface ReportTableMetrics {
   topDamageDone: ParsedTableEntry[];
   topHealingDone: ParsedTableEntry[];
-  topDamageTaken: ParsedTableEntry[];
   topDeaths: ParsedTableEntry[];
   topInterrupts: ParsedTableEntry[];
   topDispels: ParsedTableEntry[];
   totals: {
     deaths?: number;
-    raidDamageTaken?: number;
     interrupts?: number;
     dispels?: number;
   };
   deathsByFightId: Record<number, number>;
   encounterTopDamageDoneByEncounterId: Record<number, ParsedTableEntry[]>;
   encounterTopHealingDoneByEncounterId: Record<number, ParsedTableEntry[]>;
-  encounterTopDamageTakenByEncounterId: Record<number, ParsedTableEntry[]>;
 }
 
 export interface ReportEncounterSummaryRow {
@@ -46,7 +43,6 @@ export interface ReportEncounterSummaryRow {
   deaths: number;
   highestTotalDps?: ReportMetricRow;
   highestHps?: ReportMetricRow;
-  highestDamageTakenRate?: ReportMetricRow;
 }
 
 export interface GuildRankInput {

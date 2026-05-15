@@ -83,17 +83,10 @@ describe("rankings parsers", () => {
                     selectedMetric: "hps",
                     role: "DPS",
                 },
-                {
-                    name: "Bulwark",
-                    rankPercent: 92,
-                    playerMetric: "DTPS",
-                    role: "Healer",
-                },
             ],
         });
 
         expect(entries[0]?.selectedMetric).toBe("HPS");
-        expect(entries[1]?.selectedMetric).toBe("DTPS");
     });
 
     it("uses explicit metric identity before role fallback", () => {

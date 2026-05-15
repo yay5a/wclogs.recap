@@ -98,7 +98,6 @@ const formatEncounter = (
   options: {
     includeHighestParse?: boolean;
     includePullDurations?: boolean;
-    highestParses?: { dps?: ReportParseRow; hps?: ReportParseRow; dtps?: ReportParseRow };
   } = {},
 ): string => {
   if (!encounter) return 'unavailable';
@@ -107,7 +106,6 @@ const formatEncounter = (
   }**`;
   const longestPull = formatPullDuration(encounter.longestPullMs);
   const shortestPull = formatPullDuration(encounter.shortestPullMs);
-  const highestParses = options.highestParses ?? {};
   return joinEncounterLines(heading, [
     `Pulls: ${encounter.pulls}`,
     `Kill/Wipes: ${encounter.kills}/${encounter.wipes}`,
@@ -117,9 +115,8 @@ const formatEncounter = (
     ...(options.includeHighestParse
       ? [
           'Highest Parse 🏅:',
-          `  ${formatEncounterParseLine('DPS', encounter.highestParseDps ?? highestParses.dps)}`,
-          `  ${formatEncounterParseLine('HPS', encounter.highestParseHps ?? highestParses.hps)}`,
-          `  ${formatEncounterParseLine('DTPS', highestParses.dtps)}`,
+          `  ${formatEncounterParseLine('DPS', encounter.highestParseDps)}`,
+          `  ${formatEncounterParseLine('HPS', encounter.highestParseHps)}`,
         ]
       : []),
     ...(options.includePullDurations
@@ -130,7 +127,6 @@ const formatEncounter = (
       : []),
     formatEncounterRateLine('Highest Total DPS ⚔️', encounter.highestTotalDps),
     formatEncounterRateLine('Highest Total HPS 🍃', encounter.highestHps),
-    formatEncounterRateLine('Highest Total DTPS 🛡️', encounter.highestDamageTakenRate),
   ]);
 };
 
@@ -190,11 +186,6 @@ export const buildReportResponseBody = (
     'Best Execution ⚔️',
     formatEncounter(summary.bestExecutionEncounter, {
       includeHighestParse: true,
-      highestParses: {
-        ...(summary.highestParses.dps ? { dps: summary.highestParses.dps } : {}),
-        ...(summary.highestParses.hps ? { hps: summary.highestParses.hps } : {}),
-        ...(summary.highestParses.dtps ? { dtps: summary.highestParses.dtps } : {}),
-      },
     }),
     true,
   );
@@ -226,12 +217,6 @@ export const buildReportResponseBody = (
     fields,
     'Highest HPS 🍃',
     formatRankedRowsOrUnavailable(summary.topPlayers.highestHps, formatRate),
-    true,
-  );
-  pushField(
-    fields,
-    'Highest DTPS 🛡️',
-    formatRankedRowsOrUnavailable(summary.topPlayers.highestDamageTakenRate, formatRate),
     true,
   );
   pushField(
