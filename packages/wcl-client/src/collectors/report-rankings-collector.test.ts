@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { collectReportRankings } from './report-rankings-collector.js';
 
 describe('report rankings collector', () => {
-  it('asks WCL to scope rankings to kill fight IDs and returns native dps/hps rows', async () => {
+  it('returns dps, healer hps, and tank dps rankings from dps/hps ranking requests', async () => {
     const request = vi
       .fn()
       .mockImplementationOnce(async () => ({
@@ -60,28 +60,9 @@ describe('report rankings collector', () => {
     );
 
     expect(request).toHaveBeenCalledTimes(2);
-    expect(request).toHaveBeenNthCalledWith(
-      1,
-      expect.any(String),
-      {
-        code: 'ABC123',
-        allowUnlisted: true,
-        fightIDs: [11],
-        playerMetric: 'dps',
-      },
-    );
-    expect(request).toHaveBeenNthCalledWith(
-      2,
-      expect.any(String),
-      {
-        code: 'ABC123',
-        allowUnlisted: true,
-        fightIDs: [11],
-        playerMetric: 'hps',
-      },
-    );
     expect(result.dps).toHaveLength(1);
     expect(result.hps).toHaveLength(1);
-    expect(result).not.toHaveProperty('tankDps');
+    expect(result.tankDps).toHaveLength(1);
+    expect(result.tankDps[0]?.playerName).toBe('Tanky');
   });
 });

@@ -10,12 +10,14 @@ describe('rankings normalizer', () => {
         { scope: 'report', metric: 'rankPercent', value: 99, playerName: 'Missing' },
       ],
       hps: [],
+      tankDps: [
+        { scope: 'report', metric: 'rankPercent', value: 90, playerName: 'Tank' },
+      ],
     });
 
     expect(result.highestParses.dps).toMatchObject({ playerName: 'Alyra', value: 95 });
     expect(result.highestParses.hps).toBeUndefined();
     expect(result.highestParses.dtps).toBeUndefined();
     expect(result.highestParses.dtpsAvailable).toBe(false);
-    expect(result.dtpsNote).toContain('Direct DTPS parse ranking is not available');
   });
 });

@@ -111,6 +111,7 @@ export interface ReportCollectorBundle {
   rankings: {
     dps: NormalizedLeaderboardEntry[];
     hps: NormalizedLeaderboardEntry[];
+    tankDps: NormalizedLeaderboardEntry[];
   };
   tableMetrics: ReportTableMetrics;
 }

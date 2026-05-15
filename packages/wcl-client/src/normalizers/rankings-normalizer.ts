@@ -6,12 +6,14 @@ const compareString = (left: string, right: string): number => left.localeCompar
 const toParseRow = (
   entry: NormalizedLeaderboardEntry,
   metric: ReportParseRow['metric'],
+  sourceMetric?: ReportParseRow['sourceMetric'],
 ): ReportParseRow | undefined => {
   if (!entry.playerName || typeof entry.rankPercent !== 'number') return undefined;
   return {
     playerName: entry.playerName,
     value: entry.rankPercent,
     metric,
+    ...(sourceMetric ? { sourceMetric } : {}),
     ...(entry.className ? { className: entry.className } : {}),
     ...(entry.specName ? { specName: entry.specName } : {}),
     ...(entry.bossName ? { bossName: entry.bossName } : {}),
@@ -22,10 +24,11 @@ const toParseRow = (
 const pickBestParse = (
   entries: NormalizedLeaderboardEntry[],
   metric: ReportParseRow['metric'],
+  sourceMetric?: ReportParseRow['sourceMetric'],
 ): ReportParseRow | undefined => {
   let best: ReportParseRow | undefined;
   for (const entry of entries) {
-    const row = toParseRow(entry, metric);
+    const row = toParseRow(entry, metric, sourceMetric);
     if (!row) continue;
     if (
       !best ||
@@ -41,6 +44,7 @@ const pickBestParse = (
 export const normalizeRankings = (rankings: {
   dps: NormalizedLeaderboardEntry[];
   hps: NormalizedLeaderboardEntry[];
+  tankDps: NormalizedLeaderboardEntry[];
 }): {
   highestParses: {
     dps?: ReportParseRow;
@@ -53,6 +57,8 @@ export const normalizeRankings = (rankings: {
 } => {
   const dps = pickBestParse(rankings.dps, 'DPS');
   const hps = pickBestParse(rankings.hps, 'HPS');
+  const dtpsFromTankDps = pickBestParse(rankings.tankDps, 'DTPS', 'dps-tank');
+  const dtps = dtpsFromTankDps;
 
   const perPlayer = new Map<string, { sum: number; count: number; playerName: string }>();
   for (const row of [...rankings.dps, ...rankings.hps]) {
@@ -72,14 +78,18 @@ export const normalizeRankings = (rankings: {
     })
     .slice(0, 3);
 
+  const dtpsNote = dtpsFromTankDps
+    ? 'WCL does not expose a direct DTPS parse ranking; DTPS parse uses DPS rankings for tanks.'
+    : 'WCL does not expose a direct DTPS parse ranking, and tank DPS ranking data was unavailable.';
+
   return {
     highestParses: {
       ...(dps ? { dps } : {}),
       ...(hps ? { hps } : {}),
-      dtpsAvailable: false,
+      ...(dtps ? { dtps } : {}),
+      dtpsAvailable: Boolean(dtps),
     },
     highestAverageParse,
-    dtpsNote:
-      'Direct DTPS parse ranking is not available from the local WCL Report.rankings schema; Discord leaves DTPS parse unavailable instead of deriving it.',
+    dtpsNote,
   };
 };
