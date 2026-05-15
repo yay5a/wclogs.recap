@@ -257,23 +257,23 @@ describe('discord command surfaces', () => {
         sourceLabel: 'Derived from WCL Reports',
         ranks: { world: 1273, region: 489, realm: 296 },
         completeRaidRanks: { world: 389, region: 136, realm: 120 },
-        overall: { bestScore: 91, medianScore: 88 },
+        overall: { bestScore: 91, bestScoreDelta: 3, medianScore: 88, medianScoreDelta: -2 },
         encounters: [
           {
             encounterName: 'Jinrokh',
-            speed: { bestScore: 95, medianScore: 90 },
+            speed: { bestScore: 95, bestScoreDelta: 5, medianScore: 90, medianScoreDelta: -1 },
             execution: {},
           },
         ],
       },
       execution: {
         sourceLabel: 'Derived from WCL Reports',
-        overall: { bestScore: 84, medianScore: 82 },
+        overall: { bestScore: 84, bestScoreDelta: 4, medianScore: 82, medianScoreDelta: 2 },
         encounters: [
           {
             encounterName: 'Jinrokh',
             speed: {},
-            execution: { bestScore: 86, medianScore: 80 },
+            execution: { bestScore: 86, bestScoreDelta: 6, medianScore: 80, medianScoreDelta: -3 },
           },
         ],
       },
@@ -291,24 +291,37 @@ describe('discord command surfaces', () => {
       'Window',
     ]);
     const progressValue = fields.find((field) => field.name === 'Progress')?.value ?? '';
+    expect(progressValue).toContain('================================\n\nCleared');
     expect(progressValue).toContain('Cleared: 13/13');
     expect(progressValue).toContain('World: #868');
     expect(progressValue).toContain('Region: #279');
     expect(progressValue).toContain('Realm: #241');
     const speedValue = fields.find((field) => field.name === 'Speed')?.value ?? '';
+    expect(speedValue).toContain('================================\n\nSource');
     expect(speedValue).toContain('Source: Derived from WCL Reports');
-    expect(speedValue).toContain('All-Star Ranks: World #1273 / Region #489 / Realm #296');
-    expect(speedValue).toContain('Complete Raid Ranks: World #389 / Region #136 / Realm #120');
+    expect(speedValue).toContain('All-Star Ranks:');
+    expect(speedValue).toContain('World 🌍 #1273');
+    expect(speedValue).toContain('Region 🗾 #489');
+    expect(speedValue).toContain('Realm 🪐 #296');
+    expect(speedValue).toContain('Complete Raid Ranks:');
+    expect(speedValue).toContain('World 🌍 #389');
+    expect(speedValue).toContain('Region 🗾 #136');
+    expect(speedValue).toContain('Realm 🪐 #120');
+    expect(speedValue).toContain('Best Avg Score: 91 (prev 88, +3)');
+    expect(speedValue).toContain('Median Avg Score: 88 (prev 90, -2)');
     expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
       'Source: Derived from WCL Reports',
     );
+    expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
+      'Best Avg Score: 84 (prev 80, +4)',
+    );
     expect(JSON.stringify(response)).not.toContain('Official progress ranks unavailable');
-    expect(fields.find((field) => field.name === 'Speed - Per Encounter')?.value).toContain(
-      'Best Score: 95',
-    );
-    expect(fields.find((field) => field.name === 'Execution - Per Encounter')?.value).toContain(
-      'Best Score: 86',
-    );
+    const speedEncounterValue = fields.find((field) => field.name === 'Speed - Per Encounter')?.value ?? '';
+    expect(speedEncounterValue).toContain('• Jinrokh');
+    expect(speedEncounterValue).toContain('  Best Score: 95 (prev 90, +5)');
+    const executionEncounterValue = fields.find((field) => field.name === 'Execution - Per Encounter')?.value ?? '';
+    expect(executionEncounterValue).toContain('• Jinrokh');
+    expect(executionEncounterValue).toContain('  Best Score: 86 (prev 80, +6)');
     expect(fields.some((field) => field.name === 'Jinrokh')).toBe(false);
   });
 
