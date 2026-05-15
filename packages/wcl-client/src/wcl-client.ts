@@ -16,6 +16,7 @@ import {
   type GuildReportIndexInput,
   type GuildReportIndexResult,
 } from './collectors/guild-report-index-collector.js';
+import type { ReportIndexCacheStore } from './report-index-cache.js';
 
 export interface WclLinkedUserAuthRecord {
   discordUserId: string;
@@ -35,6 +36,7 @@ export interface WclClientOptions {
   v1ClientKey?: string;
   fetchImpl?: typeof fetch;
   wclUserAuthStore?: WclLinkedUserAuthStore;
+  reportIndexCacheStore?: ReportIndexCacheStore;
 }
 
 export interface WclAuthContextOptions {
@@ -64,11 +66,19 @@ export class WclClient {
   ): Promise<ReportSummary> {
     const parsed = parseReportUrl(url);
     return this.withAuthFallback(parsed.reportCode, options, (authMode) =>
-      collectReportSummaryData(this.createGraphqlClient(authMode), {
-        sourceUrl: url,
-        reportCode: parsed.reportCode,
-        gameFamily: parsed.gameFamily,
-      }),
+      collectReportSummaryData(
+        this.createGraphqlClient(authMode),
+        {
+          sourceUrl: url,
+          reportCode: parsed.reportCode,
+          gameFamily: parsed.gameFamily,
+        },
+        {
+          ...(this.options.reportIndexCacheStore
+            ? { reportIndexCacheStore: this.options.reportIndexCacheStore }
+            : {}),
+        },
+      ),
     );
   }
 

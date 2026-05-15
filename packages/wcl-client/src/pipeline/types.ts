@@ -1,34 +1,13 @@
-import type { GameFamily, ReportMetricRow } from '@wcl/domain';
+import type {
+  GameFamily,
+  NormalizedLeaderboardEntry,
+  ReportIndexData,
+  ReportMetricRow,
+} from '@wcl/domain';
 import type { ParsedPlayerDetail } from '../parsers/report-details.js';
 import type { ParsedTableEntry } from '../parsers/table.js';
-import type { NormalizedLeaderboardEntry } from '@wcl/domain';
 
-export interface ReportIndexFightRow {
-  id: number;
-  encounterId: number;
-  name: string;
-  startTime: number;
-  endTime: number;
-  kill: boolean;
-  difficulty?: number;
-  size?: number;
-  inProgress?: boolean;
-}
-
-export interface ReportIndexData {
-  reportCode: string;
-  sourceUrl: string;
-  gameFamily: GameFamily;
-  title: string;
-  zoneName?: string;
-  zoneId?: number;
-  startTime: number;
-  endTime: number;
-  completedBossFights: ReportIndexFightRow[];
-  killBossFights: ReportIndexFightRow[];
-  allBossFights: ReportIndexFightRow[];
-  zoneDifficulties: Array<{ id: number; name: string; sizes?: number[] }>;
-}
+export type { ReportIndexData, ReportIndexFightRow } from '@wcl/domain';
 
 export interface ReportMasterData {
   actors: Array<{ id?: number; name: string; className?: string; server?: string }>;

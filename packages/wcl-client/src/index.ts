@@ -17,6 +17,14 @@ export type {
 } from './collectors/guild-report-index-collector.js';
 
 export type { GuildRankInput } from './pipeline/types.js';
+export {
+  getReportIndexCacheExpiresAt,
+} from './report-index-cache.js';
+export type {
+  ReportIndexCacheKey,
+  ReportIndexCacheReadResult,
+  ReportIndexCacheStore,
+} from './report-index-cache.js';
 
 export {
   deriveWclUserApiBaseUrl,

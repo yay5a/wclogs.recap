@@ -189,6 +189,8 @@ export type {
 } from './comparison/identity.js';
 export type {
   ReportEncounterSummary,
+  ReportIndexData,
+  ReportIndexFightRow,
   GuildRankEncounterRow,
   GuildRankMetricRow,
   GuildRankProgressRanks,

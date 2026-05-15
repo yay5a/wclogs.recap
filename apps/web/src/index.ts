@@ -7,6 +7,7 @@ import {
   MongoDashboardActivityStore,
   MongoDashboardOnboardingStore,
   MongoGuildConfigStore,
+  MongoReportIndexCacheStore,
   MongoWclUserAuthStore,
   migrateWclUserAuthDiscordUserIndex,
 } from '@wcl/db';
@@ -34,6 +35,7 @@ const logger = createLogger('web');
 const wclUserAuthStore = new MongoWclUserAuthStore({
   encryptionKey: env.WCL_TOKEN_ENCRYPTION_KEY,
 });
+const reportIndexCacheStore = new MongoReportIndexCacheStore();
 
 const wclClient = new WclClient({
   clientId: env.WCL_CLIENT_ID,
@@ -42,6 +44,7 @@ const wclClient = new WclClient({
   ...(env.WCL_USER_API_BASE_URL ? { userApiBaseUrl: env.WCL_USER_API_BASE_URL } : {}),
   ...(env.WCL_V1_CLIENT_KEY ? { v1ClientKey: env.WCL_V1_CLIENT_KEY } : {}),
   wclUserAuthStore,
+  reportIndexCacheStore,
 });
 
 const guildConfigStore = new MongoGuildConfigStore();

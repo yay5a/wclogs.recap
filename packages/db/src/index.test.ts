@@ -3,6 +3,7 @@ import {
   DEFAULT_COMPARE_ACCESS_MODE,
   DEFAULT_COMPARE_MODE,
   defaultGuildConfigFor,
+  type ReportIndexData,
 } from '@wcl/domain';
 import {
   CharacterClaimModel,
@@ -15,6 +16,11 @@ import {
   MongoWclUserAuthStore,
   AutoReportDuplicateTrackingModel,
   AutoReportPromptStateModel,
+  GuildReportMetadataCursorModel,
+  GuildReportMetadataModel,
+  MongoGuildReportMetadataStore,
+  MongoReportIndexCacheStore,
+  ReportIndexCacheModel,
   WclUserAuthModel,
   migrateWclUserAuthDiscordUserIndex,
   encryptWclToken,
@@ -23,6 +29,308 @@ import {
 afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
+});
+
+const reportIndexFixture = (overrides: Partial<ReportIndexData> = {}): ReportIndexData => ({
+  reportCode: 'ABC123',
+  sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+  gameFamily: 'retail',
+  title: 'Vault',
+  zoneName: 'Vault of the Incarnates',
+  zoneId: 31,
+  startTime: 1_700_000_000_000,
+  endTime: 1_700_003_600_000,
+  completedBossFights: [
+    {
+      id: 1,
+      encounterId: 10,
+      name: 'Boss',
+      startTime: 1_700_000_000_000,
+      endTime: 1_700_000_300_000,
+      kill: true,
+      difficulty: 4,
+      size: 20,
+    },
+  ],
+  killBossFights: [
+    {
+      id: 1,
+      encounterId: 10,
+      name: 'Boss',
+      startTime: 1_700_000_000_000,
+      endTime: 1_700_000_300_000,
+      kill: true,
+      difficulty: 4,
+      size: 20,
+    },
+  ],
+  allBossFights: [
+    {
+      id: 1,
+      encounterId: 10,
+      name: 'Boss',
+      startTime: 1_700_000_000_000,
+      endTime: 1_700_000_300_000,
+      kill: true,
+      difficulty: 4,
+      size: 20,
+    },
+  ],
+  zoneDifficulties: [{ id: 4, name: 'Heroic', sizes: [20] }],
+  ...overrides,
+});
+
+describe('MongoReportIndexCacheStore', () => {
+  it('reads cached report index data by report code and game family', async () => {
+    const index = reportIndexFixture();
+    vi.spyOn(ReportIndexCacheModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({ data: index }),
+    } as never);
+
+    const store = new MongoReportIndexCacheStore();
+
+    await expect(
+      store.getReportIndex({ reportCode: 'ABC123', gameFamily: 'retail' }),
+    ).resolves.toEqual({ status: 'hit', data: index });
+    expect(ReportIndexCacheModel.findOne).toHaveBeenCalledWith({
+      reportCode: 'ABC123',
+      gameFamily: 'retail',
+    });
+  });
+
+  it('treats omitted expiresAt as an indefinite cache entry', async () => {
+    const index = reportIndexFixture();
+    const update = vi
+      .spyOn(ReportIndexCacheModel, 'findOneAndUpdate')
+      .mockResolvedValue(null);
+
+    const store = new MongoReportIndexCacheStore();
+    await store.saveReportIndex({ reportCode: 'ABC123', gameFamily: 'retail', data: index });
+
+    expect(update).toHaveBeenCalledWith(
+      { reportCode: 'ABC123', gameFamily: 'retail' },
+      {
+        $set: {
+          reportCode: 'ABC123',
+          gameFamily: 'retail',
+          data: index,
+        },
+        $unset: { expiresAt: '' },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+  });
+
+  it('returns stale status for expired cache entries', async () => {
+    vi.setSystemTime(new Date('2026-05-15T00:00:00.000Z'));
+    vi.spyOn(ReportIndexCacheModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        data: reportIndexFixture(),
+        expiresAt: new Date('2026-05-14T23:59:00.000Z'),
+      }),
+    } as never);
+
+    const store = new MongoReportIndexCacheStore();
+
+    await expect(
+      store.getReportIndex({ reportCode: 'ABC123', gameFamily: 'retail' }),
+    ).resolves.toEqual({
+      status: 'stale',
+      expiresAt: new Date('2026-05-14T23:59:00.000Z'),
+    });
+  });
+
+  it('upserts expiring cache entries by report code and game family', async () => {
+    const index = reportIndexFixture({ gameFamily: 'mop_classic' });
+    const expiresAt = new Date('2026-05-15T00:10:00.000Z');
+    const update = vi
+      .spyOn(ReportIndexCacheModel, 'findOneAndUpdate')
+      .mockResolvedValue(null);
+
+    const store = new MongoReportIndexCacheStore();
+    await store.saveReportIndex({
+      reportCode: 'ABC123',
+      gameFamily: 'mop_classic',
+      data: index,
+      expiresAt,
+    });
+
+    expect(update).toHaveBeenCalledWith(
+      { reportCode: 'ABC123', gameFamily: 'mop_classic' },
+      {
+        $set: {
+          reportCode: 'ABC123',
+          gameFamily: 'mop_classic',
+          data: index,
+          expiresAt,
+        },
+      },
+      { upsert: true, setDefaultsOnInsert: true },
+    );
+  });
+});
+
+describe('MongoGuildReportMetadataStore', () => {
+  const scope = {
+    guildName: 'Shenanigans',
+    guildServerSlug: 'Galakras',
+    guildServerRegion: 'US',
+    gameFamily: 'mop_classic' as const,
+  };
+
+  it('upserts report metadata by normalized guild scope and report code', async () => {
+    const indexedAt = new Date('2026-05-15T12:00:00.000Z');
+    const bulkWrite = vi.spyOn(GuildReportMetadataModel, 'bulkWrite').mockResolvedValue({
+      upsertedCount: 1,
+      matchedCount: 1,
+      modifiedCount: 1,
+    } as never);
+
+    const store = new MongoGuildReportMetadataStore();
+    const result = await store.upsertReports({
+      scope,
+      indexedAt,
+      reports: [
+        {
+          reportCode: 'ABC123',
+          title: 'Raid Night',
+          owner: 'Logger',
+          zoneId: 1046,
+          startTime: 100,
+          endTime: 200,
+        },
+        {
+          reportCode: 'DEF456',
+          startTime: 300,
+        },
+      ],
+    });
+
+    expect(result).toEqual({
+      processedRows: 2,
+      upsertedRows: 1,
+      matchedRows: 1,
+      modifiedRows: 1,
+    });
+    expect(bulkWrite).toHaveBeenCalledWith(
+      [
+        {
+          updateOne: {
+            filter: {
+              guildName: 'Shenanigans',
+              guildServerSlug: 'galakras',
+              guildServerRegion: 'us',
+              gameFamily: 'mop_classic',
+              reportCode: 'ABC123',
+            },
+            update: {
+              $set: {
+                guildName: 'Shenanigans',
+                guildServerSlug: 'galakras',
+                guildServerRegion: 'us',
+                gameFamily: 'mop_classic',
+                reportCode: 'ABC123',
+                title: 'Raid Night',
+                owner: 'Logger',
+                zoneId: 1046,
+                startTime: 100,
+                endTime: 200,
+                indexedAt,
+              },
+            },
+            upsert: true,
+          },
+        },
+        expect.objectContaining({
+          updateOne: expect.objectContaining({
+            filter: expect.objectContaining({ reportCode: 'DEF456' }),
+          }),
+        }),
+      ],
+      { ordered: false },
+    );
+  });
+
+  it('dedupes repeat report rows before writing metadata', async () => {
+    const bulkWrite = vi.spyOn(GuildReportMetadataModel, 'bulkWrite').mockResolvedValue({
+      upsertedCount: 1,
+      matchedCount: 0,
+      modifiedCount: 0,
+    } as never);
+
+    const store = new MongoGuildReportMetadataStore();
+    await store.upsertReports({
+      scope,
+      reports: [
+        { reportCode: 'ABC123', title: 'First', startTime: 100 },
+        { reportCode: 'ABC123', title: 'Second', startTime: 200 },
+      ],
+    });
+
+    const operations = bulkWrite.mock.calls[0]?.[0] as unknown[];
+    expect(operations).toHaveLength(1);
+    expect(JSON.stringify(operations[0])).toContain('Second');
+  });
+
+  it('reads and updates the metadata cursor by guild scope', async () => {
+    vi.spyOn(GuildReportMetadataCursorModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildName: 'Shenanigans',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
+        gameFamily: 'mop_classic',
+        lastSeenStartTime: 300,
+        lastIndexedAt: new Date('2026-05-15T12:00:00.000Z'),
+      }),
+    } as never);
+    const saveCursor = vi.spyOn(GuildReportMetadataCursorModel, 'findOneAndUpdate').mockReturnValue({
+      lean: vi.fn().mockResolvedValue({
+        guildName: 'Shenanigans',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
+        gameFamily: 'mop_classic',
+        lastSeenStartTime: 400,
+        lastIndexedAt: new Date('2026-05-15T13:00:00.000Z'),
+      }),
+    } as never);
+
+    const store = new MongoGuildReportMetadataStore();
+
+    await expect(store.getCursor(scope)).resolves.toEqual({
+      guildName: 'Shenanigans',
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      gameFamily: 'mop_classic',
+      lastSeenStartTime: 300,
+      lastIndexedAt: new Date('2026-05-15T12:00:00.000Z'),
+    });
+    await expect(
+      store.saveCursor({
+        scope,
+        lastSeenStartTime: 400,
+        lastIndexedAt: new Date('2026-05-15T13:00:00.000Z'),
+      }),
+    ).resolves.toMatchObject({ lastSeenStartTime: 400 });
+    expect(saveCursor).toHaveBeenCalledWith(
+      {
+        guildName: 'Shenanigans',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
+        gameFamily: 'mop_classic',
+      },
+      {
+        $set: {
+          guildName: 'Shenanigans',
+          guildServerSlug: 'galakras',
+          guildServerRegion: 'us',
+          gameFamily: 'mop_classic',
+          lastSeenStartTime: 400,
+          lastIndexedAt: new Date('2026-05-15T13:00:00.000Z'),
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
+  });
 });
 
 describe('MongoWclUserAuthStore', () => {

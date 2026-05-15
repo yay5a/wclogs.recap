@@ -6,6 +6,33 @@ export interface ReportMetricRow {
   specName?: string;
 }
 
+export interface ReportIndexFightRow {
+  id: number;
+  encounterId: number;
+  name: string;
+  startTime: number;
+  endTime: number;
+  kill: boolean;
+  difficulty?: number;
+  size?: number;
+  inProgress?: boolean;
+}
+
+export interface ReportIndexData {
+  reportCode: string;
+  sourceUrl: string;
+  gameFamily: 'retail' | 'mop_classic';
+  title: string;
+  zoneName?: string;
+  zoneId?: number;
+  startTime: number;
+  endTime: number;
+  completedBossFights: ReportIndexFightRow[];
+  killBossFights: ReportIndexFightRow[];
+  allBossFights: ReportIndexFightRow[];
+  zoneDifficulties: Array<{ id: number; name: string; sizes?: number[] }>;
+}
+
 export interface ReportParseRow extends ReportMetricRow {
   metric: 'DPS' | 'HPS' | 'DTPS';
   sourceMetric?: 'dps-tank';
