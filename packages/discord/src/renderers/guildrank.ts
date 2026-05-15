@@ -17,12 +17,12 @@ const formatPreviousAndDelta = (current?: number, delta?: number): string => {
 const formatMetric = (
   best?: number,
   median?: number,
-  bestScoreDelta?: number,
-  medianScoreDelta?: number,
+  bestDerivedPercentileDelta?: number,
+  medianDerivedPercentileDelta?: number,
 ): string =>
   [
-    `Best Avg Score: ${typeof best === 'number' ? decimalFormatter.format(best) : 'n/a'} (${formatPreviousAndDelta(best, bestScoreDelta)})`,
-    `Median Avg Score: ${typeof median === 'number' ? decimalFormatter.format(median) : 'n/a'} (${formatPreviousAndDelta(median, medianScoreDelta)})`,
+    `Best Derived Relative Percentile: ${typeof best === 'number' ? decimalFormatter.format(best) : 'n/a'} (${formatPreviousAndDelta(best, bestDerivedPercentileDelta)})`,
+    `Median Derived Relative Percentile: ${typeof median === 'number' ? decimalFormatter.format(median) : 'n/a'} (${formatPreviousAndDelta(median, medianDerivedPercentileDelta)})`,
   ].join('\n');
 
 const formatScoreLine = (label: string, value?: number, delta?: number): string =>
@@ -41,16 +41,16 @@ const formatEncounterRankings = (
   encounters: Array<{
     encounterName: string;
     speed: {
-      bestScore?: number;
-      bestScoreDelta?: number;
-      medianScore?: number;
-      medianScoreDelta?: number;
+      bestDerivedPercentile?: number;
+      bestDerivedPercentileDelta?: number;
+      medianDerivedPercentile?: number;
+      medianDerivedPercentileDelta?: number;
     };
     execution: {
-      bestScore?: number;
-      bestScoreDelta?: number;
-      medianScore?: number;
-      medianScoreDelta?: number;
+      bestDerivedPercentile?: number;
+      bestDerivedPercentileDelta?: number;
+      medianDerivedPercentile?: number;
+      medianDerivedPercentileDelta?: number;
     };
   }>,
   metric: 'speed' | 'execution',
@@ -59,8 +59,8 @@ const formatEncounterRankings = (
     const values = encounter[metric];
     return [
       `• ${encounter.encounterName}`,
-      `  ${formatScoreLine('Best Score', values.bestScore, values.bestScoreDelta)}`,
-      `  ${formatScoreLine('Median Score', values.medianScore, values.medianScoreDelta)}`,
+      `  ${formatScoreLine('Best Derived Relative Percentile', values.bestDerivedPercentile, values.bestDerivedPercentileDelta)}`,
+      `  ${formatScoreLine('Median Derived Relative Percentile', values.medianDerivedPercentile, values.medianDerivedPercentileDelta)}`,
     ].join('\n');
   });
   return rows.length > 0
@@ -97,10 +97,10 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
         ? [`Complete Raid Ranks: ${formatRanks(summary.speed.completeRaidRanks)}`]
         : []),
       formatMetric(
-        summary.speed.overall.bestScore,
-        summary.speed.overall.medianScore,
-        summary.speed.overall.bestScoreDelta,
-        summary.speed.overall.medianScoreDelta,
+        summary.speed.overall.bestDerivedPercentile,
+        summary.speed.overall.medianDerivedPercentile,
+        summary.speed.overall.bestDerivedPercentileDelta,
+        summary.speed.overall.medianDerivedPercentileDelta,
       ),
       summary.speed.bestEncounterGain
         ? `Best Encounter Gain: ${summary.speed.bestEncounterGain.encounterName} ${formatDelta(summary.speed.bestEncounterGain.delta)}`
@@ -118,10 +118,10 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
     value: formatSection([
       `Source: ${summary.execution.sourceLabel}`,
       formatMetric(
-        summary.execution.overall.bestScore,
-        summary.execution.overall.medianScore,
-        summary.execution.overall.bestScoreDelta,
-        summary.execution.overall.medianScoreDelta,
+        summary.execution.overall.bestDerivedPercentile,
+        summary.execution.overall.medianDerivedPercentile,
+        summary.execution.overall.bestDerivedPercentileDelta,
+        summary.execution.overall.medianDerivedPercentileDelta,
       ),
       summary.execution.bestEncounterGain
         ? `Best Encounter Gain: ${summary.execution.bestEncounterGain.encounterName} ${formatDelta(summary.execution.bestEncounterGain.delta)}`

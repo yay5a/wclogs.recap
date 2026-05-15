@@ -1,4 +1,4 @@
-import type { GuildRankSummary } from '@wcl/domain';
+import type { GuildRankMetricRow, GuildRankSummary } from '@wcl/domain';
 import type {
   GuildRankCollectorBundle,
   GuildRankEncounterMetric,
@@ -14,11 +14,12 @@ const average = (values: number[]): number | undefined => {
 
 const toEncounterMetricMap = (
   rows: GuildRankEncounterMetric[],
-): Map<string, GuildRankEncounterMetric> =>
-  new Map(rows.map((row) => [row.encounterName, row]));
+): Map<string, GuildRankEncounterMetric> => new Map(rows.map((row) => [row.encounterName, row]));
 
 const hasRanks = (ranks: RankPositions): boolean =>
-  typeof ranks.world === 'number' || typeof ranks.region === 'number' || typeof ranks.realm === 'number';
+  typeof ranks.world === 'number' ||
+  typeof ranks.region === 'number' ||
+  typeof ranks.realm === 'number';
 
 const copyRanks = (ranks: RankPositions): RankPositions => ({
   ...(typeof ranks.world === 'number' ? { world: ranks.world } : {}),
@@ -29,95 +30,77 @@ const copyRanks = (ranks: RankPositions): RankPositions => ({
 const normalizeMetricSection = (
   current: GuildRankMetricSet,
   baseline: GuildRankMetricSet,
+  metric: 'speed' | 'execution',
 ): {
-  overall: {
-    bestScore?: number;
-    bestScoreDelta?: number;
-    medianScore?: number;
-    medianScoreDelta?: number;
-  };
+  overall: GuildRankMetricRow;
   bestEncounterGain?: { encounterName: string; delta: number };
   encounters: Array<{
     encounterName: string;
-    speed: {
-      bestScore?: number;
-      bestScoreDelta?: number;
-      medianScore?: number;
-      medianScoreDelta?: number;
-    };
-    execution: {
-      bestScore?: number;
-      bestScoreDelta?: number;
-      medianScore?: number;
-      medianScoreDelta?: number;
-    };
+    speed: GuildRankMetricRow;
+    execution: GuildRankMetricRow;
   }>;
 } => {
   const currentByEncounter = toEncounterMetricMap(current.perEncounter);
   const baselineByEncounter = toEncounterMetricMap(baseline.perEncounter);
-  const encounterNames = [...new Set([...currentByEncounter.keys(), ...baselineByEncounter.keys()])].sort();
+  const encounterNames = [
+    ...new Set([...currentByEncounter.keys(), ...baselineByEncounter.keys()]),
+  ].sort();
 
   const encounters = encounterNames.map((encounterName) => {
     const currentRow = currentByEncounter.get(encounterName);
     const baselineRow = baselineByEncounter.get(encounterName);
-    const bestScoreDelta =
-      typeof currentRow?.bestScore === 'number' &&
-      typeof baselineRow?.bestScore === 'number'
-        ? currentRow.bestScore - baselineRow.bestScore
+    const bestDerivedPercentileDelta =
+      typeof currentRow?.bestDerivedPercentile === 'number' &&
+      typeof baselineRow?.bestDerivedPercentile === 'number'
+        ? currentRow.bestDerivedPercentile - baselineRow.bestDerivedPercentile
         : undefined;
-    const medianScoreDelta =
-      typeof currentRow?.medianScore === 'number' &&
-      typeof baselineRow?.medianScore === 'number'
-        ? currentRow.medianScore - baselineRow.medianScore
+    const medianDerivedPercentileDelta =
+      typeof currentRow?.medianDerivedPercentile === 'number' &&
+      typeof baselineRow?.medianDerivedPercentile === 'number'
+        ? currentRow.medianDerivedPercentile - baselineRow.medianDerivedPercentile
         : undefined;
+
+    const metricRow: GuildRankMetricRow = {
+      ...(typeof currentRow?.bestDerivedPercentile === 'number'
+        ? { bestDerivedPercentile: currentRow.bestDerivedPercentile }
+        : {}),
+      ...(typeof bestDerivedPercentileDelta === 'number' ? { bestDerivedPercentileDelta } : {}),
+      ...(typeof currentRow?.medianDerivedPercentile === 'number'
+        ? { medianDerivedPercentile: currentRow.medianDerivedPercentile }
+        : {}),
+      ...(typeof medianDerivedPercentileDelta === 'number' ? { medianDerivedPercentileDelta } : {}),
+    };
 
     return {
       encounterName,
-      speed: {
-        ...(typeof currentRow?.bestScore === 'number'
-          ? { bestScore: currentRow.bestScore }
-          : {}),
-        ...(typeof bestScoreDelta === 'number' ? { bestScoreDelta } : {}),
-        ...(typeof currentRow?.medianScore === 'number'
-          ? { medianScore: currentRow.medianScore }
-          : {}),
-        ...(typeof medianScoreDelta === 'number' ? { medianScoreDelta } : {}),
-      },
-      execution: {
-        ...(typeof currentRow?.bestScore === 'number'
-          ? { bestScore: currentRow.bestScore }
-          : {}),
-        ...(typeof bestScoreDelta === 'number' ? { bestScoreDelta } : {}),
-        ...(typeof currentRow?.medianScore === 'number'
-          ? { medianScore: currentRow.medianScore }
-          : {}),
-        ...(typeof medianScoreDelta === 'number' ? { medianScoreDelta } : {}),
-      },
+      speed: metric === 'speed' ? metricRow : {},
+      execution: metric === 'execution' ? metricRow : {},
     };
   });
 
   let bestEncounterGain: { encounterName: string; delta: number } | undefined;
   for (const encounter of encounters) {
-    if (typeof encounter.speed.bestScoreDelta !== 'number') continue;
-    if (!bestEncounterGain || encounter.speed.bestScoreDelta > bestEncounterGain.delta) {
+    const metricRow = encounter[metric];
+    if (typeof metricRow.bestDerivedPercentileDelta !== 'number') continue;
+    if (!bestEncounterGain || metricRow.bestDerivedPercentileDelta > bestEncounterGain.delta) {
       bestEncounterGain = {
         encounterName: encounter.encounterName,
-        delta: encounter.speed.bestScoreDelta,
+        delta: metricRow.bestDerivedPercentileDelta,
       };
     }
   }
 
   const currentBestRows = current.perEncounter.flatMap((row) =>
-    typeof row.bestScore === 'number' ? [row.bestScore] : [],
+    typeof row.bestDerivedPercentile === 'number' ? [row.bestDerivedPercentile] : [],
   );
   const currentMedianRows = current.perEncounter.flatMap((row) =>
-    typeof row.medianScore === 'number' ? [row.medianScore] : [],
+    typeof row.medianDerivedPercentile === 'number' ? [row.medianDerivedPercentile] : [],
   );
   const baselineBestRows = baseline.perEncounter.flatMap((row) =>
-    typeof row.bestScore === 'number' ? [row.bestScore] : [],
+    typeof row.bestDerivedPercentile === 'number' ? [row.bestDerivedPercentile] : [],
   );
   const baselineMedianRows = baseline.perEncounter.flatMap((row) =>
-    typeof row.medianScore === 'number' ? [row.medianScore] : [],
+    typeof row.medianDerivedPercentile === 'number' ? [row.medianDerivedPercentile] : [],
   );
 
   const currentBestAvg = average(currentBestRows);
@@ -127,13 +110,15 @@ const normalizeMetricSection = (
 
   return {
     overall: {
-      ...(typeof currentBestAvg === 'number' ? { bestScore: currentBestAvg } : {}),
-      ...(typeof currentMedianAvg === 'number' ? { medianScore: currentMedianAvg } : {}),
+      ...(typeof currentBestAvg === 'number' ? { bestDerivedPercentile: currentBestAvg } : {}),
+      ...(typeof currentMedianAvg === 'number'
+        ? { medianDerivedPercentile: currentMedianAvg }
+        : {}),
       ...(typeof currentBestAvg === 'number' && typeof baselineBestAvg === 'number'
-        ? { bestScoreDelta: currentBestAvg - baselineBestAvg }
+        ? { bestDerivedPercentileDelta: currentBestAvg - baselineBestAvg }
         : {}),
       ...(typeof currentMedianAvg === 'number' && typeof baselineMedianAvg === 'number'
-        ? { medianScoreDelta: currentMedianAvg - baselineMedianAvg }
+        ? { medianDerivedPercentileDelta: currentMedianAvg - baselineMedianAvg }
         : {}),
     },
     ...(bestEncounterGain ? { bestEncounterGain } : {}),
@@ -149,20 +134,20 @@ export const normalizeGuildRankRenderModel = (
   const hasSpeedOfficialRanks = hasRanks(bundle.officialRanks.speed);
   const hasCompleteRaidSpeedRanks = hasRanks(bundle.officialRanks.completeRaidSpeed);
 
-  const speed = normalizeMetricSection(
-    bundle.currentSpeed,
-    bundle.baselineSpeed,
-  );
+  const speed = normalizeMetricSection(bundle.currentSpeed, bundle.baselineSpeed, 'speed');
   const execution = normalizeMetricSection(
     bundle.currentExecution,
     bundle.baselineExecution,
+    'execution',
   );
 
   const notes: string[] = [];
   if (!hasProgressOfficialRanks) {
     notes.push('Official progress ranks unavailable; showing derived clear/pull context only.');
   }
-  notes.push('WCL guild rank percentiles unavailable; showing speed/execution scores derived from reports.');
+  notes.push(
+    'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+  );
   if (bundle.currentWindowDiscovery.candidateReports === 0) {
     notes.push('No current-window reports were discovered for the configured guild and zone.');
   } else if (bundle.currentWindowDiscovery.zoneMatchedReports === 0) {

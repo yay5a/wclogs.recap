@@ -30,7 +30,10 @@ describe('guildrank pipeline', () => {
                 id: 100,
                 name: 'Throne',
                 difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }],
-                encounters: [{ id: 1, name: 'Jinrokh' }, { id: 2, name: 'Council' }],
+                encounters: [
+                  { id: 1, name: 'Jinrokh' },
+                  { id: 2, name: 'Council' },
+                ],
               },
             },
           },
@@ -46,7 +49,12 @@ describe('guildrank pipeline', () => {
               reportData: {
                 reports: {
                   data: [
-                    { code: 'C1', startTime: now - 2 * 24 * 60 * 60 * 1000, endTime: now - 2 * 24 * 60 * 60 * 1000 + 3600000, zone: { id: 100 } },
+                    {
+                      code: 'C1',
+                      startTime: now - 2 * 24 * 60 * 60 * 1000,
+                      endTime: now - 2 * 24 * 60 * 60 * 1000 + 3600000,
+                      zone: { id: 100 },
+                    },
                   ],
                 },
               },
@@ -59,7 +67,12 @@ describe('guildrank pipeline', () => {
             reportData: {
               reports: {
                 data: [
-                  { code: 'B1', startTime: now - 10 * 24 * 60 * 60 * 1000, endTime: now - 10 * 24 * 60 * 60 * 1000 + 3600000, zone: { id: 100 } },
+                  {
+                    code: 'B1',
+                    startTime: now - 10 * 24 * 60 * 60 * 1000,
+                    endTime: now - 10 * 24 * 60 * 60 * 1000 + 3600000,
+                    zone: { id: 100 },
+                  },
                 ],
               },
             },
@@ -72,7 +85,7 @@ describe('guildrank pipeline', () => {
           data: {
             guildData: {
               guild: {
-                zoneRanking: {
+                zoneRankings: {
                   progress: {
                     worldRank: { number: 12 },
                     regionRank: { number: 4 },
@@ -105,11 +118,42 @@ describe('guildrank pipeline', () => {
                   title: 'C1',
                   startTime: now,
                   endTime: now + 1000,
-                  zone: { id: 100, name: 'Throne', difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }] },
+                  zone: {
+                    id: 100,
+                    name: 'Throne',
+                    difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }],
+                  },
                   fights: [
-                    { id: 11, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 0, endTime: 120000, kill: true },
-                    { id: 12, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 130000, endTime: 220000, kill: false },
-                    { id: 13, encounterID: 2, difficulty: 4, size: 10, name: 'Council', startTime: 230000, endTime: 400000, kill: true },
+                    {
+                      id: 11,
+                      encounterID: 1,
+                      difficulty: 4,
+                      size: 10,
+                      name: 'Jinrokh',
+                      startTime: 0,
+                      endTime: 120000,
+                      kill: true,
+                    },
+                    {
+                      id: 12,
+                      encounterID: 1,
+                      difficulty: 4,
+                      size: 10,
+                      name: 'Jinrokh',
+                      startTime: 130000,
+                      endTime: 220000,
+                      kill: false,
+                    },
+                    {
+                      id: 13,
+                      encounterID: 2,
+                      difficulty: 4,
+                      size: 10,
+                      name: 'Council',
+                      startTime: 230000,
+                      endTime: 400000,
+                      kill: true,
+                    },
                   ],
                 },
               },
@@ -124,9 +168,22 @@ describe('guildrank pipeline', () => {
                 title: 'B1',
                 startTime: now,
                 endTime: now + 1000,
-                zone: { id: 100, name: 'Throne', difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }] },
+                zone: {
+                  id: 100,
+                  name: 'Throne',
+                  difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }],
+                },
                 fights: [
-                  { id: 31, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 0, endTime: 180000, kill: true },
+                  {
+                    id: 31,
+                    encounterID: 1,
+                    difficulty: 4,
+                    size: 10,
+                    name: 'Jinrokh',
+                    startTime: 0,
+                    endTime: 180000,
+                    kill: true,
+                  },
                 ],
               },
             },
@@ -158,7 +215,12 @@ describe('guildrank pipeline', () => {
             reportData: {
               report: {
                 table: {
-                  entries: [{ name: 'Any', deaths: typeof fightId === 'number' ? (deathsByFight[fightId] ?? 0) : 0 }],
+                  entries: [
+                    {
+                      name: 'Any',
+                      deaths: typeof fightId === 'number' ? (deathsByFight[fightId] ?? 0) : 0,
+                    },
+                  ],
                 },
               },
             },
@@ -194,10 +256,16 @@ describe('guildrank pipeline', () => {
       ]),
     );
 
-    expect(summary.window.currentStartIso).toBe(new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString());
+    expect(summary.window.currentStartIso).toBe(
+      new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    );
     expect(summary.window.currentEndIso).toBe(new Date(now).toISOString());
-    expect(summary.window.baselineStartIso).toBe(new Date(now - 21 * 24 * 60 * 60 * 1000).toISOString());
-    expect(summary.window.baselineEndIso).toBe(new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString());
+    expect(summary.window.baselineStartIso).toBe(
+      new Date(now - 21 * 24 * 60 * 60 * 1000).toISOString(),
+    );
+    expect(summary.window.baselineEndIso).toBe(
+      new Date(now - 7 * 24 * 60 * 60 * 1000).toISOString(),
+    );
     expect(summary.progress.ranks).toEqual({ world: 12, region: 4, realm: 1 });
     expect(summary.speed.ranks).toEqual({ world: 18, region: 6, realm: 2 });
     expect(summary.speed.completeRaidRanks).toEqual({ world: 8, region: 3, realm: 1 });
@@ -210,7 +278,7 @@ describe('guildrank pipeline', () => {
     expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
   });
 
-  it('keeps Speed and Execution as derived report scores when guild rank scores are unavailable', async () => {
+  it('keeps Speed and Execution as derived relative percentiles when official percentiles are unavailable', async () => {
     const now = Date.UTC(2026, 4, 14, 12, 0, 0);
     vi.useFakeTimers();
     vi.setSystemTime(now);
@@ -242,7 +310,9 @@ describe('guildrank pipeline', () => {
           data: {
             reportData: {
               reports: {
-                data: [{ code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } }],
+                data: [
+                  { code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } },
+                ],
               },
             },
           },
@@ -254,7 +324,7 @@ describe('guildrank pipeline', () => {
           data: {
             guildData: {
               guild: {
-                zoneRanking: {
+                zoneRankings: {
                   progress: {
                     worldRank: { number: 50 },
                     regionRank: { number: 20 },
@@ -287,9 +357,22 @@ describe('guildrank pipeline', () => {
                   title: 'C1',
                   startTime: now,
                   endTime: now + 1000,
-                  zone: { id: 100, name: 'Throne', difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }] },
+                  zone: {
+                    id: 100,
+                    name: 'Throne',
+                    difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                  },
                   fights: [
-                    { id: 11, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 0, endTime: 260000, kill: true },
+                    {
+                      id: 11,
+                      encounterID: 1,
+                      difficulty: 4,
+                      size: 10,
+                      name: 'Jinrokh',
+                      startTime: 0,
+                      endTime: 260000,
+                      kill: true,
+                    },
                   ],
                 },
               },
@@ -304,9 +387,22 @@ describe('guildrank pipeline', () => {
                 title: 'B1',
                 startTime: now,
                 endTime: now + 1000,
-                zone: { id: 100, name: 'Throne', difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }] },
+                zone: {
+                  id: 100,
+                  name: 'Throne',
+                  difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                },
                 fights: [
-                  { id: 21, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 0, endTime: 110000, kill: true },
+                  {
+                    id: 21,
+                    encounterID: 1,
+                    difficulty: 4,
+                    size: 10,
+                    name: 'Jinrokh',
+                    startTime: 0,
+                    endTime: 110000,
+                    kill: true,
+                  },
                 ],
               },
             },
@@ -377,11 +473,11 @@ describe('guildrank pipeline', () => {
     expect(summary.speed.ranks).toEqual({ world: 999, region: 250, realm: 20 });
     expect(summary.speed.completeRaidRanks).toEqual({ world: 389, region: 136, realm: 120 });
     expect(summary.notes).toContain(
-      'WCL guild rank percentiles unavailable; showing speed/execution scores derived from reports.',
+      'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
     );
-    expect(summary.speed.overall.bestScore).toBe(50);
+    expect(summary.speed.overall.bestDerivedPercentile).toBe(50);
     expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
-    expect(summary.execution.overall.bestScore).toBe(100);
+    expect(summary.execution.overall.bestDerivedPercentile).toBe(100);
   });
 
   it('uses derived fallback speed/execution from successful kills and excludes wipes from fallback metrics while counting wipes in progress', async () => {
@@ -415,7 +511,9 @@ describe('guildrank pipeline', () => {
           data: {
             reportData: {
               reports: {
-                data: [{ code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } }],
+                data: [
+                  { code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } },
+                ],
               },
             },
           },
@@ -436,11 +534,42 @@ describe('guildrank pipeline', () => {
                   title: 'C1',
                   startTime: now,
                   endTime: now + 1000,
-                  zone: { id: 100, name: 'Throne', difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }] },
+                  zone: {
+                    id: 100,
+                    name: 'Throne',
+                    difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                  },
                   fights: [
-                    { id: 11, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 0, endTime: 200000, kill: true },
-                    { id: 12, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 210000, endTime: 260000, kill: false },
-                    { id: 13, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 270000, endTime: 320000, kill: false },
+                    {
+                      id: 11,
+                      encounterID: 1,
+                      difficulty: 4,
+                      size: 10,
+                      name: 'Jinrokh',
+                      startTime: 0,
+                      endTime: 200000,
+                      kill: true,
+                    },
+                    {
+                      id: 12,
+                      encounterID: 1,
+                      difficulty: 4,
+                      size: 10,
+                      name: 'Jinrokh',
+                      startTime: 210000,
+                      endTime: 260000,
+                      kill: false,
+                    },
+                    {
+                      id: 13,
+                      encounterID: 1,
+                      difficulty: 4,
+                      size: 10,
+                      name: 'Jinrokh',
+                      startTime: 270000,
+                      endTime: 320000,
+                      kill: false,
+                    },
                   ],
                 },
               },
@@ -455,9 +584,22 @@ describe('guildrank pipeline', () => {
                 title: 'B1',
                 startTime: now,
                 endTime: now + 1000,
-                zone: { id: 100, name: 'Throne', difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }] },
+                zone: {
+                  id: 100,
+                  name: 'Throne',
+                  difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                },
                 fights: [
-                  { id: 21, encounterID: 1, difficulty: 4, size: 10, name: 'Jinrokh', startTime: 0, endTime: 100000, kill: true },
+                  {
+                    id: 21,
+                    encounterID: 1,
+                    difficulty: 4,
+                    size: 10,
+                    name: 'Jinrokh',
+                    startTime: 0,
+                    endTime: 100000,
+                    kill: true,
+                  },
                 ],
               },
             },
@@ -494,7 +636,12 @@ describe('guildrank pipeline', () => {
             reportData: {
               report: {
                 table: {
-                  entries: [{ name: 'Any', deaths: typeof fightId === 'number' ? (deathsByFight[fightId] ?? 0) : 0 }],
+                  entries: [
+                    {
+                      name: 'Any',
+                      deaths: typeof fightId === 'number' ? (deathsByFight[fightId] ?? 0) : 0,
+                    },
+                  ],
                 },
               },
             },
@@ -540,7 +687,7 @@ describe('guildrank pipeline', () => {
       'Official progress ranks unavailable; showing derived clear/pull context only.',
     );
     expect(summary.notes).toContain(
-      'WCL guild rank percentiles unavailable; showing speed/execution scores derived from reports.',
+      'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
     );
 
     const speedEncounter = summary.speed.encounters.find((row) => row.encounterName === 'Jinrokh');
@@ -548,8 +695,8 @@ describe('guildrank pipeline', () => {
       (row) => row.encounterName === 'Jinrokh',
     );
 
-    expect(speedEncounter?.speed.bestScore).toBe(50);
-    expect(executionEncounter?.execution.bestScore).toBe(50);
+    expect(speedEncounter?.speed.bestDerivedPercentile).toBe(50);
+    expect(executionEncounter?.execution.bestDerivedPercentile).toBe(50);
   });
 
   it('adds a precise note when current-window reports are discovered but filtered out by difficulty/size', async () => {
@@ -583,7 +730,9 @@ describe('guildrank pipeline', () => {
           data: {
             reportData: {
               reports: {
-                data: [{ code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } }],
+                data: [
+                  { code, startTime: reportStart, endTime: reportStart + 1000, zone: { id: 100 } },
+                ],
               },
             },
           },
@@ -602,9 +751,22 @@ describe('guildrank pipeline', () => {
                 title: 'C1',
                 startTime: now,
                 endTime: now + 1000,
-                zone: { id: 100, name: 'Throne', difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }] },
+                zone: {
+                  id: 100,
+                  name: 'Throne',
+                  difficulties: [{ id: 4, name: 'Heroic', sizes: [10, 25] }],
+                },
                 fights: [
-                  { id: 11, encounterID: 1, difficulty: 4, size: 25, name: 'Jinrokh', startTime: 0, endTime: 200000, kill: true },
+                  {
+                    id: 11,
+                    encounterID: 1,
+                    difficulty: 4,
+                    size: 25,
+                    name: 'Jinrokh',
+                    startTime: 0,
+                    endTime: 200000,
+                    kill: true,
+                  },
                 ],
               },
             },
@@ -831,9 +993,7 @@ describe('guildrank pipeline', () => {
               report: {
                 table: {
                   entries:
-                    dataType === 'Deaths'
-                      ? [{ name: 'Any', deaths: fightId === 11 ? 2 : 4 }]
-                      : [],
+                    dataType === 'Deaths' ? [{ name: 'Any', deaths: fightId === 11 ? 2 : 4 }] : [],
                 },
               },
             },
@@ -878,8 +1038,8 @@ describe('guildrank pipeline', () => {
     expect(summary.progress.totalEncounters).toBe(13);
     expect(summary.progress.pulls).toBe(2);
     expect(summary.progress.wipes).toBe(1);
-    expect(summary.speed.overall.bestScore).toBe(100);
-    expect(summary.execution.overall.bestScore).toBe(100);
+    expect(summary.speed.overall.bestDerivedPercentile).toBe(100);
+    expect(summary.execution.overall.bestDerivedPercentile).toBe(100);
     expect(summary.notes).not.toContain(
       'No current-window reports were discovered for the configured guild and zone.',
     );
