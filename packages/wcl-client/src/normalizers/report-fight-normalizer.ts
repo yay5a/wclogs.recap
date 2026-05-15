@@ -43,7 +43,7 @@ const pickMostCommonNumber = (values: number[]): number | undefined => {
 
 const toHighestRateRow = (
   rows: ParsedTableEntry[],
-  fallbackDurationMs: number,
+  selectedDurationMs: number,
   context: PlayerMetricContext = EMPTY_PLAYER_CONTEXT,
 ): ReportMetricRow | undefined => {
   let highest: ReportMetricRow | undefined;
@@ -55,14 +55,10 @@ const toHighestRateRow = (
   );
 
   for (const row of metricRows) {
-    const durationMs =
-      typeof row.activeTimeMs === 'number' && row.activeTimeMs > 0
-        ? row.activeTimeMs
-        : fallbackDurationMs;
-    if (durationMs <= 0) continue;
+    if (selectedDurationMs <= 0) continue;
     const candidate = {
       playerName: row.playerName,
-      value: row.value / (durationMs / 1000),
+      value: row.value / (selectedDurationMs / 1000),
       ...(row.className ? { className: row.className } : {}),
       ...(row.specName ? { specName: row.specName } : {}),
     };

@@ -81,8 +81,8 @@ describe('report fight normalizer', () => {
       deathsByFightId: { 1: 0, 2: 3, 3: 1, 4: 2 },
       encounterTopDamageDoneByEncounterId: {
         1001: [
-          { dataType: 'DamageDone', playerName: 'First', value: 100, activeTimeMs: 1000 },
-          { dataType: 'DamageDone', playerName: 'Second', value: 100, activeTimeMs: 1000 },
+          { dataType: 'DamageDone', playerName: 'First', value: 30, activeTimeMs: 1000 },
+          { dataType: 'DamageDone', playerName: 'Second', value: 30, activeTimeMs: 2000 },
         ],
       },
       encounterTopHealingDoneByEncounterId: {},

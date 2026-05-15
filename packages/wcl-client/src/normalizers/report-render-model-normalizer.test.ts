@@ -98,28 +98,65 @@ const baseBundle = (): ReportCollectorBundle => ({
         fightId: 1,
       },
     ],
-    tankDps: [],
   },
   tableMetrics: {
-    topDamageDone: [{ dataType: 'DamageDone', playerName: 'Alyra', value: 10_000_000 }],
-    topHealingDone: [{ dataType: 'Healing', playerName: 'Alyra', value: 5_000_000 }],
-    topDamageTaken: [{ dataType: 'DamageTaken', playerName: 'Bulwark', value: 3_000_000 }],
+    topDamageDone: [
+      { dataType: 'DamageDone', playerName: 'Alyra', value: 10_000_000, activeTimeMs: 250_000 },
+    ],
+    topHealingDone: [
+      { dataType: 'Healing', playerName: 'Alyra', value: 5_000_000, activeTimeMs: 250_000 },
+    ],
+    topDamageTaken: [
+      {
+        dataType: 'DamageTaken',
+        playerName: 'Bulwark',
+        value: 3_000_000,
+        activeTimeMs: 250_000,
+      },
+    ],
     topDeaths: [{ dataType: 'Deaths', playerName: 'Alyra', value: 3 }],
     topInterrupts: [{ dataType: 'Interrupts', playerName: 'Alyra', value: 4 }],
     topDispels: [{ dataType: 'Dispels', playerName: 'Alyra', value: 2 }],
     totals: { deaths: 8 },
     deathsByFightId: { 1: 1, 2: 2, 3: 4, 4: 1 },
     encounterTopDamageDoneByEncounterId: {
-      1001: [{ dataType: 'DamageDone', playerName: 'Alyra', value: 4_000_000 }],
-      1002: [{ dataType: 'DamageDone', playerName: 'Bulwark', value: 7_500_000 }],
+      1001: [
+        { dataType: 'DamageDone', playerName: 'Alyra', value: 4_000_000, activeTimeMs: 100_000 },
+      ],
+      1002: [
+        {
+          dataType: 'DamageDone',
+          playerName: 'Bulwark',
+          value: 7_500_000,
+          activeTimeMs: 250_000,
+        },
+      ],
     },
     encounterTopHealingDoneByEncounterId: {
-      1001: [{ dataType: 'Healing', playerName: 'Alyra', value: 1_200_000 }],
-      1002: [{ dataType: 'Healing', playerName: 'Alyra', value: 2_100_000 }],
+      1001: [
+        { dataType: 'Healing', playerName: 'Alyra', value: 1_200_000, activeTimeMs: 100_000 },
+      ],
+      1002: [
+        { dataType: 'Healing', playerName: 'Alyra', value: 2_100_000, activeTimeMs: 250_000 },
+      ],
     },
     encounterTopDamageTakenByEncounterId: {
-      1001: [{ dataType: 'DamageTaken', playerName: 'Bulwark', value: 1_800_000 }],
-      1002: [{ dataType: 'DamageTaken', playerName: 'Bulwark', value: 4_500_000 }],
+      1001: [
+        {
+          dataType: 'DamageTaken',
+          playerName: 'Bulwark',
+          value: 1_800_000,
+          activeTimeMs: 100_000,
+        },
+      ],
+      1002: [
+        {
+          dataType: 'DamageTaken',
+          playerName: 'Bulwark',
+          value: 4_500_000,
+          activeTimeMs: 250_000,
+        },
+      ],
     },
   },
 });
@@ -158,6 +195,18 @@ describe('report render-model normalizer', () => {
     expect(summary.reportLink).toBe('https://classic.warcraftlogs.com/reports/ABC123');
   });
 
+  it('uses selected completed-fight duration for report-wide rates and ignores active time', () => {
+    const summary = normalizeReportRenderModel(baseBundle());
+
+    expect(summary.topPlayers.highestTotalDps[0]).toMatchObject({
+      playerName: 'Alyra',
+      className: 'Priest',
+    });
+    expect(summary.topPlayers.highestTotalDps[0]?.value).toBeCloseTo(10_000_000 / 460);
+    expect(summary.topPlayers.highestHps[0]?.value).toBeCloseTo(5_000_000 / 460);
+    expect(summary.topPlayers.highestDamageTakenRate[0]?.value).toBeCloseTo(3_000_000 / 460);
+  });
+
   it('aggregates player leaderboards and filters non-player actors before ranking', () => {
     const bundle = baseBundle();
     bundle.masterData.actors = [
@@ -182,12 +231,30 @@ describe('report render-model normalizer', () => {
         actorType: 'Pet',
         value: 999_000_000,
       },
-      { dataType: 'DamageDone', playerId: 1, playerName: 'Alyra', value: 10_000_000 },
-      { dataType: 'DamageDone', playerId: 1, playerName: 'Alyra', value: 1_000_000 },
+      {
+        dataType: 'DamageDone',
+        playerId: 1,
+        playerName: 'Alyra',
+        value: 10_000_000,
+        activeTimeMs: 200_000,
+      },
+      {
+        dataType: 'DamageDone',
+        playerId: 1,
+        playerName: 'Alyra',
+        value: 1_000_000,
+        activeTimeMs: 20_000,
+      },
     ];
     bundle.tableMetrics.topHealingDone = [
       { dataType: 'Healing', playerName: 'Skull Banner', actorType: 'Object', value: 999_000_000 },
-      { dataType: 'Healing', playerId: 1, playerName: 'Alyra', value: 5_000_000 },
+      {
+        dataType: 'Healing',
+        playerId: 1,
+        playerName: 'Alyra',
+        value: 5_000_000,
+        activeTimeMs: 200_000,
+      },
     ];
     bundle.tableMetrics.topDamageTaken = [
       {
@@ -196,7 +263,13 @@ describe('report render-model normalizer', () => {
         actorType: 'Object',
         value: 999_000_000,
       },
-      { dataType: 'DamageTaken', playerId: 2, playerName: 'Bulwark', value: 3_000_000 },
+      {
+        dataType: 'DamageTaken',
+        playerId: 2,
+        playerName: 'Bulwark',
+        value: 3_000_000,
+        activeTimeMs: 200_000,
+      },
     ];
     bundle.tableMetrics.topDeaths = [
       { dataType: 'Deaths', playerId: 11, playerName: 'Deesilverone', value: 1 },
@@ -223,7 +296,13 @@ describe('report render-model normalizer', () => {
           actorType: 'Pet',
           value: 999_000_000,
         },
-        { dataType: 'DamageDone', playerId: 1, playerName: 'Alyra', value: 4_000_000 },
+        {
+          dataType: 'DamageDone',
+          playerId: 1,
+          playerName: 'Alyra',
+          value: 4_000_000,
+          activeTimeMs: 100_000,
+        },
       ],
       1002: [
         {
@@ -232,7 +311,13 @@ describe('report render-model normalizer', () => {
           actorType: 'Object',
           value: 999_000_000,
         },
-        { dataType: 'DamageDone', playerId: 2, playerName: 'Bulwark', value: 7_500_000 },
+        {
+          dataType: 'DamageDone',
+          playerId: 2,
+          playerName: 'Bulwark',
+          value: 7_500_000,
+          activeTimeMs: 250_000,
+        },
       ],
     };
     bundle.tableMetrics.encounterTopHealingDoneByEncounterId = {
@@ -243,7 +328,13 @@ describe('report render-model normalizer', () => {
           actorType: 'Object',
           value: 999_000_000,
         },
-        { dataType: 'Healing', playerId: 1, playerName: 'Alyra', value: 1_200_000 },
+        {
+          dataType: 'Healing',
+          playerId: 1,
+          playerName: 'Alyra',
+          value: 1_200_000,
+          activeTimeMs: 100_000,
+        },
       ],
       1002: [
         {
@@ -252,7 +343,13 @@ describe('report render-model normalizer', () => {
           actorType: 'Guardian',
           value: 999_000_000,
         },
-        { dataType: 'Healing', playerId: 1, playerName: 'Alyra', value: 2_100_000 },
+        {
+          dataType: 'Healing',
+          playerId: 1,
+          playerName: 'Alyra',
+          value: 2_100_000,
+          activeTimeMs: 250_000,
+        },
       ],
     };
     bundle.tableMetrics.encounterTopDamageTakenByEncounterId = {
@@ -263,7 +360,13 @@ describe('report render-model normalizer', () => {
           actorType: 'Object',
           value: 999_000_000,
         },
-        { dataType: 'DamageTaken', playerId: 2, playerName: 'Bulwark', value: 1_800_000 },
+        {
+          dataType: 'DamageTaken',
+          playerId: 2,
+          playerName: 'Bulwark',
+          value: 1_800_000,
+          activeTimeMs: 100_000,
+        },
       ],
       1002: [
         {
@@ -272,7 +375,13 @@ describe('report render-model normalizer', () => {
           actorType: 'Pet',
           value: 999_000_000,
         },
-        { dataType: 'DamageTaken', playerId: 2, playerName: 'Bulwark', value: 4_500_000 },
+        {
+          dataType: 'DamageTaken',
+          playerId: 2,
+          playerName: 'Bulwark',
+          value: 4_500_000,
+          activeTimeMs: 250_000,
+        },
       ],
     };
 

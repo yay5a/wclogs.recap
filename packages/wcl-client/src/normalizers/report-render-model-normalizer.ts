@@ -9,27 +9,39 @@ import {
 import { normalizeReportFights } from './report-fight-normalizer.js';
 import { normalizeTableMetricRows } from './table-metric-normalizer.js';
 
+export const REPORT_SUMMARY_SOURCE_MAP = {
+  reportCode: 'Report.code via report URL / ReportIndex query',
+  reportTitle: 'Report.title',
+  raidName: 'Report.zone.name',
+  dateAndDuration: 'Report.startTime and Report.endTime',
+  fights: 'Report.fights(killType: All), excluding only inProgress fights',
+  rankings:
+    'Report.rankings(fightIDs: kill fight IDs, playerMetric: dps/hps, timeframe: Today, compare: Rankings)',
+  dtpsParse:
+    'Unavailable: local ReportRankingMetricType exposes krsi survivability, not a direct DTPS parse ranking',
+  playerMetadata: 'Report.masterData(actors: Player) and Report.playerDetails(fightIDs)',
+  tables:
+    'Report.table(dataType: DamageDone/DamageTaken/Healing/Deaths/Interrupts/Dispels, fightIDs: completed fight IDs)',
+  rates:
+    'Report.table row totals divided by the selected completed boss-fight duration; table activeTimeMs/activeTime is ignored for WCL table parity',
+} as const;
+
 const mapRateRows = (
   rows: Array<{
     playerName: string;
     value: number;
-    activeTimeMs?: number;
     className?: string;
     specName?: string;
   }>,
-  totalDurationMs: number,
+  selectedDurationMs: number,
 ) =>
   [...rows]
     .flatMap((row, firstSeen) => {
-      const durationMs =
-        typeof row.activeTimeMs === 'number' && row.activeTimeMs > 0
-          ? row.activeTimeMs
-          : totalDurationMs;
-      if (durationMs <= 0) return [];
+      if (selectedDurationMs <= 0) return [];
       return [
         {
           playerName: row.playerName,
-          value: row.value / (durationMs / 1000),
+          value: row.value / (selectedDurationMs / 1000),
           firstSeen,
           ...(row.className ? { className: row.className } : {}),
           ...(row.specName ? { specName: row.specName } : {}),
@@ -96,8 +108,7 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
     bundle.masterData,
     bundle.playerDetails,
   );
-
-  const encounterDurationMs = fightSummary.encounters.reduce(
+  const selectedDurationMs = fightSummary.encounters.reduce(
     (sum, encounter) => sum + encounter.totalDurationMs,
     0,
   );
@@ -134,9 +145,9 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
       highestTotalDamage: topDamage,
       highestTotalHealing: topHealing,
       highestTotalDamageTaken: topDamageTaken,
-      highestTotalDps: mapRateRows(damageRows, encounterDurationMs),
-      highestHps: mapRateRows(healingRows, encounterDurationMs),
-      highestDamageTakenRate: mapRateRows(damageTakenRows, encounterDurationMs),
+      highestTotalDps: mapRateRows(damageRows, selectedDurationMs),
+      highestHps: mapRateRows(healingRows, selectedDurationMs),
+      highestDamageTakenRate: mapRateRows(damageTakenRows, selectedDurationMs),
       mostDeaths: topDeaths,
       mostInterrupts: topInterrupts,
       mostDispels: topDispels,
