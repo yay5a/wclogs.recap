@@ -1,6 +1,6 @@
 import { createLogger, serializeError } from '@wcl/shared';
 import type { WclGraphqlClient } from '../graphql-client.js';
-import { asNumber, asObject } from '../parsers/common.js';
+import { asNumber, asObject, parseUnknownJson } from '../parsers/common.js';
 import type { GuildOfficialRanks } from '../pipeline/types.js';
 
 const logger = createLogger('wcl-client');
@@ -15,13 +15,13 @@ query GuildZoneRanks(
   $guildName: String!
   $guildServerSlug: String!
   $guildServerRegion: String!
-  $zoneId: Int!
+  $zoneID: Int!
   $difficulty: Int!
   $size: Int!
 ) {
   guildData {
     guild(name: $guildName, serverSlug: $guildServerSlug, serverRegion: $guildServerRegion) {
-      zoneRanking(zoneId: $zoneId) {
+      zoneRankings(zoneID: $zoneID) {
         progress(size: $size) {
           worldRank { number }
           regionRank { number }
@@ -42,15 +42,40 @@ query GuildZoneRanks(
   }
 }`;
 
+const PROGRESS_RACE_QUERY = `
+query ProgressRaceFallback(
+  $guildName: String!
+  $guildServerSlug: String!
+  $guildServerRegion: String!
+  $zoneID: Int!
+  $difficulty: Int!
+  $size: Int!
+) {
+  progressRaceData {
+    progressRace(
+      guildName: $guildName
+      serverSlug: $guildServerSlug
+      serverRegion: $guildServerRegion
+      zoneID: $zoneID
+      difficulty: $difficulty
+      size: $size
+    )
+  }
+}`;
+
 type RankPositions = { world?: number; region?: number; realm?: number };
 
 const normalizeRegion = (value: string): string => value.trim().toUpperCase();
 
-const parseRankNode = (value: unknown): number | undefined =>
-  asNumber(asObject(value)?.number);
+const parseRankNode = (value: unknown): number | undefined => asNumber(asObject(value)?.number);
+
+const parseRankValue = (value: unknown): number | undefined =>
+  asNumber(value) ?? parseRankNode(value);
 
 const hasRanks = (ranks: RankPositions): boolean =>
-  typeof ranks.world === 'number' || typeof ranks.region === 'number' || typeof ranks.realm === 'number';
+  typeof ranks.world === 'number' ||
+  typeof ranks.region === 'number' ||
+  typeof ranks.realm === 'number';
 
 const parseRankPositions = (value: unknown): RankPositions => {
   const row = asObject(value);
@@ -64,17 +89,32 @@ const parseRankPositions = (value: unknown): RankPositions => {
   };
 };
 
-const parseZoneRankingPayload = (
+const parseZoneRankingsPayload = (
   payload: unknown,
 ): Pick<GuildOfficialRanks, 'progress' | 'speed' | 'completeRaidSpeed'> => {
   const data = asObject((payload as { data?: unknown })?.data);
   const guild = asObject(asObject(data?.guildData)?.guild);
-  const zoneRanking = asObject(guild?.zoneRanking);
+  const zoneRankings = asObject(guild?.zoneRankings);
 
   return {
-    progress: parseRankPositions(zoneRanking?.progress),
-    speed: parseRankPositions(zoneRanking?.speed),
-    completeRaidSpeed: parseRankPositions(zoneRanking?.completeRaidSpeed),
+    progress: parseRankPositions(zoneRankings?.progress),
+    speed: parseRankPositions(zoneRankings?.speed),
+    completeRaidSpeed: parseRankPositions(zoneRankings?.completeRaidSpeed),
+  };
+};
+
+const parseProgressRacePayload = (payload: unknown): RankPositions => {
+  const data = asObject((payload as { data?: unknown })?.data);
+  const raceData = asObject(data?.progressRaceData);
+  const race = asObject(parseUnknownJson(raceData?.progressRace, () => undefined, 'progressRace'));
+  const world = parseRankValue(race?.worldRank);
+  const region = parseRankValue(race?.regionRank);
+  const realm = parseRankValue(race?.serverRank);
+
+  return {
+    ...(typeof world === 'number' ? { world } : {}),
+    ...(typeof region === 'number' ? { region } : {}),
+    ...(typeof realm === 'number' ? { realm } : {}),
   };
 };
 
@@ -108,16 +148,20 @@ export const collectOfficialGuildZoneRankings = async (
       guildName: input.guildName,
       guildServerSlug,
       guildServerRegion,
-      zoneId: input.zoneId,
+      zoneID: input.zoneId,
       difficulty: input.difficulty,
       size: input.size,
     };
     logger.info(
-      { endpointMethod: 'GraphQL', authMode: getClientAuthMode(client), finalQueryParameters: variables },
+      {
+        endpointMethod: 'GraphQL',
+        authMode: getClientAuthMode(client),
+        finalQueryParameters: variables,
+      },
       'guildrank official zone ranking lookup',
     );
     const payload = await client.request<Record<string, unknown>>(ZONE_RANKINGS_QUERY, variables);
-    const parsed = parseZoneRankingPayload(payload);
+    const parsed = parseZoneRankingsPayload(payload);
     const hasAnyRanks =
       hasRanks(parsed.progress) || hasRanks(parsed.speed) || hasRanks(parsed.completeRaidSpeed);
     official = {
@@ -125,8 +169,8 @@ export const collectOfficialGuildZoneRankings = async (
       progress: parsed.progress,
       speed: parsed.speed,
       completeRaidSpeed: parsed.completeRaidSpeed,
-      source: hasAnyRanks ? 'zoneRanking' : official.source,
-      progressSource: hasRanks(parsed.progress) ? 'zoneRanking' : official.progressSource,
+      source: hasAnyRanks ? 'zoneRankings' : official.source,
+      progressSource: hasRanks(parsed.progress) ? 'zoneRankings' : official.progressSource,
     };
     logger.info(
       {
@@ -134,7 +178,7 @@ export const collectOfficialGuildZoneRankings = async (
         authMode: getClientAuthMode(client),
         rawResultCount: hasAnyRanks ? 1 : 0,
         parsedResultCount: Number(hasAnyRanks),
-        decision: hasAnyRanks ? 'accepted' : 'empty zone ranking',
+        decision: hasAnyRanks ? 'accepted' : 'empty zone rankings',
       },
       'guildrank official zone ranking result',
     );
@@ -150,6 +194,52 @@ export const collectOfficialGuildZoneRankings = async (
       },
       'guildrank official zone ranking lookup failed',
     );
+  }
+
+  if (!hasRanks(official.progress)) {
+    try {
+      const variables = {
+        guildName: input.guildName,
+        guildServerSlug,
+        guildServerRegion,
+        zoneID: input.zoneId,
+        difficulty: input.difficulty,
+        size: input.size,
+      };
+      const payload = await client.request<Record<string, unknown>>(PROGRESS_RACE_QUERY, variables);
+      const progress = parseProgressRacePayload(payload);
+      const hasProgressRanks = hasRanks(progress);
+      if (hasProgressRanks) {
+        official = {
+          ...official,
+          progress,
+          source: official.source === 'unavailable' ? 'progressRaceData' : official.source,
+          progressSource: 'progressRaceData',
+        };
+      }
+      logger.info(
+        {
+          endpointMethod: 'GraphQL',
+          authMode: getClientAuthMode(client),
+          rawResultCount: hasProgressRanks ? 1 : 0,
+          parsedResultCount: Number(hasProgressRanks),
+          decision: hasProgressRanks ? 'accepted' : 'empty progress race rankings',
+        },
+        'guildrank official progress race result',
+      );
+    } catch (error) {
+      logger.info(
+        {
+          endpointMethod: 'GraphQL',
+          authMode: getClientAuthMode(client),
+          error: serializeError(error),
+          rawResultCount: 0,
+          parsedResultCount: 0,
+          decision: 'request failed',
+        },
+        'guildrank official progress race lookup failed',
+      );
+    }
   }
 
   return official;

@@ -89,7 +89,7 @@ End Time: HH:MM
 
 - ## Scope:
 
-Summarize current guild progress ranks with historical derived report scores for comparison with deltas:
+Summarize current guild progress ranks with historical derived relative percentiles for comparison with deltas:
 _Progress, speed, and complete-raid speed rank positions come from WCL guild rankings when available; score rows are derived from discovered reports._
 
 - 📈 Progress
@@ -99,6 +99,7 @@ _Progress, speed, and complete-raid speed rank positions come from WCL guild ran
   - Realm:
 
 - Guild Rankings
+  - Note: Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.
   - Speed
     - All-Star Ranks:
       - World:
@@ -108,42 +109,42 @@ _Progress, speed, and complete-raid speed rank positions come from WCL guild ran
       - World:
       - Region:
       - Realm:
-    - Best Avg Score: _score_ (± _delta_)
-    - Median Avg Score: _score_ (± _delta_)
+    - Best Derived Relative Percentile: _score_ (± _delta_)
+    - Median Derived Relative Percentile: _score_ (± _delta_)
     - Best Encounter Gain
       - <Encounter Name> +_delta_
     - Per Encounter
       - <Encounter Name>
-        - Best Score: _score_ (± _delta_)
-        - Median Score: _score_ (± _delta_)
+        - Best Derived Relative Percentile: _score_ (± _delta_)
+        - Median Derived Relative Percentile: _score_ (± _delta_)
       - <Encounter Name>
-        - Best Score: _score_ (± _delta_)
-        - Median Score: _score_ (± _delta_)
+        - Best Derived Relative Percentile: _score_ (± _delta_)
+        - Median Derived Relative Percentile: _score_ (± _delta_)
       - <Encounter Name>
-        - Best Score: _score_ (± _delta_)
-        - Median Score: _score_ (± _delta_)
+        - Best Derived Relative Percentile: _score_ (± _delta_)
+        - Median Derived Relative Percentile: _score_ (± _delta_)
       - <Encounter Name>
-        - Best Score: _score_ (± _delta_)
-        - Median Score: _score_ (± _delta_)
+        - Best Derived Relative Percentile: _score_ (± _delta_)
+        - Median Derived Relative Percentile: _score_ (± _delta_)
 
   - Execution
-    - Best Avg Score: _score_ (± _delta_)
-    - Median Avg Score: _score_ (± _delta_)
+    - Best Derived Relative Percentile: _score_ (± _delta_)
+    - Median Derived Relative Percentile: _score_ (± _delta_)
     - Best Encounter Gain
       - <Encounter Name> +_delta_
     - Per Encounter
       - <Encounter Name>
-        - Best Score: _score_ (± _delta_)
-        - Median Score: _score_ (± _delta_)
+        - Best Derived Relative Percentile: _score_ (± _delta_)
+        - Median Derived Relative Percentile: _score_ (± _delta_)
       - <Encounter Name>
-        - Best Score: _score_ (± _delta_)
-        - Median Score: _score_ (± _delta_)
+        - Best Derived Relative Percentile: _score_ (± _delta_)
+        - Median Derived Relative Percentile: _score_ (± _delta_)
       - <Encounter Name>
-        - Best Score: _score_ (± _delta_)
-        - Median Score: _score_ (± _delta_)
+        - Best Derived Relative Percentile: _score_ (± _delta_)
+        - Median Derived Relative Percentile: _score_ (± _delta_)
       - <Encounter Name>
-        - Best Score: _score_ (± _delta_)
-        - Median Score: _score_ (± _delta_)
+        - Best Derived Relative Percentile: _score_ (± _delta_)
+        - Median Derived Relative Percentile: _score_ (± _delta_)
 
 - Most Improved Characters
   - Damage

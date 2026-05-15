@@ -1,15 +1,24 @@
+import { existsSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { WclGraphqlClient } from '../src/graphql-client.js';
 import { resolveWclPublicClientAuth } from '../src/auth-mode.js';
+import { parseGuildRankSchemaProbeArgs } from '../src/probes/guildrank-schema-probe-cli.js';
 
-const [guildNameRaw, serverSlugRaw, serverRegionRaw, zoneIdRaw, difficultyRaw, sizeRaw, gameFamilyRaw] =
-  process.argv.slice(2);
+for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd(), path))) {
+  if (existsSync(envPath)) {
+    process.loadEnvFile?.(envPath);
+    break;
+  }
+}
 
-if (!guildNameRaw || !serverSlugRaw || !serverRegionRaw || !zoneIdRaw || !difficultyRaw || !sizeRaw) {
-  console.error(
-    'Usage: pnpm --filter @wcl/wcl-client probe:guildrank-schema <guildName> <serverSlug> <serverRegion> <zoneId> <difficulty> <size> [gameFamily]',
-  );
+const parsedArgs = parseGuildRankSchemaProbeArgs(process.argv.slice(2));
+if (!parsedArgs.ok) {
+  console.error(parsedArgs.message);
   process.exit(1);
 }
+
+const { guildNameRaw, serverSlugRaw, serverRegionRaw, zoneId, difficulty, size, gameFamily } =
+  parsedArgs.value;
 
 const normalizeServerSlug = (value: string): string =>
   value
@@ -28,21 +37,6 @@ const toGameFamilyApiBaseUrl = (baseUrl: string, gameFamily?: 'retail' | 'mop_cl
   }
   return url.toString();
 };
-
-const zoneId = Number.parseInt(zoneIdRaw, 10);
-const difficulty = Number.parseInt(difficultyRaw, 10);
-const size = Number.parseInt(sizeRaw, 10);
-const gameFamily = gameFamilyRaw === 'retail' || gameFamilyRaw === 'mop_classic' ? gameFamilyRaw : undefined;
-
-if (!Number.isFinite(zoneId) || !Number.isFinite(difficulty) || !Number.isFinite(size)) {
-  console.error('zoneId, difficulty and size must be numbers');
-  process.exit(1);
-}
-
-if (gameFamilyRaw && !gameFamily) {
-  console.error('gameFamily must be retail or mop_classic when provided');
-  process.exit(1);
-}
 
 const guildName = guildNameRaw.trim();
 const serverSlug = normalizeServerSlug(serverSlugRaw);
@@ -68,13 +62,27 @@ const client = new WclGraphqlClient({
   apiBaseUrl,
 });
 
+console.error(
+  [
+    'guildrank schema probe',
+    `endpoint=${apiBaseUrl}`,
+    `guild=${guildName}`,
+    `server=${serverSlug}`,
+    `region=${serverRegion}`,
+    `zone=${zoneId}`,
+    `difficulty=${difficulty}`,
+    `size=${size}`,
+    `gameFamily=${gameFamily ?? 'retail'}`,
+  ].join(' '),
+);
+
 // Diagnostic only: intentionally requests percentile to confirm guild ranks return null.
 const query = /* GraphQL */ `
   query ProbeGuildRankSchema(
     $guildName: String!
     $serverSlug: String!
     $serverRegion: String!
-    $zoneId: Int!
+    $zoneID: Int!
     $difficulty: Int!
     $size: Int!
   ) {
@@ -82,7 +90,7 @@ const query = /* GraphQL */ `
       guild(name: $guildName, serverSlug: $serverSlug, serverRegion: $serverRegion) {
         id
         name
-        zoneRanking(zoneId: $zoneId) {
+        zoneRankings(zoneID: $zoneID) {
           progress(size: $size) {
             worldRank {
               number
@@ -144,7 +152,7 @@ const response = await client.request<Record<string, unknown>>(query, {
   guildName,
   serverSlug,
   serverRegion,
-  zoneId,
+  zoneID: zoneId,
   difficulty,
   size,
 });
