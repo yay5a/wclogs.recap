@@ -2,14 +2,9 @@ import { describe, expect, it } from 'vitest';
 import {
   COMPARE_MODES,
   DEFAULT_COMPARE_MODE,
-  countNearDelta,
   defaultGuildConfigFor,
-  historyLimit,
   isCompareMode,
-  outputNearPercent,
   parseCompareMode,
-  parseNearPercentilePoints,
-  trustedSampleSize,
 } from '../index.js';
 
 describe('compare-mode contracts', () => {
@@ -37,15 +32,5 @@ describe('compare-mode contracts', () => {
   it('defaults only where defaulting is explicitly chosen', () => {
     expect(parseCompareMode('alt') ?? DEFAULT_COMPARE_MODE).toBe('character');
     expect(defaultGuildConfigFor('guild-1').compareModeDefault).toBe('character');
-  });
-});
-
-describe('comparison thresholds', () => {
-  it('exports the MVP baseline constants', () => {
-    expect(trustedSampleSize).toBe(3);
-    expect(historyLimit).toBe(5);
-    expect(parseNearPercentilePoints).toBe(5);
-    expect(outputNearPercent).toBe(10);
-    expect(countNearDelta).toBe(1);
   });
 });

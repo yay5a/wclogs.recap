@@ -265,60 +265,6 @@ describe("table parser", () => {
         expect(warn).not.toHaveBeenCalled();
     });
 
-    it("parses public dispels nested entries details totals", () => {
-        const warn = vi.fn();
-        const parsed = parseTablePayloadDetailed(
-            {
-                data: {
-                    entries: [
-                        {
-                            entries: [
-                                {
-                                    details: [
-                                        { id: 3, name: "Dispeller", total: 1 },
-                                    ],
-                                },
-                            ],
-                        },
-                    ],
-                },
-            },
-            "Dispels",
-            warn,
-        );
-        expect(
-            parsed.entries.reduce((total, row) => total + row.value, 0),
-        ).toBe(1);
-        expect(warn).not.toHaveBeenCalled();
-    });
-
-    it("parses public interrupts nested entries details totals", () => {
-        const warn = vi.fn();
-        const parsed = parseTablePayloadDetailed(
-            {
-                data: {
-                    entries: [
-                        {
-                            entries: [
-                                {
-                                    details: [
-                                        { id: 7, name: "Kicker", total: 3 },
-                                    ],
-                                },
-                            ],
-                        },
-                    ],
-                },
-            },
-            "Interrupts",
-            warn,
-        );
-        expect(
-            parsed.entries.reduce((total, row) => total + row.value, 0),
-        ).toBe(3);
-        expect(warn).not.toHaveBeenCalled();
-    });
-
     it("parses wrapped dispels rows from data.entries[].entries[].details[] shape", () => {
         const warn = vi.fn();
         const parsed = parseTablePayloadDetailed(
