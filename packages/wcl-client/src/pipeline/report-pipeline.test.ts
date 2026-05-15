@@ -102,7 +102,7 @@ describe('collectReportSummaryData report index cache', () => {
     collectReportIndex.mockReset();
     collectMasterData.mockReset().mockResolvedValue({ actors: [] });
     collectPlayerDetails.mockReset().mockResolvedValue([]);
-    collectReportRankings.mockReset().mockResolvedValue({ dps: [], hps: [], tankDps: [] });
+    collectReportRankings.mockReset().mockResolvedValue({ dps: [], hps: [] });
     collectTableMetrics.mockReset().mockResolvedValue({
       topDamageDone: [],
       topHealingDone: [],
@@ -250,7 +250,7 @@ describe('collectReportSummaryData report index cache', () => {
     );
   });
 
-  it('uses the dominant difficulty and size for mixed-mode report summaries', async () => {
+  it('keeps mixed difficulty and size report summaries unscoped for Discord parity', async () => {
     const heroicKill = {
       id: 11,
       encounterId: 100,
@@ -296,23 +296,23 @@ describe('collectReportSummaryData report index cache', () => {
 
     expect(collectPlayerDetails).toHaveBeenCalledWith({} as never, {
       reportCode: 'ABC123',
-      completedFightIds: [11, 12],
+      completedFightIds: [11, 12, 13],
     });
     expect(collectReportRankings).toHaveBeenCalledWith({} as never, {
       reportCode: 'ABC123',
-      killFightIds: [11],
+      killFightIds: [11, 13],
     });
     expect(collectTableMetrics).toHaveBeenCalledWith({} as never, {
       reportCode: 'ABC123',
-      completedFightIds: [11, 12],
-      completedBossFights: [heroicKill, heroicWipe],
+      completedFightIds: [11, 12, 13],
+      completedBossFights: [heroicKill, heroicWipe, normalKill],
     });
     const renderBundle = normalizeReportRenderModel.mock.calls[0]?.[0] as
       | { index: ReportIndexData }
       | undefined;
-    expect(renderBundle?.index.completedBossFights).toEqual([heroicKill, heroicWipe]);
-    expect(renderBundle?.index.killBossFights).toEqual([heroicKill]);
-    expect(renderBundle?.index.allBossFights).toEqual([heroicKill, heroicWipe]);
+    expect(renderBundle?.index.completedBossFights).toEqual([heroicKill, heroicWipe, normalKill]);
+    expect(renderBundle?.index.killBossFights).toEqual([heroicKill, normalKill]);
+    expect(renderBundle?.index.allBossFights).toEqual([heroicKill, heroicWipe, normalKill]);
   });
 
   it('uses a short expiration for in-progress report indexes', () => {

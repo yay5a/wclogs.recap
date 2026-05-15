@@ -35,7 +35,6 @@ export interface ReportIndexData {
 
 export interface ReportParseRow extends ReportMetricRow {
   metric: 'DPS' | 'HPS' | 'DTPS';
-  sourceMetric?: 'dps-tank';
   bossName?: string;
   fightId?: number;
 }
