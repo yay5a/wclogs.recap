@@ -12,8 +12,7 @@
         "test": "vitest run --passWithNoTests",
         "probe:report": "tsx scripts/probe-report.ts",
         "probe:guildrank": "tsx scripts/probe-guildrank.ts",
-        "probe:v1-guild-rankings": "tsx scripts/probe-v1-guild-rankings.ts",
-        "probe:public-graphql": "tsx scripts/probe-public-graphql.ts"
+        "probe:v1-guild-rankings": "tsx scripts/probe-v1-guild-rankings.ts"
     },
     "dependencies": {
         "@wcl/domain": "workspace:*",

@@ -17,7 +17,6 @@ Currently working:
 - `/report` flow for Warcraft Logs URLs.
 - Report sections for metadata, summary stats, encounter highlights, top players, and source details.
 - Report-wide leaderboard for damage, healing, and damage taken parses, plus total deaths, dispels, and interrupts.
-- Private `/compare` MVP for exact-character history when stored comparison snapshots and authorization are available.
 
 Known beta limitations:
 
@@ -25,10 +24,7 @@ Known beta limitations:
 - Worker processing is intentionally simple and serial.
 - The Discord renderer is optimized for concise leaderboards, not granular analysis.
 - Error handling is rudimentary at best, requires more debugging than necessary.
-- `/config compare_mode` is only the guild default comparison policy for commands without an explicit mode. It is not the primary comparison feature.
-- `/compare` is private by default and requires exact-character identity plus authorization. Regular raiders cannot freely compare every character in the server.
-- Mixed comparisons still require explicit player-character mapping and are not available yet. Alts are not guessed automatically.
-- Public compare posting is disabled by default and requires explicit server and target safeguards when enabled.
+- Compare configuration, character-claim, officer, and privacy settings remain in place, but no `/compare` command is currently registered.
 
 ## Deployment Notes
 
@@ -49,14 +45,12 @@ Please focus on the current user-facing Discord flow:
 3. Review the private report summary response.
 4. Report bugs, confusing output, or missing context.
 
-Comparison testing is limited to the private-first MVP:
+Compare-adjacent administration testing is limited to the current config, claim, officer, and privacy commands:
 
 - Guild administrators can add explicit officer users with `/add_officer user:<user>`, remove them with `/remove_officer user:<user>`, and review them privately with `/list_officers`.
 - `/claim_character` requests officer-approved ownership for an exact character identity.
 - `/approve_character` and `/reject_character` are limited to Discord administrators, Manage Server users, and configured officer users.
-- `/compare report:<url> character:<name> mode:character` returns a private comparison only when the requester is authorized.
-- `/compare ... visibility:public` is explicit and must pass public-post safeguards; it is not the default.
-- `/compare ... mode:mixed` currently explains that explicit mapping is required and does not infer alts.
+- `/compare_privacy character:<name> realm:<realm> region:<region> peer_compare:<private|allow_guild> public_post:<deny|allow>` updates privacy for an approved owner claim.
 
 After deploying command changes, re-register Discord commands:
 

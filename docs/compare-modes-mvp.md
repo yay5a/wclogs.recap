@@ -1,5 +1,7 @@
 # Compare Modes MVP Blueprint
 
+Status: historical blueprint. The `/compare` command path and comparison snapshot storage were removed, so this document is not current implementation guidance.
+
 ## Product Intent
 
 `/config compare_mode` is a guild-level fallback default. It should answer:
