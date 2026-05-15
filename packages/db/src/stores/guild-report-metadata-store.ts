@@ -87,10 +87,13 @@ export interface GuildReportMetadataStore {
 const normalizeServerSlug = (value: string): string =>
     value.trim().toLowerCase().replace(/\s+/g, "-");
 
+const normalizeGuildName = (value: string): string =>
+    value.trim().toLowerCase();
+
 const normalizeRegion = (value: string): string => value.trim().toLowerCase();
 
 const normalizeScope = (scope: GuildReportMetadataScope): GuildReportMetadataScope => ({
-    guildName: scope.guildName.trim(),
+    guildName: normalizeGuildName(scope.guildName),
     guildServerSlug: normalizeServerSlug(scope.guildServerSlug),
     guildServerRegion: normalizeRegion(scope.guildServerRegion),
     gameFamily: scope.gameFamily,

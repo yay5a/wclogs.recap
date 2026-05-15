@@ -18,9 +18,9 @@ for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd()
 }
 
 const [
-  guildNameRaw,
-  serverSlugRaw,
-  serverRegionRaw,
+  guildNameArg,
+  serverSlugArg,
+  serverRegionArg,
   fourthArg,
   fifthArg,
   sixthArg,
@@ -32,11 +32,11 @@ const fail = (message: string): never => {
   process.exit(1);
 };
 
-if (!guildNameRaw || !serverSlugRaw || !serverRegionRaw) {
-  fail(usage);
-}
-
 const isIntegerString = (value: string | undefined): value is string => /^-?\d+$/.test(value ?? '');
+
+const requireCliArg = (value: string | undefined): string => {
+  return value || fail(usage);
+};
 
 const toInteger = (value: string, name: string): number => {
   const parsed = Number(value);
@@ -91,11 +91,10 @@ const promptForWindow = async (): Promise<{ startTimeMs: number; endTimeMs: numb
 
   try {
     const answer = (await rl.question('Report window [1]: ')).trim() || '1';
-    const selected = choices.find((choice) => choice.key === answer);
-    if (!selected) {
-      fail('Report window must be 1 or 2');
-    }
-    return selected;
+    return (
+      choices.find((choice) => choice.key === answer) ??
+      fail('Report window must be 1 or 2')
+    );
   } finally {
     rl.close();
   }
@@ -106,6 +105,9 @@ if (isIntegerString(fourthArg) && !fifthArg) {
   fail('startTimeMs requires endTimeMs');
 }
 
+const guildNameRaw = requireCliArg(guildNameArg);
+const serverSlugRaw = requireCliArg(serverSlugArg);
+const serverRegionRaw = requireCliArg(serverRegionArg);
 const gameFamilyRaw = hasExplicitRange ? sixthArg : fourthArg;
 const windowSizeMsRaw = hasExplicitRange ? seventhArg : fifthArg;
 const gameFamily =
@@ -113,11 +115,7 @@ const gameFamily =
     ? gameFamilyRaw
     : fail('gameFamily must be retail or mop_classic when provided');
 const windowSizeMs = windowSizeMsRaw ? toInteger(windowSizeMsRaw, 'windowSizeMs') : undefined;
-const v1ClientKey = process.env.WCL_V1_CLIENT_KEY;
-
-if (!v1ClientKey) {
-  fail('Missing WCL_V1_CLIENT_KEY');
-}
+const v1ClientKey = process.env.WCL_V1_CLIENT_KEY ?? fail('Missing WCL_V1_CLIENT_KEY');
 
 const window = hasExplicitRange
   ? {

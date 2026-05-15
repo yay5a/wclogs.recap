@@ -217,7 +217,7 @@ describe('MongoGuildReportMetadataStore', () => {
         {
           updateOne: {
             filter: {
-              guildName: 'Shenanigans',
+              guildName: 'shenanigans',
               guildServerSlug: 'galakras',
               guildServerRegion: 'us',
               gameFamily: 'mop_classic',
@@ -225,7 +225,7 @@ describe('MongoGuildReportMetadataStore', () => {
             },
             update: {
               $set: {
-                guildName: 'Shenanigans',
+                guildName: 'shenanigans',
                 guildServerSlug: 'galakras',
                 guildServerRegion: 'us',
                 gameFamily: 'mop_classic',
@@ -275,7 +275,7 @@ describe('MongoGuildReportMetadataStore', () => {
   it('reads and updates the metadata cursor by guild scope', async () => {
     vi.spyOn(GuildReportMetadataCursorModel, 'findOne').mockReturnValue({
       lean: vi.fn().mockResolvedValue({
-        guildName: 'Shenanigans',
+        guildName: 'shenanigans',
         guildServerSlug: 'galakras',
         guildServerRegion: 'us',
         gameFamily: 'mop_classic',
@@ -285,7 +285,7 @@ describe('MongoGuildReportMetadataStore', () => {
     } as never);
     const saveCursor = vi.spyOn(GuildReportMetadataCursorModel, 'findOneAndUpdate').mockReturnValue({
       lean: vi.fn().mockResolvedValue({
-        guildName: 'Shenanigans',
+        guildName: 'shenanigans',
         guildServerSlug: 'galakras',
         guildServerRegion: 'us',
         gameFamily: 'mop_classic',
@@ -297,7 +297,7 @@ describe('MongoGuildReportMetadataStore', () => {
     const store = new MongoGuildReportMetadataStore();
 
     await expect(store.getCursor(scope)).resolves.toEqual({
-      guildName: 'Shenanigans',
+      guildName: 'shenanigans',
       guildServerSlug: 'galakras',
       guildServerRegion: 'us',
       gameFamily: 'mop_classic',
@@ -313,14 +313,14 @@ describe('MongoGuildReportMetadataStore', () => {
     ).resolves.toMatchObject({ lastSeenStartTime: 400 });
     expect(saveCursor).toHaveBeenCalledWith(
       {
-        guildName: 'Shenanigans',
+        guildName: 'shenanigans',
         guildServerSlug: 'galakras',
         guildServerRegion: 'us',
         gameFamily: 'mop_classic',
       },
       {
         $set: {
-          guildName: 'Shenanigans',
+          guildName: 'shenanigans',
           guildServerSlug: 'galakras',
           guildServerRegion: 'us',
           gameFamily: 'mop_classic',
@@ -333,10 +333,12 @@ describe('MongoGuildReportMetadataStore', () => {
   });
 
   it('summarizes indexed metadata without report detail reads', async () => {
-    vi.spyOn(GuildReportMetadataModel, 'countDocuments').mockResolvedValue(3 as never);
+    const countDocuments = vi
+      .spyOn(GuildReportMetadataModel, 'countDocuments')
+      .mockResolvedValue(3 as never);
     const lean = vi.fn().mockResolvedValue([
       {
-        guildName: 'Shenanigans',
+        guildName: 'shenanigans',
         guildServerSlug: 'galakras',
         guildServerRegion: 'us',
         gameFamily: 'mop_classic',
@@ -349,7 +351,7 @@ describe('MongoGuildReportMetadataStore', () => {
         indexedAt: new Date('2026-05-15T12:00:00.000Z'),
       },
       {
-        guildName: 'Shenanigans',
+        guildName: 'shenanigans',
         guildServerSlug: 'galakras',
         guildServerRegion: 'us',
         gameFamily: 'mop_classic',
@@ -360,7 +362,7 @@ describe('MongoGuildReportMetadataStore', () => {
         indexedAt: new Date('2026-05-15T12:00:00.000Z'),
       },
       {
-        guildName: 'Shenanigans',
+        guildName: 'shenanigans',
         guildServerSlug: 'galakras',
         guildServerRegion: 'us',
         gameFamily: 'mop_classic',
@@ -445,7 +447,14 @@ describe('MongoGuildReportMetadataStore', () => {
       ],
     });
     expect(find).toHaveBeenCalledWith({
-      guildName: 'Shenanigans',
+      guildName: 'shenanigans',
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      gameFamily: 'mop_classic',
+      startTime: { $gte: 0, $lte: 999 },
+    });
+    expect(countDocuments).toHaveBeenCalledWith({
+      guildName: 'shenanigans',
       guildServerSlug: 'galakras',
       guildServerRegion: 'us',
       gameFamily: 'mop_classic',
@@ -453,6 +462,51 @@ describe('MongoGuildReportMetadataStore', () => {
     });
     expect(sort).toHaveBeenCalledWith({ startTime: -1 });
     expect(limit).toHaveBeenCalledWith(500);
+  });
+
+  it('treats guild report metadata scope guildName as case-insensitive', async () => {
+    const filter = {
+      guildName: 'shenanigans',
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      gameFamily: 'mop_classic',
+      startTime: { $gte: 1777047408973, $lte: 1778861808973 },
+    };
+    const countDocuments = vi.spyOn(GuildReportMetadataModel, 'countDocuments').mockResolvedValue(1 as never);
+    const lean = vi.fn().mockResolvedValue([
+      {
+        ...filter,
+        reportCode: 'abc123',
+        title: 'ToT 10M heroic',
+        zoneId: 1046,
+        startTime: 1778716776327,
+        endTime: 1778727994105,
+        indexedAt: new Date('2026-05-15T12:00:00.000Z'),
+      },
+    ]);
+    const find = vi.spyOn(GuildReportMetadataModel, 'find').mockReturnValue({
+      sort: vi.fn().mockReturnValue({
+        limit: vi.fn().mockReturnValue({ lean }),
+      }),
+    } as never);
+
+    const store = new MongoGuildReportMetadataStore();
+    const summary = await store.summarizeReports({
+      scope: {
+        guildName: 'Shenanigans',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
+        gameFamily: 'mop_classic',
+      },
+      startTimeMs: 1777047408973,
+      endTimeMs: 1778861808973,
+      limit: 500,
+    });
+
+    expect(summary.reportsIndexed).toBe(1);
+    expect(summary.raidNights[0]?.canonicalReport.reportCode).toBe('abc123');
+    expect(countDocuments).toHaveBeenCalledWith(filter);
+    expect(find).toHaveBeenCalledWith(filter);
   });
 });
 
