@@ -61,6 +61,8 @@ export interface ReportEncounterSummaryRow {
   kills: number;
   wipes: number;
   totalDurationMs: number;
+  longestPullMs?: number;
+  shortestPullMs?: number;
   shortestKillDurationMs?: number;
   deaths: number;
   highestTotalDps?: ReportMetricRow;

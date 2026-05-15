@@ -71,10 +71,7 @@ const formatRankedRows = (
   formatter: (value: number) => string,
 ): string | undefined => {
   const lines = rows.slice(0, 3).map((row, index) => {
-    const classSpec = [row.specName, row.className].filter(present).join(' ');
-    return `${index + 1}. ${row.playerName} ↦ ${formatter(row.value)}${
-      classSpec ? ` (${classSpec})` : ''
-    }`;
+    return `${index + 1}. ${row.playerName} ⇨ ${formatter(row.value)}`;
   });
   return lines.length > 0 ? lines.join('\n') : undefined;
 };
@@ -85,13 +82,16 @@ const formatRankedRowsOrUnavailable = (
 ): string => formatRankedRows(rows, formatter) ?? 'unavailable';
 
 const formatParseRow = (row?: ReportParseRow): string | undefined =>
-  row ? `${row.playerName} ↦ ${decimalFormatter.format(row.value)}` : undefined;
+  row ? `${row.playerName} ⇨ ${decimalFormatter.format(row.value)}` : undefined;
 
 const formatEncounterRateLine = (label: string, row: ReportMetricRow | undefined): string =>
-  row ? `${label}: ${row.playerName} ↦ ${formatRate(row.value)}` : unavailable(label);
+  row ? `${label}: ${row.playerName} ⇨ ${formatRate(row.value)}` : unavailable(label);
 
 const formatEncounterParseLine = (label: string, row: ReportParseRow | undefined): string =>
   `${label}: ${formatParseRow(row) ?? 'unavailable'}`;
+
+const joinEncounterLines = (heading: string, lines: string[]): string =>
+  [heading, lines.join('\n\n')].join('\n');
 
 const formatEncounter = (
   encounter: ReportEncounterSummary | undefined,
@@ -108,8 +108,7 @@ const formatEncounter = (
   const longestPull = formatPullDuration(encounter.longestPullMs);
   const shortestPull = formatPullDuration(encounter.shortestPullMs);
   const highestParses = options.highestParses ?? {};
-  return [
-    heading,
+  return joinEncounterLines(heading, [
     `Pulls: ${encounter.pulls}`,
     `Kill/Wipes: ${encounter.kills}/${encounter.wipes}`,
     typeof encounter.deaths === 'number'
@@ -132,7 +131,7 @@ const formatEncounter = (
     formatEncounterRateLine('Highest Total DPS ⚔️', encounter.highestTotalDps),
     formatEncounterRateLine('Highest Total HPS 🍃', encounter.highestHps),
     formatEncounterRateLine('Highest Total DTPS 🛡️', encounter.highestDamageTakenRate),
-  ].join('\n');
+  ]);
 };
 
 const pushField = (

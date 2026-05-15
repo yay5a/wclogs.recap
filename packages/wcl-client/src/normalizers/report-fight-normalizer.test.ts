@@ -100,9 +100,96 @@ describe('report fight normalizer', () => {
       kills: 2,
       wipes: 1,
       totalDurationMs: 300,
+      longestPullMs: 100,
+      shortestPullMs: 100,
       shortestKillDurationMs: 100,
       deaths: 6,
       highestTotalDps: { playerName: 'First', value: 100 },
+    });
+  });
+
+  it('computes shortest and longest pull from valid durations only', () => {
+    const index: ReportIndexData = {
+      reportCode: 'ABC123',
+      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+      gameFamily: 'retail',
+      title: 'Raid',
+      zoneName: 'Throne',
+      startTime: 0,
+      endTime: 1,
+      completedBossFights: [
+        { id: 1, encounterId: 1001, name: 'Boss A', startTime: 0, endTime: 0, kill: false },
+        { id: 2, encounterId: 1001, name: 'Boss A', startTime: 100, endTime: 50, kill: false },
+        {
+          id: 3,
+          encounterId: 1001,
+          name: 'Boss A',
+          startTime: 100,
+          endTime: null as unknown as number,
+          kill: false,
+        },
+        {
+          id: 4,
+          encounterId: 1001,
+          name: 'Boss A',
+          startTime: 100,
+          endTime: undefined as unknown as number,
+          kill: false,
+        },
+        {
+          id: 5,
+          encounterId: 1001,
+          name: 'Boss A',
+          startTime: 100,
+          endTime: Number.NaN,
+          kill: false,
+        },
+        {
+          id: 6,
+          encounterId: 1001,
+          name: 'Boss A',
+          startTime: 1_000,
+          endTime: 61_000,
+          kill: false,
+        },
+        {
+          id: 7,
+          encounterId: 1001,
+          name: 'Boss A',
+          startTime: 200_000,
+          endTime: 350_000,
+          kill: true,
+        },
+      ],
+      killBossFights: [],
+      allBossFights: [],
+      zoneDifficulties: [],
+    };
+    const tableMetrics: ReportTableMetrics = {
+      topDamageDone: [],
+      topHealingDone: [],
+      topDamageTaken: [],
+      topDeaths: [],
+      topInterrupts: [],
+      topDispels: [],
+      totals: {},
+      deathsByFightId: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1 },
+      encounterTopDamageDoneByEncounterId: {},
+      encounterTopHealingDoneByEncounterId: {},
+      encounterTopDamageTakenByEncounterId: {},
+    };
+
+    const result = normalizeReportFights(index, tableMetrics);
+
+    expect(result.encounters[0]).toMatchObject({
+      pulls: 7,
+      kills: 1,
+      wipes: 6,
+      totalDurationMs: 210_000,
+      shortestPullMs: 60_000,
+      longestPullMs: 150_000,
+      shortestKillDurationMs: 150_000,
+      deaths: 7,
     });
   });
 });

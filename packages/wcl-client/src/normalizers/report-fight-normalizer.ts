@@ -1,7 +1,25 @@
-import type { ReportEncounterSummaryRow, ReportIndexData, ReportTableMetrics } from '../pipeline/types.js';
+import type {
+  ReportEncounterSummaryRow,
+  ReportIndexData,
+  ReportTableMetrics,
+} from '../pipeline/types.js';
 import type { ReportMetricRow } from '@wcl/domain';
+import type { ParsedPlayerDetail } from '../parsers/report-details.js';
+import type { ParsedTableEntry } from '../parsers/table.js';
+import type { ReportMasterData } from '../pipeline/types.js';
+import { normalizeTableMetricRows } from './table-metric-normalizer.js';
 
 const compareString = (left: string, right: string): number => left.localeCompare(right);
+
+type PlayerMetricContext = {
+  masterData: ReportMasterData;
+  playerDetails: ParsedPlayerDetail[];
+};
+
+const EMPTY_PLAYER_CONTEXT: PlayerMetricContext = {
+  masterData: { actors: [] },
+  playerDetails: [],
+};
 
 const pickMostCommonNumber = (values: number[]): number | undefined => {
   if (values.length === 0) return undefined;
@@ -24,26 +42,44 @@ const pickMostCommonNumber = (values: number[]): number | undefined => {
 };
 
 const toHighestRateRow = (
-  rows: Array<{ playerName?: string; value: number; activeTimeMs?: number }>,
+  rows: ParsedTableEntry[],
   fallbackDurationMs: number,
+  context: PlayerMetricContext = EMPTY_PLAYER_CONTEXT,
 ): ReportMetricRow | undefined => {
   let highest: ReportMetricRow | undefined;
-  for (const row of rows) {
-    if (!row.playerName || typeof row.value !== 'number') continue;
+  const metricRows = normalizeTableMetricRows(
+    rows,
+    context.masterData,
+    context.playerDetails,
+    rows.length,
+  );
+
+  for (const row of metricRows) {
     const durationMs =
       typeof row.activeTimeMs === 'number' && row.activeTimeMs > 0
         ? row.activeTimeMs
         : fallbackDurationMs;
     if (durationMs <= 0) continue;
-    const candidate = { playerName: row.playerName, value: row.value / (durationMs / 1000) };
+    const candidate = {
+      playerName: row.playerName,
+      value: row.value / (durationMs / 1000),
+      ...(row.className ? { className: row.className } : {}),
+      ...(row.specName ? { specName: row.specName } : {}),
+    };
     if (!highest || candidate.value > highest.value) highest = candidate;
   }
   return highest;
 };
 
+const validPullDurationMs = (fight: { startTime: number; endTime: number }): number | undefined => {
+  const durationMs = fight.endTime - fight.startTime;
+  return Number.isFinite(durationMs) && durationMs > 0 ? durationMs : undefined;
+};
+
 export const normalizeReportFights = (
   index: ReportIndexData,
   tableMetrics: ReportTableMetrics,
+  playerContext: PlayerMetricContext = EMPTY_PLAYER_CONTEXT,
 ): {
   encounters: ReportEncounterSummaryRow[];
   inferredDifficultyName?: string;
@@ -69,17 +105,27 @@ export const normalizeReportFights = (
       const pulls = fights.length;
       let kills = 0;
       let totalDurationMs = 0;
+      let shortestPullMs: number | undefined;
+      let longestPullMs: number | undefined;
       let shortestKillDurationMs: number | undefined;
       let deaths = 0;
       let representative = fights[0];
       for (const fight of fights) {
-        const durationMs = Math.max(0, fight.endTime - fight.startTime);
-        totalDurationMs += durationMs;
+        const durationMs = validPullDurationMs(fight);
+        if (typeof durationMs === 'number') {
+          totalDurationMs += durationMs;
+          if (typeof shortestPullMs !== 'number' || durationMs < shortestPullMs) {
+            shortestPullMs = durationMs;
+          }
+          if (typeof longestPullMs !== 'number' || durationMs > longestPullMs) {
+            longestPullMs = durationMs;
+          }
+        }
         if (fight.kill) {
           kills += 1;
           if (
-            typeof shortestKillDurationMs !== 'number' ||
-            durationMs < shortestKillDurationMs
+            typeof durationMs === 'number' &&
+            (typeof shortestKillDurationMs !== 'number' || durationMs < shortestKillDurationMs)
           ) {
             shortestKillDurationMs = durationMs;
           }
@@ -93,24 +139,31 @@ export const normalizeReportFights = (
       const highestTotalDps = toHighestRateRow(
         tableMetrics.encounterTopDamageDoneByEncounterId[encounterId] ?? [],
         totalDurationMs,
+        playerContext,
       );
       const highestHps = toHighestRateRow(
         tableMetrics.encounterTopHealingDoneByEncounterId[encounterId] ?? [],
         totalDurationMs,
+        playerContext,
       );
       const highestDamageTakenRate = toHighestRateRow(
         tableMetrics.encounterTopDamageTakenByEncounterId[encounterId] ?? [],
         totalDurationMs,
+        playerContext,
       );
 
       return {
         encounterId,
         bossName: representative?.name ?? `Encounter ${encounterId}`,
-        ...(representative?.difficulty ? { difficultyName: difficultyById.get(representative.difficulty) } : {}),
+        ...(representative?.difficulty
+          ? { difficultyName: difficultyById.get(representative.difficulty) }
+          : {}),
         pulls,
         kills,
         wipes,
         totalDurationMs,
+        ...(typeof shortestPullMs === 'number' ? { shortestPullMs } : {}),
+        ...(typeof longestPullMs === 'number' ? { longestPullMs } : {}),
         ...(typeof shortestKillDurationMs === 'number' ? { shortestKillDurationMs } : {}),
         deaths,
         ...(highestTotalDps ? { highestTotalDps } : {}),
@@ -124,15 +177,17 @@ export const normalizeReportFights = (
     });
 
   const inferredDifficultyId = pickMostCommonNumber(
-    index.completedBossFights.flatMap((fight) => (typeof fight.difficulty === 'number' ? [fight.difficulty] : [])),
+    index.completedBossFights.flatMap((fight) =>
+      typeof fight.difficulty === 'number' ? [fight.difficulty] : [],
+    ),
   );
   const inferredSize = pickMostCommonNumber(
-    index.completedBossFights.flatMap((fight) => (typeof fight.size === 'number' ? [fight.size] : [])),
+    index.completedBossFights.flatMap((fight) =>
+      typeof fight.size === 'number' ? [fight.size] : [],
+    ),
   );
   const inferredDifficultyName =
-    typeof inferredDifficultyId === 'number'
-      ? difficultyById.get(inferredDifficultyId)
-      : undefined;
+    typeof inferredDifficultyId === 'number' ? difficultyById.get(inferredDifficultyId) : undefined;
 
   return {
     encounters,

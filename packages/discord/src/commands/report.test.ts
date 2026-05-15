@@ -14,6 +14,10 @@ vi.mock('../infrastructure/discord-api.js', () => ({
   safeEditOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
 }));
 
+const ENCOUNTER_HIGHLIGHTS_LABEL = 'Encounter Highlights 🗿';
+const TOP_PLAYERS_LABEL = 'Top Players 🏋️‍♂️';
+const BIGGEST_TROUBLE_FIELD = 'Biggest Trouble 🙎‍♂️';
+
 const summaryFixture = (): ReportSummary => ({
   reportCode: 'ABC123',
   reportTitle: 'Raid Night',
@@ -125,22 +129,24 @@ describe('/report command render path', () => {
     const fieldNames = fields.map((field) => field.name);
     const flattenedValues = fields.map((field) => field.value).join('\n');
     const hasTopPlayersSection = fields.some(
-      (field) => field.name === '🏋️‍♂️ Top Players' || field.value === '🏋️‍♂️ Top Players',
+      (field) =>
+        field.name?.trim() === TOP_PLAYERS_LABEL ||
+        field.value?.trim() === TOP_PLAYERS_LABEL,
     );
 
-    expect(flattenedValues).toContain('🗿 Encounter Highlights');
+    expect(flattenedValues).toContain(ENCOUNTER_HIGHLIGHTS_LABEL);
     expect(hasTopPlayersSection).toBe(true);
     expect(fieldNames).toContain('Best Execution ⚔️');
-    expect(fieldNames).toContain('Biggest Trouble 👨‍🦼');
+    expect(fieldNames).toContain(BIGGEST_TROUBLE_FIELD);
     expect(fieldNames).not.toContain('Highest Total Healing');
     expect(fieldNames).not.toContain('Highest Damage Taken');
     expect(fieldNames).not.toContain('Highest DPS');
     expectNoReportDebugOutput(artifact.responseBody as Record<string, unknown>);
-    expect(flattenedValues).toContain('Highest Total DPS: Alyra - 40K/s');
-    expect(flattenedValues).toContain('Highest Total HPS: Alyra - 12K/s');
-    expect(flattenedValues).toContain('Highest Total DTPS: Bulwark - 18K/s');
-    expect(flattenedValues).not.toContain('Highest Total HPS: unavailable');
-    expect(flattenedValues).not.toContain('Highest Total DTPS: unavailable');
+    expect(flattenedValues).toContain('Highest Total DPS ⚔️: Alyra ⇨ 40K/s');
+    expect(flattenedValues).toContain('Highest Total HPS 🍃: Alyra ⇨ 12K/s');
+    expect(flattenedValues).toContain('Highest Total DTPS 🛡️: Bulwark ⇨ 18K/s');
+    expect(flattenedValues).not.toContain('Highest Total HPS 🍃: unavailable');
+    expect(flattenedValues).not.toContain('Highest Total DTPS 🛡️: unavailable');
   });
 
   it('edits slash-command success with the public report body', async () => {
@@ -165,11 +171,11 @@ describe('/report command render path', () => {
     expect(body).not.toHaveProperty('flags');
 
     const { fieldNames, text } = flattenReportBody(body);
-    expect(text).toContain('🗿 Encounter Highlights');
-    expect(text).toContain('🏋️‍♂️ Top Players');
+    expect(text).toContain(ENCOUNTER_HIGHLIGHTS_LABEL);
+    expect(text).toContain(TOP_PLAYERS_LABEL);
     expectNoReportDebugOutput(body);
     expect(fieldNames).toContain('Best Execution ⚔️');
-    expect(fieldNames).toContain('Biggest Trouble 👨‍🦼');
+    expect(fieldNames).toContain(BIGGEST_TROUBLE_FIELD);
     expect(fieldNames).not.toContain('Highest Total Healing');
     expect(fieldNames).not.toContain('Highest Damage Taken');
     expect(fieldNames).not.toContain('Highest DPS');

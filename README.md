@@ -5,7 +5,7 @@
 
 Beta Warcraft Logs report-summary service for Discord.
 
-`wclogs.report` fetches Warcraft Logs reports, normalizes the GraphQL payloads into typed raid report models, and renders concise Discord-ready summaries. The current beta focuses on `/report` for Warcraft Logs Classic raid reports, with Mongo-backed caching and automatic report posting.
+`wclogs.recap` fetches Warcraft Logs reports, normalizes the GraphQL payloads into typed raid report models, and renders concise Discord-ready summaries. The current beta focuses on `/report` for Warcraft Logs Classic raid reports, with Mongo-backed caching and automatic report posting.
 
 ## Beta Status
 

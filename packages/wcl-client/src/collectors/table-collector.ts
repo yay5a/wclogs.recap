@@ -38,10 +38,8 @@ const sumRows = (rows: ParsedTableEntry[] | undefined): number | undefined => {
   return rows.reduce((sum, row) => sum + (row.value ?? 0), 0);
 };
 
-const filterTopRows = (rows: ParsedTableEntry[] | undefined): ParsedTableEntry[] =>
-  [...(rows ?? [])]
-    .filter((row) => typeof row.value === 'number' && row.playerName)
-    .sort((left, right) => (right.value ?? 0) - (left.value ?? 0));
+const filterMetricRows = (rows: ParsedTableEntry[] | undefined): ParsedTableEntry[] =>
+  (rows ?? []).filter((row) => typeof row.value === 'number' && row.playerName);
 
 const groupFightIdsByEncounter = (
   fights: ReportIndexFightRow[],
@@ -190,9 +188,9 @@ export const collectTableMetrics = async (
         return [
           encounterId,
           {
-            topDamageDone: filterTopRows(encounterDamageDone.entries),
-            topHealingDone: filterTopRows(encounterHealing.entries),
-            topDamageTaken: filterTopRows(encounterDamageTaken.entries),
+            topDamageDone: filterMetricRows(encounterDamageDone.entries),
+            topHealingDone: filterMetricRows(encounterHealing.entries),
+            topDamageTaken: filterMetricRows(encounterDamageTaken.entries),
           },
         ] as const;
       },
@@ -215,12 +213,12 @@ export const collectTableMetrics = async (
   const dispelsTotal = sumRows(dispels.entries);
 
   return {
-    topDamageDone: filterTopRows(damageDone.entries),
-    topHealingDone: filterTopRows(healing.entries),
-    topDamageTaken: filterTopRows(damageTaken.entries),
-    topDeaths: filterTopRows(deaths.entries),
-    topInterrupts: filterTopRows(interrupts.entries),
-    topDispels: filterTopRows(dispels.entries),
+    topDamageDone: filterMetricRows(damageDone.entries),
+    topHealingDone: filterMetricRows(healing.entries),
+    topDamageTaken: filterMetricRows(damageTaken.entries),
+    topDeaths: filterMetricRows(deaths.entries),
+    topInterrupts: filterMetricRows(interrupts.entries),
+    topDispels: filterMetricRows(dispels.entries),
     totals: {
       ...(typeof deathsTotal === 'number' ? { deaths: deathsTotal } : {}),
       ...(typeof damageTakenTotal === 'number' ? { raidDamageTaken: damageTakenTotal } : {}),

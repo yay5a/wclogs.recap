@@ -17,6 +17,10 @@ vi.mock('../infrastructure/discord-api.js', () => ({
   safeEditOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
 }));
 
+const ENCOUNTER_HIGHLIGHTS_LABEL = 'Encounter Highlights 🗿';
+const TOP_PLAYERS_LABEL = 'Top Players 🏋️‍♂️';
+const BIGGEST_TROUBLE_FIELD = 'Biggest Trouble 🙎‍♂️';
+
 const summaryFixture = (): ReportSummary => ({
   reportCode: 'ABC123',
   reportTitle: 'Raid Night',
@@ -95,10 +99,10 @@ const assertArchitectureReportBody = (
   const flattened = fields.map((field) => `${field.name ?? ''}\n${field.value ?? ''}`).join('\n');
   const serialized = JSON.stringify(body);
 
-  expect(flattened).toContain('🗿 Encounter Highlights');
-  expect(flattened).toContain('🏋️‍♂️ Top Players');
+  expect(flattened).toContain(ENCOUNTER_HIGHLIGHTS_LABEL);
+  expect(flattened).toContain(TOP_PLAYERS_LABEL);
   expect(fieldNames).toContain('Best Execution ⚔️');
-  expect(fieldNames).toContain('Biggest Trouble 👨‍🦼');
+  expect(fieldNames).toContain(BIGGEST_TROUBLE_FIELD);
   expect(fieldNames).not.toContain('Highest Total Healing');
   expect(fieldNames).not.toContain('Highest Damage Taken');
   expect(fieldNames).not.toContain('Highest DPS');

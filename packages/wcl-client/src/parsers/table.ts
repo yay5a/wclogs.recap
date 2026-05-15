@@ -14,6 +14,7 @@ export interface ParsedTableEntry {
     dataType: TableDataType;
     playerId?: number;
     playerName?: string;
+    actorType?: string;
     activeTimeMs?: number;
     value: number;
 }
@@ -61,9 +62,11 @@ const parseNestedDetailsRows = (
         const value = findValue(detailRow, VALUE_KEY_BY_TYPE[dataType]);
         if (typeof value !== "number") return [];
 
+        const actor = asObject(detailRow.actor);
         const playerName =
             asString(detailRow.name) ??
-            asString(asObject(detailRow.actor)?.name);
+            asString(actor?.name);
+        const actorType = asString(actor?.type);
         const playerId =
             asNumber(detailRow.id) ??
             asNumber(detailRow.playerID) ??
@@ -76,6 +79,7 @@ const parseNestedDetailsRows = (
                 value,
                 ...(typeof playerId === "number" ? { playerId } : {}),
                 ...(playerName ? { playerName } : {}),
+                ...(actorType ? { actorType } : {}),
             },
         ];
     });
@@ -118,8 +122,10 @@ const isDeathsEventRow = (entry: Record<string, unknown>): boolean => {
 const parseDeathsEventRow = (
     entry: Record<string, unknown>,
 ): ParsedTableEntry[] => {
+    const actor = asObject(entry.actor);
     const playerName =
-        asString(entry.name) ?? asString(asObject(entry.actor)?.name);
+        asString(entry.name) ?? asString(actor?.name);
+    const actorType = asString(actor?.type);
     const playerId =
         asNumber(entry.id) ??
         asNumber(entry.playerID) ??
@@ -132,6 +138,7 @@ const parseDeathsEventRow = (
             value: 1,
             ...(typeof playerId === "number" ? { playerId } : {}),
             ...(playerName ? { playerName } : {}),
+            ...(actorType ? { actorType } : {}),
         },
     ];
 };
@@ -251,13 +258,15 @@ export const parseTablePayloadDetailed = (
             return [];
         }
 
+        const actor = asObject(entry.actor);
         const playerId =
             asNumber(entry.id) ??
             asNumber(entry.playerID) ??
             asNumber(entry.playerId) ??
             asNumber(entry.guid);
         const playerName =
-            asString(entry.name) ?? asString(asObject(entry.actor)?.name);
+            asString(entry.name) ?? asString(actor?.name);
+        const actorType = asString(actor?.type);
         const activeTimeMs = asNumber(entry.activeTimeMs) ?? asNumber(entry.activeTime);
 
         const parsedEntry: ParsedTableEntry = {
@@ -265,6 +274,7 @@ export const parseTablePayloadDetailed = (
             value,
             ...(typeof playerId === "number" ? { playerId } : {}),
             ...(playerName ? { playerName } : {}),
+            ...(actorType ? { actorType } : {}),
             ...(typeof activeTimeMs === "number" && activeTimeMs > 0
                 ? { activeTimeMs }
                 : {}),

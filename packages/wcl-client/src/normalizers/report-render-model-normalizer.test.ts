@@ -141,6 +141,179 @@ describe('report render-model normalizer', () => {
     expect(summary.biggestTroubleEncounter?.bossName).toBe('Council');
     expect(summary.biggestTroubleEncounter?.wipes).toBe(2);
     expect(summary.biggestTroubleEncounter?.deaths).toBe(5);
+    expect(summary.biggestTroubleEncounter?.longestPullMs).toBe(150_000);
+    expect(summary.biggestTroubleEncounter?.shortestPullMs).toBe(130_000);
+    expect(summary.biggestTroubleEncounter?.highestTotalDps?.playerName).toBe('Bulwark');
+    expect(summary.biggestTroubleEncounter?.highestHps?.playerName).toBe('Alyra');
+    expect(summary.biggestTroubleEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
+  });
+
+  it('aggregates player leaderboards and filters non-player actors before ranking', () => {
+    const bundle = baseBundle();
+    bundle.masterData.actors = [
+      ...bundle.masterData.actors,
+      { id: 11, name: 'Deesilverone', className: 'Paladin' },
+      { id: 12, name: 'Karnivore', className: 'Hunter' },
+      { id: 13, name: 'Banson', className: 'Priest' },
+      { id: 14, name: 'Kickbot', className: 'Shaman' },
+    ];
+    bundle.playerDetails = [
+      {
+        name: 'Deesilverone',
+        warcraftLogsActorId: 11,
+        className: 'Paladin',
+        specName: 'Holy',
+      },
+    ];
+    bundle.tableMetrics.topDamageDone = [
+      {
+        dataType: 'DamageDone',
+        playerName: 'Stormlash Totem',
+        actorType: 'Pet',
+        value: 999_000_000,
+      },
+      { dataType: 'DamageDone', playerId: 1, playerName: 'Alyra', value: 10_000_000 },
+      { dataType: 'DamageDone', playerId: 1, playerName: 'Alyra', value: 1_000_000 },
+    ];
+    bundle.tableMetrics.topHealingDone = [
+      { dataType: 'Healing', playerName: 'Skull Banner', actorType: 'Object', value: 999_000_000 },
+      { dataType: 'Healing', playerId: 1, playerName: 'Alyra', value: 5_000_000 },
+    ];
+    bundle.tableMetrics.topDamageTaken = [
+      {
+        dataType: 'DamageTaken',
+        playerName: 'Skull Banner',
+        actorType: 'Object',
+        value: 999_000_000,
+      },
+      { dataType: 'DamageTaken', playerId: 2, playerName: 'Bulwark', value: 3_000_000 },
+    ];
+    bundle.tableMetrics.topDeaths = [
+      { dataType: 'Deaths', playerId: 11, playerName: 'Deesilverone', value: 1 },
+      { dataType: 'Deaths', playerId: 12, playerName: 'Karnivore', value: 1 },
+      { dataType: 'Deaths', playerId: 11, playerName: 'Deesilverone', value: 1 },
+      { dataType: 'Deaths', playerName: 'Deesilverone', value: 1 },
+    ];
+    bundle.tableMetrics.topDispels = [
+      { dataType: 'Dispels', playerId: 13, playerName: 'Banson', value: 16 },
+      { dataType: 'Dispels', playerId: 13, playerName: 'Banson', value: 8 },
+      { dataType: 'Dispels', playerId: 13, playerName: 'Banson', value: 7 },
+    ];
+    bundle.tableMetrics.topInterrupts = [
+      { dataType: 'Interrupts', playerId: 14, playerName: 'Kickbot', value: 2 },
+      { dataType: 'Interrupts', playerId: 14, playerName: 'Kickbot', value: 3 },
+      { dataType: 'Interrupts', playerId: 1, playerName: 'Alyra', value: 4 },
+    ];
+    bundle.tableMetrics.totals = { deaths: 136, interrupts: 9, dispels: 31 };
+    bundle.tableMetrics.encounterTopDamageDoneByEncounterId = {
+      1001: [
+        {
+          dataType: 'DamageDone',
+          playerName: 'Stormlash Totem',
+          actorType: 'Pet',
+          value: 999_000_000,
+        },
+        { dataType: 'DamageDone', playerId: 1, playerName: 'Alyra', value: 4_000_000 },
+      ],
+      1002: [
+        {
+          dataType: 'DamageDone',
+          playerName: 'Skull Banner',
+          actorType: 'Object',
+          value: 999_000_000,
+        },
+        { dataType: 'DamageDone', playerId: 2, playerName: 'Bulwark', value: 7_500_000 },
+      ],
+    };
+    bundle.tableMetrics.encounterTopHealingDoneByEncounterId = {
+      1001: [
+        {
+          dataType: 'Healing',
+          playerName: 'Skull Banner',
+          actorType: 'Object',
+          value: 999_000_000,
+        },
+        { dataType: 'Healing', playerId: 1, playerName: 'Alyra', value: 1_200_000 },
+      ],
+      1002: [
+        {
+          dataType: 'Healing',
+          playerName: 'Stormlash Totem',
+          actorType: 'Guardian',
+          value: 999_000_000,
+        },
+        { dataType: 'Healing', playerId: 1, playerName: 'Alyra', value: 2_100_000 },
+      ],
+    };
+    bundle.tableMetrics.encounterTopDamageTakenByEncounterId = {
+      1001: [
+        {
+          dataType: 'DamageTaken',
+          playerName: 'Skull Banner',
+          actorType: 'Object',
+          value: 999_000_000,
+        },
+        { dataType: 'DamageTaken', playerId: 2, playerName: 'Bulwark', value: 1_800_000 },
+      ],
+      1002: [
+        {
+          dataType: 'DamageTaken',
+          playerName: 'Stormlash Totem',
+          actorType: 'Pet',
+          value: 999_000_000,
+        },
+        { dataType: 'DamageTaken', playerId: 2, playerName: 'Bulwark', value: 4_500_000 },
+      ],
+    };
+
+    const summary = normalizeReportRenderModel(bundle);
+
+    expect(summary.totalDeaths).toBe(136);
+    expect(summary.bossPulls).toBe(4);
+    expect(summary.totalKills).toBe(1);
+    expect(summary.totalWipes).toBe(3);
+    expect(summary.topPlayers.mostDeaths).toEqual([
+      {
+        playerName: 'Deesilverone',
+        value: 3,
+        className: 'Paladin',
+        specName: 'Holy',
+      },
+      { playerName: 'Karnivore', value: 1, className: 'Hunter' },
+    ]);
+    expect(summary.topPlayers.mostDispels).toEqual([
+      { playerName: 'Banson', value: 31, className: 'Priest' },
+    ]);
+    expect(summary.topPlayers.mostInterrupts).toEqual([
+      { playerName: 'Kickbot', value: 5, className: 'Shaman' },
+      { playerName: 'Alyra', value: 4, className: 'Priest' },
+    ]);
+    expect(new Set(summary.topPlayers.mostDeaths.map((row) => row.playerName)).size).toBe(
+      summary.topPlayers.mostDeaths.length,
+    );
+    expect(new Set(summary.topPlayers.mostDispels.map((row) => row.playerName)).size).toBe(
+      summary.topPlayers.mostDispels.length,
+    );
+    expect(new Set(summary.topPlayers.mostInterrupts.map((row) => row.playerName)).size).toBe(
+      summary.topPlayers.mostInterrupts.length,
+    );
+    expect(summary.topPlayers.highestTotalDamage.map((row) => row.playerName)).not.toContain(
+      'Stormlash Totem',
+    );
+    expect(summary.topPlayers.highestTotalHealing.map((row) => row.playerName)).not.toContain(
+      'Skull Banner',
+    );
+    expect(summary.topPlayers.highestTotalDamageTaken.map((row) => row.playerName)).not.toContain(
+      'Skull Banner',
+    );
+    expect(summary.topPlayers.highestTotalDps.map((row) => row.playerName)).toEqual(['Alyra']);
+    expect(summary.topPlayers.highestHps.map((row) => row.playerName)).toEqual(['Alyra']);
+    expect(summary.topPlayers.highestDamageTakenRate.map((row) => row.playerName)).toEqual([
+      'Bulwark',
+    ]);
+    expect(summary.bestExecutionEncounter?.highestTotalDps?.playerName).toBe('Alyra');
+    expect(summary.bestExecutionEncounter?.highestHps?.playerName).toBe('Alyra');
+    expect(summary.bestExecutionEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.highestTotalDps?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.highestHps?.playerName).toBe('Alyra');
     expect(summary.biggestTroubleEncounter?.highestDamageTakenRate?.playerName).toBe('Bulwark');
