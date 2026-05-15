@@ -53,8 +53,7 @@ const wclUserAuthStore = new MongoWclUserAuthStore({
 const reportIndexCacheStore = new MongoReportIndexCacheStore();
 
 const wclClient = new WclClient({
-    clientId: env.WCL_CLIENT_ID,
-    clientSecret: env.WCL_CLIENT_SECRET,
+    publicClientAuth: env.wclPublicClientAuth,
     apiBaseUrl: env.WCL_API_BASE_URL,
     ...(env.WCL_USER_API_BASE_URL ? { userApiBaseUrl: env.WCL_USER_API_BASE_URL } : {}),
     ...(env.WCL_V1_CLIENT_KEY ? { v1ClientKey: env.WCL_V1_CLIENT_KEY } : {}),

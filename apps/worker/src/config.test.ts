@@ -19,18 +19,19 @@ describe("parseWorkerEnv", () => {
         expect(() => parseWorkerEnv(env)).toThrow(/DISCORD_BOT_TOKEN/);
     });
 
-    it("fails clearly when required Warcraft Logs settings are missing", () => {
+    it("fails clearly when WCL public client auth is missing", () => {
         const env: Partial<typeof validEnv> = { ...validEnv };
         delete env.WCL_CLIENT_ID;
+        delete env.WCL_CLIENT_SECRET;
 
-        expect(() => parseWorkerEnv(env)).toThrow(/WCL_CLIENT_ID/);
+        expect(() => parseWorkerEnv(env)).toThrow(/WCL public client auth/);
     });
 
-    it("fails clearly when WCL_CLIENT_SECRET is missing", () => {
+    it("fails clearly when WCL client credentials are partial", () => {
         const env: Partial<typeof validEnv> = { ...validEnv };
         delete env.WCL_CLIENT_SECRET;
 
-        expect(() => parseWorkerEnv(env)).toThrow(/WCL_CLIENT_SECRET/);
+        expect(() => parseWorkerEnv(env)).toThrow(/WCL_CLIENT_ID and WCL_CLIENT_SECRET/);
     });
 
     it("fails clearly when WCL_TOKEN_ENCRYPTION_KEY is missing or malformed", () => {
@@ -49,9 +50,26 @@ describe("parseWorkerEnv", () => {
     it("parses required Discord and Warcraft Logs settings", () => {
         expect(parseWorkerEnv(validEnv)).toMatchObject({
             DISCORD_BOT_TOKEN: "discord-token",
-            WCL_CLIENT_ID: "wcl-client-id",
-            WCL_CLIENT_SECRET: "wcl-client-secret",
+            wclPublicClientAuth: {
+                kind: "clientCredentials",
+                clientId: "wcl-client-id",
+                clientSecret: "wcl-client-secret",
+            },
             WCL_TOKEN_ENCRYPTION_KEY: validEnv.WCL_TOKEN_ENCRYPTION_KEY,
+        });
+    });
+
+    it("uses WCL_OAUTH_CLIENT_TOKEN when neither client credential is present", () => {
+        const env: Record<string, string | undefined> = {
+            ...validEnv,
+            WCL_OAUTH_CLIENT_TOKEN: "client-token",
+        };
+        delete env.WCL_CLIENT_ID;
+        delete env.WCL_CLIENT_SECRET;
+
+        expect(parseWorkerEnv(env).wclPublicClientAuth).toEqual({
+            kind: "clientToken",
+            clientToken: "client-token",
         });
     });
 

@@ -1,5 +1,6 @@
 import { isValidWclTokenEncryptionKey } from "@wcl/db";
 import { trimmed, z } from "@wcl/shared";
+import { resolveWclPublicClientAuth } from "@wcl/wcl-client";
 
 export const DISCORD_OAUTH_CALLBACK_PATH = "/api/dashboard/discord/callback";
 export const WCL_OAUTH_CALLBACK_PATH = "/api/auth/wcl/callback";
@@ -83,8 +84,9 @@ const webEnvSchema = z.object({
     PUBLIC_APP_BASE_URL: publicAppBaseUrl.optional(),
     DISCORD_OAUTH_REDIRECT_URI: httpUrl("DISCORD_OAUTH_REDIRECT_URI").optional(),
     DISCORD_INTERACTIONS_URL: httpUrl("DISCORD_INTERACTIONS_URL").optional(),
-    WCL_CLIENT_ID: trimmed(),
-    WCL_CLIENT_SECRET: trimmed(),
+    WCL_CLIENT_ID: trimmed().optional(),
+    WCL_CLIENT_SECRET: trimmed().optional(),
+    WCL_OAUTH_CLIENT_TOKEN: trimmed().optional(),
     WCL_TOKEN_ENCRYPTION_KEY: wclTokenEncryptionKey,
     WCL_API_BASE_URL: trimmed()
         .url()
@@ -148,7 +150,32 @@ const webEnvSchema = z.object({
         });
     }
 
-    if (!env.WCL_REDIRECT_URI && !env.PUBLIC_APP_BASE_URL) {
+    if (
+        (env.WCL_CLIENT_ID && !env.WCL_CLIENT_SECRET) ||
+        (!env.WCL_CLIENT_ID && env.WCL_CLIENT_SECRET)
+    ) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["WCL_CLIENT_ID"],
+            message: "WCL_CLIENT_ID and WCL_CLIENT_SECRET must be set together",
+        });
+    }
+
+    if (!env.WCL_CLIENT_ID && !env.WCL_CLIENT_SECRET && !env.WCL_OAUTH_CLIENT_TOKEN) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["WCL_CLIENT_ID"],
+            message:
+                "WCL public client auth requires WCL_CLIENT_ID and WCL_CLIENT_SECRET or WCL_OAUTH_CLIENT_TOKEN",
+        });
+    }
+
+    if (
+        env.WCL_CLIENT_ID &&
+        env.WCL_CLIENT_SECRET &&
+        !env.WCL_REDIRECT_URI &&
+        !env.PUBLIC_APP_BASE_URL
+    ) {
         context.addIssue({
             code: z.ZodIssueCode.custom,
             path: ["WCL_REDIRECT_URI"],
@@ -187,9 +214,14 @@ const webEnvSchema = z.object({
     return {
         ...env,
         DISCORD_APPLICATION_ID: resolvedDiscordApplicationId as string,
+        wclPublicClientAuth: resolveWclPublicClientAuth({
+            clientId: env.WCL_CLIENT_ID,
+            clientSecret: env.WCL_CLIENT_SECRET,
+            clientToken: env.WCL_OAUTH_CLIENT_TOKEN,
+        }),
         publicAppBaseUrl,
         discordOAuthRedirectUri,
-        wclRedirectUri: wclRedirectUri as string,
+        wclRedirectUri,
         discordInteractionsUrl,
         dashboardPublicUrl,
     };

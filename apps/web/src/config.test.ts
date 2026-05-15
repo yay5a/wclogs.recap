@@ -174,6 +174,65 @@ describe("parseWebEnv WCL token encryption config", () => {
     });
 });
 
+describe("parseWebEnv WCL public client auth", () => {
+    it("uses client credentials when both credentials and a client token are present", () => {
+        const env = parseWebEnv({
+            ...baseEnv,
+            NODE_ENV: "test",
+            WCL_OAUTH_CLIENT_TOKEN: "client-token",
+        });
+
+        expect(env.wclPublicClientAuth).toEqual({
+            kind: "clientCredentials",
+            clientId: "wcl-client-id",
+            clientSecret: "wcl-client-secret",
+        });
+    });
+
+    it("uses WCL_OAUTH_CLIENT_TOKEN when neither client credential is present", () => {
+        const envWithoutCredentials: Record<string, string | undefined> = {
+            ...baseEnv,
+            NODE_ENV: "test",
+            WCL_OAUTH_CLIENT_TOKEN: "client-token",
+        };
+        delete envWithoutCredentials.WCL_CLIENT_ID;
+        delete envWithoutCredentials.WCL_CLIENT_SECRET;
+
+        const env = parseWebEnv(envWithoutCredentials);
+
+        expect(env.wclPublicClientAuth).toEqual({
+            kind: "clientToken",
+            clientToken: "client-token",
+        });
+    });
+
+    it("rejects partial WCL client credentials", () => {
+        const missingSecret: Record<string, string | undefined> = {
+            ...baseEnv,
+            NODE_ENV: "test",
+            WCL_OAUTH_CLIENT_TOKEN: "client-token",
+        };
+        delete missingSecret.WCL_CLIENT_SECRET;
+
+        expect(() => parseWebEnv(missingSecret)).toThrow(
+            /WCL_CLIENT_ID and WCL_CLIENT_SECRET must be set together/,
+        );
+    });
+
+    it("requires credentials or a client token for public WCL client auth", () => {
+        const missingPublicAuth: Record<string, string | undefined> = {
+            ...baseEnv,
+            NODE_ENV: "test",
+        };
+        delete missingPublicAuth.WCL_CLIENT_ID;
+        delete missingPublicAuth.WCL_CLIENT_SECRET;
+
+        expect(() => parseWebEnv(missingPublicAuth)).toThrow(
+            /WCL public client auth requires WCL_CLIENT_ID and WCL_CLIENT_SECRET or WCL_OAUTH_CLIENT_TOKEN/,
+        );
+    });
+});
+
 describe("parseWebEnv WCL v1 config", () => {
     it("accepts an optional server-side WCL v1 client key", () => {
         const env = parseWebEnv({

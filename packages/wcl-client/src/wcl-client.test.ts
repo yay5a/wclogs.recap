@@ -60,8 +60,11 @@ describe('WclClient report summary', () => {
 
   it('passes the normalized source URL and classic game family to the report pipeline', async () => {
     const client = new WclClient({
-      clientId: 'client-id',
-      clientSecret: 'client-secret',
+      publicClientAuth: {
+        kind: 'clientCredentials',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
       apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
     });
 
@@ -91,11 +94,14 @@ describe('WclClient guildrank auth order', () => {
       summary(client.getAuthModeKind()),
     );
     const client = new WclClient({
-      clientId: 'client-id',
-      clientSecret: 'client-secret',
+      publicClientAuth: {
+        kind: 'clientCredentials',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
       apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
       wclUserAuthStore: {
-        getByDiscordUserId: vi.fn().mockResolvedValue({ accessToken: 'linked-token' }),
+        getByDiscordUserId: vi.fn().mockResolvedValue({ userAccessToken: 'linked-token' }),
       },
     });
 
@@ -114,11 +120,14 @@ describe('WclClient guildrank auth order', () => {
         summary(client.getAuthModeKind()),
       );
     const client = new WclClient({
-      clientId: 'client-id',
-      clientSecret: 'client-secret',
+      publicClientAuth: {
+        kind: 'clientCredentials',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
       apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
       wclUserAuthStore: {
-        getByDiscordUserId: vi.fn().mockResolvedValue({ accessToken: 'linked-token' }),
+        getByDiscordUserId: vi.fn().mockResolvedValue({ userAccessToken: 'linked-token' }),
       },
     });
 
@@ -143,8 +152,11 @@ describe('WclClient guild report index', () => {
     });
     const fetchImpl = vi.fn();
     const client = new WclClient({
-      clientId: 'client-id',
-      clientSecret: 'client-secret',
+      publicClientAuth: {
+        kind: 'clientCredentials',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
       apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
       v1ClientKey: 'server-side-v1-key',
       fetchImpl,
@@ -171,8 +183,11 @@ describe('WclClient guild report index', () => {
 
   it('fails clearly when the v1 key is not configured', async () => {
     const client = new WclClient({
-      clientId: 'client-id',
-      clientSecret: 'client-secret',
+      publicClientAuth: {
+        kind: 'clientCredentials',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
       apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
     });
 
@@ -233,8 +248,11 @@ describe('WclClient guild report index', () => {
       },
     );
     const client = new WclClient({
-      clientId: 'client-id',
-      clientSecret: 'client-secret',
+      publicClientAuth: {
+        kind: 'clientCredentials',
+        clientId: 'client-id',
+        clientSecret: 'client-secret',
+      },
       apiBaseUrl: 'https://www.warcraftlogs.com/api/v2/client',
       v1ClientKey: 'server-side-v1-key',
       guildReportMetadataStore: metadataReader,

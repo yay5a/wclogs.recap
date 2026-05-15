@@ -1,7 +1,12 @@
 import type { GameFamily, GuildRankSummary, ReportSummary } from '@wcl/domain';
 import { WclGraphqlClient } from './graphql-client.js';
 import { parseReportUrl } from './report-code.js';
-import { publicClientAuthMode, userLinkedAuthMode, type WclAuthMode } from './auth-mode.js';
+import {
+  publicClientAuthMode,
+  userLinkedAuthMode,
+  type WclAuthMode,
+  type WclPublicClientAuth,
+} from './auth-mode.js';
 import {
   shouldRetryWithUserLinkedAuth,
   toWclReportFetchError,
@@ -21,7 +26,7 @@ import type { ReportIndexCacheStore } from './report-index-cache.js';
 
 export interface WclLinkedUserAuthRecord {
   discordUserId: string;
-  accessToken?: string;
+  userAccessToken?: string;
   expiresAt?: Date | string;
 }
 
@@ -30,8 +35,7 @@ export interface WclLinkedUserAuthStore {
 }
 
 export interface WclClientOptions {
-  clientId: string;
-  clientSecret: string;
+  publicClientAuth: WclPublicClientAuth;
   apiBaseUrl: string;
   userApiBaseUrl?: string;
   v1ClientKey?: string;
@@ -220,7 +224,7 @@ export class WclClient {
         cause: linkedAuthError,
       });
     }
-    if (!linkedAuth?.accessToken) {
+    if (!linkedAuth?.userAccessToken) {
       throw new WclReportFetchError({
         category: 'missing_linked_auth',
         reportCode: referenceCode,
@@ -236,14 +240,13 @@ export class WclClient {
       });
     }
 
-    return userLinkedAuthMode(options.discordUserId, linkedAuth.accessToken);
+    return userLinkedAuthMode(options.discordUserId, linkedAuth.userAccessToken);
   }
 
   private createGraphqlClient(authMode: WclAuthMode, gameFamily?: GameFamily): WclGraphqlClient {
     const apiBaseUrl = toGameFamilyApiBaseUrl(this.options.apiBaseUrl, gameFamily);
     return new WclGraphqlClient({
-      clientId: this.options.clientId,
-      clientSecret: this.options.clientSecret,
+      publicClientAuth: this.options.publicClientAuth,
       apiBaseUrl,
       ...(this.options.userApiBaseUrl
         ? { userApiBaseUrl: toGameFamilyApiBaseUrl(this.options.userApiBaseUrl, gameFamily) }

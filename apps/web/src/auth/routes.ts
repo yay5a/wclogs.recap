@@ -19,8 +19,8 @@ export type WclUserAuthStore = {
     getByDiscordUserId(discordUserId: string): Promise<{
         discordUserId: string;
         provider?: string;
-        accessToken?: string;
-        refreshToken?: string;
+        userAccessToken?: string;
+        userRefreshToken?: string;
         tokenType?: string;
         scope?: string;
         expiresAt?: Date;
@@ -119,6 +119,17 @@ const serializeWclAuthStatus = (status: WclUserAuthStatus | null) => ({
     reauthorizationRequired: status?.expiresAt ? status.expiresAt <= new Date() : false,
 });
 
+const getWclAuthorizationCodeClient = (
+    env: WebEnv,
+): { clientId: string; clientSecret: string; redirectUri: string } | null =>
+    env.WCL_CLIENT_ID && env.WCL_CLIENT_SECRET && env.wclRedirectUri
+        ? {
+              clientId: env.WCL_CLIENT_ID,
+              clientSecret: env.WCL_CLIENT_SECRET,
+              redirectUri: env.wclRedirectUri,
+          }
+        : null;
+
 export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = async (
     app,
     options,
@@ -149,6 +160,15 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
         const auth = getDiscordAuth(request, reply, env);
         if (!auth) return reply;
 
+        const wclOAuthClient = getWclAuthorizationCodeClient(env);
+        if (!wclOAuthClient) {
+            return sendWclAuthError(
+                reply,
+                503,
+                "Warcraft Logs user authorization is not configured.",
+            );
+        }
+
         const state = crypto.randomBytes(32).toString("base64url");
         storeWclOAuthState(state, auth.discordUserId);
 
@@ -162,8 +182,8 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
         });
 
         const authorizeUrl = new URL("https://www.warcraftlogs.com/oauth/authorize");
-        authorizeUrl.searchParams.set("client_id", env.WCL_CLIENT_ID);
-        authorizeUrl.searchParams.set("redirect_uri", env.wclRedirectUri);
+        authorizeUrl.searchParams.set("client_id", wclOAuthClient.clientId);
+        authorizeUrl.searchParams.set("redirect_uri", wclOAuthClient.redirectUri);
         authorizeUrl.searchParams.set("response_type", "code");
         authorizeUrl.searchParams.set("state", state);
 
@@ -171,9 +191,6 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
     });
 
     app.get("/api/auth/wcl/callback", async (request, reply) => {
-        const auth = getDiscordAuth(request, reply, env);
-        if (!auth) return reply;
-
         const query = request.query as {
             code?: string;
             state?: string;
@@ -204,18 +221,27 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
         }
 
         const stateRecord = consumeWclOAuthState(state);
-        if (!stateRecord || stateRecord.discordUserId !== auth.discordUserId) {
+        if (!stateRecord) {
             return sendWclAuthError(reply, 400, "Invalid OAuth state.");
         }
 
+        const wclOAuthClient = getWclAuthorizationCodeClient(env);
+        if (!wclOAuthClient) {
+            return sendWclAuthError(
+                reply,
+                503,
+                "Warcraft Logs user authorization is not configured.",
+            );
+        }
+
         const tokenResult = await exchangeWclAuthorizationCode({
-            clientId: env.WCL_CLIENT_ID,
-            clientSecret: env.WCL_CLIENT_SECRET,
+            clientId: wclOAuthClient.clientId,
+            clientSecret: wclOAuthClient.clientSecret,
             code: query.code,
-            redirectUri: env.wclRedirectUri,
+            redirectUri: wclOAuthClient.redirectUri,
         });
 
-        if (!tokenResult.payload.accessToken || tokenResult.status < 200 || tokenResult.status >= 300) {
+        if (!tokenResult.payload.userAccessToken || tokenResult.status < 200 || tokenResult.status >= 300) {
             logger.error(
                 {
                     provider: "warcraftlogs",
@@ -237,12 +263,12 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
         const expiresAt = getWclTokenExpiresAt(tokenResult.payload, updatedAt);
         try {
             await wclUserAuthStore.upsertForDiscordUser({
-                discordUserId: auth.discordUserId,
+                discordUserId: stateRecord.discordUserId,
                 provider: "warcraftlogs",
-                accessToken: tokenResult.payload.accessToken,
+                userAccessToken: tokenResult.payload.userAccessToken,
                 updatedAt,
-                ...(tokenResult.payload.refreshToken
-                    ? { refreshToken: tokenResult.payload.refreshToken }
+                ...(tokenResult.payload.userRefreshToken
+                    ? { userRefreshToken: tokenResult.payload.userRefreshToken }
                     : {}),
                 ...(tokenResult.payload.tokenType
                     ? { tokenType: tokenResult.payload.tokenType }
@@ -258,7 +284,7 @@ export const registerWclAuthRoutes: FastifyPluginAsync<WclAuthRouteOptions> = as
                     provider: "warcraftlogs",
                     flow: "authorization_code",
                     failureCategory: "token_persistence_failed",
-                    discordUserId: auth.discordUserId,
+                    discordUserId: stateRecord.discordUserId,
                 },
                 "WCL token persistence failed",
             );

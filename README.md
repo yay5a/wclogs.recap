@@ -198,8 +198,8 @@ Required for `apps/web`:
 | `DISCORD_PUBLIC_KEY`       | 64-character Discord public key used to verify interactions.          |
 | `DISCORD_APPLICATION_ID`   | Discord application ID.                                               |
 | `DISCORD_BOT_TOKEN`        | Discord bot token used for command registration and response edits.   |
-| `WCL_CLIENT_ID`            | Warcraft Logs v2 OAuth client ID.                                     |
-| `WCL_CLIENT_SECRET`        | Warcraft Logs v2 OAuth client secret.                                 |
+| `WCL_CLIENT_ID`            | Warcraft Logs v2 OAuth client ID. Required with `WCL_CLIENT_SECRET` for client credentials and user OAuth linking. |
+| `WCL_CLIENT_SECRET`        | Warcraft Logs v2 OAuth client secret. Required with `WCL_CLIENT_ID` for client credentials and user OAuth linking. |
 | `WCL_TOKEN_ENCRYPTION_KEY` | Base64-encoded 32-byte key for encrypting linked WCL user tokens.     |
 | `PUBLIC_APP_BASE_URL`      | Public app origin used to derive OAuth callbacks and public app URLs. |
 | `COOKIE_SECRET`            | Secret for signed cookies used by OAuth state and dashboard sessions. |
@@ -211,7 +211,8 @@ Optional web variables:
 | ---------------------------- | -------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `NODE_ENV`                   | `development`                                | Runtime mode: `development`, `test`, or `production`.                                  |
 | `PORT`                       | `3000`                                       | HTTP port for the Fastify web service.                                                 |
-| `WCL_API_BASE_URL`           | `https://www.warcraftlogs.com/api/v2/client` | WCL GraphQL API endpoint.                                                              |
+| `WCL_API_BASE_URL`           | `https://www.warcraftlogs.com/api/v2/client` | WCL public GraphQL API endpoint for client-credentials requests.                       |
+| `WCL_USER_API_BASE_URL`      | derived from `WCL_API_BASE_URL`              | WCL user GraphQL API endpoint for linked user authorization-code tokens.               |
 | `WCL_REDIRECT_URI`           | derived from `PUBLIC_APP_BASE_URL`           | Transitional full callback URL override for WCL user OAuth routes.                     |
 | `WCL_V1_CLIENT_KEY`          | unset                                        | Server-side WCL v1 REST API key for guild report metadata indexing.                    |
 | `DISCORD_CLIENT_SECRET`      | unset                                        | Enables Discord OAuth dashboard login when set.                                        |
@@ -224,6 +225,8 @@ Dashboard notes:
 - `DASHBOARD_ADMIN_SECRET` authenticates dashboard login requests only.
 - `COOKIE_SECRET` signs dashboard session cookies; rotating it invalidates existing dashboard sessions.
 - `WCL_TOKEN_ENCRYPTION_KEY` encrypts stored Warcraft Logs user OAuth tokens; rotating it without a migration makes existing linked WCL tokens unreadable.
+- Linked WCL user tokens are created by `/api/auth/wcl/callback` and stored encrypted in MongoDB; do not configure user bearer tokens in `.env`.
+- `WCL_OAUTH_CLIENT_TOKEN` can satisfy public `/api/v2/client` requests, but Warcraft Logs user linking requires `WCL_CLIENT_ID` and `WCL_CLIENT_SECRET`.
 - `POST /api/dashboard/login` is intentionally exempt from `X-Dashboard-Request: 1`
   because it is the unauthenticated session-establishment endpoint.
 - Authenticated dashboard mutations require `X-Dashboard-Request: 1`, including
@@ -241,15 +244,15 @@ Required for `apps/worker`:
 | -------------------------- | ----------------------------------------------------------- |
 | `MONGODB_URI`              | MongoDB connection URI.                                     |
 | `DISCORD_BOT_TOKEN`        | Discord bot token used for Gateway and Discord API calls.   |
-| `WCL_CLIENT_ID`            | Warcraft Logs v2 OAuth client ID.                           |
-| `WCL_CLIENT_SECRET`        | Warcraft Logs v2 OAuth client secret.                       |
+| `WCL_CLIENT_ID`            | Warcraft Logs v2 OAuth client ID. Required with `WCL_CLIENT_SECRET` unless `WCL_OAUTH_CLIENT_TOKEN` is set. |
+| `WCL_CLIENT_SECRET`        | Warcraft Logs v2 OAuth client secret. Required with `WCL_CLIENT_ID` unless `WCL_OAUTH_CLIENT_TOKEN` is set. |
 | `WCL_TOKEN_ENCRYPTION_KEY` | Base64-encoded 32-byte key for linked WCL user token reads. |
 
 Useful WCL client toggles:
 
 | Variable                | Purpose                                                         |
 | ----------------------- | --------------------------------------------------------------- |
-| `WCL_OAUTH_TOKEN`       | Use an explicit WCL bearer token instead of client credentials. |
+| `WCL_OAUTH_CLIENT_TOKEN` | Optional explicit `/api/v2/client` bearer token. Used only when neither `WCL_CLIENT_ID` nor `WCL_CLIENT_SECRET` is set. |
 | `WCL_BYPASS_CACHE=true` | Force report fetches to bypass cached payloads.                 |
 | `WCL_USE_FIXTURES=true` | Use local fixture mode in targeted development paths.           |
 

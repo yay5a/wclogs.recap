@@ -3,9 +3,21 @@ import {
     exchangeWclAuthorizationCode,
     getWclTokenExpiresAt,
     parseWclAuthorizationCodeTokenPayload,
+    resolveWclPublicClientBearerToken,
 } from "./oauth.js";
 
 describe("WCL authorization-code OAuth", () => {
+    it("uses explicit client tokens only for client credentials auth", async () => {
+        const fetchMock = vi.fn();
+        await expect(
+            resolveWclPublicClientBearerToken(
+                { kind: "clientToken", clientToken: "client-token" },
+                fetchMock as typeof fetch,
+            ),
+        ).resolves.toBe("client-token");
+        expect(fetchMock).not.toHaveBeenCalled();
+    });
+
     it("exchanges a code with the configured redirect URI", async () => {
         const fetchMock = vi.fn(
             async (...args: Parameters<typeof fetch>): Promise<Response> => {
@@ -37,8 +49,8 @@ describe("WCL authorization-code OAuth", () => {
         expect(result).toEqual({
             status: 200,
             payload: {
-                accessToken: "access-token",
-                refreshToken: "refresh-token",
+                userAccessToken: "access-token",
+                userRefreshToken: "refresh-token",
                 expiresIn: 3600,
                 tokenType: "Bearer",
                 scope: "view-user-profile",
@@ -62,7 +74,7 @@ describe("WCL authorization-code OAuth", () => {
                 token_type: "Bearer",
             }),
         ).toEqual({
-            accessToken: "access-token",
+            userAccessToken: "access-token",
             expiresIn: 600,
             tokenType: "Bearer",
         });
@@ -72,9 +84,9 @@ describe("WCL authorization-code OAuth", () => {
         const now = new Date("2026-04-09T00:00:00.000Z");
 
         expect(
-            getWclTokenExpiresAt({ accessToken: "access-token", expiresIn: 90 }, now),
+            getWclTokenExpiresAt({ userAccessToken: "access-token", expiresIn: 90 }, now),
         )?.toEqual(new Date("2026-04-09T00:01:30.000Z"));
-        expect(getWclTokenExpiresAt({ accessToken: "access-token" }, now)).toBeUndefined();
+        expect(getWclTokenExpiresAt({ userAccessToken: "access-token" }, now)).toBeUndefined();
     });
 
     it("does not invent refresh behavior from malformed payloads", () => {
@@ -84,6 +96,6 @@ describe("WCL authorization-code OAuth", () => {
                 refresh_token: "",
                 expires_in: -1,
             }),
-        ).toEqual({ accessToken: "access-token" });
+        ).toEqual({ userAccessToken: "access-token" });
     });
 });

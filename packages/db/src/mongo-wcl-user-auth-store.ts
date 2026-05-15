@@ -10,8 +10,8 @@ import type { WclTokenEnvelope } from "./wcl-token-encryption.js";
 export type UpsertWclUserAuthInput = {
     discordUserId: string;
     provider: "warcraftlogs";
-    accessToken: string;
-    refreshToken?: string;
+    userAccessToken: string;
+    userRefreshToken?: string;
     tokenType?: string;
     scope?: string;
     expiresAt?: Date;
@@ -29,8 +29,8 @@ export type WclUserAuthStatus = {
 };
 
 export type WclUserAuthRecord = WclUserAuthStatus & {
-    accessToken?: string;
-    refreshToken?: string;
+    userAccessToken?: string;
+    userRefreshToken?: string;
 };
 
 type MongoWclUserAuthStoreOptions = {
@@ -38,8 +38,8 @@ type MongoWclUserAuthStoreOptions = {
 };
 
 type WclUserAuthLeanRecord = WclUserAuthDocument & {
-    accessTokenEnvelope?: WclTokenEnvelope;
-    refreshTokenEnvelope?: WclTokenEnvelope;
+    userAccessTokenEnvelope?: WclTokenEnvelope;
+    userRefreshTokenEnvelope?: WclTokenEnvelope;
 };
 
 export class MongoWclUserAuthStore {
@@ -77,19 +77,17 @@ export class MongoWclUserAuthStore {
 
     async upsertForDiscordUser(entry: UpsertWclUserAuthInput) {
         const unset: Record<string, ""> = {};
-        unset.accessToken = "";
-        unset.refreshToken = "";
-        if (!entry.refreshToken) unset.refreshTokenEnvelope = "";
+        if (!entry.userRefreshToken) unset.userRefreshTokenEnvelope = "";
         if (!entry.tokenType) unset.tokenType = "";
         if (!entry.scope) unset.scope = "";
         if (!entry.expiresAt) unset.expiresAt = "";
 
-        const accessTokenEnvelope = encryptWclToken(
-            entry.accessToken,
+        const userAccessTokenEnvelope = encryptWclToken(
+            entry.userAccessToken,
             this.encryptionKey,
         );
-        const refreshTokenEnvelope = entry.refreshToken
-            ? encryptWclToken(entry.refreshToken, this.encryptionKey)
+        const userRefreshTokenEnvelope = entry.userRefreshToken
+            ? encryptWclToken(entry.userRefreshToken, this.encryptionKey)
             : undefined;
 
         await WclUserAuthModel.findOneAndUpdate(
@@ -97,9 +95,9 @@ export class MongoWclUserAuthStore {
             {
                 $set: {
                     provider: entry.provider,
-                    accessTokenEnvelope,
+                    userAccessTokenEnvelope,
                     updatedAt: entry.updatedAt,
-                    ...(refreshTokenEnvelope ? { refreshTokenEnvelope } : {}),
+                    ...(userRefreshTokenEnvelope ? { userRefreshTokenEnvelope } : {}),
                     ...(entry.tokenType ? { tokenType: entry.tokenType } : {}),
                     ...(entry.scope ? { scope: entry.scope } : {}),
                     ...(entry.expiresAt ? { expiresAt: entry.expiresAt } : {}),
@@ -119,43 +117,24 @@ export class MongoWclUserAuthStore {
     }
 
     private async decryptRecord(record: WclUserAuthLeanRecord): Promise<WclUserAuthRecord> {
-        const hasAccessEnvelope = isWclTokenEnvelope(record.accessTokenEnvelope);
-        const hasRefreshEnvelope = isWclTokenEnvelope(record.refreshTokenEnvelope);
-        const legacyAccessToken =
-            typeof record.accessToken === "string" && record.accessToken.length > 0
-                ? record.accessToken
-                : undefined;
-        const legacyRefreshToken =
-            typeof record.refreshToken === "string" && record.refreshToken.length > 0
-                ? record.refreshToken
-                : undefined;
+        const hasUserAccessEnvelope = isWclTokenEnvelope(record.userAccessTokenEnvelope);
+        const hasUserRefreshEnvelope = isWclTokenEnvelope(record.userRefreshTokenEnvelope);
+        const userAccessToken = hasUserAccessEnvelope
+            ? decryptWclToken(record.userAccessTokenEnvelope, this.encryptionKey)
+            : undefined;
+        const userRefreshToken = hasUserRefreshEnvelope
+            ? decryptWclToken(record.userRefreshTokenEnvelope, this.encryptionKey)
+            : undefined;
 
-        const accessToken = hasAccessEnvelope
-            ? decryptWclToken(record.accessTokenEnvelope, this.encryptionKey)
-            : legacyAccessToken;
-        const refreshToken = hasRefreshEnvelope
-            ? decryptWclToken(record.refreshTokenEnvelope, this.encryptionKey)
-            : legacyRefreshToken;
-
-        if (!accessToken) {
+        if (!userAccessToken) {
             throw new Error("WCL linked auth token material is unavailable.");
-        }
-
-        if (!hasAccessEnvelope && legacyAccessToken) {
-            await this.upgradeLegacyPlaintextRecord({
-                discordUserId: record.discordUserId,
-                accessToken: legacyAccessToken,
-                ...(legacyRefreshToken ? { refreshToken: legacyRefreshToken } : {}),
-            });
-        } else if (hasAccessEnvelope && (record.accessToken || record.refreshToken)) {
-            await this.removeLegacyPlaintextFields(record.discordUserId);
         }
 
         return {
             discordUserId: record.discordUserId,
             ...(record.provider ? { provider: record.provider } : {}),
-            accessToken,
-            ...(refreshToken ? { refreshToken } : {}),
+            userAccessToken,
+            ...(userRefreshToken ? { userRefreshToken } : {}),
             ...(record.tokenType ? { tokenType: record.tokenType } : {}),
             ...(record.scope ? { scope: record.scope } : {}),
             ...(record.expiresAt ? { expiresAt: record.expiresAt } : {}),
@@ -164,46 +143,6 @@ export class MongoWclUserAuthStore {
         };
     }
 
-    private async upgradeLegacyPlaintextRecord(input: {
-        discordUserId: string;
-        accessToken: string;
-        refreshToken?: string;
-    }): Promise<void> {
-        const accessTokenEnvelope = encryptWclToken(
-            input.accessToken,
-            this.encryptionKey,
-        );
-        const refreshTokenEnvelope = input.refreshToken
-            ? encryptWclToken(input.refreshToken, this.encryptionKey)
-            : undefined;
-
-        await WclUserAuthModel.updateOne(
-            { discordUserId: input.discordUserId },
-            {
-                $set: {
-                    accessTokenEnvelope,
-                    ...(refreshTokenEnvelope ? { refreshTokenEnvelope } : {}),
-                },
-                $unset: {
-                    accessToken: "",
-                    refreshToken: "",
-                    ...(refreshTokenEnvelope ? {} : { refreshTokenEnvelope: "" }),
-                },
-            },
-        );
-    }
-
-    private async removeLegacyPlaintextFields(discordUserId: string): Promise<void> {
-        await WclUserAuthModel.updateOne(
-            { discordUserId },
-            {
-                $unset: {
-                    accessToken: "",
-                    refreshToken: "",
-                },
-            },
-        );
-    }
 }
 
 export const migrateWclUserAuthDiscordUserIndex = async (): Promise<void> => {

@@ -1,25 +1,21 @@
 import { Buffer } from "node:buffer";
+import type { WclPublicClientAuth } from "./auth-mode.js";
 
-type ResolveWclAccessTokenOptions = {
-    explicitToken?: string;
+type ResolveWclClientCredentialsTokenOptions = {
     clientId?: string;
     clientSecret?: string;
     fetchImpl?: typeof fetch;
 };
 
-export async function resolveWclAccessToken(
-    options: ResolveWclAccessTokenOptions,
+export async function resolveWclClientCredentialsToken(
+    options: ResolveWclClientCredentialsTokenOptions,
 ): Promise<string> {
-    if (options.explicitToken) {
-        return options.explicitToken;
-    }
-
     const clientId = options.clientId;
     const clientSecret = options.clientSecret;
 
     if (!clientId || !clientSecret) {
         throw new Error(
-            "Missing WCL auth. Provide WCL_OAUTH_TOKEN or WCL_CLIENT_ID and WCL_CLIENT_SECRET.",
+            "Missing WCL client credentials. Provide WCL_CLIENT_ID and WCL_CLIENT_SECRET.",
         );
     }
 
@@ -55,9 +51,24 @@ export async function resolveWclAccessToken(
     return token;
 }
 
+export async function resolveWclPublicClientBearerToken(
+    publicClientAuth: WclPublicClientAuth,
+    fetchImpl?: typeof fetch,
+): Promise<string> {
+    if (publicClientAuth.kind === "clientToken") {
+        return publicClientAuth.clientToken;
+    }
+
+    return resolveWclClientCredentialsToken({
+        clientId: publicClientAuth.clientId,
+        clientSecret: publicClientAuth.clientSecret,
+        ...(fetchImpl ? { fetchImpl } : {}),
+    });
+}
+
 export interface WclAuthorizationCodeTokenPayload {
-    accessToken?: string;
-    refreshToken?: string;
+    userAccessToken?: string;
+    userRefreshToken?: string;
     expiresIn?: number;
     tokenType?: string;
     scope?: string;
@@ -91,15 +102,15 @@ export const parseWclAuthorizationCodeTokenPayload = (
 ): WclAuthorizationCodeTokenPayload => {
     if (typeof value !== "object" || value === null) return {};
     const payload = value as Record<string, unknown>;
-    const accessToken = readString(payload, "access_token");
-    const refreshToken = readString(payload, "refresh_token");
+    const userAccessToken = readString(payload, "access_token");
+    const userRefreshToken = readString(payload, "refresh_token");
     const expiresIn = readExpiresIn(payload);
     const tokenType = readString(payload, "token_type");
     const scope = readString(payload, "scope");
 
     return {
-        ...(accessToken ? { accessToken } : {}),
-        ...(refreshToken ? { refreshToken } : {}),
+        ...(userAccessToken ? { userAccessToken } : {}),
+        ...(userRefreshToken ? { userRefreshToken } : {}),
         ...(expiresIn ? { expiresIn } : {}),
         ...(tokenType ? { tokenType } : {}),
         ...(scope ? { scope } : {}),

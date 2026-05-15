@@ -4,10 +4,8 @@ import type { WclTokenEnvelope } from "../wcl-token-encryption.js";
 export type WclUserAuthDocument = {
     discordUserId: string;
     provider: "warcraftlogs";
-    accessTokenEnvelope?: WclTokenEnvelope;
-    refreshTokenEnvelope?: WclTokenEnvelope;
-    accessToken?: string;
-    refreshToken?: string;
+    userAccessTokenEnvelope?: WclTokenEnvelope;
+    userRefreshTokenEnvelope?: WclTokenEnvelope;
     tokenType?: string;
     scope?: string;
     expiresAt?: Date;
@@ -33,10 +31,8 @@ const wclUserAuthSchema = new Schema<WclUserAuthDocument>(
     {
         discordUserId: { type: String, required: true, unique: true },
         provider: { type: String, required: true, index: true },
-        accessTokenEnvelope: { type: wclTokenEnvelopeSchema, required: false },
-        refreshTokenEnvelope: { type: wclTokenEnvelopeSchema, required: false },
-        accessToken: { type: String, required: false },
-        refreshToken: { type: String, required: false },
+        userAccessTokenEnvelope: { type: wclTokenEnvelopeSchema, required: false },
+        userRefreshTokenEnvelope: { type: wclTokenEnvelopeSchema, required: false },
         tokenType: { type: String, required: false },
         scope: { type: String, required: false },
         expiresAt: { type: Date, required: false },

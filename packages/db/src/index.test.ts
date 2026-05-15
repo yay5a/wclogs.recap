@@ -524,8 +524,8 @@ describe('MongoWclUserAuthStore', () => {
     await store.upsertForDiscordUser({
       discordUserId: 'user-1',
       provider: 'warcraftlogs',
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
+      userAccessToken: 'user-access-token',
+      userRefreshToken: 'user-refresh-token',
       tokenType: 'Bearer',
       scope: 'view-user-profile',
       expiresAt,
@@ -537,7 +537,7 @@ describe('MongoWclUserAuthStore', () => {
       {
         $set: {
           provider: 'warcraftlogs',
-          accessTokenEnvelope: expect.objectContaining({
+          userAccessTokenEnvelope: expect.objectContaining({
             algorithm: 'aes-256-gcm',
             keyVersion: 'v1',
             iv: expect.any(String),
@@ -545,7 +545,7 @@ describe('MongoWclUserAuthStore', () => {
             ciphertext: expect.any(String),
           }),
           updatedAt,
-          refreshTokenEnvelope: expect.objectContaining({
+          userRefreshTokenEnvelope: expect.objectContaining({
             algorithm: 'aes-256-gcm',
             keyVersion: 'v1',
             iv: expect.any(String),
@@ -560,18 +560,14 @@ describe('MongoWclUserAuthStore', () => {
           discordUserId: 'user-1',
           linkedAt: updatedAt,
         },
-        $unset: {
-          accessToken: '',
-          refreshToken: '',
-        },
       },
       { upsert: true },
     );
     expect(JSON.stringify(vi.mocked(WclUserAuthModel.findOneAndUpdate).mock.calls[0])).not.toContain(
-      'access-token',
+      'user-access-token',
     );
     expect(JSON.stringify(vi.mocked(WclUserAuthModel.findOneAndUpdate).mock.calls[0])).not.toContain(
-      'refresh-token',
+      'user-refresh-token',
     );
   });
 
@@ -579,8 +575,8 @@ describe('MongoWclUserAuthStore', () => {
     const record = {
       discordUserId: 'user-1',
       provider: 'warcraftlogs' as const,
-      accessTokenEnvelope: encryptWclToken('access-token', encryptionKeyBuffer),
-      refreshTokenEnvelope: encryptWclToken('refresh-token', encryptionKeyBuffer),
+      userAccessTokenEnvelope: encryptWclToken('user-access-token', encryptionKeyBuffer),
+      userRefreshTokenEnvelope: encryptWclToken('user-refresh-token', encryptionKeyBuffer),
       linkedAt: new Date('2026-04-08T00:00:00.000Z'),
       updatedAt: new Date('2026-04-09T00:00:00.000Z'),
     };
@@ -594,8 +590,8 @@ describe('MongoWclUserAuthStore', () => {
     await expect(store.getByDiscordUserId('user-1')).resolves.toEqual({
       discordUserId: 'user-1',
       provider: 'warcraftlogs',
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
+      userAccessToken: 'user-access-token',
+      userRefreshToken: 'user-refresh-token',
       linkedAt: record.linkedAt,
       updatedAt: record.updatedAt,
     });
@@ -603,47 +599,20 @@ describe('MongoWclUserAuthStore', () => {
     expect(updateOne).not.toHaveBeenCalled();
   });
 
-  it('upgrades legacy plaintext token records after successful read', async () => {
+  it('fails when WCL auth has no user access token envelope', async () => {
     vi.spyOn(WclUserAuthModel, 'findOne').mockReturnValue({
       lean: vi.fn().mockResolvedValue({
         discordUserId: 'user-1',
         provider: 'warcraftlogs',
-        accessToken: 'access-token',
-        refreshToken: 'refresh-token',
         linkedAt: new Date('2026-04-08T00:00:00.000Z'),
         updatedAt: new Date('2026-04-09T00:00:00.000Z'),
       }),
     } as never);
-    const updateOne = vi.spyOn(WclUserAuthModel, 'updateOne').mockResolvedValue({} as never);
 
     const store = makeStore();
-    await expect(store.getByDiscordUserId('user-1')).resolves.toMatchObject({
-      discordUserId: 'user-1',
-      accessToken: 'access-token',
-      refreshToken: 'refresh-token',
-    });
-
-    expect(updateOne).toHaveBeenCalledWith(
-      { discordUserId: 'user-1' },
-      {
-        $set: {
-          accessTokenEnvelope: expect.objectContaining({
-            algorithm: 'aes-256-gcm',
-            keyVersion: 'v1',
-          }),
-          refreshTokenEnvelope: expect.objectContaining({
-            algorithm: 'aes-256-gcm',
-            keyVersion: 'v1',
-          }),
-        },
-        $unset: {
-          accessToken: '',
-          refreshToken: '',
-        },
-      },
+    await expect(store.getByDiscordUserId('user-1')).rejects.toThrow(
+      /WCL linked auth token material is unavailable/,
     );
-    expect(JSON.stringify(updateOne.mock.calls[0])).not.toContain('access-token');
-    expect(JSON.stringify(updateOne.mock.calls[0])).not.toContain('refresh-token');
   });
 
   it('fails safely when encrypted token envelopes are corrupt', async () => {
@@ -651,7 +620,7 @@ describe('MongoWclUserAuthStore', () => {
       lean: vi.fn().mockResolvedValue({
         discordUserId: 'user-1',
         provider: 'warcraftlogs',
-        accessTokenEnvelope: {
+        userAccessTokenEnvelope: {
           keyVersion: 'v1',
           algorithm: 'aes-256-gcm',
           iv: 'bad',

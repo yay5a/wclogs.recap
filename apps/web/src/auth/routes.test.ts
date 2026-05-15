@@ -181,12 +181,36 @@ describe("WCL OAuth routes", () => {
         await app.close();
     });
 
+    it("does not start WCL user authorization with only a public client token", async () => {
+        const app = await makeApp({
+            env: makeEnv({
+                WCL_CLIENT_ID: undefined,
+                WCL_CLIENT_SECRET: undefined,
+                WCL_OAUTH_CLIENT_TOKEN: "client-token",
+            }),
+        });
+        const discordCookie = makeDiscordSessionCookie(app);
+
+        const login = await app.inject({
+            url: "/api/auth/wcl/login",
+            headers: { cookie: discordCookie },
+        });
+
+        expect(login.statusCode).toBe(503);
+        expect(login.json()).toEqual({
+            ok: false,
+            message: "Warcraft Logs user authorization is not configured.",
+        });
+
+        await app.close();
+    });
+
     it("rejects missing, invalid, expired, mismatched, and replayed WCL state", async () => {
         vi.useFakeTimers();
         vi.setSystemTime(new Date("2026-04-09T00:00:00.000Z"));
         const fetchMock = vi.fn().mockResolvedValue({
             status: 200,
-            json: vi.fn().mockResolvedValue({ access_token: "wcl-access-token" }),
+                json: vi.fn().mockResolvedValue({ access_token: "wcl-access-token" }),
         });
         vi.stubGlobal("fetch", fetchMock);
         const app = await makeApp();
@@ -201,17 +225,19 @@ describe("WCL OAuth routes", () => {
 
         const missingState = await app.inject({
             url: "/api/auth/wcl/callback?code=abc",
-            headers: { cookie: `${discordCookie}; ${stateCookie}` },
+            headers: { cookie: stateCookie },
         });
         const invalidState = await app.inject({
             url: "/api/auth/wcl/callback?code=abc&state=bad",
-            headers: { cookie: `${discordCookie}; ${stateCookie}` },
+            headers: { cookie: stateCookie },
+        });
+        const otherLogin = await app.inject({
+            url: "/api/auth/wcl/login",
+            headers: { cookie: discordCookie },
         });
         const mismatch = await app.inject({
             url: `/api/auth/wcl/callback?code=abc&state=${state}`,
-            headers: {
-                cookie: `${makeDiscordSessionCookie(app, otherDiscordUserId)}; ${stateCookie}`,
-            },
+            headers: { cookie: firstSetCookie(otherLogin) },
         });
 
         const expiredLogin = await app.inject({
@@ -222,7 +248,7 @@ describe("WCL OAuth routes", () => {
         vi.setSystemTime(new Date("2026-04-09T00:11:00.000Z"));
         const expired = await app.inject({
             url: `/api/auth/wcl/callback?code=abc&state=${expiredState}`,
-            headers: { cookie: `${discordCookie}; ${firstSetCookie(expiredLogin)}` },
+            headers: { cookie: firstSetCookie(expiredLogin) },
         });
 
         vi.setSystemTime(new Date("2026-04-09T00:12:00.000Z"));
@@ -234,11 +260,11 @@ describe("WCL OAuth routes", () => {
         const replayCookie = firstSetCookie(replayLogin);
         const success = await app.inject({
             url: `/api/auth/wcl/callback?code=abc&state=${replayState}`,
-            headers: { cookie: `${discordCookie}; ${replayCookie}` },
+            headers: { cookie: replayCookie },
         });
         const replay = await app.inject({
             url: `/api/auth/wcl/callback?code=abc&state=${replayState}`,
-            headers: { cookie: `${discordCookie}; ${replayCookie}` },
+            headers: { cookie: replayCookie },
         });
 
         expect(missingState.statusCode).toBe(400);
@@ -265,11 +291,11 @@ describe("WCL OAuth routes", () => {
         const state = parseAuthorizeState(login);
         const denied = await app.inject({
             url: `/api/auth/wcl/callback?error=access_denied&state=${state}`,
-            headers: { cookie: `${discordCookie}; ${firstSetCookie(login)}` },
+            headers: { cookie: firstSetCookie(login) },
         });
         const replay = await app.inject({
             url: `/api/auth/wcl/callback?code=abc&state=${state}`,
-            headers: { cookie: `${discordCookie}; ${firstSetCookie(login)}` },
+            headers: { cookie: firstSetCookie(login) },
         });
 
         expect(denied.statusCode).toBe(400);
@@ -284,7 +310,7 @@ describe("WCL OAuth routes", () => {
         await app.close();
     });
 
-    it("reads the dashboard session during WCL callback and stores token data for that user only", async () => {
+    it("uses the consumed WCL state during callback and stores token data for that user only", async () => {
         const store = makeStore();
         const fetchMock = vi.fn().mockResolvedValue({
             status: 200,
@@ -308,7 +334,7 @@ describe("WCL OAuth routes", () => {
         const callback = await app.inject({
             url: `/api/auth/wcl/callback?code=abc&state=${state}`,
             headers: {
-                cookie: `${discordCookie}; ${firstSetCookie(login)}`,
+                cookie: firstSetCookie(login),
                 host: "evil.example.test",
             },
         });
@@ -323,8 +349,8 @@ describe("WCL OAuth routes", () => {
             expect.objectContaining({
                 discordUserId,
                 provider: "warcraftlogs",
-                accessToken: "wcl-access-token",
-                refreshToken: "wcl-refresh-token",
+                userAccessToken: "wcl-access-token",
+                userRefreshToken: "wcl-refresh-token",
                 tokenType: "Bearer",
                 scope: "view-user-profile",
                 expiresAt: expect.any(Date),
@@ -362,7 +388,7 @@ describe("WCL OAuth routes", () => {
         const state = parseAuthorizeState(login);
         const callback = await app.inject({
             url: `/api/auth/wcl/callback?code=abc&state=${state}`,
-            headers: { cookie: `${discordCookie}; ${firstSetCookie(login)}` },
+            headers: { cookie: firstSetCookie(login) },
         });
 
         expect(callback.statusCode).toBe(500);
@@ -395,8 +421,8 @@ describe("WCL OAuth routes", () => {
             {
                 discordUserId,
                 provider: "warcraftlogs",
-                accessToken: "wcl-access-token",
-                refreshToken: "wcl-refresh-token",
+                userAccessToken: "wcl-access-token",
+                userRefreshToken: "wcl-refresh-token",
                 tokenType: "Bearer",
                 scope: "view-user-profile",
                 linkedAt,
@@ -435,7 +461,7 @@ describe("WCL OAuth routes", () => {
             {
                 discordUserId,
                 provider: "warcraftlogs",
-                accessToken: "wcl-access-token",
+                userAccessToken: "wcl-access-token",
                 expiresAt: new Date("2000-01-01T00:00:00.000Z"),
                 linkedAt: new Date("1999-12-31T00:00:00.000Z"),
                 updatedAt: new Date("2000-01-01T00:00:00.000Z"),
@@ -464,14 +490,14 @@ describe("WCL OAuth routes", () => {
             {
                 discordUserId,
                 provider: "warcraftlogs",
-                accessToken: "current-user-token",
+                userAccessToken: "current-user-token",
                 linkedAt: new Date("2026-04-08T00:00:00.000Z"),
                 updatedAt: new Date("2026-04-09T00:00:00.000Z"),
             },
             {
                 discordUserId: otherDiscordUserId,
                 provider: "warcraftlogs",
-                accessToken: "other-user-token",
+                userAccessToken: "other-user-token",
                 linkedAt: new Date("2026-04-08T00:00:00.000Z"),
                 updatedAt: new Date("2026-04-09T00:00:00.000Z"),
             },
@@ -529,7 +555,7 @@ describe("WCL OAuth routes", () => {
         const state = parseAuthorizeState(login);
         const callback = await app.inject({
             url: `/api/auth/wcl/callback?code=abc&state=${state}`,
-            headers: { cookie: `${discordCookie}; ${firstSetCookie(login)}` },
+            headers: { cookie: firstSetCookie(login) },
         });
 
         expect(callback.statusCode).toBe(500);

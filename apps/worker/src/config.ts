@@ -1,5 +1,6 @@
 import { isValidWclTokenEncryptionKey } from "@wcl/db";
 import { trimmed, z } from "@wcl/shared";
+import { resolveWclPublicClientAuth } from "@wcl/wcl-client";
 
 const wclTokenEncryptionKey = trimmed().superRefine((value, context) => {
     if (!isValidWclTokenEncryptionKey(value)) {
@@ -19,15 +20,43 @@ const workerEnvSchema = z.object({
         /^\S+$/,
         "DISCORD_BOT_TOKEN must not contain whitespace",
     ),
-    WCL_CLIENT_ID: trimmed().min(1, "WCL_CLIENT_ID is required"),
-    WCL_CLIENT_SECRET: trimmed().min(1, "WCL_CLIENT_SECRET is required"),
+    WCL_CLIENT_ID: trimmed().optional(),
+    WCL_CLIENT_SECRET: trimmed().optional(),
+    WCL_OAUTH_CLIENT_TOKEN: trimmed().optional(),
     WCL_TOKEN_ENCRYPTION_KEY: wclTokenEncryptionKey,
     WCL_API_BASE_URL: trimmed()
         .url()
         .default("https://www.warcraftlogs.com/api/v2/client"),
     WCL_USER_API_BASE_URL: trimmed().url().optional(),
     WCL_V1_CLIENT_KEY: trimmed().optional(),
-});
+}).superRefine((env, context) => {
+    if (
+        (env.WCL_CLIENT_ID && !env.WCL_CLIENT_SECRET) ||
+        (!env.WCL_CLIENT_ID && env.WCL_CLIENT_SECRET)
+    ) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["WCL_CLIENT_ID"],
+            message: "WCL_CLIENT_ID and WCL_CLIENT_SECRET must be set together",
+        });
+    }
+
+    if (!env.WCL_CLIENT_ID && !env.WCL_CLIENT_SECRET && !env.WCL_OAUTH_CLIENT_TOKEN) {
+        context.addIssue({
+            code: z.ZodIssueCode.custom,
+            path: ["WCL_CLIENT_ID"],
+            message:
+                "WCL public client auth requires WCL_CLIENT_ID and WCL_CLIENT_SECRET or WCL_OAUTH_CLIENT_TOKEN",
+        });
+    }
+}).transform((env) => ({
+    ...env,
+    wclPublicClientAuth: resolveWclPublicClientAuth({
+        clientId: env.WCL_CLIENT_ID,
+        clientSecret: env.WCL_CLIENT_SECRET,
+        clientToken: env.WCL_OAUTH_CLIENT_TOKEN,
+    }),
+}));
 
 export type WorkerEnv = z.infer<typeof workerEnvSchema>;
 

@@ -1,16 +1,16 @@
 
 import { GraphQLClient } from "graphql-request";
-import { resolveWclAccessToken } from "./oauth.js";
+import { resolveWclPublicClientBearerToken } from "./oauth.js";
 import {
     publicClientAuthMode,
     resolveWclGraphqlApiBaseUrl,
     type WclAuthMode,
     type WclAuthModeKind,
+    type WclPublicClientAuth,
 } from "./auth-mode.js";
 
 interface WclGraphqlClientOptions {
-    clientId: string;
-    clientSecret: string;
+    publicClientAuth: WclPublicClientAuth;
     apiBaseUrl: string;
     userApiBaseUrl?: string;
     authMode?: WclAuthMode;
@@ -18,7 +18,7 @@ interface WclGraphqlClientOptions {
 }
 
 export class WclGraphqlClient {
-    private token: string | null = null;
+    private publicClientBearerToken: string | null = null;
     private readonly gqlClient: GraphQLClient;
     private readonly authMode: WclAuthMode;
 
@@ -57,41 +57,23 @@ export class WclGraphqlClient {
     }
 
     public async authorize(): Promise<void> {
-        const token = await this.getAccessToken();
+        const token = await this.getBearerToken();
         this.gqlClient.setHeader("Authorization", `Bearer ${token}`);
     }
 
-    private async getAccessToken(): Promise<string> {
-        if (this.token) return this.token;
-
+    private async getBearerToken(): Promise<string> {
         if (this.authMode.kind === "userLinked") {
-            this.token = this.authMode.accessToken;
-            return this.token;
+            return this.authMode.userAccessToken;
         }
 
-        const explicitToken =
-            !this.options.clientId || !this.options.clientSecret
-                ? process.env.WCL_OAUTH_TOKEN
-                : undefined;
+        if (this.publicClientBearerToken) return this.publicClientBearerToken;
 
-        const tokenOptions = {
-            ...(explicitToken
-                ? { explicitToken }
-                : {}),
-            ...(this.options.clientId
-                ? { clientId: this.options.clientId }
-                : {}),
-            ...(this.options.clientSecret
-                ? { clientSecret: this.options.clientSecret }
-                : {}),
-            ...(this.options.fetchImpl
-                ? { fetchImpl: this.options.fetchImpl }
-                : {}),
-        };
+        const token = await resolveWclPublicClientBearerToken(
+            this.options.publicClientAuth,
+            this.options.fetchImpl,
+        );
 
-        const token = await resolveWclAccessToken(tokenOptions);
-
-        this.token = token;
+        this.publicClientBearerToken = token;
         return token;
     }
 }

@@ -1,4 +1,5 @@
 import { WclClient } from '../src/wcl-client.js';
+import { resolveWclPublicClientAuth } from '../src/auth-mode.js';
 
 const [guildName, serverSlug, serverRegion, zoneIdRaw, difficulty, size, gameFamily] = process.argv.slice(2);
 if (!guildName || !serverSlug || !serverRegion || !zoneIdRaw || !difficulty || !size) {
@@ -16,27 +17,22 @@ if (!Number.isFinite(zoneId)) {
 
 const clientId = process.env.WCL_CLIENT_ID;
 const clientSecret = process.env.WCL_CLIENT_SECRET;
+const clientToken = process.env.WCL_OAUTH_CLIENT_TOKEN;
 const apiBaseUrl = process.env.WCL_API_BASE_URL ?? 'https://www.warcraftlogs.com/api/v2/client';
 const userApiBaseUrl = process.env.WCL_USER_API_BASE_URL;
-const probeUserToken = process.env.WCL_OAUTH_TOKEN;
 
-if (!clientId || !clientSecret) {
-  console.error('Missing WCL_CLIENT_ID or WCL_CLIENT_SECRET');
+let publicClientAuth;
+try {
+  publicClientAuth = resolveWclPublicClientAuth({ clientId, clientSecret, clientToken });
+} catch (error) {
+  console.error(error instanceof Error ? error.message : 'Missing WCL public client auth');
   process.exit(1);
 }
 
 const client = new WclClient({
-  clientId,
-  clientSecret,
+  publicClientAuth,
   apiBaseUrl,
   ...(userApiBaseUrl ? { userApiBaseUrl } : {}),
-  ...(probeUserToken
-    ? {
-        wclUserAuthStore: {
-          getByDiscordUserId: async () => ({ discordUserId: 'probe', accessToken: probeUserToken }),
-        },
-      }
-    : {}),
 });
 
 const summary = await client.fetchGuildRankSummary({
@@ -47,6 +43,6 @@ const summary = await client.fetchGuildRankSummary({
   difficulty,
   size,
   ...(gameFamily === 'retail' || gameFamily === 'mop_classic' ? { gameFamily } : {}),
-}, probeUserToken ? { discordUserId: 'probe' } : undefined);
+});
 
 console.log(JSON.stringify(summary, null, 2));

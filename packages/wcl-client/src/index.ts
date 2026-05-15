@@ -41,6 +41,7 @@ export {
   deriveWclUserApiBaseUrl,
   publicClientAuthMode,
   resolveWclGraphqlApiBaseUrl,
+  resolveWclPublicClientAuth,
   userLinkedAuthMode,
 } from './auth-mode.js';
 export type {
@@ -48,6 +49,7 @@ export type {
   UserLinkedWclAuthMode,
   WclAuthMode,
   WclAuthModeKind,
+  WclPublicClientAuth,
 } from './auth-mode.js';
 
 export {
@@ -62,7 +64,8 @@ export {
   exchangeWclAuthorizationCode,
   getWclTokenExpiresAt,
   parseWclAuthorizationCodeTokenPayload,
-  resolveWclAccessToken,
+  resolveWclClientCredentialsToken,
+  resolveWclPublicClientBearerToken,
 } from './oauth.js';
 export type {
   ExchangeWclAuthorizationCodeOptions,
