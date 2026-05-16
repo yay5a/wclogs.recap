@@ -251,7 +251,7 @@ export const buildReportResponseBody = (
     'Data & Source',
     [
       summary.reportLink,
-      'Encounter highlight deaths/totals are shown only when encounter-specific data is available.',
+      `Parsing complex raw data structures from an overpowered database is not the same as parsing against an overpowered raid boss. The numbers reported here are expected to drift by ~0.55% up to ~1.5% due to rounding, and calculation methods of DPS/HPS totals, and parses/ranks only known to WCL.`,
       ...summary.partialDataNotes.map((note) => `Note: ${note}`),
     ].join('\n'),
   );

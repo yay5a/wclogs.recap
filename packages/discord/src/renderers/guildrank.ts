@@ -77,8 +77,7 @@ const formatBestEncounterGain = (
   const percentile = encounters.find(
     (encounter) => encounter.encounterName === gain.encounterName,
   )?.[metric].bestDerivedPercentile;
-  const percentileText =
-    typeof percentile === 'number' ? decimalFormatter.format(percentile) : '';
+  const percentileText = typeof percentile === 'number' ? decimalFormatter.format(percentile) : '';
   return `Highest Gain on: ${gain.encounterName}: ${percentileText} (${formatDelta(gain.delta)})`;
 };
 
@@ -195,6 +194,7 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
             .map((note) => `Note: ${note}`),
         ]
       : [
+          `Not enough reports have been indexed`,
           `Current Lockout week: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
           `Baseline period: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
           ...(hasSpeedRanks ? [`Note: ${rankExplanation}`] : []),

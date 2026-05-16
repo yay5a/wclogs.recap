@@ -113,9 +113,7 @@ export interface GuildRankProgressRanks {
 }
 
 export type GuildRankMetricSource = 'trend_cache' | 'indexed_report_scan';
-export type GuildRankMetricSourceLabel =
-  | 'Cached Rank Percentiles'
-  | 'Derived from indexed reports';
+export type GuildRankMetricSourceLabel = 'Cached Rank Percentiles' | 'Derived from indexed reports';
 
 export interface GuildRankSummary {
   guildName: string;
