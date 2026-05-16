@@ -189,6 +189,10 @@ export const syncReportRankingEnrichment = async (
   const touchedWeekStarts = new Map<number, Date>();
 
   for (const report of reports) {
+    if (candidateReports >= maxReports) {
+      break;
+    }
+
     try {
       const index = await input.wclClient.fetchReportIndex({
         reportCode: report.reportCode,
@@ -216,10 +220,6 @@ export const syncReportRankingEnrichment = async (
       ) {
         skippedFreshReports += 1;
         continue;
-      }
-
-      if (candidateReports >= maxReports) {
-        break;
       }
 
       candidateReports += 1;

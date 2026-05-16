@@ -302,4 +302,35 @@ describe('syncReportRankingEnrichment', () => {
       processedReports: 1,
     });
   });
+
+  it('stops before extra index fetches once the enrichment cap is reached', async () => {
+    const wclClient = makeWclClient();
+    const store = makeStore();
+
+    const result = await syncReportRankingEnrichment({
+      wclClient,
+      store,
+      scope,
+      reports: [
+        { reportCode: 'STALE1', startTime: 200 },
+        { reportCode: 'SHOULD_NOT_SCAN', startTime: 100 },
+      ],
+      timeframes: ['today'],
+      compareModes: ['rankings'],
+      maxReports: 1,
+    });
+
+    expect(wclClient.fetchReportIndex).toHaveBeenCalledTimes(1);
+    expect(wclClient.fetchReportIndex).toHaveBeenCalledWith({
+      reportCode: 'STALE1',
+      sourceUrl: 'https://classic.warcraftlogs.com/reports/STALE1',
+      gameFamily: 'mop_classic',
+    });
+    expect(wclClient.fetchReportRankingEnrichment).toHaveBeenCalledTimes(1);
+    expect(result).toMatchObject({
+      candidateReports: 1,
+      skippedFreshReports: 0,
+      processedReports: 1,
+    });
+  });
 });
