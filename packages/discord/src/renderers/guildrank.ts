@@ -3,6 +3,7 @@ import type { GuildRankSummary } from '@wcl/domain';
 const integerFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 const decimalFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 const SECTION_SEPARATOR = '='.repeat(32);
+const CACHED_TREND_NOTE = 'Speed and execution are read from cached WCL ranking trends.';
 
 const formatDelta = (value?: number): string =>
   typeof value === 'number' ? `${value >= 0 ? '+' : ''}${decimalFormatter.format(value)}` : 'n/a';
@@ -14,30 +15,68 @@ const formatPreviousAndDelta = (current?: number, delta?: number): string => {
   return `prev n/a, ${formatDelta(delta)}`;
 };
 
+const sameChangeContext = (
+  bestDerivedPercentileDelta?: number,
+  medianDerivedPercentileDelta?: number,
+): boolean =>
+  bestDerivedPercentileDelta === medianDerivedPercentileDelta ||
+  (typeof bestDerivedPercentileDelta !== 'number' &&
+    typeof medianDerivedPercentileDelta !== 'number');
+
 const metricLabels = (
   summary: GuildRankSummary,
-): { best: string; median: string } =>
+): { best: string; median: string; single: string } =>
   summary.metricSource === 'trend_cache'
-    ? { best: 'Best WCL Percentile', median: 'Median WCL Percentile' }
+    ? {
+        best: 'Best WCL Percentile',
+        median: 'Median WCL Percentile',
+        single: 'WCL Percentile',
+      }
     : {
-        best: 'Best Derived Relative Percentile',
-        median: 'Median Derived Relative Percentile',
+        best: 'Best Percentile',
+        median: 'Median Percentile',
+        single: 'Percentile',
       };
 
+const formatMetricLines = (
+  labels: { best: string; median: string; single: string },
+  best?: number,
+  median?: number,
+  bestDerivedPercentileDelta?: number,
+  medianDerivedPercentileDelta?: number,
+): string[] => {
+  if (typeof best === 'number' && typeof median === 'number' && best === median) {
+    if (!sameChangeContext(bestDerivedPercentileDelta, medianDerivedPercentileDelta)) {
+      return [
+        `${labels.single}: ${decimalFormatter.format(best)} (best ${formatPreviousAndDelta(best, bestDerivedPercentileDelta)}; median ${formatPreviousAndDelta(median, medianDerivedPercentileDelta)})`,
+      ];
+    }
+
+    return [
+      `${labels.single}: ${decimalFormatter.format(best)} (${formatPreviousAndDelta(best, bestDerivedPercentileDelta)})`,
+    ];
+  }
+
+  return [
+    `${labels.best}: ${typeof best === 'number' ? decimalFormatter.format(best) : 'n/a'} (${formatPreviousAndDelta(best, bestDerivedPercentileDelta)})`,
+    `${labels.median}: ${typeof median === 'number' ? decimalFormatter.format(median) : 'n/a'} (${formatPreviousAndDelta(median, medianDerivedPercentileDelta)})`,
+  ];
+};
+
 const formatMetric = (
-  labels: { best: string; median: string },
+  labels: { best: string; median: string; single: string },
   best?: number,
   median?: number,
   bestDerivedPercentileDelta?: number,
   medianDerivedPercentileDelta?: number,
 ): string =>
-  [
-    `${labels.best}: ${typeof best === 'number' ? decimalFormatter.format(best) : 'n/a'} (${formatPreviousAndDelta(best, bestDerivedPercentileDelta)})`,
-    `${labels.median}: ${typeof median === 'number' ? decimalFormatter.format(median) : 'n/a'} (${formatPreviousAndDelta(median, medianDerivedPercentileDelta)})`,
-  ].join('\n');
-
-const formatScoreLine = (label: string, value?: number, delta?: number): string =>
-  `${label}: ${typeof value === 'number' ? decimalFormatter.format(value) : 'n/a'} (${formatPreviousAndDelta(value, delta)})`;
+  formatMetricLines(
+    labels,
+    best,
+    median,
+    bestDerivedPercentileDelta,
+    medianDerivedPercentileDelta,
+  ).join('\n');
 
 const formatRanks = (ranks: { world?: number; region?: number; realm?: number }): string =>
   [
@@ -65,14 +104,19 @@ const formatEncounterRankings = (
     };
   }>,
   metric: 'speed' | 'execution',
-  labels: { best: string; median: string },
+  labels: { best: string; median: string; single: string },
 ): string => {
   const rows = encounters.slice(0, 6).map((encounter) => {
     const values = encounter[metric];
     return [
       `• ${encounter.encounterName}`,
-      `  ${formatScoreLine(labels.best, values.bestDerivedPercentile, values.bestDerivedPercentileDelta)}`,
-      `  ${formatScoreLine(labels.median, values.medianDerivedPercentile, values.medianDerivedPercentileDelta)}`,
+      ...formatMetricLines(
+        labels,
+        values.bestDerivedPercentile,
+        values.medianDerivedPercentile,
+        values.bestDerivedPercentileDelta,
+        values.medianDerivedPercentileDelta,
+      ),
     ].join('\n');
   });
   return rows.length > 0
@@ -151,13 +195,27 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
     value: formatEncounterRankings(summary.execution.encounters, 'execution', labels),
   });
 
+  const windowLines =
+    summary.metricSource === 'trend_cache'
+      ? [
+          'Window: Current week = latest cached WCL ranking week. Baseline = previous cached ranking week.',
+          `Current week: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
+          `Baseline week: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
+          'Speed/execution percentiles use cached WCL report rankings, not the guild profile page.',
+          "Weekly values may summarize multiple reports; verify source values in each report's Rankings table for the same encounter/difficulty/size.",
+          ...summary.notes
+            .filter((note) => note !== CACHED_TREND_NOTE)
+            .map((note) => `Note: ${note}`),
+        ]
+      : [
+          `Current: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
+          `Baseline: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
+          ...summary.notes.map((note) => `Note: ${note}`),
+        ];
+
   fields.push({
-    name: 'Window',
-    value: formatSection([
-      `Current: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
-      `Baseline: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
-      ...summary.notes.map((note) => `Note: ${note}`),
-    ]),
+    name: summary.metricSource === 'trend_cache' ? 'How to Read' : 'Window',
+    value: formatSection(windowLines),
   });
 
   return {

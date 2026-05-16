@@ -337,17 +337,13 @@ const toTrendMetricRow = (
     return {
       encounterName: '',
       ...(typeof row.speedP90 === 'number' ? { bestDerivedPercentile: row.speedP90 } : {}),
-      ...(typeof row.speedMedian === 'number'
-        ? { medianDerivedPercentile: row.speedMedian }
-        : {}),
+      ...(typeof row.speedMedian === 'number' ? { medianDerivedPercentile: row.speedMedian } : {}),
     };
   }
 
   return {
     encounterName: '',
-    ...(typeof row.executionP90 === 'number'
-      ? { bestDerivedPercentile: row.executionP90 }
-      : {}),
+    ...(typeof row.executionP90 === 'number' ? { bestDerivedPercentile: row.executionP90 } : {}),
     ...(typeof row.executionMedian === 'number'
       ? { medianDerivedPercentile: row.executionMedian }
       : {}),
@@ -368,8 +364,7 @@ const toFallbackBaselineTrendMetricRow = (
 };
 
 const hasMetricValues = (row: GuildRankEncounterMetric): boolean =>
-  typeof row.bestDerivedPercentile === 'number' ||
-  typeof row.medianDerivedPercentile === 'number';
+  typeof row.bestDerivedPercentile === 'number' || typeof row.medianDerivedPercentile === 'number';
 
 const buildTrendMetricSets = (
   rows: GuildRankWeeklyTrendRow[],
@@ -386,6 +381,7 @@ const buildTrendMetricSets = (
       baselineExecution: GuildRankMetricSet;
       sampleCount: number;
       clearedEncounters: number;
+      windows: GuildRankWindows;
       weekStart: Date;
     }
   | undefined => {
@@ -405,6 +401,12 @@ const buildTrendMetricSets = (
 
   const latestWeekStartMs = Math.max(...trendRows.map((row) => row.weekStart.getTime()));
   const previousWeekStartMs = latestWeekStartMs - WEEK_MS;
+  const trendWindows: GuildRankWindows = {
+    currentStartMs: latestWeekStartMs,
+    currentEndMs: latestWeekStartMs + WEEK_MS - 1,
+    baselineStartMs: previousWeekStartMs,
+    baselineEndMs: latestWeekStartMs - 1,
+  };
   const preferredRows = selectPreferredTrendRows(trendRows);
   const currentRows = [...preferredRows.values()]
     .filter((row) => row.weekStart.getTime() === latestWeekStartMs)
@@ -443,8 +445,7 @@ const buildTrendMetricSets = (
         {
           ...metricRow,
           encounterName:
-            encounterNameById.get(currentRow.encounterId) ??
-            `Encounter ${currentRow.encounterId}`,
+            encounterNameById.get(currentRow.encounterId) ?? `Encounter ${currentRow.encounterId}`,
         },
       ];
     }),
@@ -463,6 +464,7 @@ const buildTrendMetricSets = (
     baselineExecution: toBaselineMetricSet('execution'),
     sampleCount: currentRows.reduce((sum, row) => sum + row.sampleCount, 0),
     clearedEncounters: currentRows.length,
+    windows: trendWindows,
     weekStart: new Date(latestWeekStartMs),
   };
 };
@@ -561,7 +563,7 @@ export const collectGuildRankSummaryData = async (
 
     const bundle: GuildRankCollectorBundle = {
       input: normalizedInput,
-      windows,
+      windows: trendMetricSets.windows,
       metricSource: 'trend_cache',
       officialRanks,
       currentReports: [],

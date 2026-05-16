@@ -145,6 +145,12 @@ describe('guildrank pipeline', () => {
     expect(summary.notes).not.toContain(
       'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
     );
+    expect(summary.window.currentStartIso).toBe(new Date(Date.UTC(2026, 4, 12)).toISOString());
+    expect(summary.window.currentEndIso).toBe(
+      new Date(Date.UTC(2026, 4, 12) + 7 * DAY_MS - 1).toISOString(),
+    );
+    expect(summary.window.baselineStartIso).toBe(new Date(Date.UTC(2026, 4, 5)).toISOString());
+    expect(summary.window.baselineEndIso).toBe(new Date(Date.UTC(2026, 4, 12) - 1).toISOString());
     expect(summary.speed.overall.bestDerivedPercentile).toBe(90);
     expect(summary.speed.overall.bestDerivedPercentileDelta).toBe(25);
     expect(summary.speed.overall.medianDerivedPercentile).toBe(80);

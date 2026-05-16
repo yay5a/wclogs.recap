@@ -328,25 +328,23 @@ describe('discord command surfaces', () => {
     expect(speedValue).toContain('World 🌍 #389');
     expect(speedValue).toContain('Region 🗾 #136');
     expect(speedValue).toContain('Realm 🪐 #120');
-    expect(speedValue).toContain('Best Derived Relative Percentile: 91 (prev 88, +3)');
-    expect(speedValue).toContain('Median Derived Relative Percentile: 88 (prev 90, -2)');
+    expect(speedValue).toContain('Best Percentile: 91 (prev 88, +3)');
+    expect(speedValue).toContain('Median Percentile: 88 (prev 90, -2)');
     expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
       'Source: Derived from WCL Reports',
     );
     expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
-      'Best Derived Relative Percentile: 84 (prev 80, +4)',
+      'Best Percentile: 84 (prev 80, +4)',
     );
     expect(JSON.stringify(response)).not.toContain('Official progress ranks unavailable');
     const speedEncounterValue =
       fields.find((field) => field.name === 'Speed - Per Encounter')?.value ?? '';
     expect(speedEncounterValue).toContain('• Jinrokh');
-    expect(speedEncounterValue).toContain('  Best Derived Relative Percentile: 95 (prev 90, +5)');
+    expect(speedEncounterValue).toContain('Best Percentile: 95 (prev 90, +5)');
     const executionEncounterValue =
       fields.find((field) => field.name === 'Execution - Per Encounter')?.value ?? '';
     expect(executionEncounterValue).toContain('• Jinrokh');
-    expect(executionEncounterValue).toContain(
-      '  Best Derived Relative Percentile: 86 (prev 80, +6)',
-    );
+    expect(executionEncounterValue).toContain('Best Percentile: 86 (prev 80, +6)');
     expect(fields.some((field) => field.name === 'Jinrokh')).toBe(false);
   });
 
@@ -377,7 +375,7 @@ describe('discord command surfaces', () => {
         overall: {
           bestDerivedPercentile: 91,
           bestDerivedPercentileDelta: 3,
-          medianDerivedPercentile: 88,
+          medianDerivedPercentile: 91,
           medianDerivedPercentileDelta: -2,
         },
         encounters: [
@@ -386,7 +384,7 @@ describe('discord command surfaces', () => {
             speed: {
               bestDerivedPercentile: 95,
               bestDerivedPercentileDelta: 5,
-              medianDerivedPercentile: 90,
+              medianDerivedPercentile: 95,
               medianDerivedPercentileDelta: -1,
             },
             execution: {},
@@ -411,16 +409,39 @@ describe('discord command surfaces', () => {
     const speedValue = fields.find((field) => field.name === 'Speed')?.value ?? '';
     const speedEncounterValue =
       fields.find((field) => field.name === 'Speed - Per Encounter')?.value ?? '';
+    const readValue = fields.find((field) => field.name === 'How to Read')?.value ?? '';
     const responseJson = JSON.stringify(response);
 
     expect(rankingValue).toContain('Ranking samples: 29');
     expect(rankingValue).not.toContain('Pulls/Wipes');
     expect(speedValue).toContain('Source: Cached WCL Rankings');
-    expect(speedValue).toContain('Best WCL Percentile: 91 (prev 88, +3)');
-    expect(speedValue).toContain('Median WCL Percentile: 88 (prev 90, -2)');
-    expect(speedEncounterValue).toContain('  Best WCL Percentile: 95 (prev 90, +5)');
+    expect(speedValue).toContain('WCL Percentile: 91 (best prev 88, +3; median prev 93, -2)');
+    expect(speedValue).not.toContain('Best WCL Percentile: 91');
+    expect(speedValue).not.toContain('Median WCL Percentile: 91');
+    expect(speedEncounterValue).toContain(
+      'WCL Percentile: 95 (best prev 90, +5; median prev 96, -1)',
+    );
+    expect(speedEncounterValue).not.toContain('Best WCL Percentile: 95');
+    expect(speedEncounterValue).not.toContain('Median WCL Percentile: 95');
+    expect(readValue).toContain(
+      'Window: Current week = latest cached WCL ranking week. Baseline = previous cached ranking week.',
+    );
+    expect(readValue).toContain(
+      'Current week: 1970-01-01T00:00:00.000Z -> 1970-01-01T00:00:00.001Z',
+    );
+    expect(readValue).toContain(
+      'Baseline week: 1970-01-01T00:00:00.002Z -> 1970-01-01T00:00:00.003Z',
+    );
+    expect(readValue).toContain(
+      'Speed/execution percentiles use cached WCL report rankings, not the guild profile page.',
+    );
+    expect(readValue).toContain(
+      "Weekly values may summarize multiple reports; verify source values in each report's Rankings table for the same encounter/difficulty/size.",
+    );
     expect(responseJson).not.toContain('Best Derived Relative Percentile');
-    expect(responseJson).toContain('Speed and execution are read from cached WCL ranking trends.');
+    expect(responseJson).not.toContain(
+      'Speed and execution are read from cached WCL ranking trends.',
+    );
   });
 
   it('does not render raw zone IDs in /config status output', async () => {
