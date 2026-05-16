@@ -10,73 +10,42 @@ const formatDelta = (value?: number): string =>
 
 const formatPreviousAndDelta = (current?: number, delta?: number): string => {
   if (typeof current === 'number' && typeof delta === 'number') {
-    return `prev ${decimalFormatter.format(current - delta)}, ${formatDelta(delta)}`;
+    const previousLabel = delta < 0 ? 'prev best' : 'prev';
+    return `${previousLabel} ${decimalFormatter.format(current - delta)}, ${formatDelta(delta)}`;
   }
   return `prev n/a, ${formatDelta(delta)}`;
 };
 
-const sameChangeContext = (
-  bestDerivedPercentileDelta?: number,
-  medianDerivedPercentileDelta?: number,
-): boolean =>
-  bestDerivedPercentileDelta === medianDerivedPercentileDelta ||
-  (typeof bestDerivedPercentileDelta !== 'number' &&
-    typeof medianDerivedPercentileDelta !== 'number');
-
-const metricLabels = (
-  summary: GuildRankSummary,
-): { best: string; median: string; single: string } =>
+const metricLabels = (summary: GuildRankSummary): { best: string; single: string } =>
   summary.metricSource === 'trend_cache'
     ? {
         best: 'Best WCL Percentile',
-        median: 'Median WCL Percentile',
         single: 'WCL Percentile',
       }
     : {
         best: 'Best Percentile',
-        median: 'Median Percentile',
         single: 'Percentile',
       };
 
 const formatMetricLines = (
-  labels: { best: string; median: string; single: string },
+  labels: { best: string; single: string },
   best?: number,
-  median?: number,
   bestDerivedPercentileDelta?: number,
-  medianDerivedPercentileDelta?: number,
 ): string[] => {
-  if (typeof best === 'number' && typeof median === 'number' && best === median) {
-    if (!sameChangeContext(bestDerivedPercentileDelta, medianDerivedPercentileDelta)) {
-      return [
-        `${labels.single}: ${decimalFormatter.format(best)} (best ${formatPreviousAndDelta(best, bestDerivedPercentileDelta)}; median ${formatPreviousAndDelta(median, medianDerivedPercentileDelta)})`,
-      ];
-    }
-
-    return [
-      `${labels.single}: ${decimalFormatter.format(best)} (${formatPreviousAndDelta(best, bestDerivedPercentileDelta)})`,
-    ];
-  }
-
+  const label =
+    typeof bestDerivedPercentileDelta === 'number' && bestDerivedPercentileDelta > 0
+      ? labels.best
+      : labels.single;
   return [
-    `${labels.best}: ${typeof best === 'number' ? decimalFormatter.format(best) : 'n/a'} (${formatPreviousAndDelta(best, bestDerivedPercentileDelta)})`,
-    `${labels.median}: ${typeof median === 'number' ? decimalFormatter.format(median) : 'n/a'} (${formatPreviousAndDelta(median, medianDerivedPercentileDelta)})`,
+    `${label}: ${typeof best === 'number' ? decimalFormatter.format(best) : 'n/a'} (${formatPreviousAndDelta(best, bestDerivedPercentileDelta)})`,
   ];
 };
 
 const formatMetric = (
-  labels: { best: string; median: string; single: string },
+  labels: { best: string; single: string },
   best?: number,
-  median?: number,
   bestDerivedPercentileDelta?: number,
-  medianDerivedPercentileDelta?: number,
-): string =>
-  formatMetricLines(
-    labels,
-    best,
-    median,
-    bestDerivedPercentileDelta,
-    medianDerivedPercentileDelta,
-  ).join('\n');
+): string => formatMetricLines(labels, best, bestDerivedPercentileDelta).join('\n');
 
 const formatRanks = (ranks: { world?: number; region?: number; realm?: number }): string =>
   [
@@ -85,7 +54,13 @@ const formatRanks = (ranks: { world?: number; region?: number; realm?: number })
     `Realm 🪐 ${typeof ranks.realm === 'number' ? `#${ranks.realm} \n` : 'unavailable'}`,
   ].join(' / ');
 
-const formatSection = (lines: string[]): string => [SECTION_SEPARATOR, '', ...lines].join('\n');
+const formatSection = (title: string, lines: string[]): string =>
+  [`**${title}**`, '', ...lines].join('\n');
+
+const sectionField = (title: string, lines: string[]) => ({
+  name: SECTION_SEPARATOR,
+  value: formatSection(title, lines),
+});
 
 const formatEncounterRankings = (
   encounters: Array<{
@@ -104,52 +79,41 @@ const formatEncounterRankings = (
     };
   }>,
   metric: 'speed' | 'execution',
-  labels: { best: string; median: string; single: string },
+  labels: { best: string; single: string },
 ): string => {
   const rows = encounters.slice(0, 6).map((encounter) => {
     const values = encounter[metric];
     return [
       `• ${encounter.encounterName}`,
-      ...formatMetricLines(
-        labels,
-        values.bestDerivedPercentile,
-        values.medianDerivedPercentile,
-        values.bestDerivedPercentileDelta,
-        values.medianDerivedPercentileDelta,
-      ),
+      ...formatMetricLines(labels, values.bestDerivedPercentile, values.bestDerivedPercentileDelta),
     ].join('\n');
   });
-  return rows.length > 0
-    ? [SECTION_SEPARATOR, '', rows.join('\n\n')].join('\n')
-    : formatSection(['unavailable']);
+  return rows.length > 0 ? rows.join('\n\n') : 'unavailable';
 };
 
 export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
   const labels = metricLabels(summary);
 
-  fields.push({
-    name: 'Progress',
-    value: formatSection([
+  fields.push(
+    sectionField('Progress', [
       `Cleared: ${summary.progress.clearedEncounters}/${summary.progress.totalEncounters}`,
       `World: ${typeof summary.progress.ranks.world === 'number' ? `#${summary.progress.ranks.world}` : 'unavailable'}`,
       `Region: ${typeof summary.progress.ranks.region === 'number' ? `#${summary.progress.ranks.region}` : 'unavailable'}`,
       `Realm: ${typeof summary.progress.ranks.realm === 'number' ? `#${summary.progress.ranks.realm}` : 'unavailable'}`,
     ]),
-  });
+  );
 
-  fields.push({
-    name: 'Guild Rankings',
-    value: formatSection([
+  fields.push(
+    sectionField('Guild Rankings', [
       summary.metricSource === 'trend_cache'
         ? `Ranking samples: ${integerFormatter.format(summary.progress.pulls)}`
         : `Pulls/Wipes: ${integerFormatter.format(summary.progress.pulls)}/${integerFormatter.format(summary.progress.wipes)}`,
     ]),
-  });
+  );
 
-  fields.push({
-    name: 'Speed',
-    value: formatSection([
+  fields.push(
+    sectionField('Speed', [
       `Source: ${summary.speed.sourceLabel}`,
       ...(summary.speed.ranks ? [`All-Star Ranks: ${formatRanks(summary.speed.ranks)}`] : []),
       ...(summary.speed.completeRaidRanks
@@ -158,42 +122,39 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
       formatMetric(
         labels,
         summary.speed.overall.bestDerivedPercentile,
-        summary.speed.overall.medianDerivedPercentile,
         summary.speed.overall.bestDerivedPercentileDelta,
-        summary.speed.overall.medianDerivedPercentileDelta,
       ),
       summary.speed.bestEncounterGain
         ? `Best Encounter Gain: ${summary.speed.bestEncounterGain.encounterName} ${formatDelta(summary.speed.bestEncounterGain.delta)}`
         : 'Best Encounter Gain: n/a',
     ]),
-  });
+  );
 
-  fields.push({
-    name: 'Speed - Per Encounter',
-    value: formatEncounterRankings(summary.speed.encounters, 'speed', labels),
-  });
+  fields.push(
+    sectionField('Speed - Per Encounter', [
+      formatEncounterRankings(summary.speed.encounters, 'speed', labels),
+    ]),
+  );
 
-  fields.push({
-    name: 'Execution',
-    value: formatSection([
+  fields.push(
+    sectionField('Execution', [
       `Source: ${summary.execution.sourceLabel}`,
       formatMetric(
         labels,
         summary.execution.overall.bestDerivedPercentile,
-        summary.execution.overall.medianDerivedPercentile,
         summary.execution.overall.bestDerivedPercentileDelta,
-        summary.execution.overall.medianDerivedPercentileDelta,
       ),
       summary.execution.bestEncounterGain
         ? `Best Encounter Gain: ${summary.execution.bestEncounterGain.encounterName} ${formatDelta(summary.execution.bestEncounterGain.delta)}`
         : 'Best Encounter Gain: n/a',
     ]),
-  });
+  );
 
-  fields.push({
-    name: 'Execution - Per Encounter',
-    value: formatEncounterRankings(summary.execution.encounters, 'execution', labels),
-  });
+  fields.push(
+    sectionField('Execution - Per Encounter', [
+      formatEncounterRankings(summary.execution.encounters, 'execution', labels),
+    ]),
+  );
 
   const windowLines =
     summary.metricSource === 'trend_cache'
@@ -213,10 +174,9 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
           ...summary.notes.map((note) => `Note: ${note}`),
         ];
 
-  fields.push({
-    name: summary.metricSource === 'trend_cache' ? 'How to Read' : 'Window',
-    value: formatSection(windowLines),
-  });
+  fields.push(
+    sectionField(summary.metricSource === 'trend_cache' ? 'How to Read' : 'Window', windowLines),
+  );
 
   return {
     embeds: [

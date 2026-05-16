@@ -3,6 +3,13 @@ import { InteractionResponseType, InteractionType } from 'discord-interactions';
 import { commandDefinitions, handleInteraction } from './index.js';
 import { buildGuildRankResponseBody } from './renderers/guildrank.js';
 
+const SECTION_SEPARATOR = '='.repeat(32);
+
+const sectionValue = (
+  fields: Array<{ name: string; value: string; inline?: boolean }>,
+  title: string,
+): string => fields.find((field) => field.value.startsWith(`**${title}**`))?.value ?? '';
+
 const makeHandleOptions = () =>
   ({
     wclClient: {
@@ -302,23 +309,15 @@ describe('discord command surfaces', () => {
     });
 
     const fields = response.embeds[0]?.fields ?? [];
-    expect(fields.map((field) => field.name)).toEqual([
-      'Progress',
-      'Guild Rankings',
-      'Speed',
-      'Speed - Per Encounter',
-      'Execution',
-      'Execution - Per Encounter',
-      'Window',
-    ]);
-    const progressValue = fields.find((field) => field.name === 'Progress')?.value ?? '';
-    expect(progressValue).toContain('================================\n\nCleared');
+    expect(fields.map((field) => field.name)).toEqual(Array(7).fill(SECTION_SEPARATOR));
+    const progressValue = sectionValue(fields, 'Progress');
+    expect(progressValue).toContain('**Progress**\n\nCleared');
     expect(progressValue).toContain('Cleared: 13/13');
     expect(progressValue).toContain('World: #868');
     expect(progressValue).toContain('Region: #279');
     expect(progressValue).toContain('Realm: #241');
-    const speedValue = fields.find((field) => field.name === 'Speed')?.value ?? '';
-    expect(speedValue).toContain('================================\n\nSource');
+    const speedValue = sectionValue(fields, 'Speed');
+    expect(speedValue).toContain('**Speed**\n\nSource');
     expect(speedValue).toContain('Source: Derived from WCL Reports');
     expect(speedValue).toContain('All-Star Ranks:');
     expect(speedValue).toContain('World 🌍 #1273');
@@ -329,23 +328,17 @@ describe('discord command surfaces', () => {
     expect(speedValue).toContain('Region 🗾 #136');
     expect(speedValue).toContain('Realm 🪐 #120');
     expect(speedValue).toContain('Best Percentile: 91 (prev 88, +3)');
-    expect(speedValue).toContain('Median Percentile: 88 (prev 90, -2)');
-    expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
-      'Source: Derived from WCL Reports',
-    );
-    expect(fields.find((field) => field.name === 'Execution')?.value).toContain(
-      'Best Percentile: 84 (prev 80, +4)',
-    );
+    expect(speedValue).not.toContain('Median Percentile');
+    expect(sectionValue(fields, 'Execution')).toContain('Source: Derived from WCL Reports');
+    expect(sectionValue(fields, 'Execution')).toContain('Best Percentile: 84 (prev 80, +4)');
     expect(JSON.stringify(response)).not.toContain('Official progress ranks unavailable');
-    const speedEncounterValue =
-      fields.find((field) => field.name === 'Speed - Per Encounter')?.value ?? '';
+    const speedEncounterValue = sectionValue(fields, 'Speed - Per Encounter');
     expect(speedEncounterValue).toContain('• Jinrokh');
     expect(speedEncounterValue).toContain('Best Percentile: 95 (prev 90, +5)');
-    const executionEncounterValue =
-      fields.find((field) => field.name === 'Execution - Per Encounter')?.value ?? '';
+    const executionEncounterValue = sectionValue(fields, 'Execution - Per Encounter');
     expect(executionEncounterValue).toContain('• Jinrokh');
     expect(executionEncounterValue).toContain('Best Percentile: 86 (prev 80, +6)');
-    expect(fields.some((field) => field.name === 'Jinrokh')).toBe(false);
+    expect(fields.some((field) => field.value.startsWith('**Jinrokh**'))).toBe(false);
   });
 
   it('renders cached guildrank trends as WCL percentiles and ranking samples', () => {
@@ -395,7 +388,7 @@ describe('discord command surfaces', () => {
         sourceLabel: 'Cached WCL Rankings',
         overall: {
           bestDerivedPercentile: 84,
-          bestDerivedPercentileDelta: 4,
+          bestDerivedPercentileDelta: -4,
           medianDerivedPercentile: 82,
           medianDerivedPercentileDelta: 2,
         },
@@ -405,24 +398,23 @@ describe('discord command surfaces', () => {
     });
 
     const fields = response.embeds[0]?.fields ?? [];
-    const rankingValue = fields.find((field) => field.name === 'Guild Rankings')?.value ?? '';
-    const speedValue = fields.find((field) => field.name === 'Speed')?.value ?? '';
-    const speedEncounterValue =
-      fields.find((field) => field.name === 'Speed - Per Encounter')?.value ?? '';
-    const readValue = fields.find((field) => field.name === 'How to Read')?.value ?? '';
+    const rankingValue = sectionValue(fields, 'Guild Rankings');
+    const speedValue = sectionValue(fields, 'Speed');
+    const speedEncounterValue = sectionValue(fields, 'Speed - Per Encounter');
+    const executionValue = sectionValue(fields, 'Execution');
+    const readValue = sectionValue(fields, 'How to Read');
     const responseJson = JSON.stringify(response);
 
     expect(rankingValue).toContain('Ranking samples: 29');
     expect(rankingValue).not.toContain('Pulls/Wipes');
     expect(speedValue).toContain('Source: Cached WCL Rankings');
-    expect(speedValue).toContain('WCL Percentile: 91 (best prev 88, +3; median prev 93, -2)');
-    expect(speedValue).not.toContain('Best WCL Percentile: 91');
-    expect(speedValue).not.toContain('Median WCL Percentile: 91');
-    expect(speedEncounterValue).toContain(
-      'WCL Percentile: 95 (best prev 90, +5; median prev 96, -1)',
-    );
-    expect(speedEncounterValue).not.toContain('Best WCL Percentile: 95');
-    expect(speedEncounterValue).not.toContain('Median WCL Percentile: 95');
+    expect(speedValue).toContain('Best WCL Percentile: 91 (prev 88, +3)');
+    expect(speedValue).not.toContain('Median WCL Percentile');
+    expect(speedValue).not.toContain('median prev');
+    expect(speedEncounterValue).toContain('Best WCL Percentile: 95 (prev 90, +5)');
+    expect(speedEncounterValue).not.toContain('Median WCL Percentile');
+    expect(executionValue).toContain('WCL Percentile: 84 (prev best 88, -4)');
+    expect(executionValue).not.toContain('Best WCL Percentile: 84');
     expect(readValue).toContain(
       'Window: Current week = latest cached WCL ranking week. Baseline = previous cached ranking week.',
     );
