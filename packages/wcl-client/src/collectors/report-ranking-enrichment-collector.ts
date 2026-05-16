@@ -99,8 +99,9 @@ const DEFAULT_COMPARE_MODES: ReportRankingEnrichmentCompareMode[] = ['rankings']
 const toWclTimeframe = (timeframe: ReportRankingEnrichmentTimeframe): 'Today' | 'Historical' =>
   timeframe === 'today' ? 'Today' : 'Historical';
 
-const toWclCompareMode = (compareMode: ReportRankingEnrichmentCompareMode): 'Rankings' | 'Parses' =>
-  compareMode === 'rankings' ? 'Rankings' : 'Parses';
+const toWclCompareMode = (
+  compareMode: ReportRankingEnrichmentCompareMode,
+): 'Rankings' | 'Parses' => (compareMode === 'rankings' ? 'Rankings' : 'Parses');
 
 const stableJson = (value: unknown): string => {
   if (Array.isArray(value)) {
@@ -119,9 +120,7 @@ const stableJson = (value: unknown): string => {
 const hashQueryVars = (value: Record<string, unknown>): string =>
   createHash('sha256').update(stableJson(value)).digest('hex');
 
-const toValidFights = (
-  fights: ReportRankingEnrichmentFight[],
-): ReportRankingEnrichmentFight[] =>
+const toValidFights = (fights: ReportRankingEnrichmentFight[]): ReportRankingEnrichmentFight[] =>
   fights.filter(
     (fight) =>
       Number.isFinite(fight.fightId) &&
@@ -218,10 +217,7 @@ const collectRows = (value: unknown): Record<string, unknown>[] => {
   });
 };
 
-const firstNumber = (
-  row: Record<string, unknown>,
-  keys: string[],
-): number | undefined => {
+const firstNumber = (row: Record<string, unknown>, keys: string[]): number | undefined => {
   for (const key of keys) {
     const value = asNumber(row[key]);
     if (typeof value === 'number') return value;

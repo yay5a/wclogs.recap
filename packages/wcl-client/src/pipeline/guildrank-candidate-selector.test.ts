@@ -203,10 +203,7 @@ describe('guildrank candidate selector', () => {
       liveReportIndexFetcher,
     });
 
-    expect(result.map((row) => row.reportCode)).toEqual([
-      'LIVE_RIGHT_EARLIER',
-      'PREV_NEW',
-    ]);
+    expect(result.map((row) => row.reportCode)).toEqual(['LIVE_RIGHT_EARLIER', 'PREV_NEW']);
     expect(result.every((row) => row.source === 'live-wcl')).toBe(true);
   });
 });

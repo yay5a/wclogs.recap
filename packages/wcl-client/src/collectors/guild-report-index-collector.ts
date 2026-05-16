@@ -131,10 +131,8 @@ const parseRows = (payload: unknown): GuildReportIndexRow[] =>
     ];
   });
 
-const isInsideWindow = (
-  row: GuildReportIndexRow,
-  input: GuildReportIndexInput,
-): boolean => row.startTime >= input.startTimeMs && row.startTime <= input.endTimeMs;
+const isInsideWindow = (row: GuildReportIndexRow, input: GuildReportIndexInput): boolean =>
+  row.startTime >= input.startTimeMs && row.startTime <= input.endTimeMs;
 
 export const collectGuildReportIndex = async (
   input: GuildReportIndexCollectorInput,

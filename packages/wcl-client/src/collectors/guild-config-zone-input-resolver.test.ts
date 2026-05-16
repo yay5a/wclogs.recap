@@ -13,23 +13,23 @@ describe('guild config/zone input resolver', () => {
               { id: 3, name: 'Normal', sizes: [10, 25] },
               { id: 4, name: 'Heroic', sizes: [10, 25] },
             ],
-            encounters: [{ id: 1, name: 'A' }, { id: 2, name: 'B' }],
+            encounters: [
+              { id: 1, name: 'A' },
+              { id: 2, name: 'B' },
+            ],
           },
         },
       },
     });
 
-    const result = await resolveGuildConfigZoneInput(
-      { request } as never,
-      {
-        guildName: 'Guild',
-        guildServerSlug: 'stormrage',
-        guildServerRegion: 'us',
-        zoneId: 100,
-        difficulty: 'heroic',
-        size: '10man',
-      },
-    );
+    const result = await resolveGuildConfigZoneInput({ request } as never, {
+      guildName: 'Guild',
+      guildServerSlug: 'stormrage',
+      guildServerRegion: 'us',
+      zoneId: 100,
+      difficulty: 'heroic',
+      size: '10man',
+    });
 
     expect(result.difficultyId).toBe(4);
     expect(result.sizeValue).toBe(10);
@@ -52,17 +52,14 @@ describe('guild config/zone input resolver', () => {
     });
 
     await expect(
-      resolveGuildConfigZoneInput(
-        { request } as never,
-        {
-          guildName: 'Guild',
-          guildServerSlug: 'stormrage',
-          guildServerRegion: 'us',
-          zoneId: 100,
-          difficulty: 'heroic',
-          size: '25man',
-        },
-      ),
+      resolveGuildConfigZoneInput({ request } as never, {
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'us',
+        zoneId: 100,
+        difficulty: 'heroic',
+        size: '25man',
+      }),
     ).rejects.toThrow(/not supported/i);
   });
 
@@ -84,17 +81,14 @@ describe('guild config/zone input resolver', () => {
         },
       });
 
-    const result = await resolveGuildConfigZoneInput(
-      { request } as never,
-      {
-        guildName: 'Guild',
-        guildServerSlug: 'stormrage',
-        guildServerRegion: 'us',
-        zoneId: 1046,
-        difficulty: 'heroic',
-        size: '10man',
-      },
-    );
+    const result = await resolveGuildConfigZoneInput({ request } as never, {
+      guildName: 'Guild',
+      guildServerSlug: 'stormrage',
+      guildServerRegion: 'us',
+      zoneId: 1046,
+      difficulty: 'heroic',
+      size: '10man',
+    });
 
     expect(result.zoneName).toBe('Throne of Thunder');
     expect(result.difficultyId).toBe(4);
@@ -121,17 +115,14 @@ describe('guild config/zone input resolver', () => {
       });
 
     await expect(
-      resolveGuildConfigZoneInput(
-        { request } as never,
-        {
-          guildName: 'Guild',
-          guildServerSlug: 'stormrage',
-          guildServerRegion: 'us',
-          zoneId: 1523,
-          difficulty: 'heroic',
-          size: '10man',
-        },
-      ),
+      resolveGuildConfigZoneInput({ request } as never, {
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'us',
+        zoneId: 1523,
+        difficulty: 'heroic',
+        size: '10man',
+      }),
     ).rejects.toThrow(/configured zone 1523 is unavailable/i);
   });
 });

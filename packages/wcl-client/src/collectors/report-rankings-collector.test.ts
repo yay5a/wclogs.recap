@@ -54,32 +54,24 @@ describe('report rankings collector', () => {
         },
       }));
 
-    const result = await collectReportRankings(
-      { request } as never,
-      { reportCode: 'ABC123', killFightIds: [11] },
-    );
+    const result = await collectReportRankings({ request } as never, {
+      reportCode: 'ABC123',
+      killFightIds: [11],
+    });
 
     expect(request).toHaveBeenCalledTimes(2);
-    expect(request).toHaveBeenNthCalledWith(
-      1,
-      expect.any(String),
-      {
-        code: 'ABC123',
-        allowUnlisted: true,
-        fightIDs: [11],
-        playerMetric: 'dps',
-      },
-    );
-    expect(request).toHaveBeenNthCalledWith(
-      2,
-      expect.any(String),
-      {
-        code: 'ABC123',
-        allowUnlisted: true,
-        fightIDs: [11],
-        playerMetric: 'hps',
-      },
-    );
+    expect(request).toHaveBeenNthCalledWith(1, expect.any(String), {
+      code: 'ABC123',
+      allowUnlisted: true,
+      fightIDs: [11],
+      playerMetric: 'dps',
+    });
+    expect(request).toHaveBeenNthCalledWith(2, expect.any(String), {
+      code: 'ABC123',
+      allowUnlisted: true,
+      fightIDs: [11],
+      playerMetric: 'hps',
+    });
     expect(result.dps).toHaveLength(1);
     expect(result.hps).toHaveLength(1);
     expect(result).not.toHaveProperty('tankDps');

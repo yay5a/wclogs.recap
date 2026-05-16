@@ -53,10 +53,7 @@ const collectCachedReportIndex = async (
       'report_index_cache_write',
     );
   } catch (error) {
-    logger.warn(
-      { ...key, error: serializeError(error) },
-      'report index cache write failed',
-    );
+    logger.warn({ ...key, error: serializeError(error) }, 'report index cache write failed');
   }
   return index;
 };

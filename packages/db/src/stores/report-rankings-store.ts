@@ -291,23 +291,21 @@ const buildTrendGroups = (facts: ParsedFact[]): Map<string, TrendGroup> => {
   for (const fact of facts) {
     const weekStart = getRankingWeekStart(fact.reportStartTime);
     const key = trendGroupKey({ ...fact, weekStart });
-    const existing =
-      groups.get(key) ??
-      {
-        guildName: fact.guildName,
-        guildServerSlug: fact.guildServerSlug,
-        guildServerRegion: fact.guildServerRegion,
-        gameFamily: fact.gameFamily,
-        encounterId: fact.encounterId,
-        difficulty: fact.difficulty,
-        size: fact.size,
-        weekStart,
-        timeframe: fact.timeframe,
-        compareMode: fact.compareMode,
-        speedValues: [],
-        executionValues: [],
-        sampleCount: 0,
-      };
+    const existing = groups.get(key) ?? {
+      guildName: fact.guildName,
+      guildServerSlug: fact.guildServerSlug,
+      guildServerRegion: fact.guildServerRegion,
+      gameFamily: fact.gameFamily,
+      encounterId: fact.encounterId,
+      difficulty: fact.difficulty,
+      size: fact.size,
+      weekStart,
+      timeframe: fact.timeframe,
+      compareMode: fact.compareMode,
+      speedValues: [],
+      executionValues: [],
+      sampleCount: 0,
+    };
 
     if (typeof fact.speedPercentile === 'number') {
       existing.speedValues.push(fact.speedPercentile);
@@ -443,8 +441,7 @@ export class MongoReportRankingsStore {
     const contexts = input.contexts.filter(
       (context, index, rows) =>
         rows.findIndex(
-          (row) =>
-            row.timeframe === context.timeframe && row.compareMode === context.compareMode,
+          (row) => row.timeframe === context.timeframe && row.compareMode === context.compareMode,
         ) === index,
     );
     if (!reportCode || contexts.length === 0) {

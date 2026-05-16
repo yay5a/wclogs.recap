@@ -73,13 +73,8 @@ const baseSummary = (): ReportSummary => ({
 const getFieldNames = (response: ReturnType<typeof buildReportResponseBody>): string[] =>
   response.embeds[0]?.fields?.map((field) => field.name) ?? [];
 
-const getSectionIndex = (
-  fields: Array<{ name?: string; value?: string }>,
-  label: string,
-): number =>
-  fields.findIndex(
-    (field) => field.name?.trim() === label || field.value?.trim() === label,
-  );
+const getSectionIndex = (fields: Array<{ name?: string; value?: string }>, label: string): number =>
+  fields.findIndex((field) => field.name?.trim() === label || field.value?.trim() === label);
 
 const getFieldValue = (
   response: ReturnType<typeof buildReportResponseBody>,

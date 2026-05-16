@@ -25,10 +25,7 @@ export const REPORT_SUMMARY_SOURCE_MAP = {
     'Report.table row totals divided by the selected completed boss-fight duration; table activeTimeMs/activeTime is ignored for WCL table parity',
 } as const;
 
-type EncounterParseFields = Pick<
-  ReportEncounterSummaryRow,
-  'highestParseDps' | 'highestParseHps'
->;
+type EncounterParseFields = Pick<ReportEncounterSummaryRow, 'highestParseDps' | 'highestParseHps'>;
 
 const toEncounterParseRow = (
   entry: NormalizedLeaderboardEntry,

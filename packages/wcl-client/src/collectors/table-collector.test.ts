@@ -28,8 +28,7 @@ const makeStatusError = (status: number): Error =>
     response: { status },
   });
 
-const makeClient = (request: ReturnType<typeof vi.fn>): WclGraphqlClient =>
-  ({ request }) as never;
+const makeClient = (request: ReturnType<typeof vi.fn>): WclGraphqlClient => ({ request }) as never;
 
 afterEach(() => {
   vi.useRealTimers();

@@ -77,9 +77,9 @@ describe('MongoReportRankingsStore', () => {
   });
 
   it('appends raw ranking payloads for audit/debug reads', async () => {
-    const insertMany = vi.spyOn(ReportRankingsRawModel, 'insertMany').mockResolvedValue([
-      { reportCode: 'ABC123' },
-    ] as never);
+    const insertMany = vi
+      .spyOn(ReportRankingsRawModel, 'insertMany')
+      .mockResolvedValue([{ reportCode: 'ABC123' }] as never);
     const store = new MongoReportRankingsStore();
     const fetchedAt = new Date('2026-05-15T12:00:00.000Z');
 
@@ -118,7 +118,9 @@ describe('MongoReportRankingsStore', () => {
     const deleteMany = vi.spyOn(ReportRankingsFactModel, 'deleteMany').mockResolvedValue({
       deletedCount: 2,
     } as never);
-    const insertMany = vi.spyOn(ReportRankingsFactModel, 'insertMany').mockResolvedValue([] as never);
+    const insertMany = vi
+      .spyOn(ReportRankingsFactModel, 'insertMany')
+      .mockResolvedValue([] as never);
     const store = new MongoReportRankingsStore();
     const sourceFetchedAt = new Date('2026-05-15T12:00:00.000Z');
 
@@ -226,7 +228,9 @@ describe('MongoReportRankingsStore', () => {
     const deleteMany = vi.spyOn(GuildEncounterTrendWeeklyModel, 'deleteMany').mockResolvedValue({
       deletedCount: 1,
     } as never);
-    const bulkWrite = vi.spyOn(GuildEncounterTrendWeeklyModel, 'bulkWrite').mockResolvedValue({} as never);
+    const bulkWrite = vi
+      .spyOn(GuildEncounterTrendWeeklyModel, 'bulkWrite')
+      .mockResolvedValue({} as never);
     const store = new MongoReportRankingsStore();
     const computedAt = new Date('2026-05-15T13:00:00.000Z');
 

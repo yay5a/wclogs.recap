@@ -73,8 +73,13 @@ export const resolveGuildConfigZoneInput = async (
   }
 
   if (!zone) {
-    const fallbackPayload = await client.request<Record<string, unknown>>(ZONE_LIST_FALLBACK_QUERY, {});
-    const worldDataFallback = asObject((fallbackPayload as { data?: Record<string, unknown> })?.data)?.worldData;
+    const fallbackPayload = await client.request<Record<string, unknown>>(
+      ZONE_LIST_FALLBACK_QUERY,
+      {},
+    );
+    const worldDataFallback = asObject(
+      (fallbackPayload as { data?: Record<string, unknown> })?.data,
+    )?.worldData;
     const zones = asArray(asObject(worldDataFallback)?.zones) ?? [];
     const zoneFromList = zones
       .map((value) => asObject(value))
@@ -85,19 +90,21 @@ export const resolveGuildConfigZoneInput = async (
     }
 
     const mappedDifficultyId =
-      requestedDifficulty === 'normal'
-        ? 3
-        : requestedDifficulty === 'heroic'
-          ? 4
-          : undefined;
+      requestedDifficulty === 'normal' ? 3 : requestedDifficulty === 'heroic' ? 4 : undefined;
 
     if (typeof mappedDifficultyId !== 'number') {
-      throw new Error(`Difficulty ${input.difficulty} is not supported for fallback zone resolution.`);
+      throw new Error(
+        `Difficulty ${input.difficulty} is not supported for fallback zone resolution.`,
+      );
     }
 
     const zoneName = asString(zoneFromList.name) ?? `Zone ${input.zoneId}`;
     const difficultyLabel =
-      requestedDifficulty === 'normal' ? 'Normal' : requestedDifficulty === 'heroic' ? 'Heroic' : input.difficulty;
+      requestedDifficulty === 'normal'
+        ? 'Normal'
+        : requestedDifficulty === 'heroic'
+          ? 'Heroic'
+          : input.difficulty;
 
     return {
       ...input,
@@ -125,12 +132,17 @@ export const resolveGuildConfigZoneInput = async (
     return [{ id, name, sizes }];
   });
 
-  const selectedDifficulty = difficulties.find((row) => row.name.trim().toLowerCase() === requestedDifficulty);
+  const selectedDifficulty = difficulties.find(
+    (row) => row.name.trim().toLowerCase() === requestedDifficulty,
+  );
   if (!selectedDifficulty) {
     throw new Error(`Difficulty ${input.difficulty} is not valid for zone ${zoneName}.`);
   }
 
-  if (selectedDifficulty.sizes.length > 0 && !selectedDifficulty.sizes.includes(requestedSizeValue)) {
+  if (
+    selectedDifficulty.sizes.length > 0 &&
+    !selectedDifficulty.sizes.includes(requestedSizeValue)
+  ) {
     throw new Error(
       `Size ${input.size} is not supported for ${selectedDifficulty.name} in zone ${zoneName}.`,
     );

@@ -100,9 +100,7 @@ describe('MongoReportIndexCacheStore', () => {
 
   it('treats omitted expiresAt as an indefinite cache entry', async () => {
     const index = reportIndexFixture();
-    const update = vi
-      .spyOn(ReportIndexCacheModel, 'findOneAndUpdate')
-      .mockResolvedValue(null);
+    const update = vi.spyOn(ReportIndexCacheModel, 'findOneAndUpdate').mockResolvedValue(null);
 
     const store = new MongoReportIndexCacheStore();
     await store.saveReportIndex({ reportCode: 'ABC123', gameFamily: 'retail', data: index });
@@ -143,9 +141,7 @@ describe('MongoReportIndexCacheStore', () => {
   it('upserts expiring cache entries by report code and game family', async () => {
     const index = reportIndexFixture({ gameFamily: 'mop_classic' });
     const expiresAt = new Date('2026-05-15T00:10:00.000Z');
-    const update = vi
-      .spyOn(ReportIndexCacheModel, 'findOneAndUpdate')
-      .mockResolvedValue(null);
+    const update = vi.spyOn(ReportIndexCacheModel, 'findOneAndUpdate').mockResolvedValue(null);
 
     const store = new MongoReportIndexCacheStore();
     await store.saveReportIndex({
@@ -283,16 +279,18 @@ describe('MongoGuildReportMetadataStore', () => {
         lastIndexedAt: new Date('2026-05-15T12:00:00.000Z'),
       }),
     } as never);
-    const saveCursor = vi.spyOn(GuildReportMetadataCursorModel, 'findOneAndUpdate').mockReturnValue({
-      lean: vi.fn().mockResolvedValue({
-        guildName: 'shenanigans',
-        guildServerSlug: 'galakras',
-        guildServerRegion: 'us',
-        gameFamily: 'mop_classic',
-        lastSeenStartTime: 400,
-        lastIndexedAt: new Date('2026-05-15T13:00:00.000Z'),
-      }),
-    } as never);
+    const saveCursor = vi
+      .spyOn(GuildReportMetadataCursorModel, 'findOneAndUpdate')
+      .mockReturnValue({
+        lean: vi.fn().mockResolvedValue({
+          guildName: 'shenanigans',
+          guildServerSlug: 'galakras',
+          guildServerRegion: 'us',
+          gameFamily: 'mop_classic',
+          lastSeenStartTime: 400,
+          lastIndexedAt: new Date('2026-05-15T13:00:00.000Z'),
+        }),
+      } as never);
 
     const store = new MongoGuildReportMetadataStore();
 
@@ -472,7 +470,9 @@ describe('MongoGuildReportMetadataStore', () => {
       gameFamily: 'mop_classic',
       startTime: { $gte: 1777047408973, $lte: 1778861808973 },
     };
-    const countDocuments = vi.spyOn(GuildReportMetadataModel, 'countDocuments').mockResolvedValue(1 as never);
+    const countDocuments = vi
+      .spyOn(GuildReportMetadataModel, 'countDocuments')
+      .mockResolvedValue(1 as never);
     const lean = vi.fn().mockResolvedValue([
       {
         ...filter,
@@ -563,12 +563,12 @@ describe('MongoWclUserAuthStore', () => {
       },
       { upsert: true },
     );
-    expect(JSON.stringify(vi.mocked(WclUserAuthModel.findOneAndUpdate).mock.calls[0])).not.toContain(
-      'user-access-token',
-    );
-    expect(JSON.stringify(vi.mocked(WclUserAuthModel.findOneAndUpdate).mock.calls[0])).not.toContain(
-      'user-refresh-token',
-    );
+    expect(
+      JSON.stringify(vi.mocked(WclUserAuthModel.findOneAndUpdate).mock.calls[0]),
+    ).not.toContain('user-access-token');
+    expect(
+      JSON.stringify(vi.mocked(WclUserAuthModel.findOneAndUpdate).mock.calls[0]),
+    ).not.toContain('user-refresh-token');
   });
 
   it('gets and decrypts WCL auth by Discord user ID', async () => {
@@ -1012,12 +1012,12 @@ describe('MongoGuildConfigStore', () => {
         setDefaultsOnInsert: true,
       },
     );
-    expect((createDefaultUpdate as { $setOnInsert: Record<string, unknown> }).$setOnInsert).not.toHaveProperty(
-      'accountabilityVisibility',
-    );
-    expect((createDefaultUpdate as { $setOnInsert: Record<string, unknown> }).$setOnInsert).not.toHaveProperty(
-      'coachingShareabilityDefault',
-    );
+    expect(
+      (createDefaultUpdate as { $setOnInsert: Record<string, unknown> }).$setOnInsert,
+    ).not.toHaveProperty('accountabilityVisibility');
+    expect(
+      (createDefaultUpdate as { $setOnInsert: Record<string, unknown> }).$setOnInsert,
+    ).not.toHaveProperty('coachingShareabilityDefault');
   });
 
   it('updates only existing dashboard guild configs', async () => {
@@ -1087,7 +1087,9 @@ describe('MongoGuildConfigStore', () => {
       comparePublicPostingEnabled: true,
       accountabilityVisibility: 'shareable',
       coachingShareabilityDefault: 'shareable',
-    } as unknown as Partial<Omit<Awaited<ReturnType<MongoGuildConfigStore['getGuildConfig']>>, 'guildId'>>;
+    } as unknown as Partial<
+      Omit<Awaited<ReturnType<MongoGuildConfigStore['getGuildConfig']>>, 'guildId'>
+    >;
 
     const saved = await store.saveGuildConfig('guild-1', rawUpdate);
     const update = vi.mocked(GuildSettingsModel.findOneAndUpdate).mock.calls[0]?.[1] as {
@@ -1117,7 +1119,9 @@ describe('MongoGuildConfigStore', () => {
     const rawUpdate = {
       accountabilityVisibility: 'shareable',
       coachingShareabilityDefault: 'shareable',
-    } as unknown as Partial<Omit<Awaited<ReturnType<MongoGuildConfigStore['getGuildConfig']>>, 'guildId'>>;
+    } as unknown as Partial<
+      Omit<Awaited<ReturnType<MongoGuildConfigStore['getGuildConfig']>>, 'guildId'>
+    >;
 
     const saved = await store.saveGuildConfig('guild-1', rawUpdate);
 
@@ -1310,9 +1314,7 @@ describe('MongoCharacterClaimStore', () => {
     const indexes = vi.spyOn(CharacterClaimModel.collection, 'indexes');
     const createIndex = vi.spyOn(CharacterClaimModel.collection, 'createIndex');
 
-    await expect(migrateCharacterClaimIdentityFields()).rejects.toThrow(
-      /duplicate active claims/i,
-    );
+    await expect(migrateCharacterClaimIdentityFields()).rejects.toThrow(/duplicate active claims/i);
 
     expect(indexes).not.toHaveBeenCalled();
     expect(createIndex).not.toHaveBeenCalled();

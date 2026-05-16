@@ -38,9 +38,7 @@ const pickBestParse = (
   return best;
 };
 
-const buildAverageParseCandidates = (
-  entries: NormalizedLeaderboardEntry[],
-): ReportMetricRow[] => {
+const buildAverageParseCandidates = (entries: NormalizedLeaderboardEntry[]): ReportMetricRow[] => {
   const perPlayer = new Map<
     string,
     {
@@ -57,15 +55,13 @@ const buildAverageParseCandidates = (
     if (!entry.playerName) continue;
 
     const key = entry.playerName.trim().toLowerCase();
-    const existing =
-      perPlayer.get(key) ??
-      {
-        playerName: entry.playerName,
-        sum: 0,
-        count: 0,
-        ...(entry.className ? { className: entry.className } : {}),
-        ...(entry.specName ? { specName: entry.specName } : {}),
-      };
+    const existing = perPlayer.get(key) ?? {
+      playerName: entry.playerName,
+      sum: 0,
+      count: 0,
+      ...(entry.className ? { className: entry.className } : {}),
+      ...(entry.specName ? { specName: entry.specName } : {}),
+    };
 
     if (typeof entry.performanceAverage === 'number') {
       existing.performanceAverage =

@@ -100,9 +100,7 @@ const sumRows = (rows: ParsedTableEntry[] | undefined): number | undefined => {
 const filterMetricRows = (rows: ParsedTableEntry[] | undefined): ParsedTableEntry[] =>
   (rows ?? []).filter((row) => typeof row.value === 'number' && row.playerName);
 
-const groupFightIdsByEncounter = (
-  fights: ReportIndexFightRow[],
-): Map<number, number[]> => {
+const groupFightIdsByEncounter = (fights: ReportIndexFightRow[]): Map<number, number[]> => {
   const byEncounterId = new Map<number, number[]>();
   for (const fight of fights) {
     const fightIds = byEncounterId.get(fight.encounterId);
@@ -117,7 +115,12 @@ const groupFightIdsByEncounter = (
 
 const collectType = async (
   client: WclGraphqlClient,
-  input: { reportCode: string; fightIds: number[]; dataType: TableDataType; filterExpression: string },
+  input: {
+    reportCode: string;
+    fightIds: number[];
+    dataType: TableDataType;
+    filterExpression: string;
+  },
 ): Promise<ParsedTablePayload> => {
   const variables = {
     code: input.reportCode,
@@ -155,7 +158,8 @@ const TABLE_FILTERS = {
     '(encounterID != 0) AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
   Healing:
     '(encounterID != 0) AND (inCategory("healing") = true) AND (source.disposition = "friendly") AND (target.disposition = "friendly")',
-  Deaths: '(encounterID != 0) AND (type = "death") AND (target.disposition = "friendly") AND (feign = false)',
+  Deaths:
+    '(encounterID != 0) AND (type = "death") AND (target.disposition = "friendly") AND (feign = false)',
   Dispels: '(encounterID != 0) AND (source.disposition = "friendly")',
   Interrupts:
     '(encounterID != 0) AND (type = "interrupt") AND (source.disposition = "friendly") AND (target.disposition = "enemy")',

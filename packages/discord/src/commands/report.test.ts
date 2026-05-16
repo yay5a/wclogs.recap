@@ -4,10 +4,7 @@ import {
   editOriginalInteractionResponse,
   safeEditOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
-import {
-  buildReportArtifact,
-  processReportInteraction,
-} from './report.js';
+import { buildReportArtifact, processReportInteraction } from './report.js';
 
 vi.mock('../infrastructure/discord-api.js', () => ({
   editOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
@@ -79,7 +76,9 @@ const summaryFixture = (): ReportSummary => ({
   partialDataNotes: [],
 });
 
-const flattenReportBody = (body: Record<string, unknown>): {
+const flattenReportBody = (
+  body: Record<string, unknown>,
+): {
   fieldNames: string[];
   text: string;
 } => {
@@ -122,8 +121,7 @@ describe('/report command render path', () => {
     const flattenedValues = fields.map((field) => field.value).join('\n');
     const hasTopPlayersSection = fields.some(
       (field) =>
-        field.name?.trim() === TOP_PLAYERS_LABEL ||
-        field.value?.trim() === TOP_PLAYERS_LABEL,
+        field.name?.trim() === TOP_PLAYERS_LABEL || field.value?.trim() === TOP_PLAYERS_LABEL,
     );
 
     expect(flattenedValues).toContain(ENCOUNTER_HIGHLIGHTS_LABEL);
@@ -156,7 +154,10 @@ describe('/report command render path', () => {
     );
 
     expect(editOriginalInteractionResponse).toHaveBeenCalledTimes(1);
-    const body = vi.mocked(editOriginalInteractionResponse).mock.calls[0]?.[2] as Record<string, unknown>;
+    const body = vi.mocked(editOriginalInteractionResponse).mock.calls[0]?.[2] as Record<
+      string,
+      unknown
+    >;
     expect(body).not.toHaveProperty('flags');
 
     const { fieldNames, text } = flattenReportBody(body);

@@ -140,7 +140,10 @@ export const collectGuildReportDiscovery = async (
       limit: 100,
       page: 1,
     };
-    const payload = await client.request<Record<string, unknown>>(GUILD_REPORT_DISCOVERY_QUERY, queryVariables);
+    const payload = await client.request<Record<string, unknown>>(
+      GUILD_REPORT_DISCOVERY_QUERY,
+      queryVariables,
+    );
     const rawRows = parseV2Rows(payload);
     const rows = filterRowsToWindow(rawRows, input);
     logger.info(

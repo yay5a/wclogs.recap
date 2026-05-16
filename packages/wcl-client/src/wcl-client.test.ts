@@ -90,8 +90,8 @@ describe('WclClient guildrank auth order', () => {
   });
 
   it('prefers linked user auth for guildrank when available', async () => {
-    collectGuildRankSummaryData.mockImplementationOnce(async (client: { getAuthModeKind: () => string }) =>
-      summary(client.getAuthModeKind()),
+    collectGuildRankSummaryData.mockImplementationOnce(
+      async (client: { getAuthModeKind: () => string }) => summary(client.getAuthModeKind()),
     );
     const client = new WclClient({
       publicClientAuth: {

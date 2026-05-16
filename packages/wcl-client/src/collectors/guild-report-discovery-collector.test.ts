@@ -16,7 +16,9 @@ describe('guild report discovery collector', () => {
       data: {
         reportData: {
           reports: {
-            data: [{ code: 'AAA', startTime: 1000, endTime: 2000, zone: { id: 100, name: 'Throne' } }],
+            data: [
+              { code: 'AAA', startTime: 1000, endTime: 2000, zone: { id: 100, name: 'Throne' } },
+            ],
           },
         },
       },
@@ -36,10 +38,7 @@ describe('guild report discovery collector', () => {
       json: vi.fn().mockResolvedValue([{ id: 'BBB', start: 3000, end: 4000, zone: 100 }]),
     });
 
-    const result = await collectGuildReportDiscovery(
-      { request } as never,
-      { ...input, fetchImpl },
-    );
+    const result = await collectGuildReportDiscovery({ request } as never, { ...input, fetchImpl });
 
     expect(result.source).toBe('v1');
     expect(result.rows).toEqual([{ code: 'BBB', startTime: 3000, endTime: 4000, zoneId: 100 }]);
@@ -56,15 +55,12 @@ describe('guild report discovery collector', () => {
       },
     });
 
-    await collectGuildReportDiscovery(
-      { request } as never,
-      {
-        ...input,
-        guildServerSlug: 'galakras',
-        guildServerRegion: 'us',
-        fetchImpl: vi.fn().mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue([]) }),
-      },
-    );
+    await collectGuildReportDiscovery({ request } as never, {
+      ...input,
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      fetchImpl: vi.fn().mockResolvedValue({ ok: true, json: vi.fn().mockResolvedValue([]) }),
+    });
 
     const variables = request.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(variables.guildServerSlug).toBe('galakras');

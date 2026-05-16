@@ -329,8 +329,6 @@ describe('collectReportSummaryData report index cache', () => {
       ],
     });
 
-    expect(getReportIndexCacheExpiresAt(index, now)).toEqual(
-      new Date('2026-05-15T00:10:00.000Z'),
-    );
+    expect(getReportIndexCacheExpiresAt(index, now)).toEqual(new Date('2026-05-15T00:10:00.000Z'));
   });
 });

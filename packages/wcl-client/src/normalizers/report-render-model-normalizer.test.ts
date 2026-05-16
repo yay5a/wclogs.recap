@@ -143,12 +143,8 @@ const baseBundle = (): ReportCollectorBundle => ({
       ],
     },
     encounterTopHealingDoneByEncounterId: {
-      1001: [
-        { dataType: 'Healing', playerName: 'Alyra', value: 1_200_000, activeTimeMs: 100_000 },
-      ],
-      1002: [
-        { dataType: 'Healing', playerName: 'Alyra', value: 2_100_000, activeTimeMs: 250_000 },
-      ],
+      1001: [{ dataType: 'Healing', playerName: 'Alyra', value: 1_200_000, activeTimeMs: 100_000 }],
+      1002: [{ dataType: 'Healing', playerName: 'Alyra', value: 2_100_000, activeTimeMs: 250_000 }],
     },
   },
 });

@@ -79,7 +79,8 @@ export const processGuildRankInteraction = async (
       'guildrank processing failed',
     );
     await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
-      content: 'Could not build guild rankings right now. Verify /config WCL target values and try again.',
+      content:
+        'Could not build guild rankings right now. Verify /config WCL target values and try again.',
     });
   }
 };

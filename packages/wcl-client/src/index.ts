@@ -32,9 +32,7 @@ export type {
 } from './collectors/report-ranking-enrichment-collector.js';
 
 export type { GuildRankInput } from './pipeline/types.js';
-export {
-  selectGuildRankCandidateReports,
-} from './pipeline/guildrank-candidate-selector.js';
+export { selectGuildRankCandidateReports } from './pipeline/guildrank-candidate-selector.js';
 export type {
   GuildRankLiveReportIndexFetcher,
   GuildRankReportCandidate,
@@ -43,9 +41,7 @@ export type {
   GuildRankReportMetadataRow,
   SelectGuildRankCandidateReportsInput,
 } from './pipeline/guildrank-candidate-selector.js';
-export {
-  getReportIndexCacheExpiresAt,
-} from './report-index-cache.js';
+export { getReportIndexCacheExpiresAt } from './report-index-cache.js';
 export type {
   ReportIndexCacheKey,
   ReportIndexCacheReadResult,

@@ -27,24 +27,21 @@ describe('report ranking enrichment collector', () => {
       },
     });
 
-    const result = await collectReportRankingEnrichment(
-      { request } as never,
-      {
-        reportCode: 'ABC123',
-        reportStartTime: 1_700_000_000_000,
-        fights: [
-          {
-            fightId: 11,
-            encounterId: 101,
-            difficulty: 5,
-            size: 25,
-            kill: true,
-          },
-        ],
-        timeframes: ['today'],
-        compareModes: ['rankings'],
-      },
-    );
+    const result = await collectReportRankingEnrichment({ request } as never, {
+      reportCode: 'ABC123',
+      reportStartTime: 1_700_000_000_000,
+      fights: [
+        {
+          fightId: 11,
+          encounterId: 101,
+          difficulty: 5,
+          size: 25,
+          kill: true,
+        },
+      ],
+      timeframes: ['today'],
+      compareModes: ['rankings'],
+    });
 
     expect(request).toHaveBeenCalledTimes(1);
     expect(request).toHaveBeenCalledWith(expect.any(String), {
@@ -124,24 +121,21 @@ describe('report ranking enrichment collector', () => {
       },
     });
 
-    const result = await collectReportRankingEnrichment(
-      { request } as never,
-      {
-        reportCode: 'ABC123',
-        reportStartTime: 1_700_000_000_000,
-        fights: [
-          {
-            fightId: 22,
-            encounterId: 102,
-            difficulty: 5,
-            size: 25,
-            kill: false,
-          },
-        ],
-        timeframes: ['historical'],
-        compareModes: ['rankings'],
-      },
-    );
+    const result = await collectReportRankingEnrichment({ request } as never, {
+      reportCode: 'ABC123',
+      reportStartTime: 1_700_000_000_000,
+      fights: [
+        {
+          fightId: 22,
+          encounterId: 102,
+          difficulty: 5,
+          size: 25,
+          kill: false,
+        },
+      ],
+      timeframes: ['historical'],
+      compareModes: ['rankings'],
+    });
 
     expect(result.facts[0]).toMatchObject({
       fightId: 22,

@@ -29,9 +29,14 @@ export const selectBestExecutionEncounter = (
     .filter((row) => row.kills > 0)
     .sort((left, right) => {
       if (left.deaths !== right.deaths) return left.deaths - right.deaths;
-      if ((left.shortestKillDurationMs ?? Number.POSITIVE_INFINITY) !== (right.shortestKillDurationMs ?? Number.POSITIVE_INFINITY)) {
-        return (left.shortestKillDurationMs ?? Number.POSITIVE_INFINITY) -
-          (right.shortestKillDurationMs ?? Number.POSITIVE_INFINITY);
+      if (
+        (left.shortestKillDurationMs ?? Number.POSITIVE_INFINITY) !==
+        (right.shortestKillDurationMs ?? Number.POSITIVE_INFINITY)
+      ) {
+        return (
+          (left.shortestKillDurationMs ?? Number.POSITIVE_INFINITY) -
+          (right.shortestKillDurationMs ?? Number.POSITIVE_INFINITY)
+        );
       }
       return compareString(left.bossName, right.bossName);
     })[0];

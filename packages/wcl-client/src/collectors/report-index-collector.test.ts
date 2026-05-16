@@ -72,14 +72,11 @@ describe('report index collector', () => {
       },
     });
 
-    const result = await collectReportIndex(
-      { request } as never,
-      {
-        reportCode: 'ABC123',
-        sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
-        gameFamily: 'retail',
-      },
-    );
+    const result = await collectReportIndex({ request } as never, {
+      reportCode: 'ABC123',
+      sourceUrl: 'https://www.warcraftlogs.com/reports/ABC123',
+      gameFamily: 'retail',
+    });
 
     expect(request).toHaveBeenCalledTimes(1);
     expect(result.allBossFights.map((fight) => fight.id)).toEqual([1, 2, 3, 5]);

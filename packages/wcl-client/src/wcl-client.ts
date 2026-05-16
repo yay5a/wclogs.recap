@@ -281,8 +281,7 @@ export class WclClient {
   }
 }
 
-export const createWclClient = (options: WclClientOptions): WclClient =>
-  new WclClient(options);
+export const createWclClient = (options: WclClientOptions): WclClient => new WclClient(options);
 
 const isExpired = (expiresAt: Date | string | undefined): boolean => {
   if (!expiresAt) return false;

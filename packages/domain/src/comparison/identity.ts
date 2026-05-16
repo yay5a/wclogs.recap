@@ -74,7 +74,8 @@ export const resolveCharacterComparisonIdentity = (
   if (!participantKey) {
     return {
       status: 'not-comparable',
-      reason: 'Character comparison requires a character ID or region, realm/server, and character name.',
+      reason:
+        'Character comparison requires a character ID or region, realm/server, and character name.',
     };
   }
 

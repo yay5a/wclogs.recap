@@ -58,9 +58,7 @@ const sanitizeGuildConfigUpdate = (update: GuildConfigUpdate): GuildConfigUpdate
     ...(update.comparePublicPostingEnabled !== undefined
       ? { comparePublicPostingEnabled: update.comparePublicPostingEnabled }
       : {}),
-    ...(update.autoReportMode !== undefined
-      ? { autoReportMode: update.autoReportMode }
-      : {}),
+    ...(update.autoReportMode !== undefined ? { autoReportMode: update.autoReportMode } : {}),
     ...(update.autoReportChannelIds !== undefined
       ? { autoReportChannelIds: update.autoReportChannelIds }
       : {}),
@@ -213,10 +211,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
     return saved ? toGuildConfig(guildId, saved) : null;
   }
 
-  public async saveGuildConfig(
-    guildId: string,
-    update: GuildConfigUpdate,
-  ): Promise<GuildConfig> {
+  public async saveGuildConfig(guildId: string, update: GuildConfigUpdate): Promise<GuildConfig> {
     const sanitizedUpdate = sanitizeGuildConfigUpdate(update);
     if (Object.keys(sanitizedUpdate).length === 0) {
       return this.getGuildConfig(guildId);

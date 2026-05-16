@@ -82,9 +82,7 @@ const summaryFixture = (): ReportSummary => ({
   partialDataNotes: [],
 });
 
-const assertArchitectureReportBody = (
-  body: Record<string, unknown>,
-) => {
+const assertArchitectureReportBody = (body: Record<string, unknown>) => {
   const embeds = body.embeds as Array<{ fields?: Array<{ name?: string; value?: string }> }>;
   const fields = embeds[0]?.fields ?? [];
   const fieldNames = fields.map((field) => field.name);
