@@ -65,7 +65,7 @@ export interface ReportRankingEnrichmentSyncInput {
 }
 
 export interface ReportRankingEnrichmentSyncResult {
-  candidateReports: number;
+  enrichmentAttempts: number;
   skippedFreshReports: number;
   processedReports: number;
   failedReports: number;
@@ -178,7 +178,7 @@ export const syncReportRankingEnrichment = async (
   const statesByCode = new Map(rawStates.map((state) => [state.reportCode, state]));
   const nowMs = Date.now();
 
-  let candidateReports = 0;
+  let enrichmentAttempts = 0;
   let skippedFreshReports = 0;
   let processedReports = 0;
   let failedReports = 0;
@@ -189,7 +189,7 @@ export const syncReportRankingEnrichment = async (
   const touchedWeekStarts = new Map<number, Date>();
 
   for (const report of reports) {
-    if (candidateReports >= maxReports) {
+    if (enrichmentAttempts >= maxReports) {
       break;
     }
 
@@ -222,7 +222,7 @@ export const syncReportRankingEnrichment = async (
         continue;
       }
 
-      candidateReports += 1;
+      enrichmentAttempts += 1;
       const enrichment = await input.wclClient.fetchReportRankingEnrichment({
         reportCode: report.reportCode,
         gameFamily: input.scope.gameFamily,
@@ -272,7 +272,7 @@ export const syncReportRankingEnrichment = async (
       : { factRowsRead: 0, trendRowsWritten: 0, trendRowsDeleted: 0 };
 
   const result = {
-    candidateReports,
+    enrichmentAttempts,
     skippedFreshReports,
     processedReports,
     failedReports,

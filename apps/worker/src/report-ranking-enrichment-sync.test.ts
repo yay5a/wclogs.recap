@@ -146,7 +146,7 @@ describe('syncReportRankingEnrichment', () => {
       weekStarts: [new Date('2023-11-14T00:00:00.000Z')],
     });
     expect(result).toEqual({
-      candidateReports: 1,
+      enrichmentAttempts: 1,
       skippedFreshReports: 0,
       processedReports: 1,
       failedReports: 0,
@@ -205,7 +205,7 @@ describe('syncReportRankingEnrichment', () => {
     expect(wclClient.fetchReportRankingEnrichment).not.toHaveBeenCalled();
     expect(store.recomputeWeeklyTrends).not.toHaveBeenCalled();
     expect(result).toMatchObject({
-      candidateReports: 0,
+      enrichmentAttempts: 0,
       skippedFreshReports: 1,
       processedReports: 0,
     });
@@ -242,7 +242,7 @@ describe('syncReportRankingEnrichment', () => {
     expect(wclClient.fetchReportIndex).toHaveBeenCalledTimes(1);
     expect(wclClient.fetchReportRankingEnrichment).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
-      candidateReports: 1,
+      enrichmentAttempts: 1,
       skippedFreshReports: 0,
       processedReports: 1,
     });
@@ -297,7 +297,7 @@ describe('syncReportRankingEnrichment', () => {
       expect.objectContaining({ reportCode: 'STALE' }),
     );
     expect(result).toMatchObject({
-      candidateReports: 1,
+      enrichmentAttempts: 1,
       skippedFreshReports: 2,
       processedReports: 1,
     });
@@ -328,7 +328,7 @@ describe('syncReportRankingEnrichment', () => {
     });
     expect(wclClient.fetchReportRankingEnrichment).toHaveBeenCalledTimes(1);
     expect(result).toMatchObject({
-      candidateReports: 1,
+      enrichmentAttempts: 1,
       skippedFreshReports: 0,
       processedReports: 1,
     });
