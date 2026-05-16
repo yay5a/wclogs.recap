@@ -47,12 +47,14 @@ const formatMetric = (
   bestDerivedPercentileDelta?: number,
 ): string => formatMetricLines(labels, best, bestDerivedPercentileDelta).join('\n');
 
-const formatRanks = (ranks: { world?: number; region?: number; realm?: number }): string =>
-  [
-    `\nWorld 🌍 ${typeof ranks.world === 'number' ? `#${ranks.world} \n` : 'unavailable'}`,
-    `Region 🗾 ${typeof ranks.region === 'number' ? `#${ranks.region} \n` : 'unavailable'}`,
-    `Realm 🪐 ${typeof ranks.realm === 'number' ? `#${ranks.realm} \n` : 'unavailable'}`,
-  ].join(' / ');
+const formatRanks = (ranks: { world?: number; region?: number; realm?: number }): string => {
+  const lines = [
+    `World 🌍 ${typeof ranks.world === 'number' ? `#${ranks.world}` : 'unavailable'}`,
+    `Region 🗾 ${typeof ranks.region === 'number' ? `#${ranks.region}` : 'unavailable'}`,
+    `Realm 🪐 ${typeof ranks.realm === 'number' ? `#${ranks.realm}` : 'unavailable'}`,
+  ];
+  return `\n${lines.join('\n')}`;
+};
 
 const formatSection = (title: string, lines: string[]): string =>
   [`**${title}**`, '', ...lines].join('\n');
@@ -115,9 +117,9 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   fields.push(
     sectionField('Speed', [
       `Source: ${summary.speed.sourceLabel}`,
-      ...(summary.speed.ranks ? [`All-Star Ranks: ${formatRanks(summary.speed.ranks)}`] : []),
+      ...(summary.speed.ranks ? [`All-Star Ranks:${formatRanks(summary.speed.ranks)}`] : []),
       ...(summary.speed.completeRaidRanks
-        ? [`Complete Raid Ranks: ${formatRanks(summary.speed.completeRaidRanks)}`]
+        ? [`Complete Raid Ranks:${formatRanks(summary.speed.completeRaidRanks)}`]
         : []),
       formatMetric(
         labels,

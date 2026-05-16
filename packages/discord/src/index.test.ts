@@ -320,13 +320,15 @@ describe('discord command surfaces', () => {
     expect(speedValue).toContain('**Speed**\n\nSource');
     expect(speedValue).toContain('Source: Derived from WCL Reports');
     expect(speedValue).toContain('All-Star Ranks:');
-    expect(speedValue).toContain('World 🌍 #1273');
-    expect(speedValue).toContain('Region 🗾 #489');
-    expect(speedValue).toContain('Realm 🪐 #296');
+    expect(speedValue).toContain('All-Star Ranks:\nWorld 🌍 #1273\nRegion 🗾 #489\nRealm 🪐 #296');
+    expect(speedValue).not.toContain('/ Region 🗾 #489');
+    expect(speedValue).not.toContain('/ Realm 🪐 #296');
     expect(speedValue).toContain('Complete Raid Ranks:');
-    expect(speedValue).toContain('World 🌍 #389');
-    expect(speedValue).toContain('Region 🗾 #136');
-    expect(speedValue).toContain('Realm 🪐 #120');
+    expect(speedValue).toContain(
+      'Complete Raid Ranks:\nWorld 🌍 #389\nRegion 🗾 #136\nRealm 🪐 #120',
+    );
+    expect(speedValue).not.toContain('/ Region 🗾 #136');
+    expect(speedValue).not.toContain('/ Realm 🪐 #120');
     expect(speedValue).toContain('Best Percentile: 91 (prev 88, +3)');
     expect(speedValue).not.toContain('Median Percentile');
     expect(sectionValue(fields, 'Execution')).toContain('Source: Derived from WCL Reports');
