@@ -47,6 +47,11 @@ const readMetric = (
   return null;
 };
 
+const readPerformanceAverage = (entry: Record<string, unknown>): number | undefined =>
+  asNumber(entry.bestPerformanceAverage) ??
+  asNumber(entry.performanceAverage) ??
+  asNumber(entry.bestPercent);
+
 const collectContainers = (parsed: unknown): unknown[] => {
   const root = asObject(parsed);
   if (!root) return asArray(parsed) ?? [];
@@ -185,6 +190,7 @@ const toLeaderboardEntry = (
   const best = asNumber(entry.best);
   const rankPercent = asNumber(entry.rankPercent);
   const bracketPercent = asNumber(entry.bracketPercent);
+  const performanceAverage = readPerformanceAverage(entry);
 
   const result: NormalizedLeaderboardEntry = {
     scope,
@@ -196,6 +202,7 @@ const toLeaderboardEntry = (
     ...(typeof best === 'number' ? { best } : {}),
     ...(typeof rankPercent === 'number' ? { rankPercent } : {}),
     ...(typeof bracketPercent === 'number' ? { bracketPercent } : {}),
+    ...(typeof performanceAverage === 'number' ? { performanceAverage } : {}),
     ...(typeof playerId === 'number' ? { playerId } : {}),
     ...(playerName ? { playerName } : {}),
     ...(className ? { className } : {}),

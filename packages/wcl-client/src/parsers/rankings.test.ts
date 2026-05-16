@@ -23,7 +23,24 @@ describe("rankings parsers", () => {
         expect(entries[1]?.playerId).toBe(2);
         expect(entries[0]?.selectedMetric).toBe("DPS");
         expect(entries[1]?.selectedMetric).toBe("HPS");
+        expect(entries[0]?.performanceAverage).toBe(95.4);
         expect(warn).not.toHaveBeenCalled();
+    });
+
+    it("preserves WCL-provided aggregate performance average fields", () => {
+        const entries = parseReportRankingsPayload({
+            data: [
+                { name: "Raikami", rankPercent: 79.8, bestPerformanceAverage: 82.4 },
+                { name: "Sluuti", rankPercent: 87.3, performanceAverage: 81.6 },
+                { name: "Banson", rankPercent: 67.7, bestPercent: 75.2 },
+            ],
+        });
+
+        expect(entries.map((entry) => [entry.playerName, entry.performanceAverage])).toEqual([
+            ["Raikami", 82.4],
+            ["Sluuti", 81.6],
+            ["Banson", 75.2],
+        ]);
     });
 
     it("parses boss-scoped entries with fallback context", () => {
@@ -161,5 +178,34 @@ describe("rankings parsers", () => {
         expect(dpsEntries[0]?.selectedMetric).toBe("DPS");
         expect(healerEntries.map((entry) => entry.playerName)).toEqual(["Healz"]);
         expect(healerEntries[0]?.selectedMetric).toBe("HPS");
+    });
+
+    it("preserves aggregate performance averages from requested role buckets", () => {
+        const payload = {
+            data: [
+                {
+                    fightID: 44,
+                    encounter: { name: "Tortos" },
+                    roles: {
+                        tanks: { characters: [] },
+                        healers: { characters: [] },
+                        dps: {
+                            characters: [
+                                {
+                                    name: "Raikami",
+                                    rankPercent: 79.8,
+                                    bestPerformanceAverage: 83.1,
+                                },
+                            ],
+                        },
+                    },
+                },
+            ],
+        };
+
+        const entries = parseReportRankingsPayloadForRole(payload, "dps");
+
+        expect(entries[0]?.performanceAverage).toBe(83.1);
+        expect(entries[0]?.rankPercent).toBe(79.8);
     });
 });

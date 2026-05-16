@@ -74,6 +74,7 @@ export interface NormalizedLeaderboardEntry {
   best?: number;
   rankPercent?: number;
   bracketPercent?: number;
+  performanceAverage?: number;
 }
 
 export interface NormalizedBossPerformance {

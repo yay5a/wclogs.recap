@@ -38,6 +38,38 @@ const pickBestParse = (
   return best;
 };
 
+const pickHighestAverageParses = (
+  entries: NormalizedLeaderboardEntry[],
+): ReportMetricRow[] => {
+  const perPlayer = new Map<string, ReportMetricRow>();
+  for (const entry of entries) {
+    if (!entry.playerName || typeof entry.performanceAverage !== 'number') continue;
+
+    const key = entry.playerName.trim().toLowerCase();
+    const candidate = {
+      playerName: entry.playerName,
+      value: entry.performanceAverage,
+      ...(entry.className ? { className: entry.className } : {}),
+      ...(entry.specName ? { specName: entry.specName } : {}),
+    };
+    const existing = perPlayer.get(key);
+    if (
+      !existing ||
+      candidate.value > existing.value ||
+      (candidate.value === existing.value && compareString(candidate.playerName, existing.playerName) < 0)
+    ) {
+      perPlayer.set(key, candidate);
+    }
+  }
+
+  return [...perPlayer.values()]
+    .sort((left, right) => {
+      if (right.value !== left.value) return right.value - left.value;
+      return compareString(left.playerName, right.playerName);
+    })
+    .slice(0, 3);
+};
+
 export const normalizeRankings = (rankings: {
   dps: NormalizedLeaderboardEntry[];
   hps: NormalizedLeaderboardEntry[];
@@ -50,24 +82,7 @@ export const normalizeRankings = (rankings: {
 } => {
   const dps = pickBestParse(rankings.dps, 'DPS');
   const hps = pickBestParse(rankings.hps, 'HPS');
-
-  const perPlayer = new Map<string, { sum: number; count: number; playerName: string }>();
-  for (const row of [...rankings.dps, ...rankings.hps]) {
-    if (!row.playerName || typeof row.rankPercent !== 'number') continue;
-    const key = row.playerName.trim().toLowerCase();
-    const existing = perPlayer.get(key) ?? { sum: 0, count: 0, playerName: row.playerName };
-    existing.sum += row.rankPercent;
-    existing.count += 1;
-    perPlayer.set(key, existing);
-  }
-
-  const highestAverageParse = [...perPlayer.values()]
-    .map((row) => ({ playerName: row.playerName, value: row.sum / row.count }))
-    .sort((left, right) => {
-      if (right.value !== left.value) return right.value - left.value;
-      return compareString(left.playerName, right.playerName);
-    })
-    .slice(0, 3);
+  const highestAverageParse = pickHighestAverageParses([...rankings.dps, ...rankings.hps]);
 
   return {
     highestParses: {
