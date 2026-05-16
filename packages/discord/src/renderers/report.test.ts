@@ -91,6 +91,7 @@ describe('/report PNG renderer', () => {
     expect(html).toContain('Highest Total DPS');
     expect(html).toContain('Highest HPS');
     expect(html).toContain('Most Deaths');
+    expect(html).toContain('Expected drift is roughly 0.55% to 1.5%.');
     expect(html).not.toContain('Highest Total Healing');
     expect(html).not.toContain('render-fingerprint');
   });

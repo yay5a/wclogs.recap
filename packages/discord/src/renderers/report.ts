@@ -10,9 +10,11 @@ import type { DiscordMessageBody } from '../infrastructure/discord-api.js';
 
 const EPHEMERAL_MESSAGE_FLAG = 64;
 const REPORT_CARD_FILENAME = 'report-summary.png';
-const REPORT_CARD_WIDTH = 1147;
-const REPORT_CARD_MIN_HEIGHT = 820;
+const REPORT_CARD_WIDTH = 1280;
+const REPORT_CARD_MIN_HEIGHT = 850;
 let browserPromise: Promise<Browser> | null = null;
+const REPORT_DATA_NOTE =
+  'Numbers may differ slightly from Warcraft Logs due to rounding, DPS/HPS total calculation methods, and parse/rank logic only known to WCL. Expected drift is roughly 0.55% to 1.5%.';
 
 const compactNumberFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
@@ -227,13 +229,13 @@ const renderStatTile = (icon: string, label: string, value: string, color: strin
 `;
 
 const renderNotes = (summary: ReportSummary): string => {
-  if (summary.partialDataNotes.length === 0) return '';
+  const notes = [
+    REPORT_DATA_NOTE,
+    ...summary.partialDataNotes.slice(0, 2).map((note) => `Note: ${note}`),
+  ];
   return `
     <footer class="notes">
-      ${summary.partialDataNotes
-        .slice(0, 2)
-        .map((note) => `<span>Note: ${escapeHtml(note)}</span>`)
-        .join('')}
+      ${notes.map((note) => `<span>${escapeHtml(note)}</span>`).join('')}
     </footer>
   `;
 };
@@ -263,7 +265,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       background:
         radial-gradient(circle at 12% 8%, rgba(82, 169, 255, 0.18), transparent 28%),
         linear-gradient(135deg, #111820 0%, #080c11 45%, #121821 100%);
-      padding: 18px 16px 12px 36px;
+      padding: 20px 18px 13px 40px;
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
     }
     #report-card::before {
@@ -275,13 +277,13 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     }
     .header {
       display: grid;
-      grid-template-columns: 128px 1fr;
-      gap: 26px;
+      grid-template-columns: 132px 1fr;
+      gap: 28px;
       align-items: start;
     }
     .raid-art {
-      width: 128px;
-      height: 112px;
+      width: 132px;
+      height: 108px;
       border: 1px solid #26374a;
       border-radius: 7px;
       background:
@@ -295,7 +297,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     }
     h1 {
       margin: 2px 0 12px;
-      font-size: 28px;
+      font-size: 30px;
       line-height: 1.15;
       font-weight: 800;
     }
@@ -316,7 +318,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 12px;
-      margin-top: 12px;
+      margin-top: 11px;
     }
     .stat-tile,
     .encounter-card,
@@ -328,11 +330,11 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     .stat-tile {
-      min-height: 79px;
+      min-height: 74px;
       display: flex;
       gap: 14px;
       align-items: center;
-      padding: 14px 16px;
+      padding: 12px 16px;
     }
     .stat-icon { width: 34px; font-size: 31px; text-align: center; }
     .stat-tile span:last-child,
@@ -349,26 +351,26 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     }
     .divider {
       height: 1px;
-      margin: 12px 0 10px;
+      margin: 11px 0 8px;
       background: #2b3540;
     }
     .section-heading {
       display: flex;
       gap: 10px;
       align-items: center;
-      margin: 9px 0 8px;
+      margin: 8px 0 7px;
       font-size: 25px;
       font-weight: 800;
     }
     .section-heading span { color: #b77cff; }
     .encounters {
       display: grid;
-      grid-template-columns: 1fr 1.1fr;
+      grid-template-columns: 1fr 1.08fr;
       gap: 16px;
     }
     .encounter-card {
-      padding: 13px 17px 11px;
-      min-height: 275px;
+      padding: 12px 18px 10px;
+      min-height: 246px;
     }
     .encounter-card.good { border-color: rgba(101, 208, 102, 0.5); }
     .encounter-card.bad { border-color: rgba(255, 74, 69, 0.72); }
@@ -376,7 +378,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: flex;
       gap: 14px;
       align-items: center;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
     }
     .encounter-icon {
       width: 52px;
@@ -408,11 +410,11 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: grid;
       grid-template-columns: 1fr 1.2fr 1fr;
       gap: 8px;
-      padding-bottom: 8px;
+      padding-bottom: 7px;
       border-bottom: 1px solid #2c3540;
     }
     .mini-stat {
-      min-height: 58px;
+      min-height: 55px;
       display: grid;
       place-items: center;
       border: 1px solid #303b47;
@@ -427,7 +429,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 14px;
-      padding: 11px 8px;
+      padding: 9px 8px;
       border-bottom: 1px solid #2c3540;
       text-align: center;
     }
@@ -439,11 +441,11 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 18px;
-      margin-top: 9px;
+      margin-top: 8px;
     }
     .bad .metric-grid { grid-template-columns: 1fr; }
     h4 {
-      margin: 0 0 8px;
+      margin: 0 0 7px;
       color: #75df70;
       font-size: 18px;
     }
@@ -452,7 +454,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: grid;
       grid-template-columns: 49px 1fr;
       gap: 7px;
-      margin: 7px 0;
+      margin: 6px 0;
       font-size: 17px;
     }
     .metric-label { color: #f4f6fb; }
@@ -468,14 +470,14 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       gap: 12px;
     }
     .player-card {
-      min-height: 118px;
-      padding: 10px 16px 9px;
+      min-height: 111px;
+      padding: 9px 16px 8px;
     }
     .player-card h3 {
       display: flex;
       gap: 9px;
       align-items: center;
-      margin: 0 0 7px;
+      margin: 0 0 6px;
       color: #d09bff;
       font-size: 17px;
     }
@@ -491,11 +493,12 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     .unavailable { color: #8994a3; }
     .notes {
       display: grid;
-      gap: 3px;
-      margin-top: 11px;
-      padding: 9px 14px;
+      gap: 4px;
+      margin-top: 10px;
+      padding: 10px 14px;
       color: #b9c2cf;
-      font-size: 13px;
+      font-size: 14px;
+      line-height: 1.25;
     }
     .good { color: #72df6f; }
     .bad { color: #ff5751; }
