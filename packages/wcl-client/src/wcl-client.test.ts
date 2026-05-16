@@ -33,7 +33,7 @@ const summary = (guildName: string) => ({
   zoneName: 'Throne',
   difficultyLabel: 'Heroic',
   sizeLabel: '10man',
-  metricSource: 'derived_report_scan' as const,
+  metricSource: 'indexed_report_scan' as const,
   window: {
     currentStartIso: new Date(0).toISOString(),
     currentEndIso: new Date(1).toISOString(),
@@ -49,8 +49,8 @@ const summary = (guildName: string) => ({
     ranksAvailable: false,
     sourceLabel: 'Progress Only: Ranking Unavailable' as const,
   },
-  speed: { sourceLabel: 'Derived from WCL Reports' as const, overall: {}, encounters: [] },
-  execution: { sourceLabel: 'Derived from WCL Reports' as const, overall: {}, encounters: [] },
+  speed: { sourceLabel: 'Derived from indexed reports' as const, overall: {}, encounters: [] },
+  execution: { sourceLabel: 'Derived from indexed reports' as const, overall: {}, encounters: [] },
   notes: [],
 });
 

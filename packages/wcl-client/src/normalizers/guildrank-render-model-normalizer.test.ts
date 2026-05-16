@@ -17,7 +17,7 @@ const baseBundle = (): GuildRankCollectorBundle => ({
     baselineStartMs: 2,
     baselineEndMs: 3,
   },
-  metricSource: 'derived_report_scan',
+  metricSource: 'indexed_report_scan',
   officialRanks: {
     progress: {},
     speed: {},
@@ -68,7 +68,21 @@ describe('guildrank render-model normalizer', () => {
 
     expect(summary.speed.ranks).toEqual({ world: 1273, region: 489, realm: 296 });
     expect(summary.speed.completeRaidRanks).toEqual({ world: 389, region: 136, realm: 120 });
+    expect(summary.speed.sourceLabel).toBe('Derived from indexed reports');
     expect(summary.speed.overall.bestDerivedPercentile).toBe(75);
+  });
+
+  it('uses the combined speed source label only for cached trends with speed ranks', () => {
+    const bundle = baseBundle();
+    bundle.metricSource = 'trend_cache';
+    bundle.officialRanks.speed = { world: 1273 };
+
+    const summary = normalizeGuildRankRenderModel(bundle);
+
+    expect(summary.speed.sourceLabel).toBe(
+      'World, Region, Server Rank Positions and Cached Rank Percentiles',
+    );
+    expect(summary.execution.sourceLabel).toBe('Cached Rank Percentiles');
   });
 
   it('keeps speed and execution derived percentiles on separate encounter fields', () => {
@@ -101,13 +115,13 @@ describe('guildrank render-model normalizer', () => {
     const summary = normalizeGuildRankRenderModel(bundle);
 
     expect(summary.metricSource).toBe('trend_cache');
-    expect(summary.speed.sourceLabel).toBe('Cached WCL Rankings');
-    expect(summary.execution.sourceLabel).toBe('Cached WCL Rankings');
+    expect(summary.speed.sourceLabel).toBe('Cached Rank Percentiles');
+    expect(summary.execution.sourceLabel).toBe('Cached Rank Percentiles');
     expect(summary.notes).toContain(
-      'Speed and execution are read from cached WCL ranking trends.',
+      `Speed and Execution Rank Percentiles are read from the guild's cached reports.`,
     );
     expect(summary.notes).not.toContain(
-      'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+      'Rank percentiles are derived from indexed report windows.',
     );
   });
 });

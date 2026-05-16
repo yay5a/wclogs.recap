@@ -43,7 +43,7 @@ const makeHandleOptions = () =>
         zoneName: 'Throne',
         difficultyLabel: 'Heroic',
         sizeLabel: '10man',
-        metricSource: 'derived_report_scan',
+        metricSource: 'indexed_report_scan',
         window: {
           currentStartIso: new Date(0).toISOString(),
           currentEndIso: new Date(1).toISOString(),
@@ -59,8 +59,8 @@ const makeHandleOptions = () =>
           ranksAvailable: false,
           sourceLabel: 'Progress Only: Ranking Unavailable',
         },
-        speed: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
-        execution: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
+        speed: { sourceLabel: 'Derived from indexed reports', overall: {}, encounters: [] },
+        execution: { sourceLabel: 'Derived from indexed reports', overall: {}, encounters: [] },
         notes: [],
       }),
       resolveZoneName: vi.fn().mockResolvedValue('Throne of Thunder'),
@@ -215,7 +215,7 @@ describe('discord command surfaces', () => {
       zoneName: 'Throne',
       difficultyLabel: 'Heroic',
       sizeLabel: '10man',
-      metricSource: 'derived_report_scan',
+      metricSource: 'indexed_report_scan',
       window: {
         currentStartIso: new Date(0).toISOString(),
         currentEndIso: new Date(1).toISOString(),
@@ -231,8 +231,8 @@ describe('discord command surfaces', () => {
         ranksAvailable: false,
         sourceLabel: 'Progress Only: Ranking Unavailable',
       },
-      speed: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
-      execution: { sourceLabel: 'Derived from WCL Reports', overall: {}, encounters: [] },
+      speed: { sourceLabel: 'Derived from indexed reports', overall: {}, encounters: [] },
+      execution: { sourceLabel: 'Derived from indexed reports', overall: {}, encounters: [] },
       notes: [],
     });
 
@@ -245,7 +245,7 @@ describe('discord command surfaces', () => {
       zoneName: 'Throne',
       difficultyLabel: 'Heroic',
       sizeLabel: '10man',
-      metricSource: 'derived_report_scan',
+      metricSource: 'indexed_report_scan',
       window: {
         currentStartIso: new Date(0).toISOString(),
         currentEndIso: new Date(1).toISOString(),
@@ -259,10 +259,10 @@ describe('discord command surfaces', () => {
         wipes: 1,
         ranks: { world: 868, region: 279, realm: 241 },
         ranksAvailable: true,
-        sourceLabel: 'Official WCL Rankings',
+        sourceLabel: 'World, Region, Server Rank Positions',
       },
       speed: {
-        sourceLabel: 'Derived from WCL Reports',
+        sourceLabel: 'Derived from indexed reports',
         ranks: { world: 1273, region: 489, realm: 296 },
         completeRaidRanks: { world: 389, region: 136, realm: 120 },
         overall: {
@@ -285,7 +285,7 @@ describe('discord command surfaces', () => {
         ],
       },
       execution: {
-        sourceLabel: 'Derived from WCL Reports',
+        sourceLabel: 'Derived from indexed reports',
         overall: {
           bestDerivedPercentile: 84,
           bestDerivedPercentileDelta: 4,
@@ -310,37 +310,39 @@ describe('discord command surfaces', () => {
 
     const fields = response.embeds[0]?.fields ?? [];
     expect(fields.map((field) => field.name)).toEqual(Array(7).fill(SECTION_SEPARATOR));
-    const progressValue = sectionValue(fields, 'Progress');
-    expect(progressValue).toContain('**Progress**\n\nCleared');
+    const progressValue = sectionValue(fields, 'Progress Rank Positions');
+    expect(progressValue).toContain('**Progress Rank Positions**\n\nCleared');
     expect(progressValue).toContain('Cleared: 13/13');
     expect(progressValue).toContain('World: #868');
     expect(progressValue).toContain('Region: #279');
     expect(progressValue).toContain('Realm: #241');
     const speedValue = sectionValue(fields, 'Speed');
     expect(speedValue).toContain('**Speed**\n\nSource');
-    expect(speedValue).toContain('Source: Derived from WCL Reports');
-    expect(speedValue).toContain('All-Star Ranks:');
-    expect(speedValue).toContain('All-Star Ranks:\nWorld 🌍 #1273\nRegion 🗾 #489\nRealm 🪐 #296');
-    expect(speedValue).toContain('Realm 🪐 #296\n\nComplete Raid Ranks:');
+    expect(speedValue).toContain('Source: Derived from indexed reports');
+    expect(speedValue).toContain('All-Star Base Speed Rank Positions:');
+    expect(speedValue).toContain(
+      'All-Star Base Speed Rank Positions:\nWorld 🌍 #1273\nRegion 🗾 #489\nRealm 🪐 #296',
+    );
+    expect(speedValue).toContain('Realm 🪐 #296\n\nComplete Raid Speed Rank Positions:');
     expect(speedValue).not.toContain('/ Region 🗾 #489');
     expect(speedValue).not.toContain('/ Realm 🪐 #296');
-    expect(speedValue).toContain('Complete Raid Ranks:');
+    expect(speedValue).toContain('Complete Raid Speed Rank Positions:');
     expect(speedValue).toContain(
-      'Complete Raid Ranks:\nWorld 🌍 #389\nRegion 🗾 #136\nRealm 🪐 #120',
+      'Complete Raid Speed Rank Positions:\nWorld 🌍 #389\nRegion 🗾 #136\nRealm 🪐 #120',
     );
     expect(speedValue).not.toContain('/ Region 🗾 #136');
     expect(speedValue).not.toContain('/ Realm 🪐 #120');
-    expect(speedValue).toContain('Best Percentile: 91 (prev 88, +3)');
+    expect(speedValue).toContain('Best Rank: 91 (prev 88, +3)');
     expect(speedValue).not.toContain('Median Percentile');
-    expect(sectionValue(fields, 'Execution')).toContain('Source: Derived from WCL Reports');
-    expect(sectionValue(fields, 'Execution')).toContain('Best Percentile: 84 (prev 80, +4)');
+    expect(sectionValue(fields, 'Execution')).toContain('Source: Derived from indexed reports');
+    expect(sectionValue(fields, 'Execution')).toContain('Best Rank: 84 (prev 80, +4)');
     expect(JSON.stringify(response)).not.toContain('Official progress ranks unavailable');
-    const speedEncounterValue = sectionValue(fields, 'Speed - Per Encounter');
+    const speedEncounterValue = sectionValue(fields, 'Speed Percentiles - Per Encounter');
     expect(speedEncounterValue).toContain('• Jinrokh');
-    expect(speedEncounterValue).toContain('Best Percentile: 95 (prev 90, +5)');
-    const executionEncounterValue = sectionValue(fields, 'Execution - Per Encounter');
+    expect(speedEncounterValue).toContain('Best Rank: 95 (prev 90, +5)');
+    const executionEncounterValue = sectionValue(fields, 'Execution Percentiles - Per Encounter');
     expect(executionEncounterValue).toContain('• Jinrokh');
-    expect(executionEncounterValue).toContain('Best Percentile: 86 (prev 80, +6)');
+    expect(executionEncounterValue).toContain('Best Rank: 86 (prev 80, +6)');
     expect(fields.some((field) => field.value.startsWith('**Jinrokh**'))).toBe(false);
   });
 
@@ -367,7 +369,7 @@ describe('discord command surfaces', () => {
         sourceLabel: 'Progress Only: Ranking Unavailable',
       },
       speed: {
-        sourceLabel: 'Cached WCL Rankings',
+        sourceLabel: 'World, Region, Server Rank Positions and Cached Rank Percentiles',
         ranks: { world: 1273, region: 489, realm: 296 },
         completeRaidRanks: { world: 391, region: 136, realm: 120 },
         bestEncounterGain: { encounterName: 'Jinrokh', delta: 5 },
@@ -391,7 +393,7 @@ describe('discord command surfaces', () => {
         ],
       },
       execution: {
-        sourceLabel: 'Cached WCL Rankings',
+        sourceLabel: 'Cached Rank Percentiles',
         overall: {
           bestDerivedPercentile: 84,
           bestDerivedPercentileDelta: -4,
@@ -400,49 +402,51 @@ describe('discord command surfaces', () => {
         },
         encounters: [],
       },
-      notes: ['Speed and execution are read from cached WCL ranking trends.'],
+      notes: [`Speed and Execution Rank Percentiles are read from the guild's cached reports.`],
     });
 
     const fields = response.embeds[0]?.fields ?? [];
-    const rankingValue = sectionValue(fields, 'Guild Rankings');
+    const rankingValue = sectionValue(fields, 'Guild Rank Positions and Percentiles');
     const speedValue = sectionValue(fields, 'Speed');
-    const speedEncounterValue = sectionValue(fields, 'Speed - Per Encounter');
+    const speedEncounterValue = sectionValue(fields, 'Speed Percentiles - Per Encounter');
     const executionValue = sectionValue(fields, 'Execution');
     const readValue = sectionValue(fields, 'How to Read');
     const responseJson = JSON.stringify(response);
 
-    expect(rankingValue).toContain('Ranking samples: 29');
+    expect(rankingValue).toContain('Rank sample pool: 29');
     expect(rankingValue).not.toContain('Pulls/Wipes');
-    expect(speedValue).toContain('Source: Cached WCL Rankings');
-    expect(speedValue).toContain('Best WCL Percentile: 91 (prev 88, +3)');
-    expect(speedValue).toContain('Best Encounter Gain: Jinrokh 95 (+5)');
-    expect(speedValue).not.toContain('Median WCL Percentile');
+    expect(speedValue).toContain(
+      'Source: World, Region, Server Rank Positions and Cached Rank Percentiles',
+    );
+    expect(speedValue).toContain('Best Rank Percentile: 91 (prev 88, +3)');
+    expect(speedValue).toContain('Highest Gain on: Jinrokh: 95 (+5)');
+    expect(speedValue).not.toContain('Median Rank Percentile');
     expect(speedValue).not.toContain('median prev');
-    expect(speedEncounterValue).toContain('Best WCL Percentile: 95 (prev 90, +5)');
-    expect(speedEncounterValue).not.toContain('Median WCL Percentile');
-    expect(executionValue).toContain('WCL Percentile: 84 (prev best 88, -4)');
-    expect(executionValue).not.toContain('Best WCL Percentile: 84');
+    expect(speedEncounterValue).toContain('Best Rank Percentile: 95 (prev 90, +5)');
+    expect(speedEncounterValue).not.toContain('Median Rank Percentile');
+    expect(executionValue).toContain('Rank Percentile: 84 (prev best 88, -4)');
+    expect(executionValue).not.toContain('Best Rank Percentile: 84');
     expect(readValue).toContain(
-      'Window: Current week = latest cached WCL ranking week. Baseline = previous cached ranking week.',
+      'Cache Window ⇒  Current = reports indexed during current lockout',
     );
     expect(readValue).toContain(
-      'Current week: 1970-01-01T00:00:00.000Z -> 1970-01-01T00:00:00.001Z',
+      'Current Lockout week: 1970-01-01T00:00:00.000Z -> 1970-01-01T00:00:00.001Z',
     );
     expect(readValue).toContain(
-      'Baseline week: 1970-01-01T00:00:00.002Z -> 1970-01-01T00:00:00.003Z',
+      'Baseline period: 1970-01-01T00:00:00.002Z -> 1970-01-01T00:00:00.003Z',
     );
     expect(readValue).toContain(
-      'Speed/execution percentiles use cached WCL report rankings, not the guild profile page.',
+      'Speed/Execution Rank Percentiles used from indexed reports, not the guild profile page on WCL.',
     );
     expect(readValue).toContain(
-      'All-Star and Complete Raid ranks are WCL speed ranks; execution has no matching WCL rank fields in this view.',
+      'All-Star Base Speed Rank & Complete Raid Speed Ranks are World, Region, and Server Positions',
     );
     expect(readValue).toContain(
-      "Weekly values may summarize multiple reports; verify source values in each report's Rankings table for the same encounter/difficulty/size.",
+      "Weekly values may summarize multiple reports; verify source values in each report's Rankings table on WCL for the same encounter/difficulty/size.",
     );
     expect(responseJson).not.toContain('Best Derived Relative Percentile');
     expect(responseJson).not.toContain(
-      'Speed and execution are read from cached WCL ranking trends.',
+      `Speed and Execution Rank Percentiles are read from the guild's cached reports.`,
     );
   });
 

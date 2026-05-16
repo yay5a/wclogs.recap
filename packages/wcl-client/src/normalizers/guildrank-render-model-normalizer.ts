@@ -134,7 +134,14 @@ export const normalizeGuildRankRenderModel = (
   const hasSpeedOfficialRanks = hasRanks(bundle.officialRanks.speed);
   const hasCompleteRaidSpeedRanks = hasRanks(bundle.officialRanks.completeRaidSpeed);
   const metricSourceLabel =
-    bundle.metricSource === 'trend_cache' ? 'Cached WCL Rankings' : 'Derived from WCL Reports';
+    bundle.metricSource === 'trend_cache'
+      ? 'Cached Rank Percentiles'
+      : 'Derived from indexed reports';
+  const speedSourceLabel =
+    bundle.metricSource === 'trend_cache' &&
+    (hasSpeedOfficialRanks || hasCompleteRaidSpeedRanks)
+      ? 'World, Region, Server Rank Positions and Cached Rank Percentiles'
+      : metricSourceLabel;
 
   const speed = normalizeMetricSection(bundle.currentSpeed, bundle.baselineSpeed, 'speed');
   const execution = normalizeMetricSection(
@@ -149,8 +156,8 @@ export const normalizeGuildRankRenderModel = (
   }
   notes.push(
     bundle.metricSource === 'trend_cache'
-      ? 'Speed and execution are read from cached WCL ranking trends.'
-      : 'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+      ? `Speed and Execution Rank Percentiles are read from the guild's cached reports.`
+      : 'Rank percentiles are derived from indexed report windows.',
   );
   if (bundle.currentWindowDiscovery.candidateReports === 0) {
     notes.push('No current-window reports were discovered for the configured guild and zone.');
@@ -184,7 +191,7 @@ export const normalizeGuildRankRenderModel = (
       ranks: copyRanks(progressRanks),
       ranksAvailable: hasProgressOfficialRanks,
       sourceLabel: hasProgressOfficialRanks
-        ? 'Official WCL Rankings'
+        ? 'World, Region, Server Rank Positions'
         : 'Progress Only: Ranking Unavailable',
     },
     speed: {
@@ -193,7 +200,7 @@ export const normalizeGuildRankRenderModel = (
       ...(hasCompleteRaidSpeedRanks
         ? { completeRaidRanks: copyRanks(bundle.officialRanks.completeRaidSpeed) }
         : {}),
-      sourceLabel: metricSourceLabel,
+      sourceLabel: speedSourceLabel,
     },
     execution: {
       ...execution,

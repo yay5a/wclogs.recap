@@ -112,8 +112,10 @@ export interface GuildRankProgressRanks {
   realm?: number;
 }
 
-export type GuildRankMetricSource = 'trend_cache' | 'derived_report_scan';
-export type GuildRankMetricSourceLabel = 'Cached Rank Percentiles';
+export type GuildRankMetricSource = 'trend_cache' | 'indexed_report_scan';
+export type GuildRankMetricSourceLabel =
+  | 'Cached Rank Percentiles'
+  | 'Derived from indexed reports';
 
 export interface GuildRankSummary {
   guildName: string;
@@ -134,13 +136,11 @@ export interface GuildRankSummary {
     wipes: number;
     ranks: GuildRankProgressRanks;
     ranksAvailable: boolean;
-    sourceLabel:
-      | 'Official WCL World, Region, Server Rank Position'
-      | 'Progress Only: Ranking Unavailable';
+    sourceLabel: 'World, Region, Server Rank Positions' | 'Progress Only: Ranking Unavailable';
   };
   speed: {
     sourceLabel:
-      | 'Official World, Region, Server Rank Positions and Cached Rank Percentiles'
+      | 'World, Region, Server Rank Positions and Cached Rank Percentiles'
       | GuildRankMetricSourceLabel;
     ranks?: GuildRankProgressRanks;
     completeRaidRanks?: GuildRankProgressRanks;
@@ -149,7 +149,7 @@ export interface GuildRankSummary {
     encounters: GuildRankEncounterRow[];
   };
   execution: {
-    sourceLabel: 'Cached Rank Percentiles' | GuildRankMetricSourceLabel;
+    sourceLabel: GuildRankMetricSourceLabel;
     ranks?: GuildRankProgressRanks;
     overall: GuildRankMetricRow;
     bestEncounterGain?: { encounterName: string; delta: number };

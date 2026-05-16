@@ -139,15 +139,13 @@ describe('guildrank pipeline', () => {
     expect(summary.progress.wipes).toBe(0);
     expect(summary.progress.clearedEncounters).toBe(1);
     expect(summary.metricSource).toBe('trend_cache');
-    expect(summary.speed.sourceLabel).toBe(
-      'World, Region, Server Rank Positions and Cached Rank Percentiles',
-    );
+    expect(summary.speed.sourceLabel).toBe('Cached Rank Percentiles');
     expect(summary.execution.sourceLabel).toBe('Cached Rank Percentiles');
     expect(summary.notes).toContain(
       `Speed and Execution Rank Percentiles are read from the guild's cached reports.`,
     );
     expect(summary.notes).not.toContain(
-      'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+      'Rank percentiles are derived from indexed report windows.',
     );
     expect(summary.window.currentStartIso).toBe(new Date(Date.UTC(2026, 4, 12)).toISOString());
     expect(summary.window.currentEndIso).toBe(
@@ -223,7 +221,7 @@ describe('guildrank pipeline', () => {
 
     expect(trendReader.listWeeklyTrends).toHaveBeenCalledTimes(1);
     expect(liveReportIndexFetcher).toHaveBeenCalledTimes(1);
-    expect(summary.metricSource).toBe('derived_report_scan');
+    expect(summary.metricSource).toBe('indexed_report_scan');
     expect(summary.notes).toContain(
       'No current-window reports were discovered for the configured guild and zone.',
     );
@@ -483,12 +481,12 @@ describe('guildrank pipeline', () => {
     expect(summary.speed.ranks).toEqual({ world: 18, region: 6, realm: 2 });
     expect(summary.speed.completeRaidRanks).toEqual({ world: 8, region: 3, realm: 1 });
     expect(summary.progress.ranksAvailable).toBe(true);
-    expect(summary.progress.sourceLabel).toBe('Official WCL Rankings');
+    expect(summary.progress.sourceLabel).toBe('World, Region, Server Rank Positions');
     expect(summary.notes).not.toContain(
       'Official progress ranks unavailable; showing derived clear/pull context only.',
     );
-    expect(summary.speed.sourceLabel).toBe('Derived from WCL Reports');
-    expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
+    expect(summary.speed.sourceLabel).toBe('Derived from indexed reports');
+    expect(summary.execution.sourceLabel).toBe('Derived from indexed reports');
   });
 
   it('keeps Speed and Execution as derived relative percentiles when official percentiles are unavailable', async () => {
@@ -681,15 +679,15 @@ describe('guildrank pipeline', () => {
     );
 
     expect(summary.progress.ranks).toEqual({ world: 50, region: 20, realm: 5 });
-    expect(summary.progress.sourceLabel).toBe('Official WCL Rankings');
-    expect(summary.speed.sourceLabel).toBe('Derived from WCL Reports');
+    expect(summary.progress.sourceLabel).toBe('World, Region, Server Rank Positions');
+    expect(summary.speed.sourceLabel).toBe('Derived from indexed reports');
     expect(summary.speed.ranks).toEqual({ world: 999, region: 250, realm: 20 });
     expect(summary.speed.completeRaidRanks).toEqual({ world: 389, region: 136, realm: 120 });
     expect(summary.notes).toContain(
-      'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+      'Rank percentiles are derived from indexed report windows.',
     );
     expect(summary.speed.overall.bestDerivedPercentile).toBe(50);
-    expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
+    expect(summary.execution.sourceLabel).toBe('Derived from indexed reports');
     expect(summary.execution.overall.bestDerivedPercentile).toBe(100);
   });
 
@@ -894,13 +892,13 @@ describe('guildrank pipeline', () => {
     expect(summary.progress.sourceLabel).toBe('Progress Only: Ranking Unavailable');
     expect(summary.progress.pulls).toBe(3);
     expect(summary.progress.wipes).toBe(2);
-    expect(summary.speed.sourceLabel).toBe('Derived from WCL Reports');
-    expect(summary.execution.sourceLabel).toBe('Derived from WCL Reports');
+    expect(summary.speed.sourceLabel).toBe('Derived from indexed reports');
+    expect(summary.execution.sourceLabel).toBe('Derived from indexed reports');
     expect(summary.notes).toContain(
       'Official progress ranks unavailable; showing derived clear/pull context only.',
     );
     expect(summary.notes).toContain(
-      'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+      'Rank percentiles are derived from indexed report windows.',
     );
 
     const speedEncounter = summary.speed.encounters.find((row) => row.encounterName === 'Jinrokh');

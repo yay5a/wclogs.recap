@@ -722,7 +722,7 @@ export const collectGuildRankSummaryData = async (
   const bundle: GuildRankCollectorBundle = {
     input: normalizedInput,
     windows,
-    metricSource: 'derived_report_scan',
+    metricSource: 'indexed_report_scan',
     officialRanks,
     currentReports: toDiscoveryRows(currentCandidates),
     baselineReports: toDiscoveryRows(baselineCandidates),

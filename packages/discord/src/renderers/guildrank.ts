@@ -78,7 +78,7 @@ const formatBestEncounterGain = (
     (encounter) => encounter.encounterName === gain.encounterName,
   )?.[metric].bestDerivedPercentile;
   const percentileText =
-    typeof percentile === 'number' ? ` ${decimalFormatter.format(percentile)}` : '';
+    typeof percentile === 'number' ? decimalFormatter.format(percentile) : '';
   return `Highest Gain on: ${gain.encounterName}: ${percentileText} (${formatDelta(gain.delta)})`;
 };
 
@@ -202,7 +202,7 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
         ];
 
   fields.push(
-    sectionField(summary.metricSource === 'trend_cache' ? '\nHow to Read' : 'Window', windowLines),
+    sectionField(summary.metricSource === 'trend_cache' ? 'How to Read' : 'Window', windowLines),
   );
 
   return {
