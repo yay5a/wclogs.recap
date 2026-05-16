@@ -33,6 +33,7 @@ const summary = (guildName: string) => ({
   zoneName: 'Throne',
   difficultyLabel: 'Heroic',
   sizeLabel: '10man',
+  metricSource: 'derived_report_scan' as const,
   window: {
     currentStartIso: new Date(0).toISOString(),
     currentEndIso: new Date(1).toISOString(),

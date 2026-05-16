@@ -138,6 +138,15 @@ describe('guildrank pipeline', () => {
     expect(summary.progress.pulls).toBe(3);
     expect(summary.progress.wipes).toBe(0);
     expect(summary.progress.clearedEncounters).toBe(1);
+    expect(summary.metricSource).toBe('trend_cache');
+    expect(summary.speed.sourceLabel).toBe('Cached WCL Rankings');
+    expect(summary.execution.sourceLabel).toBe('Cached WCL Rankings');
+    expect(summary.notes).toContain(
+      'Speed and execution are read from cached WCL ranking trends.',
+    );
+    expect(summary.notes).not.toContain(
+      'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+    );
     expect(summary.speed.overall.bestDerivedPercentile).toBe(90);
     expect(summary.speed.overall.bestDerivedPercentileDelta).toBe(25);
     expect(summary.speed.overall.medianDerivedPercentile).toBe(80);
@@ -206,6 +215,7 @@ describe('guildrank pipeline', () => {
 
     expect(trendReader.listWeeklyTrends).toHaveBeenCalledTimes(1);
     expect(liveReportIndexFetcher).toHaveBeenCalledTimes(1);
+    expect(summary.metricSource).toBe('derived_report_scan');
     expect(summary.notes).toContain(
       'No current-window reports were discovered for the configured guild and zone.',
     );

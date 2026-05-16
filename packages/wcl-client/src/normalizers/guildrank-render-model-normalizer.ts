@@ -133,6 +133,8 @@ export const normalizeGuildRankRenderModel = (
   const hasProgressOfficialRanks = hasRanks(progressRanks);
   const hasSpeedOfficialRanks = hasRanks(bundle.officialRanks.speed);
   const hasCompleteRaidSpeedRanks = hasRanks(bundle.officialRanks.completeRaidSpeed);
+  const metricSourceLabel =
+    bundle.metricSource === 'trend_cache' ? 'Cached WCL Rankings' : 'Derived from WCL Reports';
 
   const speed = normalizeMetricSection(bundle.currentSpeed, bundle.baselineSpeed, 'speed');
   const execution = normalizeMetricSection(
@@ -146,7 +148,9 @@ export const normalizeGuildRankRenderModel = (
     notes.push('Official progress ranks unavailable; showing derived clear/pull context only.');
   }
   notes.push(
-    'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+    bundle.metricSource === 'trend_cache'
+      ? 'Speed and execution are read from cached WCL ranking trends.'
+      : 'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
   );
   if (bundle.currentWindowDiscovery.candidateReports === 0) {
     notes.push('No current-window reports were discovered for the configured guild and zone.');
@@ -165,6 +169,7 @@ export const normalizeGuildRankRenderModel = (
     zoneName: bundle.zoneName,
     difficultyLabel: bundle.difficultyLabel,
     sizeLabel: bundle.sizeLabel,
+    metricSource: bundle.metricSource,
     window: {
       currentStartIso: new Date(bundle.windows.currentStartMs).toISOString(),
       currentEndIso: new Date(bundle.windows.currentEndMs).toISOString(),
@@ -188,11 +193,11 @@ export const normalizeGuildRankRenderModel = (
       ...(hasCompleteRaidSpeedRanks
         ? { completeRaidRanks: copyRanks(bundle.officialRanks.completeRaidSpeed) }
         : {}),
-      sourceLabel: 'Derived from WCL Reports',
+      sourceLabel: metricSourceLabel,
     },
     execution: {
       ...execution,
-      sourceLabel: 'Derived from WCL Reports',
+      sourceLabel: metricSourceLabel,
     },
     notes,
   };

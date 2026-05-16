@@ -112,11 +112,15 @@ export interface GuildRankProgressRanks {
   realm?: number;
 }
 
+export type GuildRankMetricSource = 'trend_cache' | 'derived_report_scan';
+export type GuildRankMetricSourceLabel = 'Cached WCL Rankings' | 'Derived from WCL Reports';
+
 export interface GuildRankSummary {
   guildName: string;
   zoneName: string;
   difficultyLabel: string;
   sizeLabel: string;
+  metricSource: GuildRankMetricSource;
   window: {
     currentStartIso: string;
     currentEndIso: string;
@@ -133,7 +137,7 @@ export interface GuildRankSummary {
     sourceLabel: 'Official WCL Rankings' | 'Progress Only: Ranking Unavailable';
   };
   speed: {
-    sourceLabel: 'Official WCL Rankings' | 'Derived from WCL Reports';
+    sourceLabel: 'Official WCL Rankings' | GuildRankMetricSourceLabel;
     ranks?: GuildRankProgressRanks;
     completeRaidRanks?: GuildRankProgressRanks;
     overall: GuildRankMetricRow;
@@ -141,7 +145,7 @@ export interface GuildRankSummary {
     encounters: GuildRankEncounterRow[];
   };
   execution: {
-    sourceLabel: 'Official WCL Rankings' | 'Derived from WCL Reports';
+    sourceLabel: 'Official WCL Rankings' | GuildRankMetricSourceLabel;
     ranks?: GuildRankProgressRanks;
     overall: GuildRankMetricRow;
     bestEncounterGain?: { encounterName: string; delta: number };

@@ -1,5 +1,6 @@
 import type {
   GameFamily,
+  GuildRankMetricSource,
   NormalizedLeaderboardEntry,
   ReportIndexData,
   ReportMetricRow,
@@ -144,6 +145,7 @@ export interface ReportCollectorBundle {
 export interface GuildRankCollectorBundle {
   input: GuildRankInput;
   windows: GuildRankWindows;
+  metricSource: GuildRankMetricSource;
   officialRanks: GuildOfficialRanks;
   currentReports: GuildReportDiscoveryRow[];
   baselineReports: GuildReportDiscoveryRow[];

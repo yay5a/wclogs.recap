@@ -562,6 +562,7 @@ export const collectGuildRankSummaryData = async (
     const bundle: GuildRankCollectorBundle = {
       input: normalizedInput,
       windows,
+      metricSource: 'trend_cache',
       officialRanks,
       currentReports: [],
       baselineReports: [],
@@ -719,6 +720,7 @@ export const collectGuildRankSummaryData = async (
   const bundle: GuildRankCollectorBundle = {
     input: normalizedInput,
     windows,
+    metricSource: 'derived_report_scan',
     officialRanks,
     currentReports: toDiscoveryRows(currentCandidates),
     baselineReports: toDiscoveryRows(baselineCandidates),

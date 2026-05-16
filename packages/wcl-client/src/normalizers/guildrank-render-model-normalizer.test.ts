@@ -17,6 +17,7 @@ const baseBundle = (): GuildRankCollectorBundle => ({
     baselineStartMs: 2,
     baselineEndMs: 3,
   },
+  metricSource: 'derived_report_scan',
   officialRanks: {
     progress: {},
     speed: {},
@@ -91,5 +92,22 @@ describe('guildrank render-model normalizer', () => {
       speed: {},
       execution: { bestDerivedPercentile: 40 },
     });
+  });
+
+  it('labels cached trend summaries without derived-report wording', () => {
+    const bundle = baseBundle();
+    bundle.metricSource = 'trend_cache';
+
+    const summary = normalizeGuildRankRenderModel(bundle);
+
+    expect(summary.metricSource).toBe('trend_cache');
+    expect(summary.speed.sourceLabel).toBe('Cached WCL Rankings');
+    expect(summary.execution.sourceLabel).toBe('Cached WCL Rankings');
+    expect(summary.notes).toContain(
+      'Speed and execution are read from cached WCL ranking trends.',
+    );
+    expect(summary.notes).not.toContain(
+      'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
+    );
   });
 });

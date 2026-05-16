@@ -36,6 +36,7 @@ const makeHandleOptions = () =>
         zoneName: 'Throne',
         difficultyLabel: 'Heroic',
         sizeLabel: '10man',
+        metricSource: 'derived_report_scan',
         window: {
           currentStartIso: new Date(0).toISOString(),
           currentEndIso: new Date(1).toISOString(),
@@ -207,6 +208,7 @@ describe('discord command surfaces', () => {
       zoneName: 'Throne',
       difficultyLabel: 'Heroic',
       sizeLabel: '10man',
+      metricSource: 'derived_report_scan',
       window: {
         currentStartIso: new Date(0).toISOString(),
         currentEndIso: new Date(1).toISOString(),
@@ -236,6 +238,7 @@ describe('discord command surfaces', () => {
       zoneName: 'Throne',
       difficultyLabel: 'Heroic',
       sizeLabel: '10man',
+      metricSource: 'derived_report_scan',
       window: {
         currentStartIso: new Date(0).toISOString(),
         currentEndIso: new Date(1).toISOString(),
@@ -345,6 +348,79 @@ describe('discord command surfaces', () => {
       '  Best Derived Relative Percentile: 86 (prev 80, +6)',
     );
     expect(fields.some((field) => field.name === 'Jinrokh')).toBe(false);
+  });
+
+  it('renders cached guildrank trends as WCL percentiles and ranking samples', () => {
+    const response = buildGuildRankResponseBody({
+      guildName: 'Guild',
+      zoneName: 'Throne',
+      difficultyLabel: 'Heroic',
+      sizeLabel: '10man',
+      metricSource: 'trend_cache',
+      window: {
+        currentStartIso: new Date(0).toISOString(),
+        currentEndIso: new Date(1).toISOString(),
+        baselineStartIso: new Date(2).toISOString(),
+        baselineEndIso: new Date(3).toISOString(),
+      },
+      progress: {
+        clearedEncounters: 1,
+        totalEncounters: 1,
+        pulls: 29,
+        wipes: 0,
+        ranks: {},
+        ranksAvailable: false,
+        sourceLabel: 'Progress Only: Ranking Unavailable',
+      },
+      speed: {
+        sourceLabel: 'Cached WCL Rankings',
+        overall: {
+          bestDerivedPercentile: 91,
+          bestDerivedPercentileDelta: 3,
+          medianDerivedPercentile: 88,
+          medianDerivedPercentileDelta: -2,
+        },
+        encounters: [
+          {
+            encounterName: 'Jinrokh',
+            speed: {
+              bestDerivedPercentile: 95,
+              bestDerivedPercentileDelta: 5,
+              medianDerivedPercentile: 90,
+              medianDerivedPercentileDelta: -1,
+            },
+            execution: {},
+          },
+        ],
+      },
+      execution: {
+        sourceLabel: 'Cached WCL Rankings',
+        overall: {
+          bestDerivedPercentile: 84,
+          bestDerivedPercentileDelta: 4,
+          medianDerivedPercentile: 82,
+          medianDerivedPercentileDelta: 2,
+        },
+        encounters: [],
+      },
+      notes: ['Speed and execution are read from cached WCL ranking trends.'],
+    });
+
+    const fields = response.embeds[0]?.fields ?? [];
+    const rankingValue = fields.find((field) => field.name === 'Guild Rankings')?.value ?? '';
+    const speedValue = fields.find((field) => field.name === 'Speed')?.value ?? '';
+    const speedEncounterValue =
+      fields.find((field) => field.name === 'Speed - Per Encounter')?.value ?? '';
+    const responseJson = JSON.stringify(response);
+
+    expect(rankingValue).toContain('Ranking samples: 29');
+    expect(rankingValue).not.toContain('Pulls/Wipes');
+    expect(speedValue).toContain('Source: Cached WCL Rankings');
+    expect(speedValue).toContain('Best WCL Percentile: 91 (prev 88, +3)');
+    expect(speedValue).toContain('Median WCL Percentile: 88 (prev 90, -2)');
+    expect(speedEncounterValue).toContain('  Best WCL Percentile: 95 (prev 90, +5)');
+    expect(responseJson).not.toContain('Best Derived Relative Percentile');
+    expect(responseJson).toContain('Speed and execution are read from cached WCL ranking trends.');
   });
 
   it('does not render raw zone IDs in /config status output', async () => {

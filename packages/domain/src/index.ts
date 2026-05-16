@@ -186,6 +186,8 @@ export type {
   ReportIndexData,
   ReportIndexFightRow,
   GuildRankEncounterRow,
+  GuildRankMetricSource,
+  GuildRankMetricSourceLabel,
   GuildRankMetricRow,
   GuildRankProgressRanks,
   GuildRankSummary,
