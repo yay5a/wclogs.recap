@@ -65,7 +65,7 @@ describe('guild report discovery collector', () => {
     const variables = request.mock.calls[0]?.[1] as Record<string, unknown>;
     expect(variables.guildServerSlug).toBe('galakras');
     expect(variables.guildServerRegion).toBe('US');
-    expect(variables.zoneID).toBe(100);
+    expect(variables.zoneId).toBe(100);
   });
 
   it('uses millisecond timestamps for discovery queries and window filtering', async () => {

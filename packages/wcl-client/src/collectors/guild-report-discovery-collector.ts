@@ -12,7 +12,7 @@ query GuildReportDiscovery(
   $guildServerRegion: String!
   $startTime: Float!
   $endTime: Float!
-  $zoneID: Int!
+  $zoneId: Int!
   $limit: Int!
   $page: Int!
 ) {
@@ -23,7 +23,7 @@ query GuildReportDiscovery(
       guildServerRegion: $guildServerRegion
       startTime: $startTime
       endTime: $endTime
-      zoneID: $zoneID
+      zoneId: $zoneId
       limit: $limit
       page: $page
     ) {
@@ -136,7 +136,7 @@ export const collectGuildReportDiscovery = async (
       guildServerRegion,
       startTime: input.startTimeMs,
       endTime: input.endTimeMs,
-      zoneID: input.zoneId,
+      zoneId: input.zoneId,
       limit: 100,
       page: 1,
     };

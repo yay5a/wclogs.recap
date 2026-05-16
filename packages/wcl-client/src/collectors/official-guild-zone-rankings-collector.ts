@@ -15,13 +15,13 @@ query GuildZoneRanks(
   $guildName: String!
   $guildServerSlug: String!
   $guildServerRegion: String!
-  $zoneID: Int!
+  $zoneId: Int!
   $difficulty: Int!
   $size: Int!
 ) {
   guildData {
     guild(name: $guildName, serverSlug: $guildServerSlug, serverRegion: $guildServerRegion) {
-      zoneRanking(zoneID: $zoneID) {
+      zoneRanking(zoneId: $zoneId) {
         progress(size: $size) {
           worldRank { number }
           regionRank { number }
@@ -47,7 +47,7 @@ query ProgressRaceFallback(
   $guildName: String!
   $guildServerSlug: String!
   $guildServerRegion: String!
-  $zoneID: Int!
+  $zoneId: Int!
   $difficulty: Int!
   $size: Int!
 ) {
@@ -56,7 +56,7 @@ query ProgressRaceFallback(
       guildName: $guildName
       serverSlug: $guildServerSlug
       serverRegion: $guildServerRegion
-      zoneID: $zoneID
+      zoneId: $zoneId
       difficulty: $difficulty
       size: $size
     )
@@ -148,7 +148,7 @@ export const collectOfficialGuildZoneRankings = async (
       guildName: input.guildName,
       guildServerSlug,
       guildServerRegion,
-      zoneID: input.zoneId,
+      zoneId: input.zoneId,
       difficulty: input.difficulty,
       size: input.size,
     };
@@ -202,7 +202,7 @@ export const collectOfficialGuildZoneRankings = async (
         guildName: input.guildName,
         guildServerSlug,
         guildServerRegion,
-        zoneID: input.zoneId,
+        zoneId: input.zoneId,
         difficulty: input.difficulty,
         size: input.size,
       };

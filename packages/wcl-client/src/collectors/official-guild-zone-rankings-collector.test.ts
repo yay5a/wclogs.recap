@@ -11,11 +11,11 @@ describe('official guild/zone rankings collector', () => {
     size: 10,
   };
 
-  it('queries zoneRanking(zoneID) and maps official rank positions', async () => {
+  it('queries zoneRanking(zoneId) and maps official rank positions', async () => {
     const request = vi
       .fn()
       .mockImplementation((query: string, variables: Record<string, unknown>) => {
-        expect(query).toContain('zoneRanking(zoneID: $zoneID)');
+        expect(query).toContain('zoneRanking(zoneId: $zoneId)');
         expect(query).toContain('speed(size: $size, difficulty: $difficulty)');
         expect(query).toContain('completeRaidSpeed(size: $size, difficulty: $difficulty)');
         expect(query).not.toContain('percentile');
@@ -25,7 +25,7 @@ describe('official guild/zone rankings collector', () => {
           guildName: 'Guild',
           guildServerSlug: 'stormrage',
           guildServerRegion: 'US',
-          zoneID: 100,
+          zoneId: 100,
           difficulty: 4,
           size: 10,
         });
@@ -82,8 +82,8 @@ describe('official guild/zone rankings collector', () => {
       })
       .mockImplementationOnce((query: string, variables: Record<string, unknown>) => {
         expect(query).toContain('progressRace(');
-        expect(query).toContain('zoneID: $zoneID');
-        expect(variables).toMatchObject({ zoneID: 100 });
+        expect(query).toContain('zoneId: $zoneId');
+        expect(variables).toMatchObject({ zoneId: 100 });
         return {
           data: {
             progressRaceData: {

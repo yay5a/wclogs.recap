@@ -82,7 +82,7 @@ const query = /* GraphQL */ `
     $guildName: String!
     $serverSlug: String!
     $serverRegion: String!
-    $zoneID: Int!
+    $zoneId: Int!
     $difficulty: Int!
     $size: Int!
   ) {
@@ -90,7 +90,7 @@ const query = /* GraphQL */ `
       guild(name: $guildName, serverSlug: $serverSlug, serverRegion: $serverRegion) {
         id
         name
-        zoneRanking(zoneID: $zoneID) {
+        zoneRanking(zoneId: $zoneId) {
           progress(size: $size) {
             worldRank {
               number
@@ -152,7 +152,7 @@ const response = await client.request<Record<string, unknown>>(query, {
   guildName,
   serverSlug,
   serverRegion,
-  zoneID: zoneId,
+  zoneId: zoneId,
   difficulty,
   size,
 });
