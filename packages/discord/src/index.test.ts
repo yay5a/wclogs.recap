@@ -129,6 +129,11 @@ describe('discord command surfaces', () => {
             { name: '25man', value: '25man' },
           ],
         },
+        {
+          name: 'partition',
+          type: 3,
+          required: false,
+        },
       ],
     });
 

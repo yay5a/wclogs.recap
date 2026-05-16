@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, describe, expect, it } from 'vitest';
 import type { ReportSummary } from '@wcl/domain';
-import { buildReportResponseBody } from './report.js';
-
-const ENCOUNTER_HIGHLIGHTS_LABEL = 'Encounter Highlights 🗿';
-const TOP_PLAYERS_LABEL = 'Top Players 🏋️‍♂️';
-const BIGGEST_TROUBLE_FIELD = 'Biggest Trouble 🙎‍♂️';
+import {
+  buildReportCardHtml,
+  buildReportResponseBody,
+  closeReportRendererBrowser,
+} from './report.js';
 
 const baseSummary = (): ReportSummary => ({
   reportCode: 'ABC123',
@@ -70,124 +70,34 @@ const baseSummary = (): ReportSummary => ({
   partialDataNotes: [],
 });
 
-const getFieldNames = (response: ReturnType<typeof buildReportResponseBody>): string[] =>
-  response.embeds[0]?.fields?.map((field) => field.name) ?? [];
-
-const getSectionIndex = (fields: Array<{ name?: string; value?: string }>, label: string): number =>
-  fields.findIndex((field) => field.name?.trim() === label || field.value?.trim() === label);
-
-const getFieldValue = (
-  response: ReturnType<typeof buildReportResponseBody>,
-  fieldName: string,
-): string => {
-  const value = response.embeds[0]?.fields?.find((field) => field.name === fieldName)?.value;
-  if (!value) throw new Error(`Missing field: ${fieldName}`);
-  return value;
+const expectPngSignature = (bytes: Uint8Array): void => {
+  expect(Array.from(bytes.slice(0, 4))).toEqual([137, 80, 78, 71]);
 };
 
-describe('/report renderer architecture', () => {
-  it('renders Encounter Highlights before Top Players and nests best/trouble blocks under highlights', () => {
-    const response = buildReportResponseBody(baseSummary());
-    const fieldNames = getFieldNames(response);
-    const fields = response.embeds[0]?.fields ?? [];
-    const highlightsIndex = getSectionIndex(fields, ENCOUNTER_HIGHLIGHTS_LABEL);
-    const bestExecutionIndex = fieldNames.indexOf('Best Execution ⚔️');
-    const biggestTroubleIndex = fieldNames.indexOf(BIGGEST_TROUBLE_FIELD);
-    const topPlayersIndex = getSectionIndex(fields, TOP_PLAYERS_LABEL);
-
-    expect(highlightsIndex).toBeGreaterThan(-1);
-    expect(bestExecutionIndex).toBeGreaterThan(highlightsIndex);
-    expect(biggestTroubleIndex).toBeGreaterThan(bestExecutionIndex);
-    expect(topPlayersIndex).toBeGreaterThan(biggestTroubleIndex);
-
-    const bestExecutionField = response.embeds[0]?.fields?.find(
-      (field) => field.name === 'Best Execution ⚔️',
-    );
-    const biggestTroubleField = response.embeds[0]?.fields?.find(
-      (field) => field.name === BIGGEST_TROUBLE_FIELD,
-    );
-    expect(bestExecutionField?.inline).toBe(true);
-    expect(biggestTroubleField?.inline).toBe(true);
+describe('/report PNG renderer', () => {
+  afterAll(async () => {
+    await closeReportRendererBrowser();
   });
 
-  it('renders best execution highest-parse lines and biggest trouble pull-duration lines', () => {
-    const response = buildReportResponseBody(baseSummary());
-    const bestExecution = getFieldValue(response, 'Best Execution ⚔️');
-    const biggestTrouble = getFieldValue(response, BIGGEST_TROUBLE_FIELD);
+  it('builds card HTML with report sections and current report metrics', () => {
+    const html = buildReportCardHtml(baseSummary());
 
-    expect(bestExecution).toContain('Highest Parse 🏅:');
-    expect(bestExecution).toContain('Pulls: 2\n\nKill/Wipes: 1/1');
-    expect(bestExecution).toContain('Kill/Wipes: 1/1\n\nDeaths: 3');
-    expect(bestExecution).toContain('Deaths: 3\n\nHighest Parse 🏅:');
-    expect(bestExecution).toContain('DPS: Alyra ⇨ 95\n\n  HPS: Alyra ⇨ 82');
-    expect(bestExecution).toContain(
-      'Highest Total DPS ⚔️: Alyra ⇨ 40K/s\n\nHighest Total HPS 🍃: Alyra ⇨ 12K/s',
-    );
-
-    expect(biggestTrouble).toContain('Pulls: 2\n\nKill/Wipes: 0/2');
-    expect(biggestTrouble).toContain('Kill/Wipes: 0/2\n\nDeaths: 5');
-    expect(biggestTrouble).toContain('Deaths: 5\n\nLongest Pull: 3:20');
-    expect(biggestTrouble).toContain('Longest Pull: 3:20\n\nShortest Pull: 2:10');
-    expect(biggestTrouble).toContain('Shortest Pull: 2:10');
-    expect(biggestTrouble).toContain(
-      'Highest Total DPS ⚔️: Bulwark ⇨ 27K/s\n\nHighest Total HPS 🍃: Alyra ⇨ 15.5K/s',
-    );
+    expect(html).toContain('Report Summary - Throne of Thunder (Heroic 10man)');
+    expect(html).toContain('Encounter Highlights');
+    expect(html).toContain('Best Execution');
+    expect(html).toContain('Biggest Trouble');
+    expect(html).toContain('Top Players');
+    expect(html).toContain('Highest Avg Parse');
+    expect(html).toContain('Highest Total DPS');
+    expect(html).toContain('Highest HPS');
+    expect(html).toContain('Most Deaths');
+    expect(html).not.toContain('Highest Total Healing');
+    expect(html).not.toContain('render-fingerprint');
   });
 
-  it('does not fall back to report-wide parse rows inside Best Execution', () => {
+  it('renders unavailable values inside the card HTML', () => {
     const summary = baseSummary();
-    if (summary.bestExecutionEncounter) {
-      delete summary.bestExecutionEncounter.highestParseDps;
-      delete summary.bestExecutionEncounter.highestParseHps;
-    }
-    summary.highestParses = {
-      dps: { metric: 'DPS', playerName: 'ElsewhereDps', value: 99 },
-      hps: { metric: 'HPS', playerName: 'ElsewhereHps', value: 98 },
-    };
-
-    const response = buildReportResponseBody(summary);
-    const bestExecution = getFieldValue(response, 'Best Execution ⚔️');
-
-    expect(bestExecution).toContain('DPS: unavailable');
-    expect(bestExecution).toContain('HPS: unavailable');
-    expect(bestExecution).not.toContain('Elsewhere');
-  });
-
-  it('renders only approved Top Players blocks in architecture order', () => {
-    const response = buildReportResponseBody(baseSummary());
-    const fields = response.embeds[0]?.fields ?? [];
-    const topPlayersIndex = getSectionIndex(fields, TOP_PLAYERS_LABEL);
-    const topPlayerFields = fields.slice(topPlayersIndex + 1, -1);
-    const topPlayerFieldNames = topPlayerFields.map((field) => field.name);
-    const topPlayerText = topPlayerFields.map((field) => field.value).join('\n');
-
-    expect(topPlayerFieldNames).toEqual([
-      'Highest Avg Parse 🏆',
-      'Highest Total DPS ⚔️',
-      'Highest HPS 🍃',
-      'Most Deaths 😵',
-      'Most Interrupts 🙅‍♂️',
-      'Most Dispels 🪄',
-    ]);
-
-    const fieldNames = getFieldNames(response);
-    expect(fieldNames).not.toContain('Highest Total Healing');
-    expect(fieldNames).not.toContain('Highest DPS');
-    expect(fieldNames).not.toContain('Highest Parses');
-    expect(getFieldValue(response, 'Highest Total DPS ⚔️')).toBe('1. Alyra ⇨ 40K/s');
-    expect(topPlayerText).not.toContain('(Discipline Priest)');
-    expect(topPlayerText).not.toContain('(Druid)');
-    expect(topPlayerText).not.toContain('(Paladin)');
-  });
-
-  it('renders unavailable lines for missing highlight values and missing top-player blocks', () => {
-    const summary = baseSummary();
-    if (summary.bestExecutionEncounter) {
-      delete summary.bestExecutionEncounter.highestParseDps;
-      delete summary.bestExecutionEncounter.highestParseHps;
-      delete summary.bestExecutionEncounter.highestHps;
-    }
-    summary.highestParses = {};
+    delete summary.bestExecutionEncounter;
     summary.topPlayers = {
       highestAverageParse: [],
       highestTotalDamage: [],
@@ -199,15 +109,32 @@ describe('/report renderer architecture', () => {
       mostDispels: [],
     };
 
-    const response = buildReportResponseBody(summary);
-    const bestExecution = getFieldValue(response, 'Best Execution ⚔️');
+    const html = buildReportCardHtml(summary);
 
-    expect(bestExecution).toContain('DPS: unavailable');
-    expect(bestExecution).toContain('HPS: unavailable');
-    expect(bestExecution).toContain('Highest Total HPS 🍃: unavailable');
-
-    expect(getFieldValue(response, 'Highest Total DPS ⚔️')).toBe('unavailable');
-    expect(getFieldValue(response, 'Highest HPS 🍃')).toBe('unavailable');
-    expect(getFieldValue(response, 'Most Interrupts 🙅‍♂️')).toBe('unavailable');
+    expect(html).toContain('Best Execution');
+    expect(html).toContain('unavailable');
+    expect(html).toContain('<strong>n/a</strong>');
   });
+
+  it('returns a normal PNG image attachment body', async () => {
+    const response = await buildReportResponseBody(baseSummary(), { ephemeral: false });
+    const file = response.files?.[0];
+
+    expect(response).toMatchObject({
+      content: 'https://www.warcraftlogs.com/reports/ABC123',
+    });
+    expect(response).not.toHaveProperty('flags');
+    expect(response).not.toHaveProperty('embeds');
+    expect(file?.name).toBe('report-summary.png');
+    expect(file?.contentType).toBe('image/png');
+    expect(file?.attachment).toBeInstanceOf(Uint8Array);
+    expectPngSignature(file?.attachment ?? new Uint8Array());
+  }, 15_000);
+
+  it('preserves ephemeral flags for private report responses', async () => {
+    const response = await buildReportResponseBody(baseSummary());
+
+    expect(response.flags).toBe(64);
+    expect(response.files?.[0]?.name).toBe('report-summary.png');
+  }, 15_000);
 });

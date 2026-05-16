@@ -152,6 +152,7 @@ const toFactInputs = (
     encounterId: fact.encounterId,
     difficulty: fact.difficulty,
     size: fact.size,
+    ...(typeof fact.partition === 'number' ? { partition: fact.partition } : {}),
     timeframe: fact.timeframe,
     compareMode: fact.compareMode,
     ...(typeof fact.speedPercentile === 'number' ? { speedPercentile: fact.speedPercentile } : {}),

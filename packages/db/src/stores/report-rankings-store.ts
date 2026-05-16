@@ -40,6 +40,7 @@ export interface ReportRankingsFactInput extends ReportRankingScope {
   encounterId: number;
   difficulty: number;
   size: number;
+  partition?: number;
   timeframe: ReportRankingTimeframe;
   compareMode: ReportRankingCompareMode;
   speedPercentile?: number;
@@ -78,10 +79,15 @@ export interface RecomputeWeeklyTrendResult {
   trendRowsDeleted: number;
 }
 
+export interface ReportRankingsPartitionIndexMigrationResult {
+  droppedLegacyIndexNames: string[];
+}
+
 export interface GuildEncounterWeeklyTrendRow {
   encounterId: number;
   difficulty: number;
   size: number;
+  partition?: number;
   weekStart: Date;
   timeframe: ReportRankingTimeframe;
   compareMode: ReportRankingCompareMode;
@@ -188,11 +194,20 @@ const dedupeFacts = (facts: ReportRankingsFactInput[]): ReportRankingsFactInput[
     if (!hasAnyMetric(fact)) continue;
     const reportCode = fact.reportCode.trim();
     if (!reportCode || !Number.isFinite(fact.fightId)) continue;
-    byKey.set(`${reportCode}:${fact.fightId}:${fact.timeframe}:${fact.compareMode}`, {
-      ...fact,
-      ...normalizeScope(fact),
-      reportCode,
-    });
+    byKey.set(
+      [
+        reportCode,
+        fact.fightId,
+        typeof fact.partition === 'number' ? fact.partition : '',
+        fact.timeframe,
+        fact.compareMode,
+      ].join(':'),
+      {
+        ...fact,
+        ...normalizeScope(fact),
+        reportCode,
+      },
+    );
   }
   return [...byKey.values()];
 };
@@ -207,6 +222,7 @@ const parseFact = (value: unknown): ParsedFact | null => {
   const encounterId = asFiniteNumber(raw.encounterId);
   const difficulty = asFiniteNumber(raw.difficulty);
   const size = asFiniteNumber(raw.size);
+  const partition = asFiniteNumber(raw.partition);
   const sourceFetchedAt = asDate(raw.sourceFetchedAt);
 
   if (
@@ -239,6 +255,7 @@ const parseFact = (value: unknown): ParsedFact | null => {
     encounterId,
     difficulty,
     size,
+    ...(typeof partition === 'number' ? { partition } : {}),
     timeframe: raw.timeframe,
     compareMode: raw.compareMode,
     ...(typeof raw.speedPercentile === 'number' ? { speedPercentile: raw.speedPercentile } : {}),
@@ -261,6 +278,7 @@ const parseTrend = (value: unknown): GuildEncounterWeeklyTrendRow | null => {
   const encounterId = asFiniteNumber(raw.encounterId);
   const difficulty = asFiniteNumber(raw.difficulty);
   const size = asFiniteNumber(raw.size);
+  const partition = asFiniteNumber(raw.partition);
   const weekStart = asDate(raw.weekStart);
   const sampleCount = asFiniteNumber(raw.sampleCount);
   const speedMedian = asFiniteNumber(raw.speedMedian);
@@ -286,6 +304,7 @@ const parseTrend = (value: unknown): GuildEncounterWeeklyTrendRow | null => {
     encounterId,
     difficulty,
     size,
+    ...(typeof partition === 'number' ? { partition } : {}),
     weekStart,
     timeframe: raw.timeframe,
     compareMode: raw.compareMode,
@@ -315,6 +334,7 @@ type TrendGroup = {
   encounterId: number;
   difficulty: number;
   size: number;
+  partition?: number;
   weekStart: Date;
   timeframe: ReportRankingTimeframe;
   compareMode: ReportRankingCompareMode;
@@ -327,6 +347,7 @@ const trendGroupKey = (input: {
   encounterId: number;
   difficulty: number;
   size: number;
+  partition?: number;
   weekStart: Date;
   timeframe: ReportRankingTimeframe;
   compareMode: ReportRankingCompareMode;
@@ -335,6 +356,7 @@ const trendGroupKey = (input: {
     input.encounterId,
     input.difficulty,
     input.size,
+    typeof input.partition === 'number' ? input.partition : '',
     input.weekStart.getTime(),
     input.timeframe,
     input.compareMode,
@@ -359,6 +381,7 @@ const buildTrendGroups = (facts: ParsedFact[]): Map<string, TrendGroup> => {
       encounterId: fact.encounterId,
       difficulty: fact.difficulty,
       size: fact.size,
+      ...(typeof fact.partition === 'number' ? { partition: fact.partition } : {}),
       weekStart,
       timeframe: fact.timeframe,
       compareMode: fact.compareMode,
@@ -411,6 +434,112 @@ const withDeltas = (
   };
 };
 
+const partitionQuery = (partition: number | undefined): Record<string, unknown> =>
+  typeof partition === 'number' ? { partition } : { partition: { $exists: false } };
+
+const reportRankingsFactPartitionIndex = {
+  reportCode: 1,
+  fightId: 1,
+  partition: 1,
+  timeframe: 1,
+  compareMode: 1,
+} as const;
+
+const legacyReportRankingsFactIndex = {
+  reportCode: 1,
+  fightId: 1,
+  timeframe: 1,
+  compareMode: 1,
+} as const;
+
+const guildEncounterTrendPartitionIndex = {
+  guildName: 1,
+  guildServerSlug: 1,
+  guildServerRegion: 1,
+  gameFamily: 1,
+  encounterId: 1,
+  difficulty: 1,
+  size: 1,
+  partition: 1,
+  weekStart: 1,
+  timeframe: 1,
+  compareMode: 1,
+} as const;
+
+const legacyGuildEncounterTrendIndex = {
+  guildName: 1,
+  guildServerSlug: 1,
+  guildServerRegion: 1,
+  gameFamily: 1,
+  encounterId: 1,
+  difficulty: 1,
+  size: 1,
+  weekStart: 1,
+  timeframe: 1,
+  compareMode: 1,
+} as const;
+
+const hasExactIndexKey = (
+  actual: Record<string, unknown> | undefined,
+  expected: Record<string, 1>,
+): boolean => {
+  if (!actual) return false;
+  const expectedEntries = Object.entries(expected);
+  return (
+    Object.keys(actual).length === expectedEntries.length &&
+    expectedEntries.every(([key, value]) => actual[key] === value)
+  );
+};
+
+export const migrateReportRankingsPartitionIndexes =
+  async (): Promise<ReportRankingsPartitionIndexMigrationResult> => {
+    const [factIndexes, trendIndexes] = await Promise.all([
+      ReportRankingsFactModel.collection.indexes(),
+      GuildEncounterTrendWeeklyModel.collection.indexes(),
+    ]);
+    const legacyFactIndexNames = factIndexes
+      .filter(
+        (index) =>
+          index.unique === true &&
+          hasExactIndexKey(
+            index.key as Record<string, unknown> | undefined,
+            legacyReportRankingsFactIndex,
+          ),
+      )
+      .map((index) => index.name)
+      .filter((name): name is string => typeof name === 'string' && name.length > 0);
+    const legacyTrendIndexNames = trendIndexes
+      .filter(
+        (index) =>
+          index.unique === true &&
+          hasExactIndexKey(
+            index.key as Record<string, unknown> | undefined,
+            legacyGuildEncounterTrendIndex,
+          ),
+      )
+      .map((index) => index.name)
+      .filter((name): name is string => typeof name === 'string' && name.length > 0);
+
+    await Promise.all([
+      ...legacyFactIndexNames.map((name) => ReportRankingsFactModel.collection.dropIndex(name)),
+      ...legacyTrendIndexNames.map((name) =>
+        GuildEncounterTrendWeeklyModel.collection.dropIndex(name),
+      ),
+    ]);
+    await Promise.all([
+      ReportRankingsFactModel.collection.createIndex(reportRankingsFactPartitionIndex, {
+        unique: true,
+      }),
+      GuildEncounterTrendWeeklyModel.collection.createIndex(guildEncounterTrendPartitionIndex, {
+        unique: true,
+      }),
+    ]);
+
+    return {
+      droppedLegacyIndexNames: [...legacyFactIndexNames, ...legacyTrendIndexNames],
+    };
+  };
+
 export class MongoReportRankingsStore {
   public async listWeeklyTrends(input: {
     scope: ReportRankingScope;
@@ -420,6 +549,7 @@ export class MongoReportRankingsStore {
         encounterId: 1,
         difficulty: 1,
         size: 1,
+        partition: 1,
         weekStart: 1,
         timeframe: 1,
         compareMode: 1,
@@ -601,6 +731,7 @@ export class MongoReportRankingsStore {
                 encounterId: group.encounterId,
                 difficulty: group.difficulty,
                 size: group.size,
+                ...partitionQuery(group.partition),
                 weekStart: group.weekStart,
                 timeframe: group.timeframe,
                 compareMode: group.compareMode,
@@ -614,6 +745,7 @@ export class MongoReportRankingsStore {
                   encounterId: group.encounterId,
                   difficulty: group.difficulty,
                   size: group.size,
+                  ...(typeof group.partition === 'number' ? { partition: group.partition } : {}),
                   weekStart: group.weekStart,
                   timeframe: group.timeframe,
                   compareMode: group.compareMode,

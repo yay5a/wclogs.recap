@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterAll, describe, expect, it, vi } from 'vitest';
 import type { ReportSummary } from '@wcl/domain';
 import {
   createFollowupInteractionResponse,
@@ -10,16 +10,13 @@ import {
   makeAutoReportDuplicateCustomId,
   makeAutoReportPromptPreviewCustomId,
 } from './auto-report.js';
+import { closeReportRendererBrowser } from '../renderers/report.js';
 
 vi.mock('../infrastructure/discord-api.js', () => ({
   createFollowupInteractionResponse: vi.fn().mockResolvedValue({ id: 'followup-1' }),
   editOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
   safeEditOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
 }));
-
-const ENCOUNTER_HIGHLIGHTS_LABEL = 'Encounter Highlights 🗿';
-const TOP_PLAYERS_LABEL = 'Top Players 🏋️‍♂️';
-const BIGGEST_TROUBLE_FIELD = 'Biggest Trouble 🙎‍♂️';
 
 const summaryFixture = (): ReportSummary => ({
   reportCode: 'ABC123',
@@ -82,19 +79,18 @@ const summaryFixture = (): ReportSummary => ({
   partialDataNotes: [],
 });
 
-const assertArchitectureReportBody = (body: Record<string, unknown>) => {
-  const embeds = body.embeds as Array<{ fields?: Array<{ name?: string; value?: string }> }>;
-  const fields = embeds[0]?.fields ?? [];
-  const fieldNames = fields.map((field) => field.name);
-  const flattened = fields.map((field) => `${field.name ?? ''}\n${field.value ?? ''}`).join('\n');
+const assertReportImageBody = (body: Record<string, unknown>) => {
+  const files = body.files as Array<{ name?: string; attachment?: unknown; contentType?: string }>;
   const serialized = JSON.stringify(body);
 
-  expect(flattened).toContain(ENCOUNTER_HIGHLIGHTS_LABEL);
-  expect(flattened).toContain(TOP_PLAYERS_LABEL);
-  expect(fieldNames).toContain('Best Execution ⚔️');
-  expect(fieldNames).toContain(BIGGEST_TROUBLE_FIELD);
-  expect(fieldNames).not.toContain('Highest Total Healing');
-  expect(fieldNames).not.toContain('Highest DPS');
+  expect(body.content).toBe('https://www.warcraftlogs.com/reports/ABC123');
+  expect(body).not.toHaveProperty('embeds');
+  expect(files).toHaveLength(1);
+  expect(files[0]).toMatchObject({
+    name: 'report-summary.png',
+    contentType: 'image/png',
+  });
+  expect(files[0]?.attachment).toBeInstanceOf(Uint8Array);
   expect(serialized).not.toContain('render-fingerprint');
   expect(serialized).not.toContain('report-runtime-canary');
   expect(serialized).not.toContain('report-path:');
@@ -206,7 +202,11 @@ describe('auto report duplicate claim behavior', () => {
   });
 });
 
-describe('auto report report embed paths', () => {
+describe('auto report PNG report paths', () => {
+  afterAll(async () => {
+    await closeReportRendererBrowser();
+  });
+
   it('uses the shared report renderer for passive auto-preview output', async () => {
     const handleOptions = baseHandleOptions() as Record<string, unknown>;
     (
@@ -228,8 +228,10 @@ describe('auto report report embed paths', () => {
       handleOptions: handleOptions as never,
     });
 
-    assertArchitectureReportBody(channel.send.mock.calls[0]?.[0] as Record<string, unknown>);
-  });
+    const sentBody = channel.send.mock.calls[0]?.[0] as Record<string, unknown>;
+    assertReportImageBody(sentBody);
+    expect(sentBody.allowed_mentions).toEqual({ parse: [] });
+  }, 15_000);
 
   it('uses the shared report renderer for passive auto-post output', async () => {
     const handleOptions = baseHandleOptions() as Record<string, unknown>;
@@ -253,9 +255,10 @@ describe('auto report report embed paths', () => {
     });
 
     const sentBody = channel.send.mock.calls[0]?.[0] as Record<string, unknown>;
-    assertArchitectureReportBody(sentBody);
+    assertReportImageBody(sentBody);
     expect(sentBody).not.toHaveProperty('flags');
-  });
+    expect(sentBody.allowed_mentions).toEqual({ parse: [] });
+  }, 15_000);
 
   it('uses the shared report renderer for prompt preview output', async () => {
     vi.mocked(editOriginalInteractionResponse).mockClear();
@@ -290,10 +293,10 @@ describe('auto report report embed paths', () => {
     );
 
     await vi.waitFor(() => expect(editOriginalInteractionResponse).toHaveBeenCalled());
-    assertArchitectureReportBody(
+    assertReportImageBody(
       vi.mocked(editOriginalInteractionResponse).mock.calls[0]?.[2] as Record<string, unknown>,
     );
-  });
+  }, 15_000);
 
   it('rebuilds duplicate post output through the shared report renderer', async () => {
     vi.mocked(createFollowupInteractionResponse).mockClear();
@@ -331,8 +334,11 @@ describe('auto report report embed paths', () => {
     );
 
     await vi.waitFor(() => expect(createFollowupInteractionResponse).toHaveBeenCalled());
-    assertArchitectureReportBody(
-      vi.mocked(createFollowupInteractionResponse).mock.calls[0]?.[2] as Record<string, unknown>,
-    );
-  });
+    const body = vi.mocked(createFollowupInteractionResponse).mock.calls[0]?.[2] as Record<
+      string,
+      unknown
+    >;
+    assertReportImageBody(body);
+    expect(body.allowed_mentions).toEqual({ parse: [] });
+  }, 15_000);
 });

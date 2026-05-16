@@ -298,6 +298,12 @@ export const commandDefinitions: SlashCommandDefinition[] = [
         required: true,
         choices: guildRankSizeChoices,
       },
+      {
+        name: 'partition',
+        description: 'current, all, or a partition number',
+        type: STRING_OPTION_TYPE,
+        required: false,
+      },
     ],
   },
   {

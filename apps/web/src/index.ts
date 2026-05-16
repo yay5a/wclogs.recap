@@ -11,6 +11,7 @@ import {
   MongoReportIndexCacheStore,
   MongoReportRankingsStore,
   MongoWclUserAuthStore,
+  migrateReportRankingsPartitionIndexes,
   migrateWclUserAuthDiscordUserIndex,
 } from '@wcl/db';
 import { createLogger } from '@wcl/shared';
@@ -125,6 +126,7 @@ const start = async () => {
   await connectMongo(env.MONGODB_URI);
   await migrateCharacterClaimIdentityFields();
   await migrateWclUserAuthDiscordUserIndex();
+  await migrateReportRankingsPartitionIndexes();
   await app.listen({ port: env.PORT, host: '127.0.0.1' });
   logger.info({ port: env.PORT }, 'web app started');
 };

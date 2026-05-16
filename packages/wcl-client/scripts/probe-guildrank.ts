@@ -1,10 +1,19 @@
 import { WclClient } from '../src/wcl-client.js';
 import { resolveWclPublicClientAuth } from '../src/auth-mode.js';
 
-const [guildName, serverSlug, serverRegion, zoneIdRaw, difficulty, size, gameFamily] = process.argv.slice(2);
+const [
+  guildName,
+  serverSlug,
+  serverRegion,
+  zoneIdRaw,
+  difficulty,
+  size,
+  gameFamilyOrPartition,
+  partitionArg,
+] = process.argv.slice(2);
 if (!guildName || !serverSlug || !serverRegion || !zoneIdRaw || !difficulty || !size) {
   console.error(
-    'Usage: pnpm --filter @wcl/wcl-client probe:guildrank <guildName> <serverSlug> <serverRegion> <zoneId> <difficulty> <size> [gameFamily]',
+    'Usage: pnpm --filter @wcl/wcl-client probe:guildrank <guildName> <serverSlug> <serverRegion> <zoneId> <difficulty> <size> [gameFamily] [partition]',
   );
   process.exit(1);
 }
@@ -15,6 +24,22 @@ if (!Number.isFinite(zoneId)) {
   process.exit(1);
 }
 
+const parsePartition = (value: string | undefined): 'all' | number | undefined => {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized || normalized === 'current') return undefined;
+  if (normalized === 'all') return 'all';
+
+  const partition = Number(normalized);
+  if (Number.isSafeInteger(partition) && partition > 0) return partition;
+  console.error('partition must be current, all, or a positive number');
+  process.exit(1);
+};
+
+const gameFamily =
+  gameFamilyOrPartition === 'retail' || gameFamilyOrPartition === 'mop_classic'
+    ? gameFamilyOrPartition
+    : undefined;
+const partition = parsePartition(gameFamily ? partitionArg : gameFamilyOrPartition);
 const clientId = process.env.WCL_CLIENT_ID;
 const clientSecret = process.env.WCL_CLIENT_SECRET;
 const clientToken = process.env.WCL_OAUTH_CLIENT_TOKEN;
@@ -42,7 +67,8 @@ const summary = await client.fetchGuildRankSummary({
   zoneId,
   difficulty,
   size,
-  ...(gameFamily === 'retail' || gameFamily === 'mop_classic' ? { gameFamily } : {}),
+  ...(gameFamily ? { gameFamily } : {}),
+  ...(partition !== undefined ? { partition } : {}),
 });
 
 console.log(JSON.stringify(summary, null, 2));

@@ -57,6 +57,7 @@ export interface GuildRankInput {
   difficulty: string;
   size: string;
   gameFamily?: GameFamily;
+  partition?: 'current' | 'all' | number;
 }
 
 export interface GuildRankWindows {
@@ -77,6 +78,7 @@ export interface GuildRankWeeklyTrendRow {
   encounterId: number;
   difficulty: number;
   size: number;
+  partition?: number;
   weekStart: Date;
   timeframe: 'today' | 'historical';
   compareMode: 'rankings' | 'parses';

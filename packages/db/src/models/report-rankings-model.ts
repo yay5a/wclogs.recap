@@ -26,6 +26,7 @@ export interface ReportRankingsFactDocument {
   encounterId: number;
   difficulty: number;
   size: number;
+  partition?: number;
   timeframe: ReportRankingTimeframe;
   compareMode: ReportRankingCompareMode;
   speedPercentile?: number;
@@ -49,6 +50,7 @@ export interface GuildEncounterTrendWeeklyDocument {
   encounterId: number;
   difficulty: number;
   size: number;
+  partition?: number;
   weekStart: Date;
   timeframe: ReportRankingTimeframe;
   compareMode: ReportRankingCompareMode;
@@ -116,6 +118,7 @@ const reportRankingsFactSchema = new Schema<ReportRankingsFactDocument>(
     encounterId: { type: Number, required: true, index: true },
     difficulty: { type: Number, required: true, index: true },
     size: { type: Number, required: true, index: true },
+    partition: { type: Number, index: true },
     timeframe: timeframeField,
     compareMode: compareModeField,
     speedPercentile: { type: Number },
@@ -132,7 +135,7 @@ const reportRankingsFactSchema = new Schema<ReportRankingsFactDocument>(
 );
 
 reportRankingsFactSchema.index(
-  { reportCode: 1, fightId: 1, timeframe: 1, compareMode: 1 },
+  { reportCode: 1, fightId: 1, partition: 1, timeframe: 1, compareMode: 1 },
   { unique: true },
 );
 reportRankingsFactSchema.index({
@@ -141,6 +144,7 @@ reportRankingsFactSchema.index({
   guildServerRegion: 1,
   gameFamily: 1,
   encounterId: 1,
+  partition: 1,
   reportStartTime: 1,
   timeframe: 1,
   compareMode: 1,
@@ -152,6 +156,7 @@ const guildEncounterTrendWeeklySchema = new Schema<GuildEncounterTrendWeeklyDocu
     encounterId: { type: Number, required: true, index: true },
     difficulty: { type: Number, required: true, index: true },
     size: { type: Number, required: true, index: true },
+    partition: { type: Number, index: true },
     weekStart: { type: Date, required: true, index: true },
     timeframe: timeframeField,
     compareMode: compareModeField,
@@ -176,6 +181,7 @@ guildEncounterTrendWeeklySchema.index(
     encounterId: 1,
     difficulty: 1,
     size: 1,
+    partition: 1,
     weekStart: 1,
     timeframe: 1,
     compareMode: 1,

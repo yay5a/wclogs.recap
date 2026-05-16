@@ -11,9 +11,24 @@ vi.mock('../infrastructure/discord-api.js', () => ({
   safeEditOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
 }));
 
-const ENCOUNTER_HIGHLIGHTS_LABEL = 'Encounter Highlights 🗿';
-const TOP_PLAYERS_LABEL = 'Top Players 🏋️‍♂️';
-const BIGGEST_TROUBLE_FIELD = 'Biggest Trouble 🙎‍♂️';
+vi.mock('../renderers/report.js', () => ({
+  buildReportResponseBody: vi.fn(
+    async (
+      summary: ReportSummary,
+      options: { ephemeral?: boolean } = {},
+    ): Promise<Record<string, unknown>> => ({
+      content: summary.reportLink,
+      ...(options.ephemeral ?? true ? { flags: 64 } : {}),
+      files: [
+        {
+          name: 'report-summary.png',
+          attachment: new Uint8Array([137, 80, 78, 71]),
+          contentType: 'image/png',
+        },
+      ],
+    }),
+  ),
+}));
 
 const summaryFixture = (): ReportSummary => ({
   reportCode: 'ABC123',
@@ -76,18 +91,22 @@ const summaryFixture = (): ReportSummary => ({
   partialDataNotes: [],
 });
 
-const flattenReportBody = (
-  body: Record<string, unknown>,
-): {
-  fieldNames: string[];
-  text: string;
-} => {
-  const embeds = body.embeds as Array<{ fields?: Array<{ name?: string; value?: string }> }>;
-  const fields = embeds[0]?.fields ?? [];
-  return {
-    fieldNames: fields.map((field) => field.name ?? ''),
-    text: fields.map((field) => `${field.name ?? ''}\n${field.value ?? ''}`).join('\n'),
-  };
+const expectReportImageBody = (body: Record<string, unknown>, ephemeral: boolean): void => {
+  const files = body.files as Array<{ name?: string; attachment?: unknown; contentType?: string }>;
+
+  expect(body.content).toBe('https://www.warcraftlogs.com/reports/ABC123');
+  expect(body).not.toHaveProperty('embeds');
+  expect(body).not.toHaveProperty('components');
+  expect(body.flags).toBe(ephemeral ? 64 : undefined);
+  expect(files).toHaveLength(1);
+  expect(files[0]).toMatchObject({
+    name: 'report-summary.png',
+    contentType: 'image/png',
+  });
+  expect(files[0]?.attachment).toBeInstanceOf(Uint8Array);
+  expect(Array.from((files[0]?.attachment as Uint8Array).slice(0, 4))).toEqual([
+    137, 80, 78, 71,
+  ]);
 };
 
 const expectNoReportDebugOutput = (body: Record<string, unknown>): void => {
@@ -103,7 +122,7 @@ describe('/report command render path', () => {
     vi.mocked(safeEditOriginalInteractionResponse).mockClear();
   });
 
-  it('builds final embed payload with architecture sections and without removed legacy blocks', async () => {
+  it('builds private and public PNG report payloads without debug output', async () => {
     const wclClient = {
       fetchReportSummary: vi.fn().mockResolvedValue(summaryFixture()),
     } as never;
@@ -116,24 +135,10 @@ describe('/report command render path', () => {
       url: 'https://www.warcraftlogs.com/reports/ABC123',
     });
 
-    const fields = artifact.responseBody.embeds[0]?.fields ?? [];
-    const fieldNames = fields.map((field) => field.name);
-    const flattenedValues = fields.map((field) => field.value).join('\n');
-    const hasTopPlayersSection = fields.some(
-      (field) =>
-        field.name?.trim() === TOP_PLAYERS_LABEL || field.value?.trim() === TOP_PLAYERS_LABEL,
-    );
-
-    expect(flattenedValues).toContain(ENCOUNTER_HIGHLIGHTS_LABEL);
-    expect(hasTopPlayersSection).toBe(true);
-    expect(fieldNames).toContain('Best Execution ⚔️');
-    expect(fieldNames).toContain(BIGGEST_TROUBLE_FIELD);
-    expect(fieldNames).not.toContain('Highest Total Healing');
-    expect(fieldNames).not.toContain('Highest DPS');
+    expectReportImageBody(artifact.responseBody as Record<string, unknown>, true);
+    expectReportImageBody(artifact.publicBody as Record<string, unknown>, false);
     expectNoReportDebugOutput(artifact.responseBody as Record<string, unknown>);
-    expect(flattenedValues).toContain('Highest Total DPS ⚔️: Alyra ⇨ 40K/s');
-    expect(flattenedValues).toContain('Highest Total HPS 🍃: Alyra ⇨ 12K/s');
-    expect(flattenedValues).not.toContain('Highest Total HPS 🍃: unavailable');
+    expectNoReportDebugOutput(artifact.publicBody as Record<string, unknown>);
   });
 
   it('edits slash-command success with the public report body', async () => {
@@ -154,20 +159,10 @@ describe('/report command render path', () => {
     );
 
     expect(editOriginalInteractionResponse).toHaveBeenCalledTimes(1);
-    const body = vi.mocked(editOriginalInteractionResponse).mock.calls[0]?.[2] as Record<
-      string,
-      unknown
-    >;
-    expect(body).not.toHaveProperty('flags');
-
-    const { fieldNames, text } = flattenReportBody(body);
-    expect(text).toContain(ENCOUNTER_HIGHLIGHTS_LABEL);
-    expect(text).toContain(TOP_PLAYERS_LABEL);
-    expectNoReportDebugOutput(body);
-    expect(fieldNames).toContain('Best Execution ⚔️');
-    expect(fieldNames).toContain(BIGGEST_TROUBLE_FIELD);
-    expect(fieldNames).not.toContain('Highest Total Healing');
-    expect(fieldNames).not.toContain('Highest DPS');
+    expectReportImageBody(
+      vi.mocked(editOriginalInteractionResponse).mock.calls[0]?.[2] as Record<string, unknown>,
+      false,
+    );
   });
 
   it('keeps slash-command failure messages ephemeral', async () => {

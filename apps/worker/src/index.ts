@@ -7,6 +7,7 @@ import {
   MongoWclUserAuthStore,
   connectMongo,
   migrateCharacterClaimIdentityFields,
+  migrateReportRankingsPartitionIndexes,
   migrateWclUserAuthDiscordUserIndex,
 } from '@wcl/db';
 import type { AutoReportSendableChannel } from '@wcl/discord';
@@ -193,6 +194,7 @@ const start = async () => {
   await connectMongo(env.MONGODB_URI);
   await migrateCharacterClaimIdentityFields();
   await migrateWclUserAuthDiscordUserIndex();
+  await migrateReportRankingsPartitionIndexes();
   await startDiscordGateway();
   logger.info('worker started');
 };

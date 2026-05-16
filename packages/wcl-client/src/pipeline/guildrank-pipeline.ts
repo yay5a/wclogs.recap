@@ -313,13 +313,19 @@ const hasTrendMetric = (row: GuildRankWeeklyTrendRow): boolean =>
 const trendTimeframePriority = (row: GuildRankWeeklyTrendRow): number =>
   row.timeframe === 'today' ? 0 : 1;
 
+const trendPartitionKey = (row: GuildRankWeeklyTrendRow): string =>
+  typeof row.partition === 'number' ? String(row.partition) : '';
+
+const trendEncounterPartitionKey = (row: GuildRankWeeklyTrendRow): string =>
+  `${row.encounterId}:${trendPartitionKey(row)}`;
+
 const selectPreferredTrendRows = (
   rows: GuildRankWeeklyTrendRow[],
 ): Map<string, GuildRankWeeklyTrendRow> => {
   const byWeekEncounter = new Map<string, GuildRankWeeklyTrendRow>();
 
   for (const row of rows) {
-    const key = `${row.weekStart.getTime()}:${row.encounterId}`;
+    const key = `${row.weekStart.getTime()}:${trendEncounterPartitionKey(row)}`;
     const existing = byWeekEncounter.get(key);
     if (!existing || trendTimeframePriority(row) < trendTimeframePriority(existing)) {
       byWeekEncounter.set(key, row);
@@ -366,11 +372,30 @@ const toFallbackBaselineTrendMetricRow = (
 const hasMetricValues = (row: GuildRankEncounterMetric): boolean =>
   typeof row.bestDerivedPercentile === 'number' || typeof row.medianDerivedPercentile === 'number';
 
+const filterTrendRowsByPartition = (
+  rows: GuildRankWeeklyTrendRow[],
+  partition: GuildRankInput['partition'],
+): GuildRankWeeklyTrendRow[] => {
+  if (partition === 'all') return rows;
+  if (typeof partition === 'number') return rows.filter((row) => row.partition === partition);
+
+  const partitions = rows.flatMap((row) =>
+    typeof row.partition === 'number' ? [row.partition] : [],
+  );
+  if (partitions.length === 0) {
+    return rows.filter((row) => row.partition === undefined);
+  }
+
+  const latestPartition = Math.max(...partitions);
+  return rows.filter((row) => row.partition === latestPartition);
+};
+
 const buildTrendMetricSets = (
   rows: GuildRankWeeklyTrendRow[],
   resolved: {
     difficultyId: number;
     sizeValue: number;
+    partition?: GuildRankInput['partition'];
     encounters: Array<{ id: number; name: string }>;
   },
 ):
@@ -389,7 +414,7 @@ const buildTrendMetricSets = (
     resolved.encounters.map((encounter) => [encounter.id, encounter.name]),
   );
   const requestedEncounterIds = new Set(encounterNameById.keys());
-  const trendRows = rows.filter(
+  const matchingTrendRows = rows.filter(
     (row) =>
       row.difficulty === resolved.difficultyId &&
       row.size === resolved.sizeValue &&
@@ -397,6 +422,7 @@ const buildTrendMetricSets = (
       (requestedEncounterIds.size === 0 || requestedEncounterIds.has(row.encounterId)) &&
       hasTrendMetric(row),
   );
+  const trendRows = filterTrendRowsByPartition(matchingTrendRows, resolved.partition);
   if (trendRows.length === 0) return undefined;
 
   const latestWeekStartMs = Math.max(...trendRows.map((row) => row.weekStart.getTime()));
@@ -415,7 +441,7 @@ const buildTrendMetricSets = (
   const baselineRowsByEncounter = new Map(
     [...preferredRows.values()]
       .filter((row) => row.weekStart.getTime() === previousWeekStartMs)
-      .map((row) => [row.encounterId, row]),
+      .map((row) => [trendEncounterPartitionKey(row), row]),
   );
 
   const toMetricSet = (
@@ -436,7 +462,7 @@ const buildTrendMetricSets = (
 
   const toBaselineMetricSet = (metric: 'speed' | 'execution'): GuildRankMetricSet => ({
     perEncounter: currentRows.flatMap((currentRow) => {
-      const baselineRow = baselineRowsByEncounter.get(currentRow.encounterId);
+      const baselineRow = baselineRowsByEncounter.get(trendEncounterPartitionKey(currentRow));
       const metricRow = baselineRow
         ? toTrendMetricRow(baselineRow, metric)
         : toFallbackBaselineTrendMetricRow(currentRow, metric);
@@ -517,6 +543,7 @@ export const collectGuildRankSummaryData = async (
     selectedSize: resolved.sizeLabel,
     selectedSizeValue: resolved.sizeValue,
     selectedPartitionId: resolved.partitionId,
+    selectedTrendPartition: normalizedInput.partition ?? 'current',
     currentWindowStartMs: windows.currentStartMs,
     currentWindowEndMs: windows.currentEndMs,
     baselineWindowStartMs: windows.baselineStartMs,

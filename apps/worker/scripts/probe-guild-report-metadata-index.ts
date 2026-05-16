@@ -9,15 +9,21 @@ import {
 } from '@wcl/db';
 import { createLogger } from '@wcl/shared';
 import { collectGuildReportIndex, resolveWclPublicClientAuth, WclClient } from '@wcl/wcl-client';
+import {
+  buildGuildRankReportWindows,
+  type GuildRankReportWindow,
+  type GuildRankReportWindowName,
+} from '../src/guildrank-report-windows.js';
 import { syncGuildReportMetadataIndex } from '../src/guild-report-metadata-sync.js';
 import { syncReportRankingEnrichment } from '../src/report-ranking-enrichment-sync.js';
 
-const RESET_WEEK_START_DAY = 2; // Tuesday
 const DEFAULT_WCL_API_BASE_URL = 'https://www.warcraftlogs.com/api/v2/client';
 type ProbeGameFamily = 'retail' | 'mop_classic';
 const usage = [
   'Usage:',
-  '  pnpm --filter @wcl/worker probe:guild-report-metadata-index <guildName> <serverSlug> <serverRegion> [gameFamily] [maxReports] [windowSizeMs] [--summary-only] [--enrich-rankings] [--force-rankings]',
+  '  pnpm --filter @wcl/worker probe:guild-report-metadata-index <guildName> <serverSlug> <serverRegion> [gameFamily] [maxReports] [windowSizeMs] [--window=current|baseline|all|none] [--window-none] [--summary-only] [--enrich-rankings] [--force-rankings]',
+  'Window:',
+  '  current = current lockout, baseline = previous 14 calendar days, all/none = baseline + current.',
 ].join('\n');
 
 for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd(), path))) {
@@ -33,8 +39,14 @@ const supportedFlags = new Set([
   '--read-only-summary',
   '--enrich-rankings',
   '--force-rankings',
+  '--window-none',
 ]);
-const unknownFlag = rawArgs.find((arg) => arg.startsWith('--') && !supportedFlags.has(arg));
+const windowFlagPrefix = '--window=';
+const isWindowFlag = (arg: string): boolean =>
+  arg === '--window-none' || arg.startsWith(windowFlagPrefix);
+const unknownFlag = rawArgs.find(
+  (arg) => arg.startsWith('--') && !supportedFlags.has(arg) && !isWindowFlag(arg),
+);
 const summaryOnly = rawArgs.includes('--summary-only') || rawArgs.includes('--read-only-summary');
 const shouldEnrichRankings = rawArgs.includes('--enrich-rankings') && !summaryOnly;
 const forcedEnrichRefresh = rawArgs.includes('--force-rankings') && shouldEnrichRankings;
@@ -93,66 +105,53 @@ const toInteger = (value: string, name: string): number => {
   return parsed;
 };
 
-const getMostRecentResetStart = (now: Date): Date => {
-  const resetStart = new Date(now);
-  resetStart.setHours(0, 0, 0, 0);
-  resetStart.setDate(resetStart.getDate() - ((resetStart.getDay() - RESET_WEEK_START_DAY + 7) % 7));
-  return resetStart;
+const parseWindowOption = (): GuildRankReportWindowName | undefined => {
+  const windowFlags = rawArgs.filter(isWindowFlag);
+  if (windowFlags.length === 0) return undefined;
+  if (windowFlags.length > 1) fail('Use only one window option');
+
+  const flag = windowFlags[0] ?? fail('Use only one window option');
+  if (flag === '--window-none') return 'all';
+
+  const value = flag.slice(windowFlagPrefix.length).trim();
+  if (value === 'none') return 'all';
+  if (value === 'current' || value === 'baseline' || value === 'all') return value;
+  return fail('window must be current, baseline, all, or none');
 };
 
-const subtractLocalDays = (date: Date, days: number): Date => {
-  const result = new Date(date);
-  result.setDate(result.getDate() - days);
-  return result;
-};
+const formatWindowRange = (window: GuildRankReportWindow): string =>
+  `${new Date(window.startTimeMs).toISOString()} - ${new Date(window.endTimeMs).toISOString()}`;
 
-const promptForWindow = async (): Promise<{
-  startTimeMs: number;
-  endTimeMs: number;
-  label: string;
-}> => {
-  const now = new Date();
-  const currentResetStart = getMostRecentResetStart(now);
-  const previousResetStart = subtractLocalDays(currentResetStart, 7);
+const promptForWindow = async (): Promise<GuildRankReportWindow> => {
+  const windows = buildGuildRankReportWindows();
   const choices = [
     {
       key: '1',
-      label: 'Current reset week',
-      startTimeMs: currentResetStart.getTime(),
-      endTimeMs: now.getTime(),
+      window: windows.current,
     },
     {
       key: '2',
-      label: 'Last two reset weeks',
-      startTimeMs: previousResetStart.getTime(),
-      endTimeMs: now.getTime(),
+      window: windows.baseline,
     },
   ];
   const rl = createInterface({ input: process.stdin, output: process.stderr });
 
   console.error('Select report window:');
   for (const choice of choices) {
-    console.error(
-      `  ${choice.key}) ${choice.label}: ${new Date(choice.startTimeMs).toISOString()} - ${new Date(
-        choice.endTimeMs,
-      ).toISOString()}`,
-    );
+    console.error(`  ${choice.key}) ${choice.window.label}: ${formatWindowRange(choice.window)}`);
   }
 
   try {
     const answer = (await rl.question('Report window [1]: ')).trim() || '1';
     const selected =
       choices.find((choice) => choice.key === answer) ?? fail('Report window must be 1 or 2');
-    return {
-      startTimeMs: selected.startTimeMs,
-      endTimeMs: selected.endTimeMs,
-      label: selected.label,
-    };
+    return selected.window;
   } finally {
     rl.close();
   }
 };
 
+const windowOption = parseWindowOption();
 const gameFamily = parseGameFamily(gameFamilyRaw);
 const maxReports = maxReportsRaw ? toInteger(maxReportsRaw, 'maxReports') : undefined;
 const windowSizeMs = windowSizeMsRaw ? toInteger(windowSizeMsRaw, 'windowSizeMs') : undefined;
@@ -164,7 +163,7 @@ if (maxReports !== undefined && maxReports < 1) fail('maxReports must be a posit
 if (windowSizeMs !== undefined && windowSizeMs < 1) fail('windowSizeMs must be a positive integer');
 
 const rankingPublicAuth = shouldEnrichRankings ? resolveRankingPublicAuth() : undefined;
-const window = await promptForWindow();
+const window = windowOption ? buildGuildRankReportWindows()[windowOption] : await promptForWindow();
 const logger = createLogger('worker');
 const connection = await connectMongo(mongoUri);
 const scope = {
@@ -188,11 +187,7 @@ const createRankingWclClient = (): WclClient => {
 };
 
 try {
-  console.error(
-    `Using ${window.label}: ${new Date(window.startTimeMs).toISOString()} - ${new Date(
-      window.endTimeMs,
-    ).toISOString()}`,
-  );
+  console.error(`Using ${window.label}: ${formatWindowRange(window)}`);
 
   if (summaryOnly) {
     console.error('Summary only: skipping WCL sync');

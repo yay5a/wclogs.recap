@@ -4,7 +4,10 @@ import {
   ReportRankingsFactModel,
   ReportRankingsRawModel,
 } from '../models/report-rankings-model.js';
-import { MongoReportRankingsStore } from './report-rankings-store.js';
+import {
+  migrateReportRankingsPartitionIndexes,
+  MongoReportRankingsStore,
+} from './report-rankings-store.js';
 
 afterEach(() => {
   vi.restoreAllMocks();
@@ -72,10 +75,83 @@ describe('MongoReportRankingsStore', () => {
       encounterId: 1,
       difficulty: 1,
       size: 1,
+      partition: 1,
       weekStart: 1,
       timeframe: 1,
       compareMode: 1,
     });
+  });
+
+  it('migrates legacy ranking indexes to include partition', async () => {
+    vi.spyOn(ReportRankingsFactModel.collection, 'indexes').mockResolvedValue([
+      {
+        name: 'reportCode_1_fightId_1_timeframe_1_compareMode_1',
+        unique: true,
+        key: { reportCode: 1, fightId: 1, timeframe: 1, compareMode: 1 },
+      },
+    ] as never);
+    vi.spyOn(GuildEncounterTrendWeeklyModel.collection, 'indexes').mockResolvedValue([
+      {
+        name: 'legacy_trend_unique',
+        unique: true,
+        key: {
+          guildName: 1,
+          guildServerSlug: 1,
+          guildServerRegion: 1,
+          gameFamily: 1,
+          encounterId: 1,
+          difficulty: 1,
+          size: 1,
+          weekStart: 1,
+          timeframe: 1,
+          compareMode: 1,
+        },
+      },
+    ] as never);
+    const dropFactIndex = vi
+      .spyOn(ReportRankingsFactModel.collection, 'dropIndex')
+      .mockResolvedValue('dropped' as never);
+    const dropTrendIndex = vi
+      .spyOn(GuildEncounterTrendWeeklyModel.collection, 'dropIndex')
+      .mockResolvedValue('dropped' as never);
+    const createFactIndex = vi
+      .spyOn(ReportRankingsFactModel.collection, 'createIndex')
+      .mockResolvedValue('created' as never);
+    const createTrendIndex = vi
+      .spyOn(GuildEncounterTrendWeeklyModel.collection, 'createIndex')
+      .mockResolvedValue('created' as never);
+
+    await expect(migrateReportRankingsPartitionIndexes()).resolves.toEqual({
+      droppedLegacyIndexNames: [
+        'reportCode_1_fightId_1_timeframe_1_compareMode_1',
+        'legacy_trend_unique',
+      ],
+    });
+
+    expect(dropFactIndex).toHaveBeenCalledWith(
+      'reportCode_1_fightId_1_timeframe_1_compareMode_1',
+    );
+    expect(dropTrendIndex).toHaveBeenCalledWith('legacy_trend_unique');
+    expect(createFactIndex).toHaveBeenCalledWith(
+      { reportCode: 1, fightId: 1, partition: 1, timeframe: 1, compareMode: 1 },
+      { unique: true },
+    );
+    expect(createTrendIndex).toHaveBeenCalledWith(
+      {
+        guildName: 1,
+        guildServerSlug: 1,
+        guildServerRegion: 1,
+        gameFamily: 1,
+        encounterId: 1,
+        difficulty: 1,
+        size: 1,
+        partition: 1,
+        weekStart: 1,
+        timeframe: 1,
+        compareMode: 1,
+      },
+      { unique: true },
+    );
   });
 
   it('counts distinct raw query hashes when checking report coverage', async () => {
@@ -347,5 +423,104 @@ describe('MongoReportRankingsStore', () => {
       ],
       { ordered: false },
     );
+  });
+
+  it('materializes separate weekly trends and deltas per partition', async () => {
+    const fact = (input: {
+      reportCode: string;
+      reportStartTime: string;
+      fightId: number;
+      partition: number;
+      speedPercentile: number;
+      executionPercentile: number;
+    }) => ({
+      ...scope,
+      guildName: 'shenanigans',
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      reportCode: input.reportCode,
+      reportStartTime: Date.parse(input.reportStartTime),
+      fightId: input.fightId,
+      encounterId: 101,
+      difficulty: 5,
+      size: 25,
+      partition: input.partition,
+      timeframe: 'today',
+      compareMode: 'rankings',
+      speedPercentile: input.speedPercentile,
+      executionPercentile: input.executionPercentile,
+      kill: true,
+      sourceFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
+    });
+
+    vi.spyOn(ReportRankingsFactModel, 'find').mockReturnValue({
+      lean: vi.fn().mockResolvedValue([
+        fact({
+          reportCode: 'PREV-P4',
+          reportStartTime: '2023-11-14T12:00:00.000Z',
+          fightId: 1,
+          partition: 4,
+          speedPercentile: 50,
+          executionPercentile: 40,
+        }),
+        fact({
+          reportCode: 'CUR-P4',
+          reportStartTime: '2023-11-21T12:00:00.000Z',
+          fightId: 2,
+          partition: 4,
+          speedPercentile: 60,
+          executionPercentile: 45,
+        }),
+        fact({
+          reportCode: 'CUR-P5',
+          reportStartTime: '2023-11-21T13:00:00.000Z',
+          fightId: 3,
+          partition: 5,
+          speedPercentile: 100,
+          executionPercentile: 90,
+        }),
+      ]),
+    } as never);
+    const deleteMany = vi.spyOn(GuildEncounterTrendWeeklyModel, 'deleteMany').mockResolvedValue({
+      deletedCount: 2,
+    } as never);
+    const bulkWrite = vi
+      .spyOn(GuildEncounterTrendWeeklyModel, 'bulkWrite')
+      .mockResolvedValue({} as never);
+    const store = new MongoReportRankingsStore();
+
+    await expect(
+      store.recomputeWeeklyTrends({
+        scope,
+        encounterIds: [101],
+        weekStarts: [new Date('2023-11-21T00:00:00.000Z')],
+      }),
+    ).resolves.toEqual({
+      factRowsRead: 3,
+      trendRowsWritten: 2,
+      trendRowsDeleted: 2,
+    });
+
+    const deleteFilter = deleteMany.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(deleteFilter).not.toHaveProperty('partition');
+
+    const writes = bulkWrite.mock.calls[0]?.[0] as Array<{
+      updateOne: {
+        filter: { partition?: number };
+        update: { $set: { partition?: number; speedMedianDelta?: number } };
+      };
+    }>;
+    const writesByPartition = new Map(
+      writes.map((write) => [write.updateOne.filter.partition, write.updateOne.update.$set]),
+    );
+
+    expect(writesByPartition.get(4)).toMatchObject({
+      partition: 4,
+      speedMedianDelta: 10,
+    });
+    expect(writesByPartition.get(5)).toMatchObject({
+      partition: 5,
+    });
+    expect(writesByPartition.get(5)).not.toHaveProperty('speedMedianDelta');
   });
 });

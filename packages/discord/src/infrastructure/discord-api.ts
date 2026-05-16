@@ -41,6 +41,75 @@ export interface DiscordMessageResponse extends Record<string, unknown> {
   id: string;
   flags?: number;
 }
+
+export interface DiscordFileAttachment {
+  name: string;
+  attachment: Uint8Array;
+  contentType?: string;
+}
+
+export type DiscordMessageBody = Record<string, unknown> & {
+  files?: readonly DiscordFileAttachment[];
+};
+
+const isDiscordFileAttachment = (value: unknown): value is DiscordFileAttachment => {
+  if (!isObjectRecord(value)) return false;
+  return (
+    typeof value.name === 'string' &&
+    value.name.length > 0 &&
+    value.attachment instanceof Uint8Array
+  );
+};
+
+const getDiscordFileAttachments = (body: unknown): readonly DiscordFileAttachment[] | null => {
+  if (!isObjectRecord(body)) return null;
+  if (!Array.isArray(body.files) || body.files.length === 0) return null;
+  return body.files.every(isDiscordFileAttachment) ? body.files : null;
+};
+
+const buildDiscordMultipartBody = (
+  body: Record<string, unknown>,
+  files: readonly DiscordFileAttachment[],
+): FormData => {
+  const formData = new FormData();
+  const payload = { ...body };
+  delete payload.files;
+  if (!Array.isArray(payload.attachments)) {
+    payload.attachments = files.map((file, index) => ({
+      id: index,
+      filename: file.name,
+    }));
+  }
+
+  formData.append('payload_json', JSON.stringify(payload));
+  files.forEach((file, index) => {
+    const buffer = new ArrayBuffer(file.attachment.byteLength);
+    new Uint8Array(buffer).set(file.attachment);
+    const blob = new Blob([buffer], {
+      type: file.contentType ?? 'application/octet-stream',
+    });
+    formData.append(`files[${index}]`, blob, file.name);
+  });
+  return formData;
+};
+
+const buildDiscordRequestBody = (
+  body: unknown,
+): { body?: BodyInit; headers: Record<string, string> } => {
+  if (body === undefined) return { headers: {} };
+  const files = getDiscordFileAttachments(body);
+  if (files && isObjectRecord(body)) {
+    return {
+      headers: {},
+      body: buildDiscordMultipartBody(body, files),
+    };
+  }
+  return {
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  };
+};
+
 const parseRetryAfterSeconds = (value: unknown): number | null => {
   if (typeof value === 'number' && Number.isFinite(value) && value >= 0) return value;
   if (typeof value === 'string') {
@@ -92,14 +161,15 @@ export const discordApiRequest = async ({
   maxRateLimitRetries = MAX_RATE_LIMIT_RETRIES,
 }: DiscordApiRequestOptions): Promise<Response> => {
   for (let attempt = 0; ; attempt += 1) {
+    const requestBody = buildDiscordRequestBody(body);
     const response = await fetch(endpoint, {
       method,
       headers: {
         'User-Agent': DISCORD_USER_AGENT,
         ...(botToken ? { Authorization: `Bot ${botToken}` } : {}),
-        ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),
+        ...requestBody.headers,
       },
-      ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      ...(requestBody.body !== undefined ? { body: requestBody.body } : {}),
     });
     if (response.status !== 429) return response;
     if (attempt >= maxRateLimitRetries) return response;

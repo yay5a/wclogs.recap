@@ -2,6 +2,7 @@ import { createLogger, serializeError } from '@wcl/shared';
 import { WclReportFetchError } from '@wcl/wcl-client';
 import type { DiscordInteraction, HandleOptions } from '../types.js';
 import {
+  type DiscordMessageBody,
   editOriginalInteractionResponse,
   safeEditOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
@@ -101,10 +102,16 @@ export const buildReportArtifact = async ({
     'report runtime fingerprint',
   );
 
+  const publicBody = await buildReportResponseBody(summary, { ephemeral: false });
+  const responseBody: DiscordMessageBody = {
+    ...publicBody,
+    flags: EPHEMERAL_MESSAGE_FLAG,
+  };
+
   return {
     summary,
-    responseBody: buildReportResponseBody(summary),
-    publicBody: buildReportResponseBody(summary, { ephemeral: false }),
+    responseBody,
+    publicBody,
     runtime,
   };
 };

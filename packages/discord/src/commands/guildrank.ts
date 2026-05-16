@@ -19,6 +19,19 @@ const getStringOption = (options: unknown, name: string): string | undefined => 
   return typeof found?.value === 'string' ? found.value : undefined;
 };
 
+type GuildRankPartitionOption = 'all' | number;
+
+const parsePartitionOption = (
+  value: string | undefined,
+): GuildRankPartitionOption | null | undefined => {
+  const normalized = value?.trim().toLowerCase();
+  if (!normalized || normalized === 'current') return undefined;
+  if (normalized === 'all') return 'all';
+
+  const partition = Number(normalized);
+  return Number.isSafeInteger(partition) && partition > 0 ? partition : null;
+};
+
 export const processGuildRankInteraction = async (
   interaction: DiscordInteraction,
   options: HandleOptions,
@@ -31,10 +44,17 @@ export const processGuildRankInteraction = async (
 
   const difficulty = getStringOption(interaction.data?.options, 'difficulty');
   const size = getStringOption(interaction.data?.options, 'size');
+  const partition = parsePartitionOption(getStringOption(interaction.data?.options, 'partition'));
 
   if (!difficulty || !size) {
     await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
       content: 'Missing required difficulty or size.',
+    });
+    return;
+  }
+  if (partition === null) {
+    await safeEditOriginalInteractionResponse(applicationId, interactionToken, {
+      content: 'Partition must be current, all, or a positive number.',
     });
     return;
   }
@@ -64,6 +84,7 @@ export const processGuildRankInteraction = async (
         difficulty,
         size,
         gameFamily: guildConfig.defaultGameFamily,
+        ...(partition !== undefined ? { partition } : {}),
       },
       discordUserId ? { discordUserId } : undefined,
     );

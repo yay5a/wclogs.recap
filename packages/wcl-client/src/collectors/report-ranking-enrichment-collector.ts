@@ -39,6 +39,7 @@ export interface ReportRankingFact {
   encounterId: number;
   difficulty: number;
   size: number;
+  partition?: number;
   timeframe: ReportRankingEnrichmentTimeframe;
   compareMode: ReportRankingEnrichmentCompareMode;
   speedPercentile?: number;
@@ -280,6 +281,7 @@ const normalizeFacts = (
       firstNestedNumber(row, ['speed', 'totalParses']);
     const durationMs = firstNumber(row, ['durationMs', 'duration']);
     const startTime = firstNumber(row, ['startTime']);
+    const partition = firstNumber(row, ['partition']);
 
     if (
       typeof speedPercentile !== 'number' &&
@@ -298,6 +300,7 @@ const normalizeFacts = (
       encounterId: fight.encounterId,
       difficulty: fight.difficulty,
       size: fight.size,
+      ...(typeof partition === 'number' ? { partition } : {}),
       timeframe: input.timeframe,
       compareMode: input.compareMode,
       ...(typeof speedPercentile === 'number' ? { speedPercentile } : {}),
