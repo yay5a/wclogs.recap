@@ -54,6 +54,7 @@ const toJsonTrend = (trend: GuildEncounterWeeklyTrendRow) => ({
   encounterId: trend.encounterId,
   difficulty: trend.difficulty,
   size: trend.size,
+  ...(typeof trend.partition === 'number' ? { partition: trend.partition } : {}),
   weekStart: trend.weekStart.toISOString(),
   timeframe: trend.timeframe,
   compareMode: trend.compareMode,

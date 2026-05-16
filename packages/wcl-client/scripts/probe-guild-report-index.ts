@@ -6,9 +6,17 @@ import { collectGuildReportIndex } from '../src/collectors/guild-report-index-co
 const RESET_WEEK_START_DAY = 2; // Tuesday
 const usage = [
   'Usage:',
-  '  pnpm --filter @wcl/wcl-client probe:guild-report-index <guildName> <serverSlug> <serverRegion> [gameFamily] [windowSizeMs]',
+  '  pnpm --filter @wcl/wcl-client probe:guild-report-index <guildName> <serverSlug> <serverRegion> [gameFamily] [windowSizeMs] [--window-none]',
   '  pnpm --filter @wcl/wcl-client probe:guild-report-index <guildName> <serverSlug> <serverRegion> <startTimeMs> <endTimeMs> [gameFamily] [windowSizeMs]',
+  'Window:',
+  '  --window-none skips the prompt and uses current lockout plus the previous 14 calendar days.',
 ].join('\n');
+
+type ProbeWindow = {
+  startTimeMs: number;
+  endTimeMs: number;
+  label: string;
+};
 
 for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd(), path))) {
   if (existsSync(envPath)) {
@@ -17,13 +25,21 @@ for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd()
   }
 }
 
+const rawArgs = process.argv.slice(2);
+const windowNone = rawArgs.includes('--window-none');
+const unknownFlag = rawArgs.find((arg) => arg.startsWith('--') && arg !== '--window-none');
+const positionalArgs = rawArgs.filter((arg) => !arg.startsWith('--'));
 const [guildNameArg, serverSlugArg, serverRegionArg, fourthArg, fifthArg, sixthArg, seventhArg] =
-  process.argv.slice(2);
+  positionalArgs;
 
 const fail = (message: string): never => {
   console.error(message);
   process.exit(1);
 };
+
+if (unknownFlag) {
+  fail(`Unknown option: ${unknownFlag}\n${usage}`);
+}
 
 const isIntegerString = (value: string | undefined): value is string => /^-?\d+$/.test(value ?? '');
 
@@ -52,43 +68,61 @@ const subtractLocalDays = (date: Date, days: number): Date => {
   return result;
 };
 
-const promptForWindow = async (): Promise<{
-  startTimeMs: number;
-  endTimeMs: number;
-  label: string;
-}> => {
+const buildProbeWindows = (): {
+  current: ProbeWindow;
+  baseline: ProbeWindow;
+  all: ProbeWindow;
+} => {
   const now = new Date();
   const currentResetStart = getMostRecentResetStart(now);
-  const previousResetStart = subtractLocalDays(currentResetStart, 7);
+  const baselineStart = subtractLocalDays(currentResetStart, 14);
 
-  const choices = [
-    {
-      key: '1',
-      label: 'Current reset week',
+  return {
+    current: {
+      label: 'Current lockout',
       startTimeMs: currentResetStart.getTime(),
       endTimeMs: now.getTime(),
     },
+    baseline: {
+      label: 'Previous 14 calendar days',
+      startTimeMs: baselineStart.getTime(),
+      endTimeMs: currentResetStart.getTime() - 1,
+    },
+    all: {
+      label: 'Current lockout + previous 14 calendar days',
+      startTimeMs: baselineStart.getTime(),
+      endTimeMs: now.getTime(),
+    },
+  };
+};
+
+const formatWindowRange = (window: ProbeWindow): string =>
+  `${new Date(window.startTimeMs).toISOString()} - ${new Date(window.endTimeMs).toISOString()}`;
+
+const promptForWindow = async (): Promise<ProbeWindow> => {
+  const windows = buildProbeWindows();
+  const choices = [
+    {
+      key: '1',
+      window: windows.current,
+    },
     {
       key: '2',
-      label: 'Last two reset weeks',
-      startTimeMs: previousResetStart.getTime(),
-      endTimeMs: now.getTime(),
+      window: windows.baseline,
     },
   ];
   const rl = createInterface({ input: process.stdin, output: process.stderr });
 
   console.error('Select report window:');
   for (const choice of choices) {
-    console.error(
-      `  ${choice.key}) ${choice.label}: ${new Date(choice.startTimeMs).toISOString()} - ${new Date(
-        choice.endTimeMs,
-      ).toISOString()}`,
-    );
+    console.error(`  ${choice.key}) ${choice.window.label}: ${formatWindowRange(choice.window)}`);
   }
 
   try {
     const answer = (await rl.question('Report window [1]: ')).trim() || '1';
-    return choices.find((choice) => choice.key === answer) ?? fail('Report window must be 1 or 2');
+    const choice =
+      choices.find((item) => item.key === answer) ?? fail('Report window must be 1 or 2');
+    return choice.window;
   } finally {
     rl.close();
   }
@@ -97,6 +131,9 @@ const promptForWindow = async (): Promise<{
 const hasExplicitRange = isIntegerString(fourthArg) && isIntegerString(fifthArg);
 if (isIntegerString(fourthArg) && !fifthArg) {
   fail('startTimeMs requires endTimeMs');
+}
+if (hasExplicitRange && windowNone) {
+  fail('--window-none cannot be used with explicit startTimeMs/endTimeMs');
 }
 
 const guildNameRaw = requireCliArg(guildNameArg);
@@ -117,6 +154,8 @@ const window = hasExplicitRange
       endTimeMs: toInteger(fifthArg, 'endTimeMs'),
       label: 'Explicit range',
     }
+  : windowNone
+    ? buildProbeWindows().all
   : await promptForWindow();
 
 if (window.startTimeMs > window.endTimeMs) {
@@ -128,11 +167,7 @@ if (windowSizeMs !== undefined && windowSizeMs < 1) {
 }
 
 try {
-  console.error(
-    `Using ${window.label}: ${new Date(window.startTimeMs).toISOString()} - ${new Date(
-      window.endTimeMs,
-    ).toISOString()}`,
-  );
+  console.error(`Using ${window.label}: ${formatWindowRange(window)}`);
 
   const result = await collectGuildReportIndex({
     guildName: guildNameRaw.trim(),
