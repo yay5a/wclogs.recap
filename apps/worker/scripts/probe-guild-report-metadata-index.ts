@@ -14,9 +14,10 @@ import { syncReportRankingEnrichment } from '../src/report-ranking-enrichment-sy
 
 const RESET_WEEK_START_DAY = 2; // Tuesday
 const DEFAULT_WCL_API_BASE_URL = 'https://www.warcraftlogs.com/api/v2/client';
+type ProbeGameFamily = 'retail' | 'mop_classic';
 const usage = [
   'Usage:',
-  '  pnpm --filter @wcl/worker probe:guild-report-metadata-index <guildName> <serverSlug> <serverRegion> [gameFamily] [maxReports] [windowSizeMs] [--summary-only] [--enrich-rankings]',
+  '  pnpm --filter @wcl/worker probe:guild-report-metadata-index <guildName> <serverSlug> <serverRegion> [gameFamily] [maxReports] [windowSizeMs] [--summary-only] [--enrich-rankings] [--force-rankings]',
 ].join('\n');
 
 for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd(), path))) {
@@ -27,10 +28,16 @@ for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd()
 }
 
 const rawArgs = process.argv.slice(2);
-const supportedFlags = new Set(['--summary-only', '--read-only-summary', '--enrich-rankings']);
+const supportedFlags = new Set([
+  '--summary-only',
+  '--read-only-summary',
+  '--enrich-rankings',
+  '--force-rankings',
+]);
 const unknownFlag = rawArgs.find((arg) => arg.startsWith('--') && !supportedFlags.has(arg));
 const summaryOnly = rawArgs.includes('--summary-only') || rawArgs.includes('--read-only-summary');
 const shouldEnrichRankings = rawArgs.includes('--enrich-rankings') && !summaryOnly;
+const forcedEnrichRefresh = rawArgs.includes('--force-rankings') && shouldEnrichRankings;
 const positionalArgs = rawArgs.filter((arg) => !arg.startsWith('--'));
 const [
   guildNameRaw,
@@ -44,6 +51,18 @@ const [
 const fail = (message: string): never => {
   console.error(message);
   process.exit(1);
+};
+
+const readRequiredString = (value: string | undefined, message: string): string => {
+  const trimmed = value?.trim();
+  if (trimmed) return trimmed;
+  return fail(message);
+};
+
+const parseGameFamily = (value: string | undefined): ProbeGameFamily => {
+  if (value === undefined) return 'retail';
+  if (value === 'retail' || value === 'mop_classic') return value;
+  return fail('gameFamily must be retail or mop_classic when provided');
 };
 
 const resolveRankingPublicAuth = () => {
@@ -62,9 +81,9 @@ if (unknownFlag) {
   fail(`Unknown option: ${unknownFlag}\n${usage}`);
 }
 
-if (!guildNameRaw || !serverSlugRaw || !serverRegionRaw) {
-  fail(usage);
-}
+const guildName = readRequiredString(guildNameRaw, usage);
+const guildServerSlug = readRequiredString(serverSlugRaw, usage);
+const guildServerRegion = readRequiredString(serverRegionRaw, usage);
 
 const toInteger = (value: string, name: string): number => {
   const parsed = Number(value);
@@ -122,24 +141,24 @@ const promptForWindow = async (): Promise<{
 
   try {
     const answer = (await rl.question('Report window [1]: ')).trim() || '1';
-    const selected = choices.find((choice) => choice.key === answer);
-    if (!selected) fail('Report window must be 1 or 2');
-    return selected;
+    const selected =
+      choices.find((choice) => choice.key === answer) ?? fail('Report window must be 1 or 2');
+    return {
+      startTimeMs: selected.startTimeMs,
+      endTimeMs: selected.endTimeMs,
+      label: selected.label,
+    };
   } finally {
     rl.close();
   }
 };
 
-const gameFamily =
-  gameFamilyRaw === undefined || gameFamilyRaw === 'retail' || gameFamilyRaw === 'mop_classic'
-    ? gameFamilyRaw
-    : fail('gameFamily must be retail or mop_classic when provided');
+const gameFamily = parseGameFamily(gameFamilyRaw);
 const maxReports = maxReportsRaw ? toInteger(maxReportsRaw, 'maxReports') : undefined;
 const windowSizeMs = windowSizeMsRaw ? toInteger(windowSizeMsRaw, 'windowSizeMs') : undefined;
-const mongoUri = process.env.MONGODB_URI;
-const v1ClientKey = process.env.WCL_V1_CLIENT_KEY;
+const mongoUri = readRequiredString(process.env.MONGODB_URI, 'Missing MONGODB_URI');
+const v1ClientKey = process.env.WCL_V1_CLIENT_KEY?.trim();
 
-if (!mongoUri) fail('Missing MONGODB_URI');
 if (!summaryOnly && !v1ClientKey) fail('Missing WCL_V1_CLIENT_KEY');
 if (maxReports !== undefined && maxReports < 1) fail('maxReports must be a positive integer');
 if (windowSizeMs !== undefined && windowSizeMs < 1) fail('windowSizeMs must be a positive integer');
@@ -149,10 +168,10 @@ const window = await promptForWindow();
 const logger = createLogger('worker');
 const connection = await connectMongo(mongoUri);
 const scope = {
-  guildName: guildNameRaw.trim(),
-  guildServerSlug: serverSlugRaw,
-  guildServerRegion: serverRegionRaw,
-  gameFamily: gameFamily ?? 'retail',
+  guildName,
+  guildServerSlug,
+  guildServerRegion,
+  gameFamily,
 };
 
 const createRankingWclClient = (): WclClient => {
@@ -216,6 +235,7 @@ try {
           startTime: night.canonicalReport.startTime,
         })),
         ...(maxReports !== undefined ? { maxReports } : {}),
+        ...(forcedEnrichRefresh ? { staleAfterMs: 0 } : {}),
         logger,
       })
     : undefined;
