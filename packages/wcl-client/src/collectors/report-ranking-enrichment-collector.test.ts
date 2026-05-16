@@ -144,4 +144,57 @@ describe('report ranking enrichment collector', () => {
       executionPercentile: 55.5,
     });
   });
+
+  it('reads nested speed and execution metric objects', async () => {
+    const request = vi.fn().mockResolvedValue({
+      data: {
+        reportData: {
+          report: {
+            rankings: {
+              data: [
+                {
+                  fightID: 33,
+                  speed: {
+                    rankPercent: 97.6,
+                    rank: 4,
+                    totalParses: 321,
+                  },
+                  execution: {
+                    rankPercent: 88.1,
+                    rank: 9,
+                    totalParses: 300,
+                  },
+                  executionRank: 9,
+                },
+              ],
+            },
+          },
+        },
+      },
+    });
+
+    const result = await collectReportRankingEnrichment({ request } as never, {
+      reportCode: 'ABC123',
+      reportStartTime: 1_700_000_000_000,
+      fights: [
+        {
+          fightId: 33,
+          encounterId: 103,
+          difficulty: 5,
+          size: 25,
+          kill: true,
+        },
+      ],
+      timeframes: ['today'],
+      compareModes: ['rankings'],
+    });
+
+    expect(result.facts[0]).toMatchObject({
+      fightId: 33,
+      speedPercentile: 97.6,
+      executionPercentile: 88.1,
+      rank: 4,
+      outOf: 321,
+    });
+  });
 });

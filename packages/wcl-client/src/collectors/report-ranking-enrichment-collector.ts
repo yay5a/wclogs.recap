@@ -225,6 +225,21 @@ const firstNumber = (row: Record<string, unknown>, keys: string[]): number | und
   return undefined;
 };
 
+const firstNestedNumber = (
+  row: Record<string, unknown>,
+  path: string[],
+): number | undefined => {
+  let current: unknown = row;
+
+  for (const key of path) {
+    const object = asObject(current);
+    if (!object) return undefined;
+    current = object[key];
+  }
+
+  return asNumber(current);
+};
+
 const normalizeFacts = (
   payload: unknown,
   input: {
@@ -252,15 +267,17 @@ const normalizeFacts = (
       'speed',
       'rankPercent',
       'percentile',
-    ]);
+    ]) ?? firstNestedNumber(row, ['speed', 'rankPercent']);
     const executionPercentile = firstNumber(row, [
       'executionPercentile',
       'executionPercent',
       'executionScore',
       'execution',
-    ]);
-    const rank = firstNumber(row, ['rank', 'speedRank', 'executionRank']);
-    const outOf = firstNumber(row, ['outOf', 'totalRanks', 'totalRankings']);
+    ]) ?? firstNestedNumber(row, ['execution', 'rankPercent']);
+    const rank = firstNumber(row, ['rank', 'speedRank']) ?? firstNestedNumber(row, ['speed', 'rank']);
+    const outOf =
+      firstNumber(row, ['outOf', 'totalRanks', 'totalRankings']) ??
+      firstNestedNumber(row, ['speed', 'totalParses']);
     const durationMs = firstNumber(row, ['durationMs', 'duration']);
     const startTime = firstNumber(row, ['startTime']);
 
