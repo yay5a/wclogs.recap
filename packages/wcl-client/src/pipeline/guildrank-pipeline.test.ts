@@ -139,9 +139,13 @@ describe('guildrank pipeline', () => {
     expect(summary.progress.wipes).toBe(0);
     expect(summary.progress.clearedEncounters).toBe(1);
     expect(summary.metricSource).toBe('trend_cache');
-    expect(summary.speed.sourceLabel).toBe('Cached WCL Rankings');
-    expect(summary.execution.sourceLabel).toBe('Cached WCL Rankings');
-    expect(summary.notes).toContain('Speed and execution are read from cached WCL ranking trends.');
+    expect(summary.speed.sourceLabel).toBe(
+      'World, Region, Server Rank Positions and Cached Rank Percentiles',
+    );
+    expect(summary.execution.sourceLabel).toBe('Cached Rank Percentiles');
+    expect(summary.notes).toContain(
+      `Speed and Execution Rank Percentiles are read from the guild's cached reports.`,
+    );
     expect(summary.notes).not.toContain(
       'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
     );

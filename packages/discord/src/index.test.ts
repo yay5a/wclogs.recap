@@ -321,6 +321,7 @@ describe('discord command surfaces', () => {
     expect(speedValue).toContain('Source: Derived from WCL Reports');
     expect(speedValue).toContain('All-Star Ranks:');
     expect(speedValue).toContain('All-Star Ranks:\nWorld 🌍 #1273\nRegion 🗾 #489\nRealm 🪐 #296');
+    expect(speedValue).toContain('Realm 🪐 #296\n\nComplete Raid Ranks:');
     expect(speedValue).not.toContain('/ Region 🗾 #489');
     expect(speedValue).not.toContain('/ Realm 🪐 #296');
     expect(speedValue).toContain('Complete Raid Ranks:');
@@ -367,6 +368,9 @@ describe('discord command surfaces', () => {
       },
       speed: {
         sourceLabel: 'Cached WCL Rankings',
+        ranks: { world: 1273, region: 489, realm: 296 },
+        completeRaidRanks: { world: 391, region: 136, realm: 120 },
+        bestEncounterGain: { encounterName: 'Jinrokh', delta: 5 },
         overall: {
           bestDerivedPercentile: 91,
           bestDerivedPercentileDelta: 3,
@@ -411,6 +415,7 @@ describe('discord command surfaces', () => {
     expect(rankingValue).not.toContain('Pulls/Wipes');
     expect(speedValue).toContain('Source: Cached WCL Rankings');
     expect(speedValue).toContain('Best WCL Percentile: 91 (prev 88, +3)');
+    expect(speedValue).toContain('Best Encounter Gain: Jinrokh 95 (+5)');
     expect(speedValue).not.toContain('Median WCL Percentile');
     expect(speedValue).not.toContain('median prev');
     expect(speedEncounterValue).toContain('Best WCL Percentile: 95 (prev 90, +5)');
@@ -428,6 +433,9 @@ describe('discord command surfaces', () => {
     );
     expect(readValue).toContain(
       'Speed/execution percentiles use cached WCL report rankings, not the guild profile page.',
+    );
+    expect(readValue).toContain(
+      'All-Star and Complete Raid ranks are WCL speed ranks; execution has no matching WCL rank fields in this view.',
     );
     expect(readValue).toContain(
       "Weekly values may summarize multiple reports; verify source values in each report's Rankings table for the same encounter/difficulty/size.",

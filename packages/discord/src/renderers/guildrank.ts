@@ -3,7 +3,7 @@ import type { GuildRankSummary } from '@wcl/domain';
 const integerFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 const decimalFormatter = new Intl.NumberFormat('en-US', { maximumFractionDigits: 1 });
 const SECTION_SEPARATOR = '='.repeat(32);
-const CACHED_TREND_NOTE = 'Speed and execution are read from cached WCL ranking trends.';
+const CACHED_TREND_NOTE = `Speed and Execution Rank Percentiles are read from the guild's cached reports.`;
 
 const formatDelta = (value?: number): string =>
   typeof value === 'number' ? `${value >= 0 ? '+' : ''}${decimalFormatter.format(value)}` : 'n/a';
@@ -19,12 +19,12 @@ const formatPreviousAndDelta = (current?: number, delta?: number): string => {
 const metricLabels = (summary: GuildRankSummary): { best: string; single: string } =>
   summary.metricSource === 'trend_cache'
     ? {
-        best: 'Best WCL Percentile',
-        single: 'WCL Percentile',
+        best: 'Best Rank Percentile',
+        single: 'Rank Percentile',
       }
     : {
-        best: 'Best Percentile',
-        single: 'Percentile',
+        best: 'Best Rank',
+        single: 'Rank',
       };
 
 const formatMetricLines = (
@@ -53,7 +53,7 @@ const formatRanks = (ranks: { world?: number; region?: number; realm?: number })
     `Region 🗾 ${typeof ranks.region === 'number' ? `#${ranks.region}` : 'unavailable'}`,
     `Realm 🪐 ${typeof ranks.realm === 'number' ? `#${ranks.realm}` : 'unavailable'}`,
   ];
-  return `\n${lines.join('\n')}`;
+  return `\n${lines.join('\n')}\n`;
 };
 
 const formatSection = (title: string, lines: string[]): string =>
@@ -63,6 +63,24 @@ const sectionField = (title: string, lines: string[]) => ({
   name: SECTION_SEPARATOR,
   value: formatSection(title, lines),
 });
+
+type GuildRankEncounterMetric = GuildRankSummary['speed']['encounters'][number];
+type GuildRankMetricName = 'speed' | 'execution';
+
+const formatBestEncounterGain = (
+  gain: { encounterName: string; delta: number } | undefined,
+  encounters: GuildRankEncounterMetric[],
+  metric: GuildRankMetricName,
+): string => {
+  if (!gain) return 'Best Encounter Gain: n/a';
+
+  const percentile = encounters.find(
+    (encounter) => encounter.encounterName === gain.encounterName,
+  )?.[metric].bestDerivedPercentile;
+  const percentileText =
+    typeof percentile === 'number' ? ` ${decimalFormatter.format(percentile)}` : '';
+  return `Best Encounter Gain: ${gain.encounterName}${percentileText} (${formatDelta(gain.delta)})`;
+};
 
 const formatEncounterRankings = (
   encounters: Array<{
@@ -96,9 +114,12 @@ const formatEncounterRankings = (
 export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   const fields: Array<{ name: string; value: string; inline?: boolean }> = [];
   const labels = metricLabels(summary);
+  const hasSpeedRanks = Boolean(summary.speed.ranks || summary.speed.completeRaidRanks);
+  const rankExplanation =
+    'All-Star Base Speed Rank & Complete Raid Speed Ranks are World, Region, and Server Rank Positions; Execution rank position fields are currently unavailable.';
 
   fields.push(
-    sectionField('Progress', [
+    sectionField('Progress Rank Positions', [
       `Cleared: ${summary.progress.clearedEncounters}/${summary.progress.totalEncounters}`,
       `World: ${typeof summary.progress.ranks.world === 'number' ? `#${summary.progress.ranks.world}` : 'unavailable'}`,
       `Region: ${typeof summary.progress.ranks.region === 'number' ? `#${summary.progress.ranks.region}` : 'unavailable'}`,
@@ -107,9 +128,9 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   );
 
   fields.push(
-    sectionField('Guild Rankings', [
+    sectionField('Guild Ranking Positions and Rank Percentiles', [
       summary.metricSource === 'trend_cache'
-        ? `Ranking samples: ${integerFormatter.format(summary.progress.pulls)}`
+        ? `Rank sample pool: ${integerFormatter.format(summary.progress.pulls)}`
         : `Pulls/Wipes: ${integerFormatter.format(summary.progress.pulls)}/${integerFormatter.format(summary.progress.wipes)}`,
     ]),
   );
@@ -117,23 +138,23 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   fields.push(
     sectionField('Speed', [
       `Source: ${summary.speed.sourceLabel}`,
-      ...(summary.speed.ranks ? [`All-Star Ranks:${formatRanks(summary.speed.ranks)}`] : []),
+      ...(summary.speed.ranks
+        ? [`All-Star Base Speed Rank Positions:${formatRanks(summary.speed.ranks)}`]
+        : []),
       ...(summary.speed.completeRaidRanks
-        ? [`Complete Raid Ranks:${formatRanks(summary.speed.completeRaidRanks)}`]
+        ? [`Complete Raid Speed Rank Positions:${formatRanks(summary.speed.completeRaidRanks)}`]
         : []),
       formatMetric(
         labels,
         summary.speed.overall.bestDerivedPercentile,
         summary.speed.overall.bestDerivedPercentileDelta,
       ),
-      summary.speed.bestEncounterGain
-        ? `Best Encounter Gain: ${summary.speed.bestEncounterGain.encounterName} ${formatDelta(summary.speed.bestEncounterGain.delta)}`
-        : 'Best Encounter Gain: n/a',
+      formatBestEncounterGain(summary.speed.bestEncounterGain, summary.speed.encounters, 'speed'),
     ]),
   );
 
   fields.push(
-    sectionField('Speed - Per Encounter', [
+    sectionField('Speed Rank Percentiles - Per Encounter', [
       formatEncounterRankings(summary.speed.encounters, 'speed', labels),
     ]),
   );
@@ -146,9 +167,11 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
         summary.execution.overall.bestDerivedPercentile,
         summary.execution.overall.bestDerivedPercentileDelta,
       ),
-      summary.execution.bestEncounterGain
-        ? `Best Encounter Gain: ${summary.execution.bestEncounterGain.encounterName} ${formatDelta(summary.execution.bestEncounterGain.delta)}`
-        : 'Best Encounter Gain: n/a',
+      formatBestEncounterGain(
+        summary.execution.bestEncounterGain,
+        summary.execution.encounters,
+        'execution',
+      ),
     ]),
   );
 
@@ -165,6 +188,7 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
           `Current week: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
           `Baseline week: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
           'Speed/execution percentiles use cached WCL report rankings, not the guild profile page.',
+          ...(hasSpeedRanks ? [rankExplanation] : []),
           "Weekly values may summarize multiple reports; verify source values in each report's Rankings table for the same encounter/difficulty/size.",
           ...summary.notes
             .filter((note) => note !== CACHED_TREND_NOTE)
@@ -173,6 +197,7 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
       : [
           `Current: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
           `Baseline: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
+          ...(hasSpeedRanks ? [`Note: ${rankExplanation}`] : []),
           ...summary.notes.map((note) => `Note: ${note}`),
         ];
 
