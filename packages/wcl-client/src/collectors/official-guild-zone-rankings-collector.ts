@@ -21,7 +21,7 @@ query GuildZoneRanks(
 ) {
   guildData {
     guild(name: $guildName, serverSlug: $guildServerSlug, serverRegion: $guildServerRegion) {
-      zoneRankings(zoneID: $zoneID) {
+      zoneRanking(zoneID: $zoneID) {
         progress(size: $size) {
           worldRank { number }
           regionRank { number }
@@ -94,12 +94,12 @@ const parseZoneRankingsPayload = (
 ): Pick<GuildOfficialRanks, 'progress' | 'speed' | 'completeRaidSpeed'> => {
   const data = asObject((payload as { data?: unknown })?.data);
   const guild = asObject(asObject(data?.guildData)?.guild);
-  const zoneRankings = asObject(guild?.zoneRankings);
+  const zoneRanking = asObject(guild?.zoneRanking);
 
   return {
-    progress: parseRankPositions(zoneRankings?.progress),
-    speed: parseRankPositions(zoneRankings?.speed),
-    completeRaidSpeed: parseRankPositions(zoneRankings?.completeRaidSpeed),
+    progress: parseRankPositions(zoneRanking?.progress),
+    speed: parseRankPositions(zoneRanking?.speed),
+    completeRaidSpeed: parseRankPositions(zoneRanking?.completeRaidSpeed),
   };
 };
 
@@ -169,8 +169,8 @@ export const collectOfficialGuildZoneRankings = async (
       progress: parsed.progress,
       speed: parsed.speed,
       completeRaidSpeed: parsed.completeRaidSpeed,
-      source: hasAnyRanks ? 'zoneRankings' : official.source,
-      progressSource: hasRanks(parsed.progress) ? 'zoneRankings' : official.progressSource,
+      source: hasAnyRanks ? 'zoneRanking' : official.source,
+      progressSource: hasRanks(parsed.progress) ? 'zoneRanking' : official.progressSource,
     };
     logger.info(
       {

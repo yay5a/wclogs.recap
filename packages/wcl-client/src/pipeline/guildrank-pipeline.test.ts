@@ -45,7 +45,7 @@ describe('guildrank pipeline', () => {
           data: {
             guildData: {
               guild: {
-                zoneRankings: {
+                zoneRanking: {
                   progress: {
                     worldRank: { number: 12 },
                     regionRank: { number: 4 },
@@ -141,9 +141,7 @@ describe('guildrank pipeline', () => {
     expect(summary.metricSource).toBe('trend_cache');
     expect(summary.speed.sourceLabel).toBe('Cached WCL Rankings');
     expect(summary.execution.sourceLabel).toBe('Cached WCL Rankings');
-    expect(summary.notes).toContain(
-      'Speed and execution are read from cached WCL ranking trends.',
-    );
+    expect(summary.notes).toContain('Speed and execution are read from cached WCL ranking trends.');
     expect(summary.notes).not.toContain(
       'Derived relative percentiles are computed from sampled report windows, not official leaderboard percentiles.',
     );
@@ -290,7 +288,7 @@ describe('guildrank pipeline', () => {
           data: {
             guildData: {
               guild: {
-                zoneRankings: {
+                zoneRanking: {
                   progress: {
                     worldRank: { number: 12 },
                     regionRank: { number: 4 },
@@ -529,7 +527,7 @@ describe('guildrank pipeline', () => {
           data: {
             guildData: {
               guild: {
-                zoneRankings: {
+                zoneRanking: {
                   progress: {
                     worldRank: { number: 50 },
                     regionRank: { number: 20 },

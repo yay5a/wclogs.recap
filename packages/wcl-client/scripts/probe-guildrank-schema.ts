@@ -90,7 +90,7 @@ const query = /* GraphQL */ `
       guild(name: $guildName, serverSlug: $serverSlug, serverRegion: $serverRegion) {
         id
         name
-        zoneRankings(zoneID: $zoneID) {
+        zoneRanking(zoneID: $zoneID) {
           progress(size: $size) {
             worldRank {
               number

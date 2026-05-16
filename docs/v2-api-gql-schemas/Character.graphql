@@ -140,7 +140,7 @@ server: Server!
 # zoneID: Optional. If not specified, the latest unfrozen zone
 # will be used.
 
-zoneRankings(
+zoneRanking(
 
 byBracket: Boolean,
 

@@ -11,11 +11,11 @@ describe('official guild/zone rankings collector', () => {
     size: 10,
   };
 
-  it('queries zoneRankings(zoneID) and maps official rank positions', async () => {
+  it('queries zoneRanking(zoneID) and maps official rank positions', async () => {
     const request = vi
       .fn()
       .mockImplementation((query: string, variables: Record<string, unknown>) => {
-        expect(query).toContain('zoneRankings(zoneID: $zoneID)');
+        expect(query).toContain('zoneRanking(zoneID: $zoneID)');
         expect(query).toContain('speed(size: $size, difficulty: $difficulty)');
         expect(query).toContain('completeRaidSpeed(size: $size, difficulty: $difficulty)');
         expect(query).not.toContain('percentile');
@@ -34,7 +34,7 @@ describe('official guild/zone rankings collector', () => {
           data: {
             guildData: {
               guild: {
-                zoneRankings: {
+                zoneRanking: {
                   progress: {
                     worldRank: { number: 868 },
                     regionRank: { number: 279 },
@@ -63,19 +63,19 @@ describe('official guild/zone rankings collector', () => {
       progress: { world: 868, region: 279, realm: 241 },
       speed: { world: 1273, region: 489, realm: 296 },
       completeRaidSpeed: { world: 389, region: 136, realm: 120 },
-      source: 'zoneRankings',
-      progressSource: 'zoneRankings',
+      source: 'zoneRanking',
+      progressSource: 'zoneRanking',
     });
   });
 
-  it('falls back to explicit progressRace rank fields when zoneRankings progress is unavailable', async () => {
+  it('falls back to explicit progressRace rank fields when zoneRanking progress is unavailable', async () => {
     const request = vi
       .fn()
       .mockResolvedValueOnce({
         data: {
           guildData: {
             guild: {
-              zoneRankings: {},
+              zoneRanking: {},
             },
           },
         },
@@ -112,7 +112,7 @@ describe('official guild/zone rankings collector', () => {
   it('returns unavailable ranks when explicit progressRace rank fields are missing', async () => {
     const request = vi
       .fn()
-      .mockResolvedValueOnce({ data: { guildData: { guild: { zoneRankings: {} } } } })
+      .mockResolvedValueOnce({ data: { guildData: { guild: { zoneRanking: {} } } } })
       .mockResolvedValueOnce({
         data: {
           progressRaceData: {
@@ -142,7 +142,7 @@ describe('official guild/zone rankings collector', () => {
   it('returns unavailable ranks when progressRace payload is incompatible', async () => {
     const request = vi
       .fn()
-      .mockRejectedValueOnce(new Error('zoneRankings unavailable'))
+      .mockRejectedValueOnce(new Error('zoneRanking unavailable'))
       .mockResolvedValueOnce({
         data: {
           progressRaceData: {

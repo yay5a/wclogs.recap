@@ -117,8 +117,8 @@ export interface GuildOfficialRanks {
     region?: number;
     realm?: number;
   };
-  source: 'zoneRankings' | 'progressRaceData' | 'unavailable';
-  progressSource: 'zoneRankings' | 'progressRaceData' | 'unavailable';
+  source: 'zoneRanking' | 'progressRaceData' | 'unavailable';
+  progressSource: 'zoneRanking' | 'progressRaceData' | 'unavailable';
 }
 
 export interface GuildRankEncounterMetric {
