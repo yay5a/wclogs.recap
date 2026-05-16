@@ -16,7 +16,7 @@ describe('rankings normalizer', () => {
     expect(result.highestParses.hps).toBeUndefined();
   });
 
-  it('uses WCL-provided aggregate averages instead of deriving averages from rankPercent rows', () => {
+  it('prefers WCL-provided aggregate averages and falls back to rankPercent averages', () => {
     const result = normalizeRankings({
       dps: [
         {
@@ -33,6 +33,13 @@ describe('rankings normalizer', () => {
           value: 100,
           playerName: 'DerivedOnly',
           rankPercent: 100,
+        },
+        {
+          scope: 'report',
+          metric: 'rankPercent',
+          value: 60,
+          playerName: 'DerivedOnly',
+          rankPercent: 60,
         },
         {
           scope: 'report',
@@ -57,7 +64,47 @@ describe('rankings normalizer', () => {
 
     expect(result.highestAverageParse).toEqual([
       { playerName: 'Raikami', value: 82.4 },
+      { playerName: 'DerivedOnly', value: 80 },
       { playerName: 'Banson', value: 75.2 },
     ]);
+  });
+
+  it('keeps DPS and HPS rankPercent averages separate before combining candidates', () => {
+    const result = normalizeRankings({
+      dps: [
+        {
+          scope: 'report',
+          metric: 'rankPercent',
+          value: 100,
+          playerName: 'Hybrid',
+          rankPercent: 100,
+        },
+        {
+          scope: 'report',
+          metric: 'rankPercent',
+          value: 80,
+          playerName: 'Hybrid',
+          rankPercent: 80,
+        },
+      ],
+      hps: [
+        {
+          scope: 'report',
+          metric: 'rankPercent',
+          value: 20,
+          playerName: 'Hybrid',
+          rankPercent: 20,
+        },
+        {
+          scope: 'report',
+          metric: 'rankPercent',
+          value: 40,
+          playerName: 'Hybrid',
+          rankPercent: 40,
+        },
+      ],
+    });
+
+    expect(result.highestAverageParse).toEqual([{ playerName: 'Hybrid', value: 90 }]);
   });
 });
