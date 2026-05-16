@@ -78,6 +78,22 @@ export interface RecomputeWeeklyTrendResult {
   trendRowsDeleted: number;
 }
 
+export interface GuildEncounterWeeklyTrendRow {
+  encounterId: number;
+  difficulty: number;
+  size: number;
+  weekStart: Date;
+  timeframe: ReportRankingTimeframe;
+  compareMode: ReportRankingCompareMode;
+  sampleCount: number;
+  speedMedian?: number;
+  speedP90?: number;
+  speedMedianDelta?: number;
+  executionMedian?: number;
+  executionP90?: number;
+  executionMedianDelta?: number;
+}
+
 const WEEK_MS = 7 * 24 * 60 * 60 * 1000;
 const RESET_WEEK_START_DAY_UTC = 2;
 
@@ -239,6 +255,50 @@ const parseFact = (value: unknown): ParsedFact | null => {
   };
 };
 
+const parseTrend = (value: unknown): GuildEncounterWeeklyTrendRow | null => {
+  const raw = asObject(value);
+  if (!raw) return null;
+  const encounterId = asFiniteNumber(raw.encounterId);
+  const difficulty = asFiniteNumber(raw.difficulty);
+  const size = asFiniteNumber(raw.size);
+  const weekStart = asDate(raw.weekStart);
+  const sampleCount = asFiniteNumber(raw.sampleCount);
+  const speedMedian = asFiniteNumber(raw.speedMedian);
+  const speedP90 = asFiniteNumber(raw.speedP90);
+  const speedMedianDelta = asFiniteNumber(raw.speedMedianDelta);
+  const executionMedian = asFiniteNumber(raw.executionMedian);
+  const executionP90 = asFiniteNumber(raw.executionP90);
+  const executionMedianDelta = asFiniteNumber(raw.executionMedianDelta);
+
+  if (
+    typeof encounterId !== 'number' ||
+    typeof difficulty !== 'number' ||
+    typeof size !== 'number' ||
+    !weekStart ||
+    (raw.timeframe !== 'today' && raw.timeframe !== 'historical') ||
+    (raw.compareMode !== 'rankings' && raw.compareMode !== 'parses') ||
+    typeof sampleCount !== 'number'
+  ) {
+    return null;
+  }
+
+  return {
+    encounterId,
+    difficulty,
+    size,
+    weekStart,
+    timeframe: raw.timeframe,
+    compareMode: raw.compareMode,
+    sampleCount,
+    ...(typeof speedMedian === 'number' ? { speedMedian } : {}),
+    ...(typeof speedP90 === 'number' ? { speedP90 } : {}),
+    ...(typeof speedMedianDelta === 'number' ? { speedMedianDelta } : {}),
+    ...(typeof executionMedian === 'number' ? { executionMedian } : {}),
+    ...(typeof executionP90 === 'number' ? { executionP90 } : {}),
+    ...(typeof executionMedianDelta === 'number' ? { executionMedianDelta } : {}),
+  };
+};
+
 type TrendStats = {
   sampleCount: number;
   speedMedian?: number;
@@ -352,6 +412,26 @@ const withDeltas = (
 };
 
 export class MongoReportRankingsStore {
+  public async listWeeklyTrends(input: {
+    scope: ReportRankingScope;
+  }): Promise<GuildEncounterWeeklyTrendRow[]> {
+    const rows = await GuildEncounterTrendWeeklyModel.find(normalizeScope(input.scope))
+      .sort({
+        encounterId: 1,
+        difficulty: 1,
+        size: 1,
+        weekStart: 1,
+        timeframe: 1,
+        compareMode: 1,
+      })
+      .lean();
+
+    if (!Array.isArray(rows)) return [];
+    return rows
+      .map((row) => parseTrend(row))
+      .filter((row): row is GuildEncounterWeeklyTrendRow => row !== null);
+  }
+
   public async getRawStates(reportCodes: string[]): Promise<ReportRankingsRawState[]> {
     const codes = [...new Set(reportCodes.map((code) => code.trim()).filter(Boolean))];
     if (codes.length === 0) return [];

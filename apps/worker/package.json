@@ -8,6 +8,7 @@
         "dev": "tsx watch src/index.ts",
         "start": "node dist/apps/worker/src/index.js",
         "probe:guild-report-metadata-index": "tsx scripts/probe-guild-report-metadata-index.ts",
+        "probe:guild-encounter-trends": "tsx scripts/probe-guild-encounter-trends.ts",
         "lint": "eslint src --ext .ts",
         "typecheck": "tsc -p tsconfig.json --noEmit",
         "test": "vitest run --passWithNoTests"

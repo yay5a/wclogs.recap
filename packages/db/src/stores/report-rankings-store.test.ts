@@ -18,6 +18,66 @@ const scope = {
 };
 
 describe('MongoReportRankingsStore', () => {
+  it('reads weekly trend rows for a normalized guild scope', async () => {
+    const lean = vi.fn().mockResolvedValue([
+      {
+        ...scope,
+        guildName: 'shenanigans',
+        guildServerSlug: 'galakras',
+        guildServerRegion: 'us',
+        encounterId: 101,
+        difficulty: 5,
+        size: 25,
+        weekStart: new Date('2023-11-21T00:00:00.000Z'),
+        timeframe: 'today',
+        compareMode: 'rankings',
+        sampleCount: 2,
+        speedMedian: 95,
+        speedP90: 100,
+        speedMedianDelta: 15,
+        executionMedian: 55,
+        executionP90: 60,
+        executionMedianDelta: -15,
+      },
+    ]);
+    const sort = vi.fn().mockReturnValue({ lean });
+    const find = vi.spyOn(GuildEncounterTrendWeeklyModel, 'find').mockReturnValue({ sort } as never);
+    const store = new MongoReportRankingsStore();
+
+    await expect(store.listWeeklyTrends({ scope })).resolves.toEqual([
+      {
+        encounterId: 101,
+        difficulty: 5,
+        size: 25,
+        weekStart: new Date('2023-11-21T00:00:00.000Z'),
+        timeframe: 'today',
+        compareMode: 'rankings',
+        sampleCount: 2,
+        speedMedian: 95,
+        speedP90: 100,
+        speedMedianDelta: 15,
+        executionMedian: 55,
+        executionP90: 60,
+        executionMedianDelta: -15,
+      },
+    ]);
+
+    expect(find).toHaveBeenCalledWith({
+      guildName: 'shenanigans',
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      gameFamily: 'mop_classic',
+    });
+    expect(sort).toHaveBeenCalledWith({
+      encounterId: 1,
+      difficulty: 1,
+      size: 1,
+      weekStart: 1,
+      timeframe: 1,
+      compareMode: 1,
+    });
+  });
+
   it('counts distinct raw query hashes when checking report coverage', async () => {
     const aggregate = vi.spyOn(ReportRankingsRawModel, 'aggregate').mockResolvedValue([
       {
