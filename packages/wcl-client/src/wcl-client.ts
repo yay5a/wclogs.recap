@@ -1,4 +1,4 @@
-import type { GameFamily, GuildRankSummary, ReportSummary } from '@wcl/domain';
+import type { GameFamily, GuildRankSummary, ReportIndexData, ReportSummary } from '@wcl/domain';
 import { WclGraphqlClient } from './graphql-client.js';
 import { parseReportUrl } from './report-code.js';
 import {
@@ -17,11 +17,17 @@ import { collectGuildRankSummaryData } from './pipeline/guildrank-pipeline.js';
 import type { GuildRankInput } from './pipeline/types.js';
 import type { GuildRankReportMetadataReader } from './pipeline/guildrank-candidate-selector.js';
 import { collectZoneName } from './collectors/zone-name-collector.js';
+import { collectReportIndex } from './collectors/report-index-collector.js';
 import {
   collectGuildReportIndex,
   type GuildReportIndexInput,
   type GuildReportIndexResult,
 } from './collectors/guild-report-index-collector.js';
+import {
+  collectReportRankingEnrichment,
+  type ReportRankingEnrichmentInput,
+  type ReportRankingEnrichmentResult,
+} from './collectors/report-ranking-enrichment-collector.js';
 import type { ReportIndexCacheStore } from './report-index-cache.js';
 
 export interface WclLinkedUserAuthRecord {
@@ -129,6 +135,15 @@ export class WclClient {
     );
   }
 
+  public async fetchReportIndex(
+    input: { reportCode: string; sourceUrl: string; gameFamily: GameFamily },
+    options: WclAuthContextOptions = {},
+  ): Promise<ReportIndexData> {
+    return this.withAuthFallback(input.reportCode, options, (authMode) =>
+      collectReportIndex(this.createGraphqlClient(authMode, input.gameFamily), input),
+    );
+  }
+
   public async fetchGuildReportIndex(
     input: GuildReportIndexInput,
   ): Promise<GuildReportIndexResult> {
@@ -142,6 +157,15 @@ export class WclClient {
       v1ClientKey,
       ...(this.options.fetchImpl ? { fetchImpl: this.options.fetchImpl } : {}),
     });
+  }
+
+  public async fetchReportRankingEnrichment(
+    input: ReportRankingEnrichmentInput,
+    options: WclAuthContextOptions = {},
+  ): Promise<ReportRankingEnrichmentResult> {
+    return this.withAuthFallback(input.reportCode, options, (authMode) =>
+      collectReportRankingEnrichment(this.createGraphqlClient(authMode, input.gameFamily), input),
+    );
   }
 
   private async withAuthFallback<T>(

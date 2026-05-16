@@ -1,0 +1,267 @@
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import {
+  GuildEncounterTrendWeeklyModel,
+  ReportRankingsFactModel,
+  ReportRankingsRawModel,
+} from '../models/report-rankings-model.js';
+import { MongoReportRankingsStore } from './report-rankings-store.js';
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+const scope = {
+  guildName: 'Shenanigans',
+  guildServerSlug: 'Galakras',
+  guildServerRegion: 'US',
+  gameFamily: 'mop_classic' as const,
+};
+
+describe('MongoReportRankingsStore', () => {
+  it('counts distinct raw query hashes when checking report coverage', async () => {
+    const aggregate = vi.spyOn(ReportRankingsRawModel, 'aggregate').mockResolvedValue([
+      {
+        _id: 'ABC123',
+        latestFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
+        payloadCount: 2,
+      },
+    ] as never);
+    const store = new MongoReportRankingsStore();
+
+    await expect(store.getRawStates(['ABC123'])).resolves.toEqual([
+      {
+        reportCode: 'ABC123',
+        latestFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
+        payloadCount: 2,
+      },
+    ]);
+    expect(aggregate).toHaveBeenCalledWith([
+      { $match: { reportCode: { $in: ['ABC123'] } } },
+      {
+        $group: {
+          _id: {
+            reportCode: '$reportCode',
+            queryVarsHash: '$queryVarsHash',
+          },
+          latestFetchedAt: { $max: '$fetchedAt' },
+        },
+      },
+      {
+        $group: {
+          _id: '$_id.reportCode',
+          latestFetchedAt: { $max: '$latestFetchedAt' },
+          payloadCount: { $sum: 1 },
+        },
+      },
+    ]);
+  });
+
+  it('appends raw ranking payloads for audit/debug reads', async () => {
+    const insertMany = vi.spyOn(ReportRankingsRawModel, 'insertMany').mockResolvedValue([
+      { reportCode: 'ABC123' },
+    ] as never);
+    const store = new MongoReportRankingsStore();
+    const fetchedAt = new Date('2026-05-15T12:00:00.000Z');
+
+    await expect(
+      store.saveRawPayloads([
+        {
+          reportCode: 'ABC123',
+          fetchedAt,
+          queryVarsHash: 'hash',
+          payloadJson: { data: [] },
+          timeframe: 'today',
+          compareMode: 'rankings',
+        },
+      ]),
+    ).resolves.toEqual({
+      processedRows: 1,
+      insertedRows: 1,
+    });
+
+    expect(insertMany).toHaveBeenCalledWith(
+      [
+        {
+          reportCode: 'ABC123',
+          fetchedAt,
+          queryVarsHash: 'hash',
+          payloadJson: { data: [] },
+          timeframe: 'today',
+          compareMode: 'rankings',
+        },
+      ],
+      { ordered: false },
+    );
+  });
+
+  it('replaces fact rows for fetched report ranking contexts', async () => {
+    const deleteMany = vi.spyOn(ReportRankingsFactModel, 'deleteMany').mockResolvedValue({
+      deletedCount: 2,
+    } as never);
+    const insertMany = vi.spyOn(ReportRankingsFactModel, 'insertMany').mockResolvedValue([] as never);
+    const store = new MongoReportRankingsStore();
+    const sourceFetchedAt = new Date('2026-05-15T12:00:00.000Z');
+
+    await expect(
+      store.replaceFactsForReport({
+        reportCode: 'ABC123',
+        contexts: [{ timeframe: 'today', compareMode: 'rankings' }],
+        facts: [
+          {
+            ...scope,
+            reportCode: 'ABC123',
+            reportStartTime: 1_700_000_000_000,
+            fightId: 11,
+            encounterId: 101,
+            difficulty: 5,
+            size: 25,
+            timeframe: 'today',
+            compareMode: 'rankings',
+            speedPercentile: 95,
+            rank: 12,
+            kill: true,
+            sourceFetchedAt,
+          },
+        ],
+      }),
+    ).resolves.toEqual({ deletedRows: 2, insertedRows: 1 });
+
+    expect(deleteMany).toHaveBeenCalledWith({
+      reportCode: 'ABC123',
+      $or: [{ timeframe: 'today', compareMode: 'rankings' }],
+    });
+    expect(insertMany).toHaveBeenCalledWith(
+      [
+        expect.objectContaining({
+          guildName: 'shenanigans',
+          guildServerSlug: 'galakras',
+          guildServerRegion: 'us',
+          reportCode: 'ABC123',
+          speedPercentile: 95,
+        }),
+      ],
+      { ordered: false },
+    );
+  });
+
+  it('materializes weekly trend medians, p90s, and prior-week deltas', async () => {
+    vi.spyOn(ReportRankingsFactModel, 'find').mockReturnValue({
+      lean: vi.fn().mockResolvedValue([
+        {
+          ...scope,
+          guildName: 'shenanigans',
+          guildServerSlug: 'galakras',
+          guildServerRegion: 'us',
+          reportCode: 'PREV',
+          reportStartTime: Date.parse('2023-11-14T12:00:00.000Z'),
+          fightId: 1,
+          encounterId: 101,
+          difficulty: 5,
+          size: 25,
+          timeframe: 'today',
+          compareMode: 'rankings',
+          speedPercentile: 80,
+          executionPercentile: 70,
+          kill: true,
+          sourceFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
+        },
+        {
+          ...scope,
+          guildName: 'shenanigans',
+          guildServerSlug: 'galakras',
+          guildServerRegion: 'us',
+          reportCode: 'CUR-A',
+          reportStartTime: Date.parse('2023-11-21T12:00:00.000Z'),
+          fightId: 2,
+          encounterId: 101,
+          difficulty: 5,
+          size: 25,
+          timeframe: 'today',
+          compareMode: 'rankings',
+          speedPercentile: 90,
+          executionPercentile: 50,
+          kill: true,
+          sourceFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
+        },
+        {
+          ...scope,
+          guildName: 'shenanigans',
+          guildServerSlug: 'galakras',
+          guildServerRegion: 'us',
+          reportCode: 'CUR-B',
+          reportStartTime: Date.parse('2023-11-21T13:00:00.000Z'),
+          fightId: 3,
+          encounterId: 101,
+          difficulty: 5,
+          size: 25,
+          timeframe: 'today',
+          compareMode: 'rankings',
+          speedPercentile: 100,
+          executionPercentile: 60,
+          kill: true,
+          sourceFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
+        },
+      ]),
+    } as never);
+    const deleteMany = vi.spyOn(GuildEncounterTrendWeeklyModel, 'deleteMany').mockResolvedValue({
+      deletedCount: 1,
+    } as never);
+    const bulkWrite = vi.spyOn(GuildEncounterTrendWeeklyModel, 'bulkWrite').mockResolvedValue({} as never);
+    const store = new MongoReportRankingsStore();
+    const computedAt = new Date('2026-05-15T13:00:00.000Z');
+
+    await expect(
+      store.recomputeWeeklyTrends({
+        scope,
+        encounterIds: [101],
+        weekStarts: [new Date('2023-11-21T00:00:00.000Z')],
+        computedAt,
+      }),
+    ).resolves.toEqual({
+      factRowsRead: 3,
+      trendRowsWritten: 1,
+      trendRowsDeleted: 1,
+    });
+
+    expect(ReportRankingsFactModel.find).toHaveBeenCalledWith({
+      guildName: 'shenanigans',
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      gameFamily: 'mop_classic',
+      encounterId: { $in: [101] },
+      reportStartTime: {
+        $gte: Date.parse('2023-11-14T00:00:00.000Z'),
+        $lt: Date.parse('2023-11-28T00:00:00.000Z'),
+      },
+    });
+    expect(deleteMany).toHaveBeenCalledWith({
+      guildName: 'shenanigans',
+      guildServerSlug: 'galakras',
+      guildServerRegion: 'us',
+      gameFamily: 'mop_classic',
+      encounterId: { $in: [101] },
+      weekStart: { $in: [new Date('2023-11-21T00:00:00.000Z')] },
+    });
+    expect(bulkWrite).toHaveBeenCalledWith(
+      [
+        {
+          updateOne: expect.objectContaining({
+            update: {
+              $set: expect.objectContaining({
+                sampleCount: 2,
+                speedMedian: 95,
+                speedP90: 100,
+                speedMedianDelta: 15,
+                executionMedian: 55,
+                executionP90: 60,
+                executionMedianDelta: -15,
+                computedAt,
+              }),
+            },
+          }),
+        },
+      ],
+      { ordered: false },
+    );
+  });
+});

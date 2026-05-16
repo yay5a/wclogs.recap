@@ -16,6 +16,20 @@ export type {
   GuildReportIndexRow,
 } from './collectors/guild-report-index-collector.js';
 
+export {
+  collectReportRankingEnrichment,
+} from './collectors/report-ranking-enrichment-collector.js';
+export type {
+  ReportRankingEnrichmentCompareMode,
+  ReportRankingEnrichmentContext,
+  ReportRankingEnrichmentFight,
+  ReportRankingEnrichmentInput,
+  ReportRankingEnrichmentResult,
+  ReportRankingEnrichmentTimeframe,
+  ReportRankingFact,
+  ReportRankingRawPayload,
+} from './collectors/report-ranking-enrichment-collector.js';
+
 export type { GuildRankInput } from './pipeline/types.js';
 export {
   selectGuildRankCandidateReports,
