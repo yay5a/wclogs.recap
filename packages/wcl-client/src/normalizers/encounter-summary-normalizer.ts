@@ -18,6 +18,8 @@ export const toReportEncounterSummary = (
   deaths: row.deaths,
   ...(row.highestTotalDps ? { highestTotalDps: row.highestTotalDps } : {}),
   ...(row.highestHps ? { highestHps: row.highestHps } : {}),
+  ...(row.highestParseDps ? { highestParseDps: row.highestParseDps } : {}),
+  ...(row.highestParseHps ? { highestParseHps: row.highestParseHps } : {}),
 });
 
 export const selectBestExecutionEncounter = (

@@ -86,6 +86,15 @@ const baseBundle = (): ReportCollectorBundle => ({
         rankPercent: 80,
         fightId: 1,
       },
+      {
+        scope: 'report',
+        metric: 'rankPercent',
+        selectedMetric: 'DPS',
+        playerName: 'WipeOnly',
+        value: 99,
+        rankPercent: 99,
+        fightId: 2,
+      },
     ],
     hps: [
       {
@@ -96,6 +105,15 @@ const baseBundle = (): ReportCollectorBundle => ({
         value: 70,
         rankPercent: 70,
         fightId: 1,
+      },
+      {
+        scope: 'report',
+        metric: 'rankPercent',
+        selectedMetric: 'HPS',
+        playerName: 'Unmapped',
+        value: 95,
+        rankPercent: 95,
+        fightId: 999,
       },
     ],
   },
@@ -149,6 +167,18 @@ describe('report render-model normalizer', () => {
     expect(summary.bestExecutionEncounter?.deaths).toBe(3);
     expect(summary.bestExecutionEncounter?.highestTotalDps?.playerName).toBe('Alyra');
     expect(summary.bestExecutionEncounter?.highestHps?.playerName).toBe('Alyra');
+    expect(summary.bestExecutionEncounter?.highestParseDps).toMatchObject({
+      playerName: 'Alyra',
+      value: 80,
+      metric: 'DPS',
+      fightId: 1,
+    });
+    expect(summary.bestExecutionEncounter?.highestParseHps).toMatchObject({
+      playerName: 'Alyra',
+      value: 70,
+      metric: 'HPS',
+      fightId: 1,
+    });
     expect(summary.biggestTroubleEncounter?.bossName).toBe('Council');
     expect(summary.biggestTroubleEncounter?.wipes).toBe(2);
     expect(summary.biggestTroubleEncounter?.deaths).toBe(5);
@@ -156,6 +186,49 @@ describe('report render-model normalizer', () => {
     expect(summary.biggestTroubleEncounter?.shortestPullMs).toBe(130_000);
     expect(summary.biggestTroubleEncounter?.highestTotalDps?.playerName).toBe('Bulwark');
     expect(summary.biggestTroubleEncounter?.highestHps?.playerName).toBe('Alyra');
+    expect(summary.biggestTroubleEncounter?.highestParseDps).toBeUndefined();
+    expect(summary.biggestTroubleEncounter?.highestParseHps).toBeUndefined();
+  });
+
+  it('uses the best encounter parse with player-name tie break for kill fight rows only', () => {
+    const bundle = baseBundle();
+    bundle.rankings.dps = [
+      {
+        scope: 'report',
+        metric: 'rankPercent',
+        selectedMetric: 'DPS',
+        playerName: 'Zed',
+        value: 90,
+        rankPercent: 90,
+        fightId: 1,
+      },
+      {
+        scope: 'report',
+        metric: 'rankPercent',
+        selectedMetric: 'DPS',
+        playerName: 'Alyra',
+        value: 90,
+        rankPercent: 90,
+        fightId: 1,
+      },
+      {
+        scope: 'report',
+        metric: 'rankPercent',
+        selectedMetric: 'DPS',
+        playerName: 'WipeOnly',
+        value: 99,
+        rankPercent: 99,
+        fightId: 2,
+      },
+    ];
+
+    const summary = normalizeReportRenderModel(bundle);
+
+    expect(summary.bestExecutionEncounter?.highestParseDps).toMatchObject({
+      playerName: 'Alyra',
+      value: 90,
+      fightId: 1,
+    });
   });
 
   it('keeps the source report URL for the rendered data source', () => {

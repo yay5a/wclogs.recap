@@ -3,6 +3,7 @@ import type {
   NormalizedLeaderboardEntry,
   ReportIndexData,
   ReportMetricRow,
+  ReportParseRow,
 } from '@wcl/domain';
 import type { ParsedPlayerDetail } from '../parsers/report-details.js';
 import type { ParsedTableEntry } from '../parsers/table.js';
@@ -43,6 +44,8 @@ export interface ReportEncounterSummaryRow {
   deaths: number;
   highestTotalDps?: ReportMetricRow;
   highestHps?: ReportMetricRow;
+  highestParseDps?: ReportParseRow;
+  highestParseHps?: ReportParseRow;
 }
 
 export interface GuildRankInput {
