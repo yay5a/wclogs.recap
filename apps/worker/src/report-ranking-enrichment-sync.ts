@@ -11,9 +11,10 @@ import type {
 } from "@wcl/db";
 import { getRankingWeekStart } from "@wcl/db";
 import type { GameFamily, ReportIndexData } from "@wcl/domain";
-import type {
-    ReportRankingEnrichmentInput,
-    ReportRankingEnrichmentResult,
+import {
+    getReportRankingEnrichmentQueryHashes,
+    type ReportRankingEnrichmentInput,
+    type ReportRankingEnrichmentResult,
 } from "@wcl/wcl-client";
 
 export interface ReportRankingEnrichmentSyncReport {
@@ -101,16 +102,22 @@ const normalizeReports = (
     );
 };
 
-const isFreshEnough = (
+const hasFreshCoverage = (
     state: ReportRankingsRawState | undefined,
-    expectedPayloads: number,
+    expectedHashes: string[],
     staleAfterMs: number | undefined,
     nowMs: number,
 ): boolean => {
-    if (!state || state.payloadCount < expectedPayloads) return false;
-    if (staleAfterMs === undefined) return true;
-    const fetchedAtMs = state.latestFetchedAt?.getTime();
-    return typeof fetchedAtMs === "number" && nowMs - fetchedAtMs < staleAfterMs;
+    if (!state) return false;
+    const fetchedAtByHash = new Map(
+        state.payloads.map((payload) => [payload.queryVarsHash, payload.latestFetchedAt]),
+    );
+
+    return expectedHashes.every((hash) => {
+        const fetchedAt = fetchedAtByHash.get(hash);
+        if (!fetchedAt) return false;
+        return staleAfterMs === undefined || nowMs - fetchedAt.getTime() < staleAfterMs;
+    });
 };
 
 const toReportUrl = (reportCode: string, gameFamily: GameFamily): string => {
@@ -166,20 +173,12 @@ export const syncReportRankingEnrichment = async (
     const reports = normalizeReports(input.reports);
     const timeframes = input.timeframes ?? DEFAULT_TIMEFRAMES;
     const compareModes = input.compareModes ?? DEFAULT_COMPARE_MODES;
-    const expectedPayloads = timeframes.length * compareModes.length;
     const rawStates = await input.store.getRawStates(reports.map((report) => report.reportCode));
     const statesByCode = new Map(rawStates.map((state) => [state.reportCode, state]));
     const nowMs = Date.now();
-    const candidates = reports.filter(
-        (report) =>
-            !isFreshEnough(
-                statesByCode.get(report.reportCode),
-                expectedPayloads,
-                input.staleAfterMs,
-                nowMs,
-            ),
-    );
 
+    let candidateReports = 0;
+    let skippedFreshReports = 0;
     let processedReports = 0;
     let failedReports = 0;
     let rawPayloadsWritten = 0;
@@ -188,18 +187,42 @@ export const syncReportRankingEnrichment = async (
     const touchedEncounterIds = new Set<number>();
     const touchedWeekStarts = new Map<number, Date>();
 
-    for (const report of candidates.slice(0, maxReports)) {
+    for (const report of reports.slice(0, maxReports)) {
         try {
             const index = await input.wclClient.fetchReportIndex({
                 reportCode: report.reportCode,
                 sourceUrl: toReportUrl(report.reportCode, input.scope.gameFamily),
                 gameFamily: input.scope.gameFamily,
             });
+            const fights = toFights(index);
+            const expectedHashes = getReportRankingEnrichmentQueryHashes({
+                reportCode: report.reportCode,
+                fights,
+                timeframes,
+                compareModes,
+            });
+            if (expectedHashes.length === 0) {
+                skippedFreshReports += 1;
+                continue;
+            }
+            if (
+                hasFreshCoverage(
+                    statesByCode.get(report.reportCode),
+                    expectedHashes,
+                    input.staleAfterMs,
+                    nowMs,
+                )
+            ) {
+                skippedFreshReports += 1;
+                continue;
+            }
+
+            candidateReports += 1;
             const enrichment = await input.wclClient.fetchReportRankingEnrichment({
                 reportCode: report.reportCode,
                 gameFamily: input.scope.gameFamily,
                 reportStartTime: index.startTime,
-                fights: toFights(index),
+                fights,
                 timeframes,
                 compareModes,
             });
@@ -244,8 +267,8 @@ export const syncReportRankingEnrichment = async (
             : { factRowsRead: 0, trendRowsWritten: 0, trendRowsDeleted: 0 };
 
     const result = {
-        candidateReports: candidates.length,
-        skippedFreshReports: Math.max(reports.length - candidates.length, 0),
+        candidateReports,
+        skippedFreshReports,
         processedReports,
         failedReports,
         rawPayloadsWritten,
@@ -259,7 +282,7 @@ export const syncReportRankingEnrichment = async (
         {
             ...input.scope,
             ...result,
-            expectedPayloadsPerReport: expectedPayloads,
+            expectedQueryContextsPerReport: timeframes.length * compareModes.length,
         },
         "report_ranking_enrichment_sync",
     );

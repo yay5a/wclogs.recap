@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { getReportRankingEnrichmentQueryHashes } from "@wcl/wcl-client";
 import { syncReportRankingEnrichment } from "./report-ranking-enrichment-sync.js";
 
 const scope = {
@@ -164,11 +165,27 @@ describe("syncReportRankingEnrichment", () => {
     it("skips reports with complete fresh raw payload coverage", async () => {
         const wclClient = makeWclClient();
         const store = makeStore();
+        const expectedHashes = getReportRankingEnrichmentQueryHashes({
+            reportCode: "ABC123",
+            fights: [
+                {
+                    fightId: 11,
+                    encounterId: 101,
+                    difficulty: 5,
+                    size: 25,
+                    kill: true,
+                },
+            ],
+            timeframes: ["today", "historical"],
+            compareModes: ["rankings"],
+        });
         store.getRawStates.mockResolvedValue([
             {
                 reportCode: "ABC123",
-                latestFetchedAt: new Date("2026-05-15T12:00:00.000Z"),
-                payloadCount: 2,
+                payloads: expectedHashes.map((queryVarsHash) => ({
+                    queryVarsHash,
+                    latestFetchedAt: new Date("2026-05-15T12:00:00.000Z"),
+                })),
             },
         ]);
         vi.useFakeTimers();
@@ -184,12 +201,50 @@ describe("syncReportRankingEnrichment", () => {
             staleAfterMs: 6 * 60 * 60 * 1000,
         });
 
-        expect(wclClient.fetchReportIndex).not.toHaveBeenCalled();
+        expect(wclClient.fetchReportIndex).toHaveBeenCalledTimes(1);
+        expect(wclClient.fetchReportRankingEnrichment).not.toHaveBeenCalled();
         expect(store.recomputeWeeklyTrends).not.toHaveBeenCalled();
         expect(result).toMatchObject({
             candidateReports: 0,
             skippedFreshReports: 1,
             processedReports: 0,
+        });
+    });
+
+    it("does not skip changed reports when old raw payload hashes only match by count", async () => {
+        const wclClient = makeWclClient();
+        const store = makeStore();
+        store.getRawStates.mockResolvedValue([
+            {
+                reportCode: "ABC123",
+                payloads: [
+                    {
+                        queryVarsHash: "old-fight-list-today",
+                        latestFetchedAt: new Date("2026-05-15T12:00:00.000Z"),
+                    },
+                    {
+                        queryVarsHash: "old-fight-list-historical",
+                        latestFetchedAt: new Date("2026-05-15T12:00:00.000Z"),
+                    },
+                ],
+            },
+        ]);
+
+        const result = await syncReportRankingEnrichment({
+            wclClient,
+            store,
+            scope,
+            reports: [{ reportCode: "ABC123", startTime: 1_700_000_000_000 }],
+            timeframes: ["today", "historical"],
+            compareModes: ["rankings"],
+        });
+
+        expect(wclClient.fetchReportIndex).toHaveBeenCalledTimes(1);
+        expect(wclClient.fetchReportRankingEnrichment).toHaveBeenCalledTimes(1);
+        expect(result).toMatchObject({
+            candidateReports: 1,
+            skippedFreshReports: 0,
+            processedReports: 1,
         });
     });
 });

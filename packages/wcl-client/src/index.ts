@@ -18,6 +18,7 @@ export type {
 
 export {
   collectReportRankingEnrichment,
+  getReportRankingEnrichmentQueryHashes,
 } from './collectors/report-ranking-enrichment-collector.js';
 export type {
   ReportRankingEnrichmentCompareMode,

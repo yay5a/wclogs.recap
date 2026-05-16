@@ -63,6 +63,15 @@ export interface ReportRankingEnrichmentResult {
   contexts: ReportRankingEnrichmentContext[];
 }
 
+type ReportRankingEnrichmentQueryVariables = Record<string, unknown> & {
+  code: string;
+  allowUnlisted: true;
+  fightIDs: number[];
+  timeframe: 'Today' | 'Historical';
+  compare: 'Rankings' | 'Parses';
+  playerMetric: 'playerspeed';
+};
+
 const REPORT_RANKING_ENRICHMENT_QUERY = `
 query ReportRankingEnrichment(
   $code: String!,
@@ -109,6 +118,61 @@ const stableJson = (value: unknown): string => {
 
 const hashQueryVars = (value: Record<string, unknown>): string =>
   createHash('sha256').update(stableJson(value)).digest('hex');
+
+const toValidFights = (
+  fights: ReportRankingEnrichmentFight[],
+): ReportRankingEnrichmentFight[] =>
+  fights.filter(
+    (fight) =>
+      Number.isFinite(fight.fightId) &&
+      Number.isFinite(fight.encounterId) &&
+      Number.isFinite(fight.difficulty) &&
+      Number.isFinite(fight.size),
+  );
+
+const toFightIDs = (fights: ReportRankingEnrichmentFight[]): number[] =>
+  [...new Set(fights.map((fight) => Math.trunc(fight.fightId)))].sort(
+    (left, right) => left - right,
+  );
+
+const buildQueryVariables = (input: {
+  reportCode: string;
+  fightIDs: number[];
+  timeframe: ReportRankingEnrichmentTimeframe;
+  compareMode: ReportRankingEnrichmentCompareMode;
+}): ReportRankingEnrichmentQueryVariables => ({
+  code: input.reportCode,
+  allowUnlisted: true,
+  fightIDs: input.fightIDs,
+  timeframe: toWclTimeframe(input.timeframe),
+  compare: toWclCompareMode(input.compareMode),
+  playerMetric: 'playerspeed',
+});
+
+export const getReportRankingEnrichmentQueryHashes = (input: {
+  reportCode: string;
+  fights: ReportRankingEnrichmentFight[];
+  timeframes?: ReportRankingEnrichmentTimeframe[];
+  compareModes?: ReportRankingEnrichmentCompareMode[];
+}): string[] => {
+  const fightIDs = toFightIDs(toValidFights(input.fights));
+  if (fightIDs.length === 0) return [];
+  const timeframes = input.timeframes ?? DEFAULT_TIMEFRAMES;
+  const compareModes = input.compareModes ?? DEFAULT_COMPARE_MODES;
+
+  return timeframes.flatMap((timeframe) =>
+    compareModes.map((compareMode) =>
+      hashQueryVars(
+        buildQueryVariables({
+          reportCode: input.reportCode,
+          fightIDs,
+          timeframe,
+          compareMode,
+        }),
+      ),
+    ),
+  );
+};
 
 const getRankingsNode = (payload: unknown): unknown => {
   const root = asObject(payload);
@@ -242,18 +306,12 @@ export const collectReportRankingEnrichment = async (
   client: WclGraphqlClient,
   input: ReportRankingEnrichmentInput,
 ): Promise<ReportRankingEnrichmentResult> => {
-  const fights = input.fights.filter(
-    (fight) =>
-      Number.isFinite(fight.fightId) &&
-      Number.isFinite(fight.encounterId) &&
-      Number.isFinite(fight.difficulty) &&
-      Number.isFinite(fight.size),
-  );
+  const fights = toValidFights(input.fights);
   if (fights.length === 0) {
     return { rawPayloads: [], facts: [], contexts: [] };
   }
 
-  const fightIDs = fights.map((fight) => fight.fightId);
+  const fightIDs = toFightIDs(fights);
   const fightsById = new Map(fights.map((fight) => [fight.fightId, fight]));
   const timeframes = input.timeframes ?? DEFAULT_TIMEFRAMES;
   const compareModes = input.compareModes ?? DEFAULT_COMPARE_MODES;
@@ -263,14 +321,12 @@ export const collectReportRankingEnrichment = async (
 
   for (const timeframe of timeframes) {
     for (const compareMode of compareModes) {
-      const variables = {
-        code: input.reportCode,
-        allowUnlisted: true,
+      const variables = buildQueryVariables({
+        reportCode: input.reportCode,
         fightIDs,
-        timeframe: toWclTimeframe(timeframe),
-        compare: toWclCompareMode(compareMode),
-        playerMetric: 'playerspeed',
-      };
+        timeframe,
+        compareMode,
+      });
       const payload = await client.request<Record<string, unknown>>(
         REPORT_RANKING_ENRICHMENT_QUERY,
         variables,

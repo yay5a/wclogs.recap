@@ -27,8 +27,10 @@ export interface ReportRankingsRawInput {
 
 export interface ReportRankingsRawState {
   reportCode: string;
-  latestFetchedAt?: Date;
-  payloadCount: number;
+  payloads: Array<{
+    queryVarsHash: string;
+    latestFetchedAt: Date;
+  }>;
 }
 
 export interface ReportRankingsFactInput extends ReportRankingScope {
@@ -358,8 +360,7 @@ export class MongoReportRankingsStore {
 
     const rows = await ReportRankingsRawModel.aggregate<{
       _id: string;
-      latestFetchedAt?: Date;
-      payloadCount: number;
+      payloads?: Array<{ queryVarsHash?: unknown; latestFetchedAt?: unknown }>;
     }>([
       { $match: { reportCode: { $in: codes } } },
       {
@@ -374,8 +375,12 @@ export class MongoReportRankingsStore {
       {
         $group: {
           _id: '$_id.reportCode',
-          latestFetchedAt: { $max: '$latestFetchedAt' },
-          payloadCount: { $sum: 1 },
+          payloads: {
+            $push: {
+              queryVarsHash: '$_id.queryVarsHash',
+              latestFetchedAt: '$latestFetchedAt',
+            },
+          },
         },
       },
     ]);
@@ -385,8 +390,16 @@ export class MongoReportRankingsStore {
         ? [
             {
               reportCode: row._id,
-              ...(row.latestFetchedAt instanceof Date ? { latestFetchedAt: row.latestFetchedAt } : {}),
-              payloadCount: row.payloadCount,
+              payloads: (row.payloads ?? []).flatMap((payload) =>
+                typeof payload.queryVarsHash === 'string' && payload.latestFetchedAt instanceof Date
+                  ? [
+                      {
+                        queryVarsHash: payload.queryVarsHash,
+                        latestFetchedAt: payload.latestFetchedAt,
+                      },
+                    ]
+                  : [],
+              ),
             },
           ]
         : [],

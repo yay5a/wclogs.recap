@@ -22,8 +22,16 @@ describe('MongoReportRankingsStore', () => {
     const aggregate = vi.spyOn(ReportRankingsRawModel, 'aggregate').mockResolvedValue([
       {
         _id: 'ABC123',
-        latestFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
-        payloadCount: 2,
+        payloads: [
+          {
+            queryVarsHash: 'hash-a',
+            latestFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
+          },
+          {
+            queryVarsHash: 'hash-b',
+            latestFetchedAt: new Date('2026-05-15T12:05:00.000Z'),
+          },
+        ],
       },
     ] as never);
     const store = new MongoReportRankingsStore();
@@ -31,8 +39,16 @@ describe('MongoReportRankingsStore', () => {
     await expect(store.getRawStates(['ABC123'])).resolves.toEqual([
       {
         reportCode: 'ABC123',
-        latestFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
-        payloadCount: 2,
+        payloads: [
+          {
+            queryVarsHash: 'hash-a',
+            latestFetchedAt: new Date('2026-05-15T12:00:00.000Z'),
+          },
+          {
+            queryVarsHash: 'hash-b',
+            latestFetchedAt: new Date('2026-05-15T12:05:00.000Z'),
+          },
+        ],
       },
     ]);
     expect(aggregate).toHaveBeenCalledWith([
@@ -49,8 +65,12 @@ describe('MongoReportRankingsStore', () => {
       {
         $group: {
           _id: '$_id.reportCode',
-          latestFetchedAt: { $max: '$latestFetchedAt' },
-          payloadCount: { $sum: 1 },
+          payloads: {
+            $push: {
+              queryVarsHash: '$_id.queryVarsHash',
+              latestFetchedAt: '$latestFetchedAt',
+            },
+          },
         },
       },
     ]);

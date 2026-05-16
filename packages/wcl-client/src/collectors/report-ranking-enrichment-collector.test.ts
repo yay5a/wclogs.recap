@@ -1,5 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { collectReportRankingEnrichment } from './report-ranking-enrichment-collector.js';
+import {
+  collectReportRankingEnrichment,
+  getReportRankingEnrichmentQueryHashes,
+} from './report-ranking-enrichment-collector.js';
 
 describe('report ranking enrichment collector', () => {
   it('fetches bounded timeframe/compare combinations and normalizes fight facts', async () => {
@@ -71,6 +74,22 @@ describe('report ranking enrichment collector', () => {
       },
     });
     expect(result.rawPayloads[0]?.queryVarsHash).toMatch(/^[a-f0-9]{64}$/);
+    expect(result.rawPayloads[0]?.queryVarsHash).toBe(
+      getReportRankingEnrichmentQueryHashes({
+        reportCode: 'ABC123',
+        fights: [
+          {
+            fightId: 11,
+            encounterId: 101,
+            difficulty: 5,
+            size: 25,
+            kill: true,
+          },
+        ],
+        timeframes: ['today'],
+        compareModes: ['rankings'],
+      })[0],
+    );
     expect(result.facts).toEqual([
       expect.objectContaining({
         reportCode: 'ABC123',
