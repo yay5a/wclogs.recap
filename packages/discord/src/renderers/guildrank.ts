@@ -72,14 +72,14 @@ const formatBestEncounterGain = (
   encounters: GuildRankEncounterMetric[],
   metric: GuildRankMetricName,
 ): string => {
-  if (!gain) return 'Best Encounter Gain: n/a';
+  if (!gain) return 'Highest Gain on: n/a';
 
   const percentile = encounters.find(
     (encounter) => encounter.encounterName === gain.encounterName,
   )?.[metric].bestDerivedPercentile;
   const percentileText =
     typeof percentile === 'number' ? ` ${decimalFormatter.format(percentile)}` : '';
-  return `Best Encounter Gain: ${gain.encounterName}${percentileText} (${formatDelta(gain.delta)})`;
+  return `Highest Gain on: ${gain.encounterName}: ${percentileText} (${formatDelta(gain.delta)})`;
 };
 
 const formatEncounterRankings = (
@@ -116,7 +116,7 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   const labels = metricLabels(summary);
   const hasSpeedRanks = Boolean(summary.speed.ranks || summary.speed.completeRaidRanks);
   const rankExplanation =
-    'All-Star Base Speed Rank & Complete Raid Speed Ranks are World, Region, and Server Rank Positions; Execution rank position fields are currently unavailable.';
+    '\nAll-Star Base Speed Rank & Complete Raid Speed Ranks are World, Region, and Server Positions; World, Region, and Server Position Ranks for Execution are currently unavailable.';
 
   fields.push(
     sectionField('Progress Rank Positions', [
@@ -128,7 +128,7 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   );
 
   fields.push(
-    sectionField('Guild Ranking Positions and Rank Percentiles', [
+    sectionField('Guild Rank Positions and Percentiles', [
       summary.metricSource === 'trend_cache'
         ? `Rank sample pool: ${integerFormatter.format(summary.progress.pulls)}`
         : `Pulls/Wipes: ${integerFormatter.format(summary.progress.pulls)}/${integerFormatter.format(summary.progress.wipes)}`,
@@ -154,7 +154,7 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   );
 
   fields.push(
-    sectionField('Speed Rank Percentiles - Per Encounter', [
+    sectionField('Speed Percentiles - Per Encounter', [
       formatEncounterRankings(summary.speed.encounters, 'speed', labels),
     ]),
   );
@@ -176,7 +176,7 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   );
 
   fields.push(
-    sectionField('Execution - Per Encounter', [
+    sectionField('Execution Percentiles - Per Encounter', [
       formatEncounterRankings(summary.execution.encounters, 'execution', labels),
     ]),
   );
@@ -184,31 +184,31 @@ export const buildGuildRankResponseBody = (summary: GuildRankSummary) => {
   const windowLines =
     summary.metricSource === 'trend_cache'
       ? [
-          'Window: Current week = latest cached WCL ranking week. Baseline = previous cached ranking week.',
-          `Current week: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
-          `Baseline week: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
-          'Speed/execution percentiles use cached WCL report rankings, not the guild profile page.',
+          `Cache Window ⇒  Current = reports indexed during current lockout ‖ Baseline = reports indexed from last two weeks (not lockout weeks).\n`,
+          `Current Lockout week: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
+          `Baseline period: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}\n`,
+          'Speed/Execution Rank Percentiles used from indexed reports, not the guild profile page on WCL.\n',
           ...(hasSpeedRanks ? [rankExplanation] : []),
-          "Weekly values may summarize multiple reports; verify source values in each report's Rankings table for the same encounter/difficulty/size.",
+          "\nWeekly values may summarize multiple reports; verify source values in each report's Rankings table on WCL for the same encounter/difficulty/size.\n",
           ...summary.notes
             .filter((note) => note !== CACHED_TREND_NOTE)
             .map((note) => `Note: ${note}`),
         ]
       : [
-          `Current: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
-          `Baseline: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
+          `Current Lockout week: ${summary.window.currentStartIso} -> ${summary.window.currentEndIso}`,
+          `Baseline period: ${summary.window.baselineStartIso} -> ${summary.window.baselineEndIso}`,
           ...(hasSpeedRanks ? [`Note: ${rankExplanation}`] : []),
           ...summary.notes.map((note) => `Note: ${note}`),
         ];
 
   fields.push(
-    sectionField(summary.metricSource === 'trend_cache' ? 'How to Read' : 'Window', windowLines),
+    sectionField(summary.metricSource === 'trend_cache' ? '\nHow to Read' : 'Window', windowLines),
   );
 
   return {
     embeds: [
       {
-        title: `Guild Rank - ${summary.guildName}`,
+        title: `Guild Rank Overview - ${summary.guildName}`,
         description: `${summary.zoneName} (${summary.difficultyLabel}, ${summary.sizeLabel})`,
         color: 0x2f7a47,
         fields,
