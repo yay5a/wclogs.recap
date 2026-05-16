@@ -17,15 +17,8 @@ for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd()
   }
 }
 
-const [
-  guildNameArg,
-  serverSlugArg,
-  serverRegionArg,
-  fourthArg,
-  fifthArg,
-  sixthArg,
-  seventhArg,
-] = process.argv.slice(2);
+const [guildNameArg, serverSlugArg, serverRegionArg, fourthArg, fifthArg, sixthArg, seventhArg] =
+  process.argv.slice(2);
 
 const fail = (message: string): never => {
   console.error(message);
@@ -59,7 +52,11 @@ const subtractLocalDays = (date: Date, days: number): Date => {
   return result;
 };
 
-const promptForWindow = async (): Promise<{ startTimeMs: number; endTimeMs: number; label: string }> => {
+const promptForWindow = async (): Promise<{
+  startTimeMs: number;
+  endTimeMs: number;
+  label: string;
+}> => {
   const now = new Date();
   const currentResetStart = getMostRecentResetStart(now);
   const previousResetStart = subtractLocalDays(currentResetStart, 7);
@@ -91,10 +88,7 @@ const promptForWindow = async (): Promise<{ startTimeMs: number; endTimeMs: numb
 
   try {
     const answer = (await rl.question('Report window [1]: ')).trim() || '1';
-    return (
-      choices.find((choice) => choice.key === answer) ??
-      fail('Report window must be 1 or 2')
-    );
+    return choices.find((choice) => choice.key === answer) ?? fail('Report window must be 1 or 2');
   } finally {
     rl.close();
   }
