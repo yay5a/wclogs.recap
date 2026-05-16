@@ -1,15 +1,22 @@
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createInterface } from 'node:readline/promises';
-import { connectMongo, MongoGuildReportMetadataStore } from '@wcl/db';
+import {
+  connectMongo,
+  MongoGuildReportMetadataStore,
+  MongoReportIndexCacheStore,
+  MongoReportRankingsStore,
+} from '@wcl/db';
 import { createLogger } from '@wcl/shared';
-import { collectGuildReportIndex } from '@wcl/wcl-client';
+import { collectGuildReportIndex, resolveWclPublicClientAuth, WclClient } from '@wcl/wcl-client';
 import { syncGuildReportMetadataIndex } from '../src/guild-report-metadata-sync.js';
+import { syncReportRankingEnrichment } from '../src/report-ranking-enrichment-sync.js';
 
 const RESET_WEEK_START_DAY = 2; // Tuesday
+const DEFAULT_WCL_API_BASE_URL = 'https://www.warcraftlogs.com/api/v2/client';
 const usage = [
   'Usage:',
-  '  pnpm --filter @wcl/worker probe:guild-report-metadata-index <guildName> <serverSlug> <serverRegion> [gameFamily] [maxReports] [windowSizeMs] [--summary-only]',
+  '  pnpm --filter @wcl/worker probe:guild-report-metadata-index <guildName> <serverSlug> <serverRegion> [gameFamily] [maxReports] [windowSizeMs] [--summary-only] [--enrich-rankings]',
 ].join('\n');
 
 for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd(), path))) {
@@ -20,9 +27,10 @@ for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd()
 }
 
 const rawArgs = process.argv.slice(2);
-const supportedFlags = new Set(['--summary-only', '--read-only-summary']);
+const supportedFlags = new Set(['--summary-only', '--read-only-summary', '--enrich-rankings']);
 const unknownFlag = rawArgs.find((arg) => arg.startsWith('--') && !supportedFlags.has(arg));
 const summaryOnly = rawArgs.includes('--summary-only') || rawArgs.includes('--read-only-summary');
+const shouldEnrichRankings = rawArgs.includes('--enrich-rankings') && !summaryOnly;
 const positionalArgs = rawArgs.filter((arg) => !arg.startsWith('--'));
 const [
   guildNameRaw,
@@ -36,6 +44,18 @@ const [
 const fail = (message: string): never => {
   console.error(message);
   process.exit(1);
+};
+
+const resolveRankingPublicAuth = () => {
+  try {
+    return resolveWclPublicClientAuth({
+      clientId: process.env.WCL_CLIENT_ID,
+      clientSecret: process.env.WCL_CLIENT_SECRET,
+      clientToken: process.env.WCL_OAUTH_CLIENT_TOKEN,
+    });
+  } catch (error) {
+    fail(error instanceof Error ? error.message : String(error));
+  }
 };
 
 if (unknownFlag) {
@@ -124,6 +144,7 @@ if (!summaryOnly && !v1ClientKey) fail('Missing WCL_V1_CLIENT_KEY');
 if (maxReports !== undefined && maxReports < 1) fail('maxReports must be a positive integer');
 if (windowSizeMs !== undefined && windowSizeMs < 1) fail('windowSizeMs must be a positive integer');
 
+const rankingPublicAuth = shouldEnrichRankings ? resolveRankingPublicAuth() : undefined;
 const window = await promptForWindow();
 const logger = createLogger('worker');
 const connection = await connectMongo(mongoUri);
@@ -132,6 +153,19 @@ const scope = {
   guildServerSlug: serverSlugRaw,
   guildServerRegion: serverRegionRaw,
   gameFamily: gameFamily ?? 'retail',
+};
+
+const createRankingWclClient = (): WclClient => {
+  const apiBaseUrl = process.env.WCL_API_BASE_URL?.trim() || DEFAULT_WCL_API_BASE_URL;
+  const userApiBaseUrl = process.env.WCL_USER_API_BASE_URL?.trim();
+
+  return new WclClient({
+    publicClientAuth: rankingPublicAuth ?? fail('Missing WCL public client auth'),
+    apiBaseUrl,
+    ...(userApiBaseUrl ? { userApiBaseUrl } : {}),
+    ...(v1ClientKey ? { v1ClientKey } : {}),
+    reportIndexCacheStore: new MongoReportIndexCacheStore(),
+  });
 };
 
 try {
@@ -143,6 +177,9 @@ try {
 
   if (summaryOnly) {
     console.error('Summary only: skipping WCL sync');
+  }
+  if (rawArgs.includes('--enrich-rankings') && summaryOnly) {
+    console.error('Summary only: skipping ranking enrichment');
   }
 
   const store = new MongoGuildReportMetadataStore();
@@ -169,8 +206,29 @@ try {
     startTimeMs: window.startTimeMs,
     endTimeMs: window.endTimeMs,
   });
+  const rankingEnrichment = shouldEnrichRankings
+    ? await syncReportRankingEnrichment({
+        wclClient: createRankingWclClient(),
+        store: new MongoReportRankingsStore(),
+        scope,
+        reports: summary.raidNights.map((night) => ({
+          reportCode: night.canonicalReport.reportCode,
+          startTime: night.canonicalReport.startTime,
+        })),
+        ...(maxReports !== undefined ? { maxReports } : {}),
+        logger,
+      })
+    : undefined;
 
-  console.log(JSON.stringify(summaryOnly ? { summaryOnly, summary } : { sync, summary }, null, 2));
+  console.log(
+    JSON.stringify(
+      summaryOnly
+        ? { summaryOnly, summary }
+        : { sync, ...(rankingEnrichment ? { rankingEnrichment } : {}), summary },
+      null,
+      2,
+    ),
+  );
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));
   process.exitCode = 1;
