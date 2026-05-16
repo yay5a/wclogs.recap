@@ -65,6 +65,33 @@ export interface GuildRankWindows {
   baselineEndMs: number;
 }
 
+export interface GuildRankTrendScope {
+  guildName: string;
+  guildServerSlug: string;
+  guildServerRegion: string;
+  gameFamily: GameFamily;
+}
+
+export interface GuildRankWeeklyTrendRow {
+  encounterId: number;
+  difficulty: number;
+  size: number;
+  weekStart: Date;
+  timeframe: 'today' | 'historical';
+  compareMode: 'rankings' | 'parses';
+  sampleCount: number;
+  speedMedian?: number;
+  speedP90?: number;
+  speedMedianDelta?: number;
+  executionMedian?: number;
+  executionP90?: number;
+  executionMedianDelta?: number;
+}
+
+export interface GuildRankTrendReader {
+  listWeeklyTrends(input: { scope: GuildRankTrendScope }): Promise<GuildRankWeeklyTrendRow[]>;
+}
+
 export interface GuildReportDiscoveryRow {
   code: string;
   startTime: number;

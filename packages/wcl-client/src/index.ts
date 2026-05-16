@@ -31,7 +31,12 @@ export type {
   ReportRankingRawPayload,
 } from './collectors/report-ranking-enrichment-collector.js';
 
-export type { GuildRankInput } from './pipeline/types.js';
+export type {
+  GuildRankInput,
+  GuildRankTrendReader,
+  GuildRankTrendScope,
+  GuildRankWeeklyTrendRow,
+} from './pipeline/types.js';
 export { selectGuildRankCandidateReports } from './pipeline/guildrank-candidate-selector.js';
 export type {
   GuildRankLiveReportIndexFetcher,

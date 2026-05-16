@@ -14,7 +14,7 @@ import {
 } from './report-errors.js';
 import { collectReportSummaryData } from './pipeline/report-pipeline.js';
 import { collectGuildRankSummaryData } from './pipeline/guildrank-pipeline.js';
-import type { GuildRankInput } from './pipeline/types.js';
+import type { GuildRankInput, GuildRankTrendReader } from './pipeline/types.js';
 import type { GuildRankReportMetadataReader } from './pipeline/guildrank-candidate-selector.js';
 import { collectZoneName } from './collectors/zone-name-collector.js';
 import { collectReportIndex } from './collectors/report-index-collector.js';
@@ -49,6 +49,7 @@ export interface WclClientOptions {
   wclUserAuthStore?: WclLinkedUserAuthStore;
   reportIndexCacheStore?: ReportIndexCacheStore;
   guildReportMetadataStore?: GuildRankReportMetadataReader;
+  guildRankTrendReader?: GuildRankTrendReader;
 }
 
 export interface WclAuthContextOptions {
@@ -102,6 +103,9 @@ export class WclClient {
       collectGuildRankSummaryData(this.createGraphqlClient(authMode, input.gameFamily), input, {
         ...(this.options.guildReportMetadataStore
           ? { metadataReader: this.options.guildReportMetadataStore }
+          : {}),
+        ...(this.options.guildRankTrendReader
+          ? { trendReader: this.options.guildRankTrendReader }
           : {}),
         liveReportIndexFetcher: async (fetchInput) => {
           const result = await this.fetchGuildReportIndex({

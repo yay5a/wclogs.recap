@@ -17,10 +17,13 @@ import type {
   GuildRankEncounterMetric,
   GuildRankInput,
   GuildRankMetricSet,
+  GuildRankTrendReader,
+  GuildRankWeeklyTrendRow,
   GuildRankWindows,
 } from './types.js';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const WEEK_MS = 7 * DAY_MS;
 const logger = createLogger('wcl-client');
 
 const normalizeServerSlug = (value: string): string =>
@@ -83,6 +86,7 @@ interface EncounterMetricsByReport {
 
 export interface GuildRankPipelineOptions {
   metadataReader?: GuildRankReportMetadataReader;
+  trendReader?: GuildRankTrendReader;
   liveReportIndexFetcher: GuildRankLiveReportIndexFetcher;
   maxReports?: number;
 }
@@ -300,6 +304,191 @@ const buildMetricSet = (
   };
 };
 
+const hasTrendMetric = (row: GuildRankWeeklyTrendRow): boolean =>
+  typeof row.speedMedian === 'number' ||
+  typeof row.speedP90 === 'number' ||
+  typeof row.executionMedian === 'number' ||
+  typeof row.executionP90 === 'number';
+
+const trendTimeframePriority = (row: GuildRankWeeklyTrendRow): number =>
+  row.timeframe === 'today' ? 0 : 1;
+
+const selectPreferredTrendRows = (
+  rows: GuildRankWeeklyTrendRow[],
+): Map<string, GuildRankWeeklyTrendRow> => {
+  const byWeekEncounter = new Map<string, GuildRankWeeklyTrendRow>();
+
+  for (const row of rows) {
+    const key = `${row.weekStart.getTime()}:${row.encounterId}`;
+    const existing = byWeekEncounter.get(key);
+    if (!existing || trendTimeframePriority(row) < trendTimeframePriority(existing)) {
+      byWeekEncounter.set(key, row);
+    }
+  }
+
+  return byWeekEncounter;
+};
+
+const toTrendMetricRow = (
+  row: GuildRankWeeklyTrendRow,
+  metric: 'speed' | 'execution',
+): GuildRankEncounterMetric => {
+  if (metric === 'speed') {
+    return {
+      encounterName: '',
+      ...(typeof row.speedP90 === 'number' ? { bestDerivedPercentile: row.speedP90 } : {}),
+      ...(typeof row.speedMedian === 'number'
+        ? { medianDerivedPercentile: row.speedMedian }
+        : {}),
+    };
+  }
+
+  return {
+    encounterName: '',
+    ...(typeof row.executionP90 === 'number'
+      ? { bestDerivedPercentile: row.executionP90 }
+      : {}),
+    ...(typeof row.executionMedian === 'number'
+      ? { medianDerivedPercentile: row.executionMedian }
+      : {}),
+  };
+};
+
+const toFallbackBaselineTrendMetricRow = (
+  row: GuildRankWeeklyTrendRow,
+  metric: 'speed' | 'execution',
+): GuildRankEncounterMetric | undefined => {
+  const currentMedian = metric === 'speed' ? row.speedMedian : row.executionMedian;
+  const medianDelta = metric === 'speed' ? row.speedMedianDelta : row.executionMedianDelta;
+  if (typeof currentMedian !== 'number' || typeof medianDelta !== 'number') return undefined;
+  return {
+    encounterName: '',
+    medianDerivedPercentile: currentMedian - medianDelta,
+  };
+};
+
+const hasMetricValues = (row: GuildRankEncounterMetric): boolean =>
+  typeof row.bestDerivedPercentile === 'number' ||
+  typeof row.medianDerivedPercentile === 'number';
+
+const buildTrendMetricSets = (
+  rows: GuildRankWeeklyTrendRow[],
+  resolved: {
+    difficultyId: number;
+    sizeValue: number;
+    encounters: Array<{ id: number; name: string }>;
+  },
+):
+  | {
+      currentSpeed: GuildRankMetricSet;
+      baselineSpeed: GuildRankMetricSet;
+      currentExecution: GuildRankMetricSet;
+      baselineExecution: GuildRankMetricSet;
+      sampleCount: number;
+      clearedEncounters: number;
+      weekStart: Date;
+    }
+  | undefined => {
+  const encounterNameById = new Map(
+    resolved.encounters.map((encounter) => [encounter.id, encounter.name]),
+  );
+  const requestedEncounterIds = new Set(encounterNameById.keys());
+  const trendRows = rows.filter(
+    (row) =>
+      row.difficulty === resolved.difficultyId &&
+      row.size === resolved.sizeValue &&
+      row.compareMode === 'rankings' &&
+      (requestedEncounterIds.size === 0 || requestedEncounterIds.has(row.encounterId)) &&
+      hasTrendMetric(row),
+  );
+  if (trendRows.length === 0) return undefined;
+
+  const latestWeekStartMs = Math.max(...trendRows.map((row) => row.weekStart.getTime()));
+  const previousWeekStartMs = latestWeekStartMs - WEEK_MS;
+  const preferredRows = selectPreferredTrendRows(trendRows);
+  const currentRows = [...preferredRows.values()]
+    .filter((row) => row.weekStart.getTime() === latestWeekStartMs)
+    .sort((left, right) => left.encounterId - right.encounterId);
+  if (currentRows.length === 0) return undefined;
+  const baselineRowsByEncounter = new Map(
+    [...preferredRows.values()]
+      .filter((row) => row.weekStart.getTime() === previousWeekStartMs)
+      .map((row) => [row.encounterId, row]),
+  );
+
+  const toMetricSet = (
+    sourceRows: GuildRankWeeklyTrendRow[],
+    metric: 'speed' | 'execution',
+  ): GuildRankMetricSet => ({
+    perEncounter: sourceRows.flatMap((row) => {
+      const metricRow = toTrendMetricRow(row, metric);
+      if (!hasMetricValues(metricRow)) return [];
+      return [
+        {
+          ...metricRow,
+          encounterName: encounterNameById.get(row.encounterId) ?? `Encounter ${row.encounterId}`,
+        },
+      ];
+    }),
+  });
+
+  const toBaselineMetricSet = (metric: 'speed' | 'execution'): GuildRankMetricSet => ({
+    perEncounter: currentRows.flatMap((currentRow) => {
+      const baselineRow = baselineRowsByEncounter.get(currentRow.encounterId);
+      const metricRow = baselineRow
+        ? toTrendMetricRow(baselineRow, metric)
+        : toFallbackBaselineTrendMetricRow(currentRow, metric);
+      if (!metricRow || !hasMetricValues(metricRow)) return [];
+      return [
+        {
+          ...metricRow,
+          encounterName:
+            encounterNameById.get(currentRow.encounterId) ??
+            `Encounter ${currentRow.encounterId}`,
+        },
+      ];
+    }),
+  });
+
+  const currentSpeed = toMetricSet(currentRows, 'speed');
+  const currentExecution = toMetricSet(currentRows, 'execution');
+  if (currentSpeed.perEncounter.length === 0 && currentExecution.perEncounter.length === 0) {
+    return undefined;
+  }
+
+  return {
+    currentSpeed,
+    baselineSpeed: toBaselineMetricSet('speed'),
+    currentExecution,
+    baselineExecution: toBaselineMetricSet('execution'),
+    sampleCount: currentRows.reduce((sum, row) => sum + row.sampleCount, 0),
+    clearedEncounters: currentRows.length,
+    weekStart: new Date(latestWeekStartMs),
+  };
+};
+
+const readWeeklyTrendRows = async (
+  trendReader: GuildRankTrendReader | undefined,
+  scope: {
+    guildName: string;
+    guildServerSlug: string;
+    guildServerRegion: string;
+    gameFamily: GameFamily;
+  },
+  context: Record<string, unknown>,
+): Promise<GuildRankWeeklyTrendRow[]> => {
+  if (!trendReader) return [];
+  try {
+    return await trendReader.listWeeklyTrends({ scope });
+  } catch (error) {
+    logger.info(
+      { ...context, error: serializeError(error) },
+      'guildrank weekly trend cache read failed',
+    );
+    return [];
+  }
+};
+
 export const collectGuildRankSummaryData = async (
   client: WclGraphqlClient,
   input: GuildRankInput,
@@ -311,6 +500,7 @@ export const collectGuildRankSummaryData = async (
     guildServerSlug: normalizeServerSlug(input.guildServerSlug),
     guildServerRegion: input.guildServerRegion.trim().toLowerCase(),
   };
+  const gameFamily = normalizedInput.gameFamily ?? 'retail';
   const resolved = await resolveGuildConfigZoneInput(client, normalizedInput);
   const windows = buildWindows();
   const debugContext = {
@@ -333,21 +523,17 @@ export const collectGuildRankSummaryData = async (
 
   logger.info(debugContext, 'guildrank candidate report input');
 
-  const [candidateReports, officialRanks] = await Promise.all([
-    selectGuildRankCandidateReports({
-      gameFamily: normalizedInput.gameFamily ?? 'retail',
-      guildName: resolved.guildName,
-      guildServerSlug: resolved.guildServerSlug,
-      guildServerRegion: resolved.guildServerRegion,
-      zoneId: resolved.zoneId,
-      currentWindowStartMs: windows.currentStartMs,
-      currentWindowEndMs: windows.currentEndMs,
-      previousWindowStartMs: windows.baselineStartMs,
-      previousWindowEndMs: windows.baselineEndMs,
-      ...(typeof options.maxReports === 'number' ? { maxReports: options.maxReports } : {}),
-      ...(options.metadataReader ? { metadataReader: options.metadataReader } : {}),
-      liveReportIndexFetcher: options.liveReportIndexFetcher,
-    }),
+  const [weeklyTrendRows, officialRanks] = await Promise.all([
+    readWeeklyTrendRows(
+      options.trendReader,
+      {
+        guildName: resolved.guildName,
+        guildServerSlug: resolved.guildServerSlug,
+        guildServerRegion: resolved.guildServerRegion,
+        gameFamily,
+      },
+      debugContext,
+    ),
     collectOfficialGuildZoneRankings(client, {
       guildName: resolved.guildName,
       guildServerSlug: resolved.guildServerSlug,
@@ -359,6 +545,63 @@ export const collectGuildRankSummaryData = async (
       encounters: resolved.encounters,
     }),
   ]);
+  const trendMetricSets = buildTrendMetricSets(weeklyTrendRows, resolved);
+
+  if (trendMetricSets) {
+    const trendSampleCount = Math.max(1, trendMetricSets.sampleCount);
+    logger.info(
+      {
+        ...debugContext,
+        trendRowCount: weeklyTrendRows.length,
+        trendSampleCount: trendMetricSets.sampleCount,
+        trendWeekStartIso: trendMetricSets.weekStart.toISOString(),
+      },
+      'guildrank weekly trend cache hit',
+    );
+
+    const bundle: GuildRankCollectorBundle = {
+      input: normalizedInput,
+      windows,
+      officialRanks,
+      currentReports: [],
+      baselineReports: [],
+      currentSpeed: trendMetricSets.currentSpeed,
+      baselineSpeed: trendMetricSets.baselineSpeed,
+      currentExecution: trendMetricSets.currentExecution,
+      baselineExecution: trendMetricSets.baselineExecution,
+      progressPulls: {
+        pulls: trendMetricSets.sampleCount,
+        wipes: 0,
+        clearedEncounters: trendMetricSets.clearedEncounters,
+        totalEncounters: Math.max(resolved.totalEncounters, trendMetricSets.clearedEncounters),
+      },
+      currentWindowDiscovery: {
+        candidateReports: trendSampleCount,
+        zoneMatchedReports: trendSampleCount,
+        difficultySizeMatchedReports: trendSampleCount,
+      },
+      zoneName: resolved.zoneName,
+      difficultyLabel: resolved.difficultyLabel,
+      sizeLabel: resolved.sizeLabel,
+    };
+
+    return normalizeGuildRankRenderModel(bundle);
+  }
+
+  const candidateReports = await selectGuildRankCandidateReports({
+    gameFamily,
+    guildName: resolved.guildName,
+    guildServerSlug: resolved.guildServerSlug,
+    guildServerRegion: resolved.guildServerRegion,
+    zoneId: resolved.zoneId,
+    currentWindowStartMs: windows.currentStartMs,
+    currentWindowEndMs: windows.currentEndMs,
+    previousWindowStartMs: windows.baselineStartMs,
+    previousWindowEndMs: windows.baselineEndMs,
+    ...(typeof options.maxReports === 'number' ? { maxReports: options.maxReports } : {}),
+    ...(options.metadataReader ? { metadataReader: options.metadataReader } : {}),
+    liveReportIndexFetcher: options.liveReportIndexFetcher,
+  });
   const currentCandidates = candidateReports.filter((candidate) =>
     isInCurrentWindow(candidate, windows),
   );
@@ -386,7 +629,7 @@ export const collectGuildRankSummaryData = async (
         { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
         resolved.difficultyId,
         resolved.sizeValue,
-        normalizedInput.gameFamily ?? 'retail',
+        gameFamily,
       );
     } catch (error) {
       logger.info(
@@ -429,7 +672,7 @@ export const collectGuildRankSummaryData = async (
         { zoneId: resolved.zoneId, zoneName: resolved.zoneName },
         resolved.difficultyId,
         resolved.sizeValue,
-        normalizedInput.gameFamily ?? 'retail',
+        gameFamily,
       );
     } catch (error) {
       logger.info(

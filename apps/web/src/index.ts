@@ -9,6 +9,7 @@ import {
   MongoGuildConfigStore,
   MongoGuildReportMetadataStore,
   MongoReportIndexCacheStore,
+  MongoReportRankingsStore,
   MongoWclUserAuthStore,
   migrateWclUserAuthDiscordUserIndex,
 } from '@wcl/db';
@@ -74,6 +75,7 @@ const wclUserAuthStore = new MongoWclUserAuthStore({
 });
 const reportIndexCacheStore = new MongoReportIndexCacheStore();
 const guildReportMetadataStore = new MongoGuildReportMetadataStore();
+const reportRankingsStore = new MongoReportRankingsStore();
 
 const wclClient = new WclClient({
   publicClientAuth: env.wclPublicClientAuth,
@@ -83,6 +85,7 @@ const wclClient = new WclClient({
   wclUserAuthStore,
   reportIndexCacheStore,
   guildReportMetadataStore: new GuildRankMongoMetadataReader(guildReportMetadataStore),
+  guildRankTrendReader: reportRankingsStore,
 });
 
 const guildConfigStore = new MongoGuildConfigStore();

@@ -16,6 +16,201 @@ afterEach(() => {
 });
 
 describe('guildrank pipeline', () => {
+  it('uses materialized weekly trends before per-report metric collection', async () => {
+    const now = Date.UTC(2026, 4, 16, 12, 0, 0);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const request = vi.fn(async (query: string) => {
+      if (query.includes('query ZoneResolver')) {
+        return {
+          data: {
+            worldData: {
+              zone: {
+                id: 100,
+                name: 'Throne',
+                difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                encounters: [
+                  { id: 1, name: 'Jinrokh' },
+                  { id: 2, name: 'Council' },
+                ],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildZoneRanks')) {
+        return {
+          data: {
+            guildData: {
+              guild: {
+                zoneRankings: {
+                  progress: {
+                    worldRank: { number: 12 },
+                    regionRank: { number: 4 },
+                    serverRank: { number: 1 },
+                  },
+                },
+              },
+            },
+          },
+        };
+      }
+
+      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
+    });
+    const liveReportIndexFetcher = vi.fn(async () => {
+      throw new Error('live report scan should not run');
+    });
+    const trendReader = {
+      listWeeklyTrends: vi.fn(async () => [
+        {
+          encounterId: 1,
+          difficulty: 4,
+          size: 10,
+          weekStart: new Date(Date.UTC(2026, 4, 5)),
+          timeframe: 'today' as const,
+          compareMode: 'rankings' as const,
+          sampleCount: 2,
+          speedMedian: 60,
+          speedP90: 65,
+          executionMedian: 75,
+          executionP90: 80,
+        },
+        {
+          encounterId: 1,
+          difficulty: 4,
+          size: 10,
+          weekStart: new Date(Date.UTC(2026, 4, 12)),
+          timeframe: 'historical' as const,
+          compareMode: 'rankings' as const,
+          sampleCount: 3,
+          speedMedian: 1,
+          speedP90: 2,
+          executionMedian: 3,
+          executionP90: 4,
+        },
+        {
+          encounterId: 1,
+          difficulty: 4,
+          size: 10,
+          weekStart: new Date(Date.UTC(2026, 4, 12)),
+          timeframe: 'today' as const,
+          compareMode: 'rankings' as const,
+          sampleCount: 3,
+          speedMedian: 80,
+          speedP90: 90,
+          speedMedianDelta: 20,
+          executionMedian: 70,
+          executionP90: 75,
+          executionMedianDelta: -5,
+        },
+      ]),
+    };
+
+    const summary = await collectGuildRankSummaryData(
+      { request } as never,
+      {
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'us',
+        zoneId: 100,
+        difficulty: 'heroic',
+        size: '10man',
+        gameFamily: 'mop_classic',
+      },
+      { liveReportIndexFetcher, trendReader },
+    );
+
+    expect(trendReader.listWeeklyTrends).toHaveBeenCalledWith({
+      scope: {
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'us',
+        gameFamily: 'mop_classic',
+      },
+    });
+    expect(liveReportIndexFetcher).not.toHaveBeenCalled();
+    expect(request.mock.calls.some(([query]) => String(query).includes('query ReportIndex'))).toBe(
+      false,
+    );
+    expect(summary.progress.pulls).toBe(3);
+    expect(summary.progress.wipes).toBe(0);
+    expect(summary.progress.clearedEncounters).toBe(1);
+    expect(summary.speed.overall.bestDerivedPercentile).toBe(90);
+    expect(summary.speed.overall.bestDerivedPercentileDelta).toBe(25);
+    expect(summary.speed.overall.medianDerivedPercentile).toBe(80);
+    expect(summary.speed.overall.medianDerivedPercentileDelta).toBe(20);
+    expect(summary.execution.overall.bestDerivedPercentile).toBe(75);
+    expect(summary.execution.overall.bestDerivedPercentileDelta).toBe(-5);
+    expect(summary.execution.overall.medianDerivedPercentile).toBe(70);
+    expect(summary.execution.overall.medianDerivedPercentileDelta).toBe(-5);
+  });
+
+  it('falls back to report scanning when materialized trends are not usable', async () => {
+    const now = Date.UTC(2026, 4, 16, 12, 0, 0);
+    vi.useFakeTimers();
+    vi.setSystemTime(now);
+
+    const request = vi.fn(async (query: string) => {
+      if (query.includes('query ZoneResolver')) {
+        return {
+          data: {
+            worldData: {
+              zone: {
+                id: 100,
+                name: 'Throne',
+                difficulties: [{ id: 4, name: 'Heroic', sizes: [10] }],
+                encounters: [{ id: 1, name: 'Jinrokh' }],
+              },
+            },
+          },
+        };
+      }
+
+      if (query.includes('query GuildZoneRanks') || query.includes('query ProgressRaceFallback')) {
+        throw new Error('rankings unavailable');
+      }
+
+      throw new Error(`Unexpected query: ${query.slice(0, 60)}`);
+    });
+    const liveReportIndexFetcher = vi.fn(async () => []);
+    const trendReader = {
+      listWeeklyTrends: vi.fn(async () => [
+        {
+          encounterId: 1,
+          difficulty: 3,
+          size: 10,
+          weekStart: new Date(Date.UTC(2026, 4, 12)),
+          timeframe: 'today' as const,
+          compareMode: 'rankings' as const,
+          sampleCount: 1,
+          speedMedian: 80,
+        },
+      ]),
+    };
+
+    const summary = await collectGuildRankSummaryData(
+      { request } as never,
+      {
+        guildName: 'Guild',
+        guildServerSlug: 'stormrage',
+        guildServerRegion: 'us',
+        zoneId: 100,
+        difficulty: 'heroic',
+        size: '10man',
+      },
+      { liveReportIndexFetcher, trendReader },
+    );
+
+    expect(trendReader.listWeeklyTrends).toHaveBeenCalledTimes(1);
+    expect(liveReportIndexFetcher).toHaveBeenCalledTimes(1);
+    expect(summary.notes).toContain(
+      'No current-window reports were discovered for the configured guild and zone.',
+    );
+  });
+
   it('uses saved guild/zone input, applies 7d/14d windows, and prefers official progress ranks', async () => {
     const now = Date.UTC(2026, 4, 14, 12, 0, 0);
     vi.useFakeTimers();
