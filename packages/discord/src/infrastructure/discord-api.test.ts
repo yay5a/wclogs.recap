@@ -45,6 +45,7 @@ describe('discordApiRequest', () => {
             name: 'report-summary.png',
             attachment: pngBytes,
             contentType: 'image/png',
+            description: 'Raid report summary',
           },
         ],
       },
@@ -58,7 +59,13 @@ describe('discordApiRequest', () => {
     expect(JSON.parse(formData.get('payload_json') as string)).toEqual({
       content: 'https://www.warcraftlogs.com/reports/ABC123',
       flags: 64,
-      attachments: [{ id: 0, filename: 'report-summary.png' }],
+      attachments: [
+        {
+          id: 0,
+          filename: 'report-summary.png',
+          description: 'Raid report summary',
+        },
+      ],
     });
 
     const file = formData.get('files[0]') as File;

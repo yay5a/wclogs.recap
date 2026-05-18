@@ -6,10 +6,10 @@ import {
   editOriginalInteractionResponse,
   safeEditOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
-import { buildReportResponseBody } from '../renderers/report.js';
+import { buildReportMessageFlags, buildReportResponseBody } from '../renderers/report.js';
 
 const logger = createLogger('discord');
-const EPHEMERAL_MESSAGE_FLAG = 64;
+const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
 const DISCORD_PACKAGE_ID = '@wcl/discord@0.1.0';
 export const REPORT_RUNTIME_FINGERPRINT = 'render-fingerprint: report-runtime-canary-2026-05-14-A';
 export type ReportRenderPath = 'slash-command' | 'passive-detection' | 'auto-post' | 'preview-post';
@@ -105,7 +105,7 @@ export const buildReportArtifact = async ({
   const publicBody = await buildReportResponseBody(summary, { ephemeral: false });
   const responseBody: DiscordMessageBody = {
     ...publicBody,
-    flags: EPHEMERAL_MESSAGE_FLAG,
+    flags: buildReportMessageFlags({ ephemeral: true }),
   };
 
   return {

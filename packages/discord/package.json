@@ -9,7 +9,8 @@
         "build": "tsc -p tsconfig.json",
         "lint": "eslint src --ext .ts",
         "typecheck": "tsc -p tsconfig.json --noEmit",
-        "test": "vitest run --passWithNoTests"
+        "test": "vitest run --passWithNoTests",
+        "preview:report": "pnpm dlx browser-sync start --server dev/report-preview --startPath /report-renderer.html --files 'dev/report-preview/*'"
     },
     "dependencies": {
         "@wcl/domain": "workspace:*",
@@ -17,5 +18,9 @@
         "@wcl/wcl-client": "workspace:*",
         "discord-interactions": "^4.1.0",
         "playwright-chromium": "^1.60.0"
+    },
+    "devDependencies": {
+        "@tailwindcss/cli": "^4.3.0",
+        "tailwindcss": "^4.3.0"
     }
 }

@@ -4,6 +4,8 @@ import {
   buildReportCardHtml,
   buildReportResponseBody,
   closeReportRendererBrowser,
+  EPHEMERAL_MESSAGE_FLAG,
+  SUPPRESS_EMBEDS_MESSAGE_FLAG,
 } from './report.js';
 
 const baseSummary = (): ReportSummary => ({
@@ -74,6 +76,14 @@ const expectPngSignature = (bytes: Uint8Array): void => {
   expect(Array.from(bytes.slice(0, 4))).toEqual([137, 80, 78, 71]);
 };
 
+const readPngDimensions = (bytes: Uint8Array): { width: number; height: number } => {
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  return {
+    width: view.getUint32(16),
+    height: view.getUint32(20),
+  };
+};
+
 describe('/report PNG renderer', () => {
   afterAll(async () => {
     await closeReportRendererBrowser();
@@ -91,7 +101,26 @@ describe('/report PNG renderer', () => {
     expect(html).toContain('Highest Total DPS');
     expect(html).toContain('Highest HPS');
     expect(html).toContain('Most Deaths');
-    expect(html).toContain('Expected drift is roughly 0.55% to 1.5%.');
+    expect(html).toContain('width: 1280px;');
+    expect(html).toContain('min-height: 1700px;');
+    expect(html).toContain('--inner-width: 1040px;');
+    expect(html).toContain('Kills / Wipes');
+    expect(html).toContain('grid-template-columns: repeat(4, minmax(0, 1fr));');
+    expect(html).toContain('grid-template-columns: repeat(3, minmax(0, 1fr));');
+    expect(html).toContain('width: min(100%, 900px);');
+    expect(html).toContain('width: min(100%, 960px);');
+    expect(html).toContain(
+      'Parsing complex raw data structures from an overpowered database is not the same as parsing against an overpowered raid boss.',
+    );
+    expect(html).toContain(
+      'expected to drift by ~0.55% up to ~1.5% due to rounding, and calculation methods of DPS/HPS totals',
+    );
+    expect(html).toContain('.rank-75 { color: #a335ee; }');
+    expect(html).toContain('.rank-95 { color: #ff8000; }');
+    expect(html).toContain('class="rank-95">95</strong>');
+    expect(html).toContain('class="rank-75">88</strong>');
+    expect(html).not.toContain('Total Kills');
+    expect(html).not.toContain('Total Wipes');
     expect(html).not.toContain('Highest Total Healing');
     expect(html).not.toContain('render-fingerprint');
   });
@@ -120,22 +149,31 @@ describe('/report PNG renderer', () => {
   it('returns a normal PNG image attachment body', async () => {
     const response = await buildReportResponseBody(baseSummary(), { ephemeral: false });
     const file = response.files?.[0];
+    const flags = response.flags ?? 0;
 
     expect(response).toMatchObject({
       content: 'https://www.warcraftlogs.com/reports/ABC123',
     });
-    expect(response).not.toHaveProperty('flags');
+    expect(flags & EPHEMERAL_MESSAGE_FLAG).toBe(0);
+    expect(flags & SUPPRESS_EMBEDS_MESSAGE_FLAG).toBe(SUPPRESS_EMBEDS_MESSAGE_FLAG);
+    expect(response.allowed_mentions).toEqual({ parse: [] });
     expect(response).not.toHaveProperty('embeds');
     expect(file?.name).toBe('report-summary.png');
     expect(file?.contentType).toBe('image/png');
+    expect(file?.description).toBe('Raid report summary');
     expect(file?.attachment).toBeInstanceOf(Uint8Array);
     expectPngSignature(file?.attachment ?? new Uint8Array());
+    const dimensions = readPngDimensions(file?.attachment ?? new Uint8Array());
+    expect(dimensions.width).toBe(1280);
+    expect(dimensions.height).toBeGreaterThanOrEqual(1700);
   }, 15_000);
 
   it('preserves ephemeral flags for private report responses', async () => {
     const response = await buildReportResponseBody(baseSummary());
+    const flags = response.flags ?? 0;
 
-    expect(response.flags).toBe(64);
+    expect(flags & EPHEMERAL_MESSAGE_FLAG).toBe(EPHEMERAL_MESSAGE_FLAG);
+    expect(flags & SUPPRESS_EMBEDS_MESSAGE_FLAG).toBe(SUPPRESS_EMBEDS_MESSAGE_FLAG);
     expect(response.files?.[0]?.name).toBe('report-summary.png');
   }, 15_000);
 });

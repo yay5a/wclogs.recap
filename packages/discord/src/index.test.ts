@@ -431,9 +431,7 @@ describe('discord command surfaces', () => {
     expect(speedEncounterValue).not.toContain('Median Rank Percentile');
     expect(executionValue).toContain('Rank Percentile: 84 (prev best 88, -4)');
     expect(executionValue).not.toContain('Best Rank Percentile: 84');
-    expect(readValue).toContain(
-      'Cache Window ⇒  Current = reports indexed during current lockout',
-    );
+    expect(readValue).toContain('Cache Window ⇒  Current = reports indexed during current lockout');
     expect(readValue).toContain(
       'Current Lockout week: 1970-01-01T00:00:00.000Z -> 1970-01-01T00:00:00.001Z',
     );

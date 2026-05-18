@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Report Summary PNG Preview</title>
+  <style>
+    :root {
+      color-scheme: dark;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: #303139;
+      font-family: Arial, Helvetica, sans-serif;
+      color: #f5f7fb;
+    }
+    .preview-shell {
+      display: grid;
+      gap: 24px;
+      width: max-content;
+      min-width: 100%;
+      padding: 32px;
+    }
+
+    /*
+      Runtime source: packages/discord/src/renderers/report.ts
+      Edit the report-card CSS below, then copy the relevant rules back into
+      buildReportCardHtml when the browser preview looks right.
+    */
+    #report-card {
+      position: relative;
+      width: 1280px;
+      min-height: 1700px;
+      overflow: hidden;
+      --inner-width: 1040px;
+      border: 1px solid #2c3440;
+      border-radius: 12px;
+      background:
+        radial-gradient(circle at 12% 8%, rgba(82, 169, 255, 0.18), transparent 28%),
+        linear-gradient(135deg, #111820 0%, #080c11 45%, #121821 100%);
+      padding: 30px 38px 28px 58px;
+      box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+    }
+    #report-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 8px;
+      background: linear-gradient(#b46cff, #7d3cff);
+    }
+    .header,
+    .divider,
+    .section-heading,
+    .encounters,
+    .players,
+    .notes {
+      width: min(100%, var(--inner-width));
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .header {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 32px;
+      align-items: start;
+    }
+    .raid-art {
+      width: 150px;
+      height: 128px;
+      border: 1px solid #26374a;
+      border-radius: 8px;
+      background:
+        radial-gradient(circle at 50% 18%, rgba(88, 172, 255, 0.62), transparent 22%),
+        linear-gradient(145deg, #192a3b 0%, #05080b 70%);
+      display: grid;
+      place-items: center;
+      color: #ffc44d;
+      font-size: 66px;
+      text-shadow: 0 0 24px rgba(86, 176, 255, 0.75);
+    }
+    h1 {
+      margin: 2px 0 16px;
+      font-size: 42px;
+      line-height: 1.15;
+      font-weight: 800;
+    }
+    .time-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 24px;
+      align-items: center;
+      color: #d7dce5;
+      font-size: 24px;
+    }
+    .time-row span {
+      display: inline-flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 18px;
+    }
+    .stat-tile,
+    .encounter-card,
+    .player-card,
+    .notes {
+      background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
+      border: 1px solid #323d49;
+      border-radius: 8px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    }
+    .stat-tile {
+      min-height: 96px;
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      padding: 14px 13px;
+    }
+    .stat-icon { width: 34px; font-size: 34px; text-align: center; }
+    .stat-tile span:last-child,
+    .mini-stat span,
+    .pull-durations {
+      color: #cbd2dc;
+      font-size: 22px;
+    }
+    .stat-tile strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 34px;
+      line-height: 1;
+    }
+    .divider {
+      height: 1px;
+      margin-top: 24px;
+      margin-bottom: 16px;
+      background: #2b3540;
+    }
+    .section-heading {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 22px;
+      margin-bottom: 14px;
+      font-size: 34px;
+      font-weight: 800;
+    }
+    .section-heading span { color: #b77cff; }
+    .encounters {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr);
+      gap: 18px;
+      width: min(100%, 900px);
+    }
+    .encounter-card {
+      padding: 20px 24px 18px;
+      min-height: 292px;
+    }
+    .encounter-card.good { border-color: rgba(101, 208, 102, 0.5); }
+    .encounter-card.bad { border-color: rgba(255, 74, 69, 0.72); }
+    .encounter-title {
+      display: flex;
+      gap: 18px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    .encounter-icon {
+      width: 68px;
+      height: 68px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      font-size: 42px;
+      font-weight: 900;
+      color: #0a1118;
+      background: #6ee06b;
+    }
+    .bad .encounter-icon {
+      border-radius: 10px;
+      background: #ff4b47;
+    }
+    .encounter-title h3 {
+      margin: 0;
+      font-size: 28px;
+      color: #76df72;
+    }
+    .bad .encounter-title h3 { color: #ff5751; }
+    .encounter-title p {
+      margin: 5px 0 0;
+      font-size: 25px;
+      font-weight: 700;
+    }
+    .encounter-stats {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr 1fr;
+      gap: 12px;
+      padding-bottom: 13px;
+      border-bottom: 1px solid #2c3540;
+    }
+    .mini-stat {
+      min-height: 78px;
+      display: grid;
+      place-items: center;
+      border: 1px solid #303b47;
+      border-radius: 7px;
+      background: rgba(18, 23, 30, 0.85);
+    }
+    .mini-stat strong {
+      font-size: 36px;
+      line-height: 1;
+    }
+    .pull-durations {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      padding: 13px 8px;
+      border-bottom: 1px solid #2c3540;
+      text-align: center;
+    }
+    .pull-durations strong {
+      margin-left: 22px;
+      color: #f5f7fb;
+    }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 28px;
+      margin-top: 16px;
+    }
+    .bad .metric-grid { grid-template-columns: 1fr; }
+    h4 {
+      margin: 0 0 10px;
+      color: #75df70;
+      font-size: 25px;
+    }
+    .bad h4 { color: #ff5751; }
+    .metric-line {
+      display: grid;
+      grid-template-columns: 70px minmax(0, 1fr);
+      gap: 10px;
+      margin: 9px 0;
+      font-size: 24px;
+    }
+    .metric-label { color: #f4f6fb; }
+    .metric-text {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .players {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      width: min(100%, 960px);
+    }
+    .player-card {
+      min-height: 150px;
+      padding: 13px 14px 12px;
+    }
+    .player-card h3 {
+      display: flex;
+      gap: 9px;
+      align-items: center;
+      margin: 0 0 10px;
+      color: #d09bff;
+      font-size: 20px;
+    }
+    .player-row {
+      display: grid;
+      grid-template-columns: 28px minmax(0, 1fr) 88px;
+      gap: 7px;
+      align-items: center;
+      min-height: 28px;
+      font-size: 19px;
+    }
+    .player-row span:nth-child(2) {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .player-row strong { text-align: right; }
+    .unavailable { color: #8994a3; }
+    .notes {
+      display: grid;
+      gap: 8px;
+      margin-top: 20px;
+      padding: 16px 20px;
+      color: #b9c2cf;
+      font-size: 19px;
+      line-height: 1.35;
+    }
+    .good { color: #72df6f; }
+    .bad { color: #ff5751; }
+    .warn, .gold-text { color: #ffc84d; }
+    .blue-text { color: #52aaff; }
+    .purple-text { color: #b676ff; }
+    .muted { color: #9ca7b5; }
+    .rank-0 { color: #666666; }
+    .rank-25 { color: #1eff00; }
+    .rank-50 { color: #0070ff; }
+    .rank-75 { color: #a335ee; }
+    .rank-95 { color: #ff8000; }
+    .rank-99 { color: #e268a8; }
+    .rank-100 { color: #e5cc80; }
+
+    .discord-limits {
+      width: 1280px;
+      border: 1px solid #494d57;
+      border-radius: 8px;
+      background: #191b22;
+      padding: 20px 24px;
+      color: #d8dde8;
+      font-size: 18px;
+      line-height: 1.45;
+    }
+    .discord-limits h2 {
+      margin: 0 0 12px;
+      font-size: 26px;
+    }
+    .discord-limits ul {
+      margin: 0;
+      padding-left: 24px;
+    }
+    .discord-limits li + li {
+      margin-top: 8px;
+    }
+    .discord-limits a {
+      color: #7db7ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="preview-shell">
+    <main id="report-card" aria-label="Report summary PNG preview">
+      <header class="header">
+        <div class="raid-art">⚜</div>
+        <div>
+          <h1>Report Summary - Throne of Thunder (Heroic 10man)</h1>
+          <div class="time-row">
+            <span>▣ Date: Apr 27, 2026</span>
+            <span>◷ Start: 11:59 PM</span>
+            <span>◴ End: 2:55 AM</span>
+          </div>
+          <div class="stats">
+            <section class="stat-tile">
+              <span class="stat-icon purple-text">⏱</span>
+              <div><span>Duration</span><strong class="purple-text">2h 55m</strong></div>
+            </section>
+            <section class="stat-tile">
+              <span class="stat-icon blue-text">⚔</span>
+              <div><span>Boss Pulls</span><strong class="blue-text">23</strong></div>
+            </section>
+            <section class="stat-tile">
+              <span class="stat-icon warn">☠</span>
+              <div>
+                <span>Kills / Wipes</span>
+                <strong><b class="good">4</b> <span class="muted">/</span> <b class="bad">19</b></strong>
+              </div>
+            </section>
+            <section class="stat-tile">
+              <span class="stat-icon warn">☠</span>
+              <div><span>Total Deaths</span><strong class="warn">192</strong></div>
+            </section>
+          </div>
+        </div>
+      </header>
+
+      <div class="divider"></div>
+
+      <div class="section-heading"><span>⚔</span>Encounter Highlights</div>
+      <div class="encounters">
+        <section class="encounter-card good">
+          <div class="encounter-title">
+            <span class="encounter-icon">⚔</span>
+            <div>
+              <h3>Best Execution</h3>
+              <p>Horridon (Normal)</p>
+            </div>
+          </div>
+          <div class="encounter-stats">
+            <div class="mini-stat"><span>Pulls</span><strong>1</strong></div>
+            <div class="mini-stat"><span>Kill / Wipes</span><strong><b class="good">1</b> / <b class="muted">0</b></strong></div>
+            <div class="mini-stat"><span>Deaths</span><strong class="warn">0</strong></div>
+          </div>
+          <div class="metric-grid">
+            <div>
+              <h4>Highest Parses</h4>
+              <div class="metric-line">
+                <span class="metric-label">DPS:</span>
+                <span class="metric-text purple-text">Bamsonfury - <strong class="rank-95">96</strong></span>
+              </div>
+              <div class="metric-line">
+                <span class="metric-label">HPS:</span>
+                <span class="metric-text gold-text">Buttshinder - <strong class="rank-75">82</strong></span>
+              </div>
+            </div>
+            <div>
+              <h4>Highest Totals</h4>
+              <div class="metric-line">
+                <span class="metric-label">DPS:</span>
+                <span class="metric-text purple-text">Bamsonfury - 287.9k/s</span>
+              </div>
+              <div class="metric-line">
+                <span class="metric-label">HPS:</span>
+                <span class="metric-text gold-text">Buttshinder - 60.9k/s</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="encounter-card bad">
+          <div class="encounter-title">
+            <span class="encounter-icon">!</span>
+            <div>
+              <h3>Biggest Trouble</h3>
+              <p>Council of Elders (Heroic)</p>
+            </div>
+          </div>
+          <div class="encounter-stats">
+            <div class="mini-stat"><span>Pulls</span><strong>10</strong></div>
+            <div class="mini-stat"><span>Kill / Wipes</span><strong><b class="good">1</b> / <b class="bad">9</b></strong></div>
+            <div class="mini-stat"><span>Deaths</span><strong class="warn">91</strong></div>
+          </div>
+          <div class="pull-durations">
+            <span>Longest Pull <strong>5:10</strong></span>
+            <span>Shortest Pull <strong>0:35</strong></span>
+          </div>
+          <div class="metric-grid">
+            <div>
+              <h4>Highest Totals</h4>
+              <div class="metric-line">
+                <span class="metric-label">DPS:</span>
+                <span class="metric-text purple-text">Bamsonfury - 286.7k/s</span>
+              </div>
+              <div class="metric-line">
+                <span class="metric-label">HPS:</span>
+                <span class="metric-text gold-text">Buttshinder - 118.8k/s</span>
+              </div>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="section-heading"><span>●●</span>Top Players</div>
+      <div class="players">
+        <section class="player-card">
+          <h3><span>▥</span>Highest Avg Parse</h3>
+          <div class="player-row"><span>1.</span><span>Bamsonfury</span><strong class="rank-75">82.3</strong></div>
+          <div class="player-row"><span>2.</span><span>Buttshinder</span><strong class="rank-75">82</strong></div>
+          <div class="player-row"><span>3.</span><span>Jokeropain</span><strong class="blue-text">59.3</strong></div>
+        </section>
+        <section class="player-card">
+          <h3><span>⚔</span>Highest Total DPS</h3>
+          <div class="player-row"><span>1.</span><span>Bamsonfury</span><strong class="purple-text">268.5k/s</strong></div>
+          <div class="player-row"><span>2.</span><span>Jokeropain</span><strong class="gold-text">208.9k/s</strong></div>
+          <div class="player-row"><span>3.</span><span>Venombladez</span><strong class="blue-text">202.9k/s</strong></div>
+        </section>
+        <section class="player-card">
+          <h3><span>✚</span>Highest HPS</h3>
+          <div class="player-row"><span>1.</span><span>Buttshinder</span><strong class="purple-text">110.9k/s</strong></div>
+          <div class="player-row"><span>2.</span><span>Sapphire</span><strong class="gold-text">86.4k/s</strong></div>
+          <div class="player-row"><span>3.</span><span>Whatadk</span><strong class="blue-text">31.8k/s</strong></div>
+        </section>
+        <section class="player-card">
+          <h3><span>☠</span>Most Deaths</h3>
+          <div class="player-row"><span>1.</span><span>Ooblygobly</span><strong class="purple-text">22</strong></div>
+          <div class="player-row"><span>2.</span><span>Kaltsti</span><strong class="gold-text">21</strong></div>
+          <div class="player-row"><span>3.</span><span>Sapphire</span><strong class="blue-text">20</strong></div>
+        </section>
+        <section class="player-card">
+          <h3><span>✊</span>Most Interrupts</h3>
+          <div class="player-row"><span>1.</span><span>Bamsonfury</span><strong class="purple-text">51</strong></div>
+          <div class="player-row"><span>2.</span><span>Surfofstring</span><strong class="gold-text">33</strong></div>
+          <div class="player-row"><span>3.</span><span>Whatadk</span><strong class="blue-text">18</strong></div>
+        </section>
+        <section class="player-card">
+          <h3><span>♦</span>Most Dispels</h3>
+          <div class="player-row"><span>1.</span><span>Sapphire</span><strong class="purple-text">27</strong></div>
+          <div class="player-row"><span>2.</span><span>Buttshinder</span><strong class="gold-text">12</strong></div>
+          <div class="player-row unavailable"><span>3.</span><span>unavailable</span><strong>n/a</strong></div>
+        </section>
+      </div>
+
+      <footer class="notes">
+        <span>Parsing complex raw data structures from an overpowered database is not the same as parsing against an overpowered raid boss. The numbers reported here are expected to drift by ~0.55% up to ~1.5% due to rounding, and calculation methods of DPS/HPS totals, and parses/ranks only known to WCL</span>
+      </footer>
+    </main>
+
+    <section class="discord-limits" aria-label="Discord image posting limitations">
+      <h2>Discord image posting limitations</h2>
+      <ul>
+        <li>Files with message JSON must be sent as <code>multipart/form-data</code>; the JSON body belongs in <code>payload_json</code>, and files use unique <code>files[n]</code> parts.</li>
+        <li>The Create Message endpoint has a maximum request size of 25 MiB. Keep the generated PNG comfortably below that.</li>
+        <li>Discord's file upload limit is enforced per file. The developer docs list a default of 10 MiB, with higher limits possible from Nitro or server boost status; interaction payloads can expose <code>attachment_size_limit</code>.</li>
+        <li>Normal image attachments can display differently across Discord clients because chat previews are scaled to the available message column. The PNG should be readable after client scaling, not only at native 1280px width.</li>
+        <li>When content includes the Warcraft Logs URL, use <code>SUPPRESS_EMBEDS</code> so Discord does not add a separate link preview under the PNG.</li>
+        <li>For embed attachment images, Discord documents <code>attachment://filename.png</code> and supports <code>.jpg</code>, <code>.jpeg</code>, <code>.png</code>, <code>.webp</code>, and <code>.gif</code>. This project is using a normal PNG attachment instead.</li>
+      </ul>
+      <p>
+        Sources:
+        <a href="https://docs.discord.com/developers/reference#uploading-files">Discord Uploading Files</a>,
+        <a href="https://docs.discord.com/developers/resources/message#create-message">Discord Create Message</a>.
+      </p>
+    </section>
+  </div>
+</body>
+</html>

@@ -8,13 +8,13 @@ import type {
 } from '@wcl/domain';
 import type { DiscordMessageBody } from '../infrastructure/discord-api.js';
 
-const EPHEMERAL_MESSAGE_FLAG = 64;
+export const SUPPRESS_EMBEDS_MESSAGE_FLAG = 1 << 2;
+export const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
 const REPORT_CARD_FILENAME = 'report-summary.png';
-const REPORT_CARD_WIDTH = 1280;
-const REPORT_CARD_MIN_HEIGHT = 850;
 let browserPromise: Promise<Browser> | null = null;
+const SAFE_ALLOWED_MENTIONS = { parse: [] as string[] };
 const REPORT_DATA_NOTE =
-  'Numbers may differ slightly from Warcraft Logs due to rounding, DPS/HPS total calculation methods, and parse/rank logic only known to WCL. Expected drift is roughly 0.55% to 1.5%.';
+  'Parsing complex raw data structures from an overpowered database is not the same as parsing against an overpowered raid boss. The numbers reported here are expected to drift by ~0.55% up to ~1.5% due to rounding, and calculation methods of DPS/HPS totals, and parses/ranks only known to WCL';
 
 const compactNumberFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
@@ -56,6 +56,9 @@ const escapeHtml = (value: string): string =>
 
 const present = (value: string | undefined): value is string => Boolean(value);
 
+export const buildReportMessageFlags = (options: { ephemeral?: boolean }): number =>
+  SUPPRESS_EMBEDS_MESSAGE_FLAG | (options.ephemeral ? EPHEMERAL_MESSAGE_FLAG : 0);
+
 const formatCompact = (value: number): string =>
   compactNumberFormatter.format(value).replace('K', 'k');
 
@@ -89,19 +92,33 @@ const reportTitle = (summary: ReportSummary): string => {
 
 const valueOrUnavailable = (value: string | undefined): string => value ?? 'unavailable';
 
+const rankingColorClass = (value: number): string => {
+  if (value >= 100) return 'rank-100';
+  if (value >= 99) return 'rank-99';
+  if (value >= 95) return 'rank-95';
+  if (value >= 75) return 'rank-75';
+  if (value >= 50) return 'rank-50';
+  if (value >= 25) return 'rank-25';
+  return 'rank-0';
+};
+
 const parseValue = (row?: ReportParseRow): string | undefined =>
-  row ? `${escapeHtml(row.playerName)} - ${decimalFormatter.format(row.value)}` : undefined;
+  row
+    ? `${escapeHtml(row.playerName)} - <strong class="${rankingColorClass(
+        row.value,
+      )}">${decimalFormatter.format(row.value)}</strong>`
+    : undefined;
 
 const metricValue = (
   row: ReportMetricRow | undefined,
   formatter: (value: number) => string,
-): string | undefined => (row ? `${escapeHtml(row.playerName)} - ${formatter(row.value)}` : undefined);
+): string | undefined =>
+  row ? `${escapeHtml(row.playerName)} - ${formatter(row.value)}` : undefined;
 
 const renderMetricLine = (label: string, value: string | undefined, color: string): string => `
   <div class="metric-line">
     <span class="metric-label">${escapeHtml(label)}:</span>
-    <span class="metric-text">${valueOrUnavailable(value)}</span>
-    <span class="metric-value ${color}"></span>
+    <span class="metric-text ${color}">${valueOrUnavailable(value)}</span>
   </div>
 `;
 
@@ -191,13 +208,14 @@ const rankColor = (index: number): string => {
 const renderRankedRows = (
   rows: readonly ReportMetricRow[],
   formatter: (value: number) => string,
+  colorClass: (row: ReportMetricRow, index: number) => string = (_row, index) => rankColor(index),
 ): string => {
   const renderedRows = rows.slice(0, 3).map(
     (row, index) => `
       <div class="player-row">
         <span>${index + 1}.</span>
         <span>${escapeHtml(row.playerName)}</span>
-        <strong class="${rankColor(index)}">${escapeHtml(formatter(row.value))}</strong>
+        <strong class="${colorClass(row, index)}">${escapeHtml(formatter(row.value))}</strong>
       </div>
     `,
   );
@@ -211,10 +229,11 @@ const renderPlayerCard = (
   title: string,
   rows: readonly ReportMetricRow[],
   formatter: (value: number) => string,
+  colorClass?: (row: ReportMetricRow, index: number) => string,
 ): string => `
   <section class="player-card">
     <h3><span>${icon}</span>${escapeHtml(title)}</h3>
-    ${renderRankedRows(rows, formatter)}
+    ${renderRankedRows(rows, formatter, colorClass)}
   </section>
 `;
 
@@ -224,6 +243,20 @@ const renderStatTile = (icon: string, label: string, value: string, color: strin
     <div>
       <span>${escapeHtml(label)}</span>
       <strong class="${color}">${escapeHtml(value)}</strong>
+    </div>
+  </section>
+`;
+
+const renderKillWipeTile = (kills: number, wipes: number): string => `
+  <section class="stat-tile">
+    <span class="stat-icon warn">☠</span>
+    <div>
+      <span>Kills / Wipes</span>
+      <strong>
+        <b class="good">${integerFormatter.format(kills)}</b>
+        <span class="muted">/</span>
+        <b class="${wipes > 0 ? 'bad' : 'muted'}">${integerFormatter.format(wipes)}</b>
+      </strong>
     </div>
   </section>
 `;
@@ -247,18 +280,37 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
   <meta charset="utf-8">
   <style>
     * { box-sizing: border-box; }
+    :root {
+    color-scheme: dark;
+    --card-width: 1280px;
+    --card-height:  850px;
+    --card-pad-top: 18px;
+    --card-pad-right: 18px;
+    --card-pad-bottom: 16px;
+    --card-pad-left: 28px;
+    --font-title: 24px;
+    --font-body: 16px;
+    --font-small: 18px;
+    --font-micro: 16px;
+    --font-stat-value: 25px;
+    --font-section-title: 21px;
+    --font-card-title: 18px;
+    --font-row: 18px;
+    --metric-label: 16px;
+    --metric-value: 23px;
+    }
     body {
+      height: var(--card-height);
+      width: var(--card-width);
       margin: 0;
-      width: ${REPORT_CARD_WIDTH}px;
-      min-height: ${REPORT_CARD_MIN_HEIGHT}px;
       background: transparent;
       font-family: Arial, Helvetica, sans-serif;
       color: #f5f7fb;
     }
     #report-card {
       position: relative;
-      width: ${REPORT_CARD_WIDTH}px;
-      min-height: ${REPORT_CARD_MIN_HEIGHT}px;
+      height: var(--card-height);
+      width: var(--card-width);
       overflow: hidden;
       border: 1px solid #2c3440;
       border-radius: 10px;
@@ -276,14 +328,18 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       background: linear-gradient(#b46cff, #7d3cff);
     }
     .header {
+      width: 100%;
+      max-width: none;
+      margin-left: 0;
+      margin-right: 0;
       display: grid;
-      grid-template-columns: 132px 1fr;
-      gap: 28px;
+      grid-template-columns: 56px minmax(0, 1fr);
+      gap: 12px;
       align-items: start;
     }
     .raid-art {
-      width: 132px;
-      height: 108px;
+      width: 56px;
+      height: 50px;
       border: 1px solid #26374a;
       border-radius: 7px;
       background:
@@ -292,51 +348,54 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: grid;
       place-items: center;
       color: #ffc44d;
-      font-size: 58px;
+      font-size: 36px;
       text-shadow: 0 0 24px rgba(86, 176, 255, 0.75);
     }
     h1 {
-      margin: 2px 0 12px;
-      font-size: 30px;
+      margin: 0 0 8px;
+      font-size: var(--font-title);
       line-height: 1.15;
       font-weight: 800;
     }
     .time-row {
       display: flex;
       flex-wrap: wrap;
-      gap: 22px;
+      gap: 8px 14px;
       align-items: center;
       color: #d7dce5;
-      font-size: 18px;
+      font-size: 16px;
     }
     .time-row span {
       display: inline-flex;
-      gap: 9px;
+      gap: 5px;
       align-items: center;
     }
-    .stats {
+    .stats-grid {
       display: grid;
-      grid-template-columns: repeat(5, 1fr);
-      gap: 12px;
-      margin-top: 11px;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 10px;
     }
     .stat-tile,
     .encounter-card,
-    .player-card,
-    .notes {
+    .player-card {
       background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
       border: 1px solid #323d49;
       border-radius: 8px;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     .stat-tile {
-      min-height: 74px;
+      min-height: 57px;
       display: flex;
-      gap: 14px;
+      gap: 9px;
       align-items: center;
-      padding: 12px 16px;
+      padding: 8px 9px;
+      background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
+      border: 1px solid #323d49;
+      border-radius: 7px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
-    .stat-icon { width: 34px; font-size: 31px; text-align: center; }
+    .stat-icon { width: 37px; font-size: 36px; text-align: center; }
     .stat-tile span:last-child,
     .mini-stat span,
     .pull-durations {
@@ -346,116 +405,136 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     .stat-tile strong {
       display: block;
       margin-top: 2px;
-      font-size: 27px;
+      font-size: var(--font-stat-value);
       line-height: 1;
     }
     .divider {
+      width: 100%;
+      max-width: none;
       height: 1px;
-      margin: 11px 0 8px;
+      margin-left: 0;
+      margin-right: 0;
+      margin-top: 8px;
+      margin-bottom: 6px;
       background: #2b3540;
     }
     .section-heading {
+      width: 100%;
+      max-width: none;
       display: flex;
-      gap: 10px;
+      gap: 7px;
       align-items: center;
-      margin: 8px 0 7px;
-      font-size: 25px;
+      margin-left: 0;
+      margin-right: 0;
+      margin-top: 8px;
+      margin-bottom: 6px;
+      font-size: var(--font-section-title);
       font-weight: 800;
     }
     .section-heading span { color: #b77cff; }
     .encounters {
+      width: 100%;
+      max-width: none;
       display: grid;
-      grid-template-columns: 1fr 1.08fr;
-      gap: 16px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-left: 0;
+      margin-right: 0;
     }
     .encounter-card {
-      padding: 12px 18px 10px;
-      min-height: 246px;
+      padding: 10px 11px;
+      min-height: unset;
+      background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
+      border: 1px solid #323d49;
+      border-radius: 8px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     .encounter-card.good { border-color: rgba(101, 208, 102, 0.5); }
     .encounter-card.bad { border-color: rgba(255, 74, 69, 0.72); }
     .encounter-title {
       display: flex;
-      gap: 14px;
+      gap: 11px;
       align-items: center;
       margin-bottom: 10px;
     }
     .encounter-icon {
-      width: 52px;
-      height: 52px;
+      width: 30px;
+      height: 30px;
       border-radius: 50%;
       display: grid;
       place-items: center;
-      font-size: 34px;
+      font-size: 25px;
       font-weight: 900;
       color: #0a1118;
       background: #6ee06b;
     }
     .bad .encounter-icon {
-      border-radius: 9px;
+      border-radius: 7px;
       background: #ff4b47;
     }
     .encounter-title h3 {
       margin: 0;
-      font-size: 20px;
+      font-size: var(--font-card-title);
       color: #76df72;
     }
     .bad .encounter-title h3 { color: #ff5751; }
     .encounter-title p {
-      margin: 3px 0 0;
-      font-size: 18px;
+      margin: 2px 0 0;
+      font-size: var(--font-body);
       font-weight: 700;
     }
     .encounter-stats {
       display: grid;
       grid-template-columns: 1fr 1.2fr 1fr;
       gap: 8px;
-      padding-bottom: 7px;
+      padding-bottom: 5px;
       border-bottom: 1px solid #2c3540;
     }
     .mini-stat {
-      min-height: 55px;
+      min-height: 40px;
       display: grid;
       place-items: center;
       border: 1px solid #303b47;
-      border-radius: 5px;
+      border-radius: 6px;
       background: rgba(18, 23, 30, 0.85);
     }
     .mini-stat strong {
-      font-size: 24px;
+      font-size: 23px;
       line-height: 1;
     }
     .pull-durations {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 14px;
-      padding: 9px 8px;
+      gap: 8px;
+      padding: 4px 3px;
       border-bottom: 1px solid #2c3540;
+      color: #cbd2dc;
+      font-size: var(--font-small);
       text-align: center;
     }
     .pull-durations strong {
-      margin-left: 18px;
+      margin-left: 7px;
       color: #f5f7fb;
     }
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
-      gap: 18px;
-      margin-top: 8px;
+      gap: 8px;
+      margin-top: 6px;
     }
     .bad .metric-grid { grid-template-columns: 1fr; }
     h4 {
-      margin: 0 0 7px;
+      margin: 0 0 5px;
       color: #75df70;
-      font-size: 18px;
+      font-size: 15px;
     }
     .bad h4 { color: #ff5751; }
     .metric-line {
       display: grid;
-      grid-template-columns: 49px 1fr;
+      grid-template-columns: 44px minmax(0, 1fr);
       gap: 7px;
-      margin: 6px 0;
-      font-size: 17px;
+      margin: 4px 0;
+      font-size: var(--font-row);
     }
     .metric-label { color: #f4f6fb; }
     .metric-text {
@@ -465,48 +544,83 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       white-space: nowrap;
     }
     .players {
+      width: 100%;
+      max-width: none;
       display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 12px;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 5px;
+      margin-left: 0;
+      margin-right: 0;
     }
     .player-card {
-      min-height: 111px;
-      padding: 9px 16px 8px;
+      min-height: 75px;
+      padding: 6px 8px;
+      background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
+      border: 1px solid #323d49;
+      border-radius: 7px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
     .player-card h3 {
       display: flex;
-      gap: 9px;
+      gap: 5px;
       align-items: center;
-      margin: 0 0 6px;
+      margin: 0 0 4px;
       color: #d09bff;
-      font-size: 17px;
+      font-size: 16px;
     }
     .player-row {
       display: grid;
-      grid-template-columns: 24px 1fr 72px;
+      grid-template-columns: 22px minmax(0, 1fr) 70px;
       gap: 6px;
       align-items: center;
-      min-height: 22px;
-      font-size: 17px;
+      min-height: 19px;
+      font-size: var(--font-row);
+    }
+    .player-row span:nth-child(2) {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
     .player-row strong { text-align: right; }
     .unavailable { color: #8994a3; }
     .notes {
+      width: 100%;
+      max-width: none;
       display: grid;
-      gap: 4px;
-      margin-top: 10px;
-      padding: 10px 14px;
+      gap: 7px;
+      margin-left: 0;
+      margin-right: 0;
+      margin-top: 12px;
+      padding: 11px 13px;
+      background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
+      border: 1px solid #323d49;
+      border-radius: 8px;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
       color: #b9c2cf;
-      font-size: 14px;
+      font-size: var(--font-micro);
       line-height: 1.25;
     }
+
     .good { color: #72df6f; }
     .bad { color: #ff5751; }
     .warn, .gold-text { color: #ffc84d; }
     .blue-text { color: #52aaff; }
     .purple-text { color: #b676ff; }
     .muted { color: #9ca7b5; }
+    .rank-0 { color: #666666; }
+    .rank-25 { color: #1eff00; }
+    .rank-50 { color: #0070ff; }
+    .rank-75 { color: #a335ee; }
+    .rank-95 { color: #ff8000; }
+    .rank-99 { color: #e268a8; }
+    .rank-100 { color: #e5cc80; }
+    .preview-shell {
+      gap: 16px;
+      padding: 16px;
+    }
   </style>
+<title>report-summary.png</title>
 </head>
 <body>
   <main id="report-card">
@@ -519,11 +633,10 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
           <span>◷ Start: ${escapeHtml(formatTime(summary.startTimeISO))}</span>
           <span>◴ End: ${escapeHtml(formatTime(summary.endTimeISO))}</span>
         </div>
-        <div class="stats">
+        <div class="stats-grid">
           ${renderStatTile('⏱', 'Duration', formatDuration(summary.durationMs), 'purple-text')}
           ${renderStatTile('⚔', 'Boss Pulls', integerFormatter.format(summary.bossPulls), 'blue-text')}
-          ${renderStatTile('☠', 'Total Kills', integerFormatter.format(summary.totalKills), 'good')}
-          ${renderStatTile('☠', 'Total Wipes', integerFormatter.format(summary.totalWipes), 'bad')}
+          ${renderKillWipeTile(summary.totalKills, summary.totalWipes)}
           ${renderStatTile(
             '☠',
             'Total Deaths',
@@ -548,6 +661,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
         'Highest Avg Parse',
         summary.topPlayers.highestAverageParse,
         (value) => decimalFormatter.format(value),
+        (row) => rankingColorClass(row.value),
       )}
       ${renderPlayerCard('⚔', 'Highest Total DPS', summary.topPlayers.highestTotalDps, formatRate)}
       ${renderPlayerCard('✚', 'Highest HPS', summary.topPlayers.highestHps, formatRate)}
@@ -589,7 +703,6 @@ export const closeReportRendererBrowser = async (): Promise<void> => {
 export const renderReportSummaryPng = async (summary: ReportSummary): Promise<Uint8Array> => {
   const browser = await getBrowser();
   const page = await browser.newPage({
-    viewport: { width: REPORT_CARD_WIDTH, height: REPORT_CARD_MIN_HEIGHT },
     deviceScaleFactor: 1,
   });
   try {
@@ -608,12 +721,14 @@ export const buildReportResponseBody = async (
   const image = await renderReportSummaryPng(summary);
   return {
     content: summary.reportLink,
-    ...(ephemeral ? { flags: EPHEMERAL_MESSAGE_FLAG } : {}),
+    flags: buildReportMessageFlags({ ephemeral }),
+    allowed_mentions: SAFE_ALLOWED_MENTIONS,
     files: [
       {
         name: REPORT_CARD_FILENAME,
         attachment: image,
         contentType: 'image/png',
+        description: 'Raid report summary',
       },
     ],
   };

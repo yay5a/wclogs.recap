@@ -46,9 +46,13 @@ export interface DiscordFileAttachment {
   name: string;
   attachment: Uint8Array;
   contentType?: string;
+  description?: string;
 }
 
 export type DiscordMessageBody = Record<string, unknown> & {
+  content?: string;
+  flags?: number;
+  allowed_mentions?: { parse: string[] };
   files?: readonly DiscordFileAttachment[];
 };
 
@@ -78,6 +82,7 @@ const buildDiscordMultipartBody = (
     payload.attachments = files.map((file, index) => ({
       id: index,
       filename: file.name,
+      ...(file.description ? { description: file.description } : {}),
     }));
   }
 

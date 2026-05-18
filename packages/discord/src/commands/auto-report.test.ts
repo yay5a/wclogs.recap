@@ -18,6 +18,9 @@ vi.mock('../infrastructure/discord-api.js', () => ({
   safeEditOriginalInteractionResponse: vi.fn().mockResolvedValue(undefined),
 }));
 
+const SUPPRESS_EMBEDS_MESSAGE_FLAG = 1 << 2;
+const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
+
 const summaryFixture = (): ReportSummary => ({
   reportCode: 'ABC123',
   reportTitle: 'Raid Night',
@@ -79,16 +82,25 @@ const summaryFixture = (): ReportSummary => ({
   partialDataNotes: [],
 });
 
-const assertReportImageBody = (body: Record<string, unknown>) => {
-  const files = body.files as Array<{ name?: string; attachment?: unknown; contentType?: string }>;
+const assertReportImageBody = (body: Record<string, unknown>, ephemeral = false) => {
+  const files = body.files as Array<{
+    name?: string;
+    attachment?: unknown;
+    contentType?: string;
+    description?: string;
+  }>;
+  const flags = body.flags as number;
   const serialized = JSON.stringify(body);
 
   expect(body.content).toBe('https://www.warcraftlogs.com/reports/ABC123');
+  expect(flags & EPHEMERAL_MESSAGE_FLAG).toBe(ephemeral ? EPHEMERAL_MESSAGE_FLAG : 0);
+  expect(flags & SUPPRESS_EMBEDS_MESSAGE_FLAG).toBe(SUPPRESS_EMBEDS_MESSAGE_FLAG);
   expect(body).not.toHaveProperty('embeds');
   expect(files).toHaveLength(1);
   expect(files[0]).toMatchObject({
     name: 'report-summary.png',
     contentType: 'image/png',
+    description: 'Raid report summary',
   });
   expect(files[0]?.attachment).toBeInstanceOf(Uint8Array);
   expect(serialized).not.toContain('render-fingerprint');
@@ -256,7 +268,6 @@ describe('auto report PNG report paths', () => {
 
     const sentBody = channel.send.mock.calls[0]?.[0] as Record<string, unknown>;
     assertReportImageBody(sentBody);
-    expect(sentBody).not.toHaveProperty('flags');
     expect(sentBody.allowed_mentions).toEqual({ parse: [] });
   }, 15_000);
 
@@ -295,6 +306,7 @@ describe('auto report PNG report paths', () => {
     await vi.waitFor(() => expect(editOriginalInteractionResponse).toHaveBeenCalled());
     assertReportImageBody(
       vi.mocked(editOriginalInteractionResponse).mock.calls[0]?.[2] as Record<string, unknown>,
+      true,
     );
   }, 15_000);
 

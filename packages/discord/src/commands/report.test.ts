@@ -12,23 +12,31 @@ vi.mock('../infrastructure/discord-api.js', () => ({
 }));
 
 vi.mock('../renderers/report.js', () => ({
+  buildReportMessageFlags: vi.fn(
+    (options: { ephemeral?: boolean }): number => 4 | (options.ephemeral ? 64 : 0),
+  ),
   buildReportResponseBody: vi.fn(
     async (
       summary: ReportSummary,
       options: { ephemeral?: boolean } = {},
     ): Promise<Record<string, unknown>> => ({
       content: summary.reportLink,
-      ...(options.ephemeral ?? true ? { flags: 64 } : {}),
+      flags: 4 | ((options.ephemeral ?? true) ? 64 : 0),
+      allowed_mentions: { parse: [] },
       files: [
         {
           name: 'report-summary.png',
           attachment: new Uint8Array([137, 80, 78, 71]),
           contentType: 'image/png',
+          description: 'Raid report summary',
         },
       ],
     }),
   ),
 }));
+
+const SUPPRESS_EMBEDS_MESSAGE_FLAG = 1 << 2;
+const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
 
 const summaryFixture = (): ReportSummary => ({
   reportCode: 'ABC123',
@@ -92,21 +100,28 @@ const summaryFixture = (): ReportSummary => ({
 });
 
 const expectReportImageBody = (body: Record<string, unknown>, ephemeral: boolean): void => {
-  const files = body.files as Array<{ name?: string; attachment?: unknown; contentType?: string }>;
+  const files = body.files as Array<{
+    name?: string;
+    attachment?: unknown;
+    contentType?: string;
+    description?: string;
+  }>;
+  const flags = body.flags as number;
 
   expect(body.content).toBe('https://www.warcraftlogs.com/reports/ABC123');
   expect(body).not.toHaveProperty('embeds');
   expect(body).not.toHaveProperty('components');
-  expect(body.flags).toBe(ephemeral ? 64 : undefined);
+  expect(flags & EPHEMERAL_MESSAGE_FLAG).toBe(ephemeral ? EPHEMERAL_MESSAGE_FLAG : 0);
+  expect(flags & SUPPRESS_EMBEDS_MESSAGE_FLAG).toBe(SUPPRESS_EMBEDS_MESSAGE_FLAG);
+  expect(body.allowed_mentions).toEqual({ parse: [] });
   expect(files).toHaveLength(1);
   expect(files[0]).toMatchObject({
     name: 'report-summary.png',
     contentType: 'image/png',
+    description: 'Raid report summary',
   });
   expect(files[0]?.attachment).toBeInstanceOf(Uint8Array);
-  expect(Array.from((files[0]?.attachment as Uint8Array).slice(0, 4))).toEqual([
-    137, 80, 78, 71,
-  ]);
+  expect(Array.from((files[0]?.attachment as Uint8Array).slice(0, 4))).toEqual([137, 80, 78, 71]);
 };
 
 const expectNoReportDebugOutput = (body: Record<string, unknown>): void => {
