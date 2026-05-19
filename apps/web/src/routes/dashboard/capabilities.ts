@@ -1,5 +1,6 @@
 import type { FastifyReply } from 'fastify';
-import { hasDiscordPermission, type ActivityActor, type GuildConfig } from '';
+import { hasDiscordPermission } from '@wcl/discord';
+import type { ActivityActor, GuildConfig } from '@wcl/domain';
 import { sendError } from './dto.js';
 import {
   ADMIN_CAPABILITIES,
@@ -18,8 +19,8 @@ const hasAdministrator = (guild: DashboardOAuthGuild): boolean =>
 const hasManageGuild = (guild: DashboardOAuthGuild): boolean =>
   hasDiscordPermission(guild.permissions, 'manage-guild');
 
-const hasCreateInvite = (guild: DashboardOAuthGuild): boolean =>
-  hasDiscordPermission(guild.permissions, 'create-invite');
+const hasManageChannels = (guild: DashboardOAuthGuild): boolean =>
+  hasDiscordPermission(guild.permissions, 'manage-channels');
 
 const dedupeCapabilities = (capabilities: DashboardCapability[]): DashboardCapability[] => [
   ...new Set(capabilities),
@@ -40,8 +41,9 @@ export const getEffectiveCapabilities = (
   }
 
   const capabilities: DashboardCapability[] = [];
-  if ((hasManageGuild(oauthGuild), hasCreateInvite(oauthGuild)))
+  if (hasManageGuild(oauthGuild) || hasManageChannels(oauthGuild)) {
     capabilities.push(...GUILD_MANAGER_CAPABILITIES);
+  }
   if (
     config.dashboardOfficerAccessEnabled &&
     config.compareOfficerUserIds.includes(auth.discordUserId)

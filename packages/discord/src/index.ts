@@ -22,6 +22,8 @@ export {
 } from './infrastructure/command-registration.js';
 
 export { handleInteraction } from './infrastructure/interaction-handler.js';
+export { hasDiscordPermission } from './discord-permissions.js';
+export type { DiscordPermissionName } from './discord-permissions.js';
 export {
   handleAutoReportMessageCreate,
   makeAutoReportDuplicateCustomId,
