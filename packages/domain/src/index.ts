@@ -145,7 +145,6 @@ export {
   DEFAULT_COMPARE_ACCESS_MODE,
   DEFAULT_COMPARE_VISIBILITY,
   getCompareAuthorizationDenialMessage,
-  hasDiscordPermission,
   isCharacterClaimStatus,
   isCompareAccessMode,
   isCompareOfficer,

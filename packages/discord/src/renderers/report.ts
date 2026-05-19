@@ -283,21 +283,21 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     :root {
     color-scheme: dark;
     --card-width: 1280px;
-    --card-height:  850px;
-    --card-pad-top: 18px;
-    --card-pad-right: 18px;
-    --card-pad-bottom: 16px;
-    --card-pad-left: 28px;
-    --font-title: 24px;
-    --font-body: 16px;
-    --font-small: 18px;
-    --font-micro: 16px;
-    --font-stat-value: 25px;
-    --font-section-title: 21px;
-    --font-card-title: 18px;
-    --font-row: 18px;
-    --metric-label: 16px;
-    --metric-value: 23px;
+    --card-height:  860px;
+    --card-pad-top: 16px;
+    --card-pad-right: 16px;
+    --card-pad-bottom: 14px;
+    --card-pad-left: 25px;
+    --font-title: 28px;
+    --font-body: 18px;
+    --font-small: 21px;
+    --font-micro: 18px;
+    --font-stat-value: 29px;
+    --font-section-title: 24px;
+    --font-card-title: 21px;
+    --font-row: 21px;
+    --metric-label: 18px;
+    --metric-value: 26px;
     }
     body {
       height: var(--card-height);
@@ -317,7 +317,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       background:
         radial-gradient(circle at 12% 8%, rgba(82, 169, 255, 0.18), transparent 28%),
         linear-gradient(135deg, #111820 0%, #080c11 45%, #121821 100%);
-      padding: 20px 18px 13px 40px;
+      padding: 18px 16px 12px 36px;
       box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
     }
     #report-card::before {
@@ -348,11 +348,11 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: grid;
       place-items: center;
       color: #ffc44d;
-      font-size: 36px;
+      font-size: 35px;
       text-shadow: 0 0 24px rgba(86, 176, 255, 0.75);
     }
     h1 {
-      margin: 0 0 8px;
+      margin: 0 0 7px;
       font-size: var(--font-title);
       line-height: 1.15;
       font-weight: 800;
@@ -363,7 +363,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       gap: 8px 14px;
       align-items: center;
       color: #d7dce5;
-      font-size: 16px;
+      font-size: 18px;
     }
     .time-row span {
       display: inline-flex;
@@ -371,10 +371,11 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       align-items: center;
     }
     .stats-grid {
+      width: 100%;
       display: grid;
-      grid-template-columns: repeat(5, minmax(0, 1fr));
+      grid-template-columns: repeat(4, minmax(0, 1fr));
       gap: 8px;
-      margin-top: 10px;
+      margin-top: 9px;
     }
     .stat-tile,
     .encounter-card,
@@ -389,22 +390,22 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: flex;
       gap: 9px;
       align-items: center;
-      padding: 8px 9px;
+      padding: 7px 8px;
       background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
       border: 1px solid #323d49;
       border-radius: 7px;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
     }
-    .stat-icon { width: 37px; font-size: 36px; text-align: center; }
+    .stat-icon { width: 37px; font-size: 35px; text-align: center; }
     .stat-tile span:last-child,
     .mini-stat span,
     .pull-durations {
       color: #cbd2dc;
-      font-size: 16px;
+      font-size: 18px;
     }
     .stat-tile strong {
       display: block;
-      margin-top: 2px;
+      margin-top: 1.8px;
       font-size: var(--font-stat-value);
       line-height: 1;
     }
@@ -414,8 +415,8 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       height: 1px;
       margin-left: 0;
       margin-right: 0;
-      margin-top: 8px;
-      margin-bottom: 6px;
+      margin-top: 7px;
+      margin-bottom: 5px;
       background: #2b3540;
     }
     .section-heading {
@@ -426,8 +427,8 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       align-items: center;
       margin-left: 0;
       margin-right: 0;
-      margin-top: 8px;
-      margin-bottom: 6px;
+      margin-top: 7px;
+      margin-bottom: 5px;
       font-size: var(--font-section-title);
       font-weight: 800;
     }
@@ -442,7 +443,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       margin-right: 0;
     }
     .encounter-card {
-      padding: 10px 11px;
+      padding: 9px 10px;
       min-height: unset;
       background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
       border: 1px solid #323d49;
@@ -455,7 +456,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: flex;
       gap: 11px;
       align-items: center;
-      margin-bottom: 10px;
+      margin-bottom: 9px;
     }
     .encounter-icon {
       width: 30px;
@@ -479,7 +480,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     }
     .bad .encounter-title h3 { color: #ff5751; }
     .encounter-title p {
-      margin: 2px 0 0;
+      margin: 1.8px 0 0;
       font-size: var(--font-body);
       font-weight: 700;
     }
@@ -487,7 +488,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: grid;
       grid-template-columns: 1fr 1.2fr 1fr;
       gap: 8px;
-      padding-bottom: 5px;
+      padding-bottom: 4.5px;
       border-bottom: 1px solid #2c3540;
     }
     .mini-stat {
@@ -499,41 +500,41 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       background: rgba(18, 23, 30, 0.85);
     }
     .mini-stat strong {
-      font-size: 23px;
+      font-size: 26px;
       line-height: 1;
     }
     .pull-durations {
       display: grid;
       grid-template-columns: 1fr 1fr;
       gap: 8px;
-      padding: 4px 3px;
+      padding: 3.6px 2.7px;
       border-bottom: 1px solid #2c3540;
       color: #cbd2dc;
       font-size: var(--font-small);
       text-align: center;
     }
     .pull-durations strong {
-      margin-left: 7px;
+      margin-left: 6px;
       color: #f5f7fb;
     }
     .metric-grid {
       display: grid;
       grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 8px;
-      margin-top: 6px;
+      margin-top: 5px;
     }
     .bad .metric-grid { grid-template-columns: 1fr; }
     h4 {
-      margin: 0 0 5px;
+      margin: 0 0 4.5px;
       color: #75df70;
-      font-size: 15px;
+      font-size: 17px;
     }
     .bad h4 { color: #ff5751; }
     .metric-line {
       display: grid;
       grid-template-columns: 44px minmax(0, 1fr);
       gap: 7px;
-      margin: 4px 0;
+      margin: 3.6px 0;
       font-size: var(--font-row);
     }
     .metric-label { color: #f4f6fb; }
@@ -554,7 +555,7 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     }
     .player-card {
       min-height: 75px;
-      padding: 6px 8px;
+      padding: 5px 7px;
       background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
       border: 1px solid #323d49;
       border-radius: 7px;
@@ -564,9 +565,9 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       display: flex;
       gap: 5px;
       align-items: center;
-      margin: 0 0 4px;
+      margin: 0 0 3.6px;
       color: #d09bff;
-      font-size: 16px;
+      font-size: 18px;
     }
     .player-row {
       display: grid;
@@ -591,14 +592,14 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
       gap: 7px;
       margin-left: 0;
       margin-right: 0;
-      margin-top: 12px;
-      padding: 11px 13px;
+      margin-top: 11px;
+      padding: 10px 12px;
       background: linear-gradient(180deg, rgba(20, 27, 35, 0.96), rgba(11, 16, 22, 0.96));
       border: 1px solid #323d49;
       border-radius: 8px;
       box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
       color: #b9c2cf;
-      font-size: var(--font-micro);
+      font-size: 16px;
       line-height: 1.25;
     }
 
@@ -703,6 +704,7 @@ export const closeReportRendererBrowser = async (): Promise<void> => {
 export const renderReportSummaryPng = async (summary: ReportSummary): Promise<Uint8Array> => {
   const browser = await getBrowser();
   const page = await browser.newPage({
+    viewport: { width: 1280, height: 860 },
     deviceScaleFactor: 1,
   });
   try {

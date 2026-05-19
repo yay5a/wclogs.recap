@@ -1730,6 +1730,45 @@ describe('MongoAutoReportDuplicateTrackingStore', () => {
     });
   });
 
+  it('reclaims stale tracking when create hits an old unique record', async () => {
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'findOneAndUpdate')
+      .mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue(null),
+      } as never)
+      .mockReturnValueOnce({
+        lean: vi.fn().mockResolvedValue(processingRecord),
+      } as never);
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'create').mockRejectedValue({ code: 11000 });
+    vi.spyOn(AutoReportDuplicateTrackingModel, 'findOne').mockReturnValue({
+      lean: vi.fn().mockResolvedValue(null),
+    } as never);
+
+    const store = new MongoAutoReportDuplicateTrackingStore();
+    const result = await store.claimPassiveDetection(trackingInput);
+
+    expect(result).toMatchObject({ claimed: true, record: processingRecord });
+    expect(AutoReportDuplicateTrackingModel.findOneAndUpdate).toHaveBeenLastCalledWith(
+      {
+        guildId: 'guild-1',
+        channelId: 'channel-1',
+        reportCode: 'ABC123',
+      },
+      expect.objectContaining({
+        $set: expect.objectContaining({
+          sourceMessageId: 'source-message-1',
+          status: 'processing',
+        }),
+        $unset: {
+          latestOutputMessageId: '',
+          latestOutputKind: '',
+          duplicateConfirmationMessageId: '',
+          confirmationNonce: '',
+        },
+      }),
+      { new: true },
+    );
+  });
+
   it('stores latest output fields and enforces active expiry in lookups', async () => {
     const now = new Date('2026-04-09T00:00:00.000Z');
     vi.useFakeTimers();

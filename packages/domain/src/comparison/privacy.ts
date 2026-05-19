@@ -1,3 +1,7 @@
+import { hasDiscordPermission } from '../../../discord/src/discord-permissions.js';
+
+export type { DiscordPermissionName } from 'packages/discord/src/discord-permissions.js';
+
 export const COMPARE_ACCESS_MODES = [
   'officer_only',
   'owner_or_officer',
@@ -82,31 +86,6 @@ export interface CompareAuthorizationDecision {
   isOwner: boolean;
 }
 
-const ADMINISTRATOR_PERMISSION = 0x8n;
-const MANAGE_GUILD_PERMISSION = 0x20n;
-
-const parsePermissions = (value: string | number | bigint | null | undefined): bigint => {
-  if (typeof value === 'bigint') return value;
-  if (typeof value === 'number' && Number.isFinite(value)) return BigInt(Math.trunc(value));
-  if (typeof value === 'string' && value.trim().length > 0) {
-    try {
-      return BigInt(value);
-    } catch {
-      return 0n;
-    }
-  }
-  return 0n;
-};
-
-export const hasDiscordPermission = (
-  permissions: string | number | bigint | null | undefined,
-  permission: 'administrator' | 'manage-guild',
-): boolean => {
-  const parsed = parsePermissions(permissions);
-  const bit = permission === 'administrator' ? ADMINISTRATOR_PERMISSION : MANAGE_GUILD_PERMISSION;
-  return (parsed & bit) === bit;
-};
-
 export const isCompareOfficer = ({
   requesterDiscordUserId,
   requesterPermissions,
@@ -116,6 +95,7 @@ export const isCompareOfficer = ({
 }): boolean => {
   if (hasDiscordPermission(requesterPermissions, 'administrator')) return true;
   if (hasDiscordPermission(requesterPermissions, 'manage-guild')) return true;
+  if (hasDiscordPermission(requesterPermissions, 'manage-channels')) return true;
 
   return (guildSettings.compareOfficerUserIds ?? []).includes(requesterDiscordUserId);
 };

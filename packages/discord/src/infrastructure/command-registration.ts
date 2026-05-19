@@ -165,7 +165,7 @@ export const commandDefinitions: SlashCommandDefinition[] = [
     name: 'config',
     description: 'Configure guild report behavior',
     type: 1,
-    default_member_permissions: '32',
+    default_member_permissions: '48',
     options: [
       {
         name: 'game_family',
@@ -241,7 +241,7 @@ export const commandDefinitions: SlashCommandDefinition[] = [
     name: 'add_officer',
     description: 'Add an explicit officer user',
     type: 1,
-    default_member_permissions: '32',
+    default_member_permissions: '48',
     options: [
       {
         name: 'user',
@@ -255,7 +255,7 @@ export const commandDefinitions: SlashCommandDefinition[] = [
     name: 'remove_officer',
     description: 'Remove an explicit officer user',
     type: 1,
-    default_member_permissions: '32',
+    default_member_permissions: '48',
     options: [
       {
         name: 'user',

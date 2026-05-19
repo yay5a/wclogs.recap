@@ -5,7 +5,6 @@ import {
   DEFAULT_COMPARE_VISIBILITY,
   defaultGuildConfigFor,
   getCompareAuthorizationDenialMessage,
-  hasDiscordPermission,
   isCompareOfficer,
   parseCompareAccessMode,
   parseCompareVisibility,
@@ -13,6 +12,8 @@ import {
   type CompareApprovedCharacterClaim,
   type CompareVisibility,
 } from '../index.js';
+
+import { hasDiscordPermission } from 'packages/discord/src/discord-permissions.js';
 
 const participantKey = 'character:us:stormrage:alyra';
 

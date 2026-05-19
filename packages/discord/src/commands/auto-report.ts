@@ -113,9 +113,13 @@ const isSupportedWarcraftLogsHost = (hostname: string): boolean => {
 };
 
 export const extractFirstWarcraftLogsReportUrl = (content: string): ParsedReportUrl | null => {
-  const candidates = content.match(/https?:\/\/[^\s<>\]]+/giu) ?? [];
+  const candidates =
+    content.match(/(?:https?:\/\/)?(?:www|classic)\.warcraftlogs\.com\/[^\s<>\]]+/giu) ?? [];
   for (const rawCandidate of candidates) {
-    const candidate = stripUrlCandidate(rawCandidate);
+    const strippedCandidate = stripUrlCandidate(rawCandidate);
+    const candidate = /^https?:\/\//iu.test(strippedCandidate)
+      ? strippedCandidate
+      : `https://${strippedCandidate}`;
     let url: URL;
     try {
       url = new URL(candidate);

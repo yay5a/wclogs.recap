@@ -18,6 +18,9 @@ const hasAdministrator = (guild: DashboardOAuthGuild): boolean =>
 const hasManageGuild = (guild: DashboardOAuthGuild): boolean =>
   hasDiscordPermission(guild.permissions, 'manage-guild');
 
+const hasCreateInvite = (guild: DashboardOAuthGuild): boolean =>
+  hasDiscordPermission(guild.permissions, 'create-invite');
+
 const dedupeCapabilities = (capabilities: DashboardCapability[]): DashboardCapability[] => [
   ...new Set(capabilities),
 ];
@@ -37,7 +40,8 @@ export const getEffectiveCapabilities = (
   }
 
   const capabilities: DashboardCapability[] = [];
-  if (hasManageGuild(oauthGuild)) capabilities.push(...GUILD_MANAGER_CAPABILITIES);
+  if ((hasManageGuild(oauthGuild), hasCreateInvite(oauthGuild)))
+    capabilities.push(...GUILD_MANAGER_CAPABILITIES);
   if (
     config.dashboardOfficerAccessEnabled &&
     config.compareOfficerUserIds.includes(auth.discordUserId)

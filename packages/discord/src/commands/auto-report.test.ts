@@ -5,6 +5,7 @@ import {
   editOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
 import {
+  extractFirstWarcraftLogsReportUrl,
   handleAutoReportComponentInteraction,
   handleAutoReportMessageCreate,
   makeAutoReportDuplicateCustomId,
@@ -141,6 +142,58 @@ const baseMessage = () => ({
   content: 'https://www.warcraftlogs.com/reports/ABC123',
 });
 
+describe('auto report URL extraction', () => {
+  it('detects bare Warcraft Logs report links posted without the slash command', () => {
+    const parsed = extractFirstWarcraftLogsReportUrl(
+      'www.warcraftlogs.com/reports/ABC123#fight=last',
+    );
+
+    expect(parsed).toMatchObject({
+      reportCode: 'ABC123',
+      gameFamily: 'retail',
+      rawUrl: 'https://www.warcraftlogs.com/reports/ABC123#fight=last',
+    });
+  });
+
+  it('prompts for bare report links posted without the slash command', async () => {
+    const handleOptions = baseHandleOptions() as Record<string, unknown>;
+    (
+      handleOptions.autoReportDuplicateTrackingService as {
+        claimPassiveDetection: ReturnType<typeof vi.fn>;
+      }
+    ).claimPassiveDetection.mockResolvedValue({ claimed: true, record: null });
+    const channel = { send: vi.fn().mockResolvedValue({ id: 'prompt-message-1' }) };
+
+    await handleAutoReportMessageCreate({
+      message: {
+        ...baseMessage(),
+        content: 'classic.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions: handleOptions as never,
+    });
+
+    expect(channel.send).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: 'Detected a Warcraft Logs report.\nGenerate a report summary?',
+      }),
+    );
+    expect(
+      (
+        handleOptions.autoReportPromptStateService as {
+          savePromptState: ReturnType<typeof vi.fn>;
+        }
+      ).savePromptState,
+    ).toHaveBeenCalledWith(
+      expect.objectContaining({
+        gameFamily: 'mop_classic',
+        reportCode: 'ABC123',
+        sourceUrl: 'https://classic.warcraftlogs.com/reports/ABC123',
+      }),
+    );
+  });
+});
+
 describe('auto report duplicate claim behavior', () => {
   it('does not send duplicate confirmation when duplicate claim is from the same source message', async () => {
     const handleOptions = baseHandleOptions() as Record<string, unknown>;
@@ -243,6 +296,43 @@ describe('auto report PNG report paths', () => {
     const sentBody = channel.send.mock.calls[0]?.[0] as Record<string, unknown>;
     assertReportImageBody(sentBody);
     expect(sentBody.allowed_mentions).toEqual({ parse: [] });
+  }, 15_000);
+
+  it('uses the shared report renderer for bare passive auto-preview links', async () => {
+    const handleOptions = baseHandleOptions() as Record<string, unknown>;
+    (
+      handleOptions.guildConfigStore as { getGuildConfig: ReturnType<typeof vi.fn> }
+    ).getGuildConfig.mockResolvedValue({
+      autoReportMode: 'auto_preview',
+      autoReportChannelIds: ['channel-1'],
+    });
+    (
+      handleOptions.autoReportDuplicateTrackingService as {
+        claimPassiveDetection: ReturnType<typeof vi.fn>;
+      }
+    ).claimPassiveDetection.mockResolvedValue({ claimed: true, record: null });
+    const channel = { send: vi.fn().mockResolvedValue({ id: 'preview-message-1' }) };
+
+    await handleAutoReportMessageCreate({
+      message: {
+        ...baseMessage(),
+        content: 'www.warcraftlogs.com/reports/ABC123',
+      },
+      channel,
+      handleOptions: handleOptions as never,
+    });
+
+    expect(
+      (
+        handleOptions.wclClient as {
+          fetchReportSummary: ReturnType<typeof vi.fn>;
+        }
+      ).fetchReportSummary,
+    ).toHaveBeenCalledWith('https://www.warcraftlogs.com/reports/ABC123', {
+      discordUserId: 'user-1',
+    });
+    const sentBody = channel.send.mock.calls[0]?.[0] as Record<string, unknown>;
+    assertReportImageBody(sentBody);
   }, 15_000);
 
   it('uses the shared report renderer for passive auto-post output', async () => {

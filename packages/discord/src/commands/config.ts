@@ -162,7 +162,7 @@ export const handleConfigCommand = async (
   if (!guildId) {
     return {
       type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-      data: { content: 'Guild context is required for /config.', flags: 64 },
+      data: { content: 'Elevated permissions required for /config.', flags: 64 },
     };
   }
 

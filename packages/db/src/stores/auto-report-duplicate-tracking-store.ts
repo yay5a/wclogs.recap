@@ -129,8 +129,8 @@ const toDuplicateTrackingRecord = (doc: unknown): AutoReportDuplicateTrackingRec
 const isDuplicateKeyError = (error: unknown): boolean =>
   typeof error === 'object' &&
   error !== null &&
-  'code' in error &&
-  (error as { code?: unknown }).code === 11000;
+  ((error as { code?: unknown }).code === 11000 ||
+    (error as { cause?: { code?: unknown } }).cause?.code === 11000);
 
 export class MongoAutoReportDuplicateTrackingStore {
   public async claimPassiveDetection(
@@ -182,7 +182,29 @@ export class MongoAutoReportDuplicateTrackingStore {
         channelId: input.channelId,
         reportCode: input.reportCode,
       });
-      return { claimed: false, record: existing };
+      if (existing) return { claimed: false, record: existing };
+
+      const reclaimedStale = await AutoReportDuplicateTrackingModel.findOneAndUpdate(
+        {
+          guildId: input.guildId,
+          channelId: input.channelId,
+          reportCode: input.reportCode,
+        },
+        {
+          $set: claimUpdate,
+          $unset: {
+            latestOutputMessageId: '',
+            latestOutputKind: '',
+            duplicateConfirmationMessageId: '',
+            confirmationNonce: '',
+          },
+        },
+        { new: true },
+      ).lean();
+      const parsedReclaimedStale = toDuplicateTrackingRecord(reclaimedStale);
+      return parsedReclaimedStale
+        ? { claimed: true, record: parsedReclaimedStale }
+        : { claimed: false, record: null };
     }
   }
 
