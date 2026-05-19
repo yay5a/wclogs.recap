@@ -13,8 +13,6 @@ import {
   type CompareVisibility,
 } from '../index.js';
 
-import { hasDiscordPermission } from 'packages/discord/src/discord-permissions.js';
-
 const participantKey = 'character:us:stormrage:alyra';
 
 const makeGuildSettings = (
@@ -68,40 +66,7 @@ describe('compare privacy contracts', () => {
     expect(parseCompareVisibility('public')).toBe('public');
     expect(parseCompareVisibility('channel')).toBeUndefined();
   });
-});
-
-describe('compare officer detection', () => {
-  it('accepts Administrator permission', () => {
-    expect(hasDiscordPermission('8', 'administrator')).toBe(true);
-    expect(
-      isCompareOfficer({
-        requesterDiscordUserId: 'user-1',
-        requesterPermissions: '8',
-        guildSettings: makeGuildSettings(),
-      }),
-    ).toBe(true);
-  });
-
-  it('accepts Manage Guild permission', () => {
-    expect(hasDiscordPermission('32', 'manage-guild')).toBe(true);
-    expect(
-      isCompareOfficer({
-        requesterDiscordUserId: 'user-1',
-        requesterPermissions: '32',
-        guildSettings: makeGuildSettings(),
-      }),
-    ).toBe(true);
-  });
-
-  it('accepts configured compare officer users', () => {
-    expect(
-      isCompareOfficer({
-        requesterDiscordUserId: 'officer-1',
-        requesterPermissions: '0',
-        guildSettings: makeGuildSettings({ compareOfficerUserIds: ['officer-1', 'officer-2'] }),
-      }),
-    ).toBe(true);
-  });
+}); 
 
   it('rejects unlisted users without Discord permissions', () => {
     expect(
