@@ -1,5 +1,5 @@
 import type { FastifyReply } from 'fastify';
-import { hasDiscordPermission, type ActivityActor, type GuildConfig } from '@wcl/domain';
+import { hasDiscordPermission, type ActivityActor, type GuildConfig } from '';
 import { sendError } from './dto.js';
 import {
   ADMIN_CAPABILITIES,
