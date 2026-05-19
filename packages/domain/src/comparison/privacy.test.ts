@@ -66,6 +66,7 @@ describe('compare privacy contracts', () => {
     expect(parseCompareVisibility('public')).toBe('public');
     expect(parseCompareVisibility('channel')).toBeUndefined();
   });
+<<<<<<< Updated upstream
 }); 
 
   it('rejects unlisted users without Discord permissions', () => {
@@ -89,6 +90,40 @@ describe('compare privacy contracts', () => {
       }),
     ).toBe(false);
   });
+=======
+});
+
+it('accepts configured compare officer users', () => {
+  expect(
+    isCompareOfficer({
+      requesterDiscordUserId: 'officer-1',
+      requesterPermissions: '0',
+      guildSettings: makeGuildSettings({ compareOfficerUserIds: ['officer-1', 'officer-2'] }),
+    }),
+  ).toBe(true);
+});
+
+it('rejects unlisted users without Discord permissions', () => {
+  expect(
+    isCompareOfficer({
+      requesterDiscordUserId: 'user-1',
+      requesterPermissions: '0',
+      guildSettings: makeGuildSettings({ compareOfficerUserIds: ['officer-1'] }),
+    }),
+  ).toBe(false);
+});
+
+it('does not accept unlisted users as officer authorization', () => {
+  expect(
+    isCompareOfficer({
+      requesterDiscordUserId: 'user-1',
+      requesterPermissions: '0',
+      guildSettings: makeGuildSettings({
+        compareOfficerUserIds: [],
+      }),
+    }),
+  ).toBe(false);
+>>>>>>> Stashed changes
 });
 
 describe('compare authorization', () => {
