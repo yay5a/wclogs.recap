@@ -44,6 +44,7 @@ Verify the URL is a valid Warcraft Logs report URL.
 Retry after a short delay.
 
 ## Using `/guildrank`
+_this feature still under development - `/guildrank` is usable, but will not show anything useful_
 
 Command format:
 
