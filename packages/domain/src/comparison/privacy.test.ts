@@ -66,8 +66,6 @@ describe('compare privacy contracts', () => {
     expect(parseCompareVisibility('public')).toBe('public');
     expect(parseCompareVisibility('channel')).toBeUndefined();
   });
-<<<<<<< Updated upstream
-}); 
 
   it('rejects unlisted users without Discord permissions', () => {
     expect(
@@ -90,7 +88,6 @@ describe('compare privacy contracts', () => {
       }),
     ).toBe(false);
   });
-=======
 });
 
 it('accepts configured compare officer users', () => {
@@ -123,7 +120,6 @@ it('does not accept unlisted users as officer authorization', () => {
       }),
     }),
   ).toBe(false);
->>>>>>> Stashed changes
 });
 
 describe('compare authorization', () => {
