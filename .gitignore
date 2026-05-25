@@ -9,3 +9,5 @@ coverage
 nvim.log
 AGENTS.md
 docs/wcl-*
+scripts/*
+dependency-cruiser*
