@@ -96,8 +96,9 @@ const characterClaimStore = new MongoCharacterClaimStore();
 const dashboardActivityStore = new MongoDashboardActivityStore();
 const dashboardOnboardingStore = new MongoDashboardOnboardingStore();
 const dashboardAssetRootCandidates = [
-  resolve(__dirname, '../../../../client'),
+  resolve(__dirname, '../../client'),
   resolve(__dirname, '../dist/client'),
+  resolve(__dirname, '../client'),
 ] as const;
 const dashboardAssetRoot =
   dashboardAssetRootCandidates.find((candidate) => existsSync(resolve(candidate, 'index.html'))) ??

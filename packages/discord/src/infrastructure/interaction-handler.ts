@@ -1,7 +1,6 @@
 import { InteractionResponseType, InteractionType } from 'discord-interactions';
 import { createLogger } from '@wcl/shared';
 import type { HandleOptions } from '../types.js';
-import { hasDiscordPermission, DiscordPermissionName } from '../discord-permissions.js';
 import {
   handleApproveCharacterCommand,
   handleClaimCharacterCommand,

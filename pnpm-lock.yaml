@@ -108,6 +108,9 @@ importers:
       '@wcl/discord':
         specifier: workspace:*
         version: link:../../packages/discord
+      '@wcl/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@wcl/shared':
         specifier: workspace:*
         version: link:../../packages/shared

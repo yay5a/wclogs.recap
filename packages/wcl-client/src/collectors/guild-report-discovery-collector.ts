@@ -197,7 +197,7 @@ export const collectGuildReportDiscovery = async (
       );
       return { rows: [], source: 'none' };
     }
-    const payload = await response.json();
+    const payload: unknown = await response.json();
     const rawRows = parseV1Rows(payload);
     const rows = filterRowsToWindow(rawRows, input);
     logger.info(
