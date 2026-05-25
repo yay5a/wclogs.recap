@@ -360,7 +360,7 @@ export class MongoCharacterClaimStore {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: 'after',
         setDefaultsOnInsert: true,
       },
     ).lean();
@@ -395,7 +395,7 @@ export class MongoCharacterClaimStore {
         },
       },
       {
-        new: true,
+        returnDocument: 'after',
       },
     ).lean();
 
@@ -425,7 +425,7 @@ export class MongoCharacterClaimStore {
           ...normalizedClaimFields(input),
         },
       },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
 
     return toCharacterClaimRecord(saved);
@@ -451,7 +451,7 @@ export class MongoCharacterClaimStore {
           ...(input.revokeReason ? { revokeReason: input.revokeReason } : {}),
         },
       },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
 
     return toCharacterClaimRecord(saved);
@@ -474,7 +474,7 @@ export class MongoCharacterClaimStore {
             : {}),
         },
       },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
 
     return toCharacterClaimRecord(saved);
@@ -497,7 +497,7 @@ export class MongoCharacterClaimStore {
             : {}),
         },
       },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
 
     return toCharacterClaimRecord(saved);
@@ -521,7 +521,7 @@ export class MongoCharacterClaimStore {
           ...(input.revokeReason ? { revokeReason: input.revokeReason } : {}),
         },
       },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
 
     return toCharacterClaimRecord(saved);
@@ -576,7 +576,7 @@ export class MongoCharacterClaimStore {
         status: 'approved',
       },
       { $set: update },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
 
     return toCharacterClaimRecord(saved);

@@ -161,7 +161,7 @@ export class MongoAutoReportDuplicateTrackingStore {
           confirmationNonce: '',
         },
       },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
     const parsedReclaimed = toDuplicateTrackingRecord(reclaimedExpired);
     if (parsedReclaimed) return { claimed: true, record: parsedReclaimed };
@@ -199,7 +199,7 @@ export class MongoAutoReportDuplicateTrackingStore {
             confirmationNonce: '',
           },
         },
-        { new: true },
+        { returnDocument: 'after' },
       ).lean();
       const parsedReclaimedStale = toDuplicateTrackingRecord(reclaimedStale);
       return parsedReclaimedStale
@@ -239,7 +239,7 @@ export class MongoAutoReportDuplicateTrackingStore {
     const saved = await AutoReportDuplicateTrackingModel.findOneAndUpdate(
       { guildId, channelId, reportCode },
       { $set: update },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
     return toDuplicateTrackingRecord(saved);
   }

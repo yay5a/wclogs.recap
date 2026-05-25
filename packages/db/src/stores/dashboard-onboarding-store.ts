@@ -71,7 +71,7 @@ export class MongoDashboardOnboardingStore {
         },
         $unset: { archivedAt: '' },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     ).lean();
 
     const parsed = toOnboardingState(saved);

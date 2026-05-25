@@ -329,7 +329,7 @@ export class MongoGuildReportMetadataStore implements GuildReportMetadataStore {
           lastIndexedAt: input.lastIndexedAt ?? new Date(),
         },
       },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     ).lean();
     const parsed = parseCursor(saved);
     if (!parsed) throw new Error('Failed to persist guild report metadata cursor.');

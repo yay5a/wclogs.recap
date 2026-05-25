@@ -178,7 +178,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: 'after',
         setDefaultsOnInsert: true,
       },
     ).lean();
@@ -204,7 +204,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
         $unset: { dashboardDeconfiguredAt: '' },
       },
       {
-        new: true,
+        returnDocument: 'after',
       },
     ).lean();
 
@@ -227,7 +227,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: 'after',
         setDefaultsOnInsert: true,
       },
     ).lean();
@@ -246,7 +246,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: 'after',
         setDefaultsOnInsert: true,
       },
     ).lean();
@@ -265,7 +265,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
         $addToSet: { compareOfficerUserIds: normalizedDiscordUserId },
       },
       {
-        new: true,
+        returnDocument: 'after',
       },
     ).lean();
 
@@ -286,7 +286,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
       },
       {
         upsert: true,
-        new: true,
+        returnDocument: 'after',
         setDefaultsOnInsert: true,
       },
     ).lean();
@@ -305,7 +305,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
         $pull: { compareOfficerUserIds: normalizedDiscordUserId },
       },
       {
-        new: true,
+        returnDocument: 'after',
       },
     ).lean();
 
@@ -319,7 +319,7 @@ export class MongoGuildConfigStore implements GuildConfigStore {
     const saved = await GuildSettingsModel.findOneAndUpdate(
       activeGuildFilter(guildId),
       { $set: { dashboardDeconfiguredAt: deconfiguredAt } },
-      { new: true },
+      { returnDocument: 'after' },
     ).lean();
 
     return Boolean(saved);

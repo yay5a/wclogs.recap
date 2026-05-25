@@ -55,7 +55,7 @@ export class MongoAutoReportPromptStateStore {
     const saved = await AutoReportPromptStateModel.findOneAndUpdate(
       { sourceMessageId: input.sourceMessageId },
       { $set: input },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
+      { upsert: true, returnDocument: 'after', setDefaultsOnInsert: true },
     ).lean();
 
     const parsed = toPromptStateRecord(saved);
