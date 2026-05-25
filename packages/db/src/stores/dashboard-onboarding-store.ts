@@ -28,6 +28,16 @@ const toOnboardingState = (doc: unknown): DashboardOnboardingState | null => {
   };
 };
 
+const onboardingFilter = (input: {
+  userKey: string;
+  guildId?: string;
+  onboardingVersion: number;
+}) => ({
+  userKey: input.userKey,
+  ...(input.guildId !== undefined ? { guildId: input.guildId } : {}),
+  onboardingVersion: input.onboardingVersion,
+});
+
 export class MongoDashboardOnboardingStore {
   public async getOnboardingState(input: {
     userKey: string;
@@ -35,9 +45,7 @@ export class MongoDashboardOnboardingStore {
     onboardingVersion: number;
   }): Promise<DashboardOnboardingState> {
     const found = await DashboardOnboardingModel.findOne({
-      userKey: input.userKey,
-      guildId: input.guildId,
-      onboardingVersion: input.onboardingVersion,
+      ...onboardingFilter(input),
       archivedAt: { $exists: false },
     }).lean();
 
@@ -55,11 +63,7 @@ export class MongoDashboardOnboardingStore {
     input: DashboardOnboardingState,
   ): Promise<DashboardOnboardingState> {
     const saved = await DashboardOnboardingModel.findOneAndUpdate(
-      {
-        userKey: input.userKey,
-        guildId: input.guildId,
-        onboardingVersion: input.onboardingVersion,
-      },
+      onboardingFilter(input),
       {
         $set: {
           seenSteps: [...new Set(input.seenSteps)],

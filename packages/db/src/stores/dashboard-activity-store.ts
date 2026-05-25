@@ -1,5 +1,8 @@
 import type { BotActivityEvent, BotActivityStore } from '@wcl/domain';
-import { DashboardActivityModel } from '../models/dashboard-activity-model.js';
+import {
+  DashboardActivityModel,
+  type DashboardActivityDocument,
+} from '../models/dashboard-activity-model.js';
 
 const DEFAULT_RETENTION_MS = 90 * 24 * 60 * 60 * 1000;
 
@@ -44,27 +47,46 @@ const toActivityRecord = (doc: unknown): DashboardActivityRecord | null => {
   };
 };
 
+const toActivityInsert = (
+  event: BotActivityEvent,
+  expiresAt: Date,
+): DashboardActivityDocument => ({
+  guildId: event.guildId,
+  ...(event.channelId !== undefined ? { channelId: event.channelId } : {}),
+  ...(event.sourceMessageId !== undefined ? { sourceMessageId: event.sourceMessageId } : {}),
+  ...(event.actor !== undefined ? { actor: event.actor } : {}),
+  kind: event.kind,
+  ...(event.reportCode !== undefined ? { reportCode: event.reportCode } : {}),
+  ...(event.sourceUrl !== undefined ? { sourceUrl: event.sourceUrl } : {}),
+  ...(event.discordMessageUrl !== undefined
+    ? { discordMessageUrl: event.discordMessageUrl }
+    : {}),
+  ...(event.characterLabel !== undefined ? { characterLabel: event.characterLabel } : {}),
+  ...(event.targetDiscordUserId !== undefined
+    ? { targetDiscordUserId: event.targetDiscordUserId }
+    : {}),
+  ...(event.idempotencyKey !== undefined ? { idempotencyKey: event.idempotencyKey } : {}),
+  createdAt: event.createdAt,
+  expiresAt,
+});
+
 export class MongoDashboardActivityStore implements BotActivityStore {
   public async recordActivity(event: BotActivityEvent): Promise<void> {
     const expiresAt = new Date(event.createdAt.getTime() + DEFAULT_RETENTION_MS);
+    const insert = toActivityInsert(event, expiresAt);
+
     if (event.idempotencyKey) {
       await DashboardActivityModel.findOneAndUpdate(
         { idempotencyKey: event.idempotencyKey },
         {
-          $setOnInsert: {
-            ...event,
-            expiresAt,
-          },
+          $setOnInsert: insert,
         },
         { upsert: true },
       );
       return;
     }
 
-    await DashboardActivityModel.create({
-      ...event,
-      expiresAt,
-    });
+    await DashboardActivityModel.create(insert);
   }
 
   public async listActivity(input: {
