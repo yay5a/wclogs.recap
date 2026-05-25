@@ -16,7 +16,7 @@
         "@wcl/domain": "workspace:*",
         "@wcl/shared": "workspace:*",
         "@wcl/wcl-client": "workspace:*",
-        "discord-interactions": "^4.1.0",
+        "discord-interactions": "^4.4.0",
         "playwright-chromium": "^1.60.0"
     },
     "devDependencies": {

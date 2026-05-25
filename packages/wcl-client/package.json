@@ -19,6 +19,6 @@
     "dependencies": {
         "@wcl/domain": "workspace:*",
         "@wcl/shared": "workspace:*",
-        "graphql-request": "^7.1.2"
+        "graphql-request": "^7.4.0"
     }
 }

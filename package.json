@@ -14,16 +14,16 @@
         "format": "prettier --write ."
     },
     "devDependencies": {
-        "@eslint/js": "^9.39.4",
-        "@types/node": "^22.19.17",
-        "@typescript-eslint/eslint-plugin": "^8.58.1",
-        "@typescript-eslint/parser": "^8.58.1",
-        "eslint": "^9.39.4",
+        "@eslint/js": "^10.0.1",
+        "@types/node": "^25.9.1",
+        "@typescript-eslint/eslint-plugin": "^8.59.4",
+        "@typescript-eslint/parser": "^8.59.4",
+        "eslint": "^10.4.0",
         "eslint-config-prettier": "^10.1.8",
-        "prettier": "^3.8.1",
-        "tsx": "^4.21.0",
-        "typescript": "^5.9.3",
-        "typescript-eslint": "^8.58.1",
-        "vitest": "^3.2.4"
+        "prettier": "^3.8.3",
+        "tsx": "^4.22.3",
+        "typescript": "^6.0.3",
+        "typescript-eslint": "^8.59.4",
+        "vitest": "^4.1.6"
     }
 }

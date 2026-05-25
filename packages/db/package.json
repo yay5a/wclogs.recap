@@ -12,7 +12,7 @@
     "test": "vitest run --passWithNoTests"
   },
   "dependencies": {
-    "mongoose": "^8.13.2",
-    "@wcl/domain": "workspace:*"
+    "@wcl/domain": "workspace:*",
+    "mongoose": "^9.6.2"
   }
 }
