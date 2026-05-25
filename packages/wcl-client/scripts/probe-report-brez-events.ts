@@ -2,6 +2,7 @@ import type { GameFamily } from '@wcl/domain';
 import { WclGraphqlClient } from '../src/graphql-client.js';
 import { resolveWclPublicClientAuth } from '../src/auth-mode.js';
 import { parseReportUrl } from '../src/report-code.js';
+import { collectReportIndex } from '../src/collectors/report-index-collector.js';
 
 const toProbeApiBaseUrl = (apiBaseUrl: string, gameFamily: GameFamily): string => {
   if (gameFamily !== 'mop_classic') return apiBaseUrl;
@@ -31,7 +32,7 @@ if (!reportInput) {
 const trimmedReportInput = reportInput.trim();
 
 const parsed = /^[A-Za-z0-9]+$/.test(trimmedReportInput)
-  ? { reportCode: trimmedReportInput, gameFamily: 'retail' as const }
+  ? { reportCode: trimmedReportInput, gameFamily: 'retail' as const, rawUrl: trimmedReportInput }
   : parseReportUrl(trimmedReportInput);
 
 const clientId = process.env.WCL_CLIENT_ID;
@@ -53,7 +54,13 @@ const client = new WclGraphqlClient({
   apiBaseUrl,
 });
 
-void client;
+const index = await collectReportIndex(client, {
+  sourceUrl: parsed.rawUrl,
+  reportCode: parsed.reportCode,
+  gameFamily: parsed.gameFamily,
+});
+
+console.log(index.completedBossFights.map((fight) => fight.id).join('\n'));
 
 console.log({
   reportCode: parsed.reportCode,
