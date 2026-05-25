@@ -13,7 +13,7 @@ import type {
   GuildConfig,
   GuildConfigStore,
 } from '@wcl/domain';
-import { GuildSettingsModel } from '../index.js';
+import { GuildSettingsModel } from '../models/guild-settings-model.js';
 
 type GuildConfigUpdate = Partial<Omit<GuildConfig, 'guildId'>>;
 

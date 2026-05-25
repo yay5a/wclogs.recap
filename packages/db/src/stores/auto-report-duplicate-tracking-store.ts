@@ -1,5 +1,5 @@
 import type { AutoReportMode, GameFamily } from '@wcl/domain';
-import { AutoReportDuplicateTrackingModel } from '../index.js';
+import { AutoReportDuplicateTrackingModel } from '../models/auto-report-duplicate-tracking-model.js';
 
 export type AutoReportDuplicateStatus =
   | 'processing'

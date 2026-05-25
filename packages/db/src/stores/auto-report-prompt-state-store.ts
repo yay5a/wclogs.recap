@@ -1,5 +1,5 @@
 import type { GameFamily } from '@wcl/domain';
-import { AutoReportPromptStateModel } from '../index.js';
+import { AutoReportPromptStateModel } from '../models/auto-report-prompt-state-model.js';
 
 export interface AutoReportPromptStateRecord {
   guildId: string;
