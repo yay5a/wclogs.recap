@@ -3,6 +3,50 @@ import { WclGraphqlClient } from '../src/graphql-client.js';
 import { resolveWclPublicClientAuth } from '../src/auth-mode.js';
 import { parseReportUrl } from '../src/report-code.js';
 import { collectReportIndex } from '../src/collectors/report-index-collector.js';
+import { asArray, asNumber, asObject, asString } from '../src/parsers/common.js';
+
+// Battle-Rez Events schema
+const REPORT_BREZ_EVENTS_QUERY = `
+query ReportBrezEventsPage(
+  $code: String!
+  $allowUnlisted: Boolean!
+  $fightIDs: [Int]
+  $limit: Int
+  $filterExpression: String
+) {
+  reportData {
+    report(code: $code, allowUnlisted: $allowUnlisted) {
+      events(
+        fightIDs: $fightIDs
+        limit: $limit
+        dataType: All
+        filterExpression: $filterExpression
+        translate: false
+        useActorIDs: true
+        useAbilityIDs: true
+      ) {
+        data
+        nextPageTimestamp
+      }
+    }
+  }
+}
+`;
+
+// Battle-Rez filter
+const BREZ_FILTER_EXPRESSION = `
+(
+  type = "death"
+  AND target.type = "player"
+  AND feign != true
+)
+OR
+(
+  source.type = "player"
+  AND type IN ("cast", "resurrect")
+  AND ability.name IN ("Rebirth", "Raise Ally", "Soulstone")
+)
+`;
 
 const toProbeApiBaseUrl = (apiBaseUrl: string, gameFamily: GameFamily): string => {
   if (gameFamily !== 'mop_classic') return apiBaseUrl;
@@ -60,10 +104,92 @@ const index = await collectReportIndex(client, {
   gameFamily: parsed.gameFamily,
 });
 
-console.log(index.completedBossFights.map((fight) => fight.id).join('\n'));
+// Variables object shape
+const variables = {
+  code: parsed.reportCode,
+  allowUnlisted: true,
+  fightIDs: index.completedBossFights.map((fight) => fight.id),
+  limit: 1000,
+  filterExpression: BREZ_FILTER_EXPRESSION,
+};
 
-console.log({
+// Query helpers to parse response payload
+const getEventNode = (payload: unknown): Record<string, unknown> | undefined => {
+  const root = asObject(payload);
+  const data = asObject(root?.data);
+  const reportData = asObject(data?.reportData ?? root?.reportData);
+  const report = asObject(reportData?.report);
+  return asObject(report?.events);
+};
+
+const getEventRows = (eventsNode: unknown): unknown[] => {
+  const node = asObject(eventsNode);
+  return asArray(node?.data) ?? [];
+};
+
+const summarizeEvent = (event: unknown): Record<string, unknown> | undefined => {
+  const row = asObject(event);
+  if (!row) return undefined;
+
+  const ability = asObject(row.ability);
+
+  return {
+    type: asString(row.type),
+    timestamp: asNumber(row.timestamp),
+    sourceID: asNumber(row.sourceID),
+    targetID: asNumber(row.targetID),
+    abilityName: asString(ability?.name),
+  };
+};
+
+const payload = await client.request<Record<string, unknown>>(REPORT_BREZ_EVENTS_QUERY, variables);
+
+const eventsNode = getEventNode(payload);
+const rows = getEventRows(eventsNode);
+const firstRow = asObject(rows[0]);
+const nextPageTimestamp = asNumber(asObject(eventsNode)?.nextPageTimestamp);
+
+const eventTypeCounts = rows.reduce<Record<string, number>>((counts, event) => {
+  const row = asObject(event);
+  const type = asString(row?.type) ?? 'unknown';
+  counts[type] = (counts[type] ?? 0) + 1;
+  return counts;
+}, {});
+
+const nonDeathRows = rows.filter((event) => {
+  const row = asObject(event);
+  return asString(row?.type) !== 'death';
+});
+
+const nonDeathSamples = nonDeathRows.slice(0, 20);
+
+console.log(
+  JSON.stringify(
+    {
+      reportCode: parsed.reportCode,
+      gameFamily: parsed.gameFamily,
+      apiBaseUrl,
+      completedBossFightCount: index.completedBossFights.length,
+      completedBossFightIds: index.completedBossFights.map((fight) => fight.id),
+      eventsPayloadKeys: eventsNode ? Object.keys(eventsNode) : [],
+      eventRowCount: rows.length,
+      eventTypeCounts,
+      nonDeathRowCount: nonDeathRows.length,
+      nonDeathSamples,
+      firstEventRowKeys: firstRow ? Object.keys(firstRow) : [],
+      nextPageTimestamp,
+      samples: rows.slice(0, 5).map(summarizeEvent),
+      rawSamples: rows.slice(0, 5),
+    },
+    null,
+    2,
+  ),
+);
+
+// console.log(index.completedBossFights.map((fight) => fight.id).join('\n'));
+
+/* console.log({
   reportCode: parsed.reportCode,
   gameFamily: parsed.gameFamily,
   apiBaseUrl,
-});
+}); */
