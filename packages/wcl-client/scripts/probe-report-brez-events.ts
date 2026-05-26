@@ -216,7 +216,7 @@ const candidateMatches = resurrectRows.flatMap((resurrect) => {
       targetID: resurrect.targetID,
       deathTimestamp: latestDeath.timestamp,
       resurrectTimestamp: resurrect.timestamp,
-      responseMs: resurrect.timestamp - latestDeath.timestamp,
+      responseSec: (resurrect.timestamp - latestDeath.timestamp) / 1000,
       sourceID: resurrect.sourceID,
       abilityGameID: resurrect.abilityGameID,
     },
