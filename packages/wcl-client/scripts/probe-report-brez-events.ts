@@ -287,6 +287,30 @@ for (const ability of getAbilityRows(abilityPayload)) {
 const getAbilityName = (abilityGameID: number | undefined): string | undefined =>
   typeof abilityGameID === 'number' ? abilityNameByGameId.get(abilityGameID) : undefined;
 
+const soulstoneRows = rows.filter((event) => {
+  const row = asObject(event);
+  return asNumber(row?.abilityGameID) === 20707;
+});
+
+const soulstoneSamples = soulstoneRows.map((event) => {
+  const row = asObject(event);
+  const sourceID = asNumber(row?.sourceID);
+  const targetID = asNumber(row?.targetID);
+  const abilityGameID = asNumber(row?.abilityGameID);
+
+  return {
+    timestamp: asNumber(row?.timestamp),
+    type: asString(row?.type),
+    fight: asNumber(row?.fight),
+    sourceID,
+    sourceName: getPlayerName(sourceID),
+    targetID,
+    targetName: getPlayerName(targetID),
+    abilityGameID,
+    abilityName: getAbilityName(abilityGameID),
+  };
+});
+
 const candidateMatches = resurrectRows.flatMap((resurrect) => {
   const abilityName = getAbilityName(resurrect.abilityGameID);
   const deaths = deathsByFightAndTarget.get(deathKey(resurrect)) ?? [];
@@ -362,6 +386,7 @@ console.log(
       nonDeathSamples,
       hasNextPage: typeof nextPageTimestamp === 'number',
       nextPageTimestamp,
+      soulstoneSamples,
       samples: rows.slice(0, 5).map(summarizeEvent),
       rawSamples: rows.slice(0, 5),
       resurrectRowCount: resurrectRows.length,
