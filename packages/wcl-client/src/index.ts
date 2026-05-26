@@ -87,3 +87,13 @@ export type {
   ExchangeWclAuthorizationCodeOptions,
   WclAuthorizationCodeTokenPayload,
 } from './oauth.js';
+
+export { parseBrezSummary } from './parsers/brez-parser.js';
+
+export type {
+  BrezActor,
+  BrezMatch,
+  BrezPlayerName,
+  BrezCountPlayers,
+  BrezSummary,
+} from './parsers/brez-parser.js';
