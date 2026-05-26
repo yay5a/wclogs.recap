@@ -22,8 +22,8 @@ export type BrezMatch = {
   caster: BrezPlayerName;
   receiver: BrezPlayerName;
   fightID: number;
-  deathTimestampMs: number;
-  resurrectTimestampMs: number;
+  deathTimestamp: string;
+  resurrectTimestamp: string;
   responseSec: number;
 };
 
@@ -41,6 +41,19 @@ type ParsedBrezEvent = {
   fight: number;
   targetID: number;
   sourceID?: number;
+};
+
+const formatReportTimestamp = (timestampMs: number): string => {
+  const totalSeconds = Math.floor(timestampMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [
+    String(hours).padStart(2, '0'),
+    String(minutes).padStart(2, '0'),
+    String(seconds).padStart(2, '0'),
+  ].join(':');
 };
 
 export const parseBrezSummary = (events: unknown[], actors: BrezActor[]): BrezSummary => {
@@ -93,8 +106,8 @@ export const parseBrezSummary = (events: unknown[], actors: BrezActor[]): BrezSu
         name: receiverName,
       },
       fightID: resurrect.fight,
-      deathTimestampMs: latestDeath.timestamp,
-      resurrectTimestampMs: resurrect.timestamp,
+      deathTimestamp: formatReportTimestamp(latestDeath.timestamp),
+      resurrectTimestamp: formatReportTimestamp(resurrect.timestamp),
       responseSec: responseMs / 1000,
     };
     incrementPlayerCount(casterCounts, match.caster);

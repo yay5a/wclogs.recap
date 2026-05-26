@@ -5,6 +5,7 @@ import { parseReportUrl } from '../src/report-code.js';
 import { collectReportIndex } from '../src/collectors/report-index-collector.js';
 import { collectMasterData } from '../src/collectors/master-data-collector.js';
 import { asArray, asNumber, asObject, asString } from '../src/parsers/common.js';
+import { parseBrezSummary } from '../src/parsers/brez-parser.js';
 
 // Battle-Rez Events schema
 const REPORT_BREZ_EVENTS_QUERY = `
@@ -184,6 +185,8 @@ const eventsNode = getEventNode(payload);
 const rows = getEventRows(eventsNode);
 const firstRow = asObject(rows[0]);
 const nextPageTimestamp = asNumber(asObject(eventsNode)?.nextPageTimestamp);
+
+const brezSummary = parseBrezSummary(rows, masterData.actors);
 
 const summarizeEvent = (event: unknown): Record<string, unknown> | undefined => {
   const row = asObject(event);
@@ -392,6 +395,7 @@ console.log(
       resurrectRowCount: resurrectRows.length,
       candidateMatchCount: candidateMatches.length,
       candidateMatches,
+      brezSummary,
     },
     null,
     2,
