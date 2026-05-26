@@ -127,6 +127,13 @@ const getEventRows = (eventsNode: unknown): unknown[] => {
   return asArray(node?.data) ?? [];
 };
 
+const payload = await client.request<Record<string, unknown>>(REPORT_BREZ_EVENTS_QUERY, variables);
+
+const eventsNode = getEventNode(payload);
+const rows = getEventRows(eventsNode);
+const firstRow = asObject(rows[0]);
+const nextPageTimestamp = asNumber(asObject(eventsNode)?.nextPageTimestamp);
+
 const summarizeEvent = (event: unknown): Record<string, unknown> | undefined => {
   const row = asObject(event);
   if (!row) return undefined;
@@ -142,12 +149,79 @@ const summarizeEvent = (event: unknown): Record<string, unknown> | undefined => 
   };
 };
 
-const payload = await client.request<Record<string, unknown>>(REPORT_BREZ_EVENTS_QUERY, variables);
+type ProbeMatchEvent = {
+  type: string;
+  timestamp: number;
+  fight: number;
+  targetID: number;
+  sourceID?: number;
+  abilityGameID?: number;
+};
 
-const eventsNode = getEventNode(payload);
-const rows = getEventRows(eventsNode);
-const firstRow = asObject(rows[0]);
-const nextPageTimestamp = asNumber(asObject(eventsNode)?.nextPageTimestamp);
+const toMatchEvent = (event: unknown): ProbeMatchEvent | undefined => {
+  const row = asObject(event);
+  if (!row) return undefined;
+
+  const type = asString(row.type);
+  const timestamp = asNumber(row.timestamp);
+  const fight = asNumber(row.fight);
+  const targetID = asNumber(row.targetID);
+
+  if (
+    !type ||
+    typeof timestamp !== 'number' ||
+    typeof fight !== 'number' ||
+    typeof targetID !== 'number'
+  ) {
+    return undefined;
+  }
+
+  const sourceID = asNumber(row.sourceID);
+  const abilityGameID = asNumber(row.abilityGameID);
+
+  return {
+    type,
+    timestamp,
+    fight,
+    targetID,
+    ...(typeof sourceID === 'number' ? { sourceID } : {}),
+    ...(typeof abilityGameID === 'number' ? { abilityGameID } : {}),
+  };
+};
+
+const matchEvents = rows.flatMap((event) => {
+  const parsedEvent = toMatchEvent(event);
+  return parsedEvent ? [parsedEvent] : [];
+});
+const deathRows = matchEvents.filter((event) => event.type === 'death');
+const resurrectRows = matchEvents.filter((event) => event.type === 'resurrect');
+
+const candidateMatches = resurrectRows.flatMap((resurrect) => {
+  let latestDeath: (typeof deathRows)[number] | undefined;
+
+  for (const death of deathRows) {
+    if (death.fight !== resurrect.fight) continue;
+    if (death.targetID !== resurrect.targetID) continue;
+    if (death.timestamp >= resurrect.timestamp) continue;
+    if (!latestDeath || death.timestamp > latestDeath.timestamp) {
+      latestDeath = death;
+    }
+  }
+
+  if (!latestDeath) return [];
+
+  return [
+    {
+      fight: resurrect.fight,
+      targetID: resurrect.targetID,
+      deathTimestamp: latestDeath.timestamp,
+      resurrectTimestamp: resurrect.timestamp,
+      responseMs: resurrect.timestamp - latestDeath.timestamp,
+      sourceID: resurrect.sourceID,
+      abilityGameID: resurrect.abilityGameID,
+    },
+  ];
+});
 
 const eventTypeCounts = rows.reduce<Record<string, number>>((counts, event) => {
   const row = asObject(event);
@@ -173,13 +247,16 @@ console.log(
       completedBossFightIds: index.completedBossFights.map((fight) => fight.id),
       eventsPayloadKeys: eventsNode ? Object.keys(eventsNode) : [],
       eventRowCount: rows.length,
+      firstEventRowKeys: firstRow ? Object.keys(firstRow) : [],
       eventTypeCounts,
       nonDeathRowCount: nonDeathRows.length,
       nonDeathSamples,
-      firstEventRowKeys: firstRow ? Object.keys(firstRow) : [],
       nextPageTimestamp,
       samples: rows.slice(0, 5).map(summarizeEvent),
       rawSamples: rows.slice(0, 5),
+      resurrectRowCount: resurrectRows.length,
+      candidateMatchCount: candidateMatches.length,
+      candidateMatches,
     },
     null,
     2,
