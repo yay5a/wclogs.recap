@@ -3,6 +3,7 @@ import { WclGraphqlClient } from '../src/graphql-client.js';
 import { resolveWclPublicClientAuth } from '../src/auth-mode.js';
 import { parseReportUrl } from '../src/report-code.js';
 import { collectReportIndex } from '../src/collectors/report-index-collector.js';
+import { collectMasterData } from '../src/collectors/master-data-collector.js';
 import { asArray, asNumber, asObject, asString } from '../src/parsers/common.js';
 
 // Battle-Rez Events schema
@@ -33,6 +34,22 @@ query ReportBrezEventsPage(
 }
 `;
 
+const REPORT_ABILITY_MASTER_DATA_QUERY = `
+query ReportAbilityMasterData($code: String!, $allowUnlisted: Boolean!) {
+  reportData {
+    report(code: $code, allowUnlisted: $allowUnlisted) {
+      masterData {
+        abilities {
+          gameID
+          name 
+          type
+        }
+      }
+    }
+  }
+}
+`;
+
 // Battle-Rez filter
 const BREZ_FILTER_EXPRESSION = `
 (
@@ -47,6 +64,19 @@ OR
   AND ability.name IN ("Rebirth", "Raise Ally", "Soulstone")
 )
 `;
+
+const formatReportTimestamp = (timestampMs: number): string => {
+  const totalSeconds = Math.floor(timestampMs / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  return [
+    String(hours).padStart(2, '0'),
+    String(minutes).padStart(2, '0'),
+    String(seconds).padStart(2, '0'),
+  ].join(':');
+};
 
 const toProbeApiBaseUrl = (apiBaseUrl: string, gameFamily: GameFamily): string => {
   if (gameFamily !== 'mop_classic') return apiBaseUrl;
@@ -93,6 +123,16 @@ try {
   process.exit(1);
 }
 
+// Helper to parse abilities
+const getAbilityRows = (payload: unknown): unknown[] => {
+  const root = asObject(payload);
+  const data = asObject(root?.data);
+  const reportData = asObject(data?.reportData ?? root?.reportData);
+  const report = asObject(reportData?.report);
+  const masterData = asObject(report?.masterData);
+  return asArray(masterData?.abilities) ?? [];
+};
+
 const client = new WclGraphqlClient({
   publicClientAuth,
   apiBaseUrl,
@@ -104,6 +144,10 @@ const index = await collectReportIndex(client, {
   gameFamily: parsed.gameFamily,
 });
 
+const masterData = await collectMasterData(client, {
+  reportCode: parsed.reportCode,
+});
+
 // Variables object shape
 const variables = {
   code: parsed.reportCode,
@@ -113,7 +157,7 @@ const variables = {
   filterExpression: BREZ_FILTER_EXPRESSION,
 };
 
-// Query helpers to parse response payload
+// Helpers to parse event payload
 const getEventNode = (payload: unknown): Record<string, unknown> | undefined => {
   const root = asObject(payload);
   const data = asObject(root?.data);
@@ -128,6 +172,13 @@ const getEventRows = (eventsNode: unknown): unknown[] => {
 };
 
 const payload = await client.request<Record<string, unknown>>(REPORT_BREZ_EVENTS_QUERY, variables);
+const abilityPayload = await client.request<Record<string, unknown>>(
+  REPORT_ABILITY_MASTER_DATA_QUERY,
+  {
+    code: parsed.reportCode,
+    allowUnlisted: true,
+  },
+);
 
 const eventsNode = getEventNode(payload);
 const rows = getEventRows(eventsNode);
@@ -212,9 +263,36 @@ for (const death of deathRows) {
   }
 }
 
+const playerNameById = new Map<number, string>();
+for (const actor of masterData.actors) {
+  if (typeof actor.id === 'number') {
+    playerNameById.set(actor.id, actor.name);
+  }
+}
+
+const getPlayerName = (actorId: number | undefined): string | undefined =>
+  typeof actorId === 'number' ? playerNameById.get(actorId) : undefined;
+
+const abilityNameByGameId = new Map<number, string>();
+for (const ability of getAbilityRows(abilityPayload)) {
+  const row = asObject(ability);
+  const gameID = asNumber(row?.gameID);
+  const name = asString(row?.name);
+
+  if (typeof gameID === 'number' && name) {
+    abilityNameByGameId.set(gameID, name);
+  }
+}
+
+const getAbilityName = (abilityGameID: number | undefined): string | undefined =>
+  typeof abilityGameID === 'number' ? abilityNameByGameId.get(abilityGameID) : undefined;
+
 const candidateMatches = resurrectRows.flatMap((resurrect) => {
+  const abilityName = getAbilityName(resurrect.abilityGameID);
   const deaths = deathsByFightAndTarget.get(deathKey(resurrect)) ?? [];
   let latestDeath: ProbeMatchEvent | undefined;
+  const targetName = getPlayerName(resurrect.targetID);
+  const casterName = getPlayerName(resurrect.sourceID);
 
   for (const death of deaths) {
     if (death.timestamp >= resurrect.timestamp) continue;
@@ -222,18 +300,21 @@ const candidateMatches = resurrectRows.flatMap((resurrect) => {
       latestDeath = death;
     }
   }
-
   if (!latestDeath) return [];
+  const responseMs = resurrect.timestamp - latestDeath.timestamp;
 
   return [
     {
       fight: resurrect.fight,
       targetID: resurrect.targetID,
-      deathTimestamp: latestDeath.timestamp,
-      resurrectTimestamp: resurrect.timestamp,
-      responseSec: (resurrect.timestamp - latestDeath.timestamp) / 1000,
+      ...(targetName ? { targetName } : {}),
+      deathTime: formatReportTimestamp(latestDeath.timestamp),
+      resurrectTime: formatReportTimestamp(resurrect.timestamp),
+      responseSec: responseMs / 1000,
       sourceID: resurrect.sourceID,
+      ...(casterName ? { casterName } : {}),
       abilityGameID: resurrect.abilityGameID,
+      ...(abilityName ? { abilityName } : {}),
     },
   ];
 });
@@ -252,6 +333,18 @@ const nonDeathRows = rows.filter((event) => {
 
 const nonDeathSamples = nonDeathRows.slice(0, 20);
 
+const brezAbilityCounts = nonDeathRows.reduce<Record<string, number>>((counts, event) => {
+  const row = asObject(event);
+  const abilityGameID = asNumber(row?.abilityGameID);
+  const type = asString(row?.type) ?? 'unknown';
+
+  if (typeof abilityGameID !== 'number') return counts;
+
+  const key = `${abilityGameID}:${type}`;
+  counts[key] = (counts[key] ?? 0) + 1;
+  return counts;
+}, {});
+
 console.log(
   JSON.stringify(
     {
@@ -264,8 +357,10 @@ console.log(
       eventRowCount: rows.length,
       firstEventRowKeys: firstRow ? Object.keys(firstRow) : [],
       eventTypeCounts,
+      brezAbilityCounts,
       nonDeathRowCount: nonDeathRows.length,
       nonDeathSamples,
+      hasNextPage: typeof nextPageTimestamp === 'number',
       nextPageTimestamp,
       samples: rows.slice(0, 5).map(summarizeEvent),
       rawSamples: rows.slice(0, 5),
@@ -277,11 +372,3 @@ console.log(
     2,
   ),
 );
-
-// console.log(index.completedBossFights.map((fight) => fight.id).join('\n'));
-
-/* console.log({
-  reportCode: parsed.reportCode,
-  gameFamily: parsed.gameFamily,
-  apiBaseUrl,
-}); */
