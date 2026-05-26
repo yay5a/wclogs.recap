@@ -196,12 +196,27 @@ const matchEvents = rows.flatMap((event) => {
 const deathRows = matchEvents.filter((event) => event.type === 'death');
 const resurrectRows = matchEvents.filter((event) => event.type === 'resurrect');
 
-const candidateMatches = resurrectRows.flatMap((resurrect) => {
-  let latestDeath: (typeof deathRows)[number] | undefined;
+const deathKey = (event: Pick<ProbeMatchEvent, 'fight' | 'targetID'>): string =>
+  `${event.fight}:${event.targetID}`;
 
-  for (const death of deathRows) {
-    if (death.fight !== resurrect.fight) continue;
-    if (death.targetID !== resurrect.targetID) continue;
+const deathsByFightAndTarget = new Map<string, ProbeMatchEvent[]>();
+
+for (const death of deathRows) {
+  const key = deathKey(death);
+  const deaths = deathsByFightAndTarget.get(key);
+
+  if (deaths) {
+    deaths.push(death);
+  } else {
+    deathsByFightAndTarget.set(key, [death]);
+  }
+}
+
+const candidateMatches = resurrectRows.flatMap((resurrect) => {
+  const deaths = deathsByFightAndTarget.get(deathKey(resurrect)) ?? [];
+  let latestDeath: ProbeMatchEvent | undefined;
+
+  for (const death of deaths) {
     if (death.timestamp >= resurrect.timestamp) continue;
     if (!latestDeath || death.timestamp > latestDeath.timestamp) {
       latestDeath = death;
