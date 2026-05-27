@@ -181,6 +181,10 @@ export type {
   ReadyPlayerComparisonIdentity,
 } from './comparison/identity.js';
 export type {
+  ReportBrezMatch,
+  ReportBrezPlayer,
+  ReportBrezPlayerCount,
+  ReportBrezSummary,
   ReportEncounterSummary,
   ReportIndexData,
   ReportIndexFightRow,

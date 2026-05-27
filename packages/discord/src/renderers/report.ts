@@ -7,6 +7,7 @@ import type {
   ReportSummary,
 } from '@wcl/domain';
 import type { DiscordMessageBody } from '../infrastructure/discord-api.js';
+import { buildBattleRezComponentsV2 } from './report-v2.js';
 
 export const SUPPRESS_EMBEDS_MESSAGE_FLAG = 1 << 2;
 export const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
@@ -628,7 +629,6 @@ export const buildReportCardHtml = (summary: ReportSummary): string => `
     <header class="header">
       <div class="raid-art">⚜</div>
       <div>
-        <h1>${escapeHtml(reportTitle(summary))}</h1>
         <div class="time-row">
           <span>▣ Date: ${escapeHtml(formatDate(summary.dateISO))}</span>
           <span>◷ Start: ${escapeHtml(formatTime(summary.startTimeISO))}</span>
@@ -732,6 +732,47 @@ export const buildReportResponseBody = async (
         contentType: 'image/png',
         description: 'Raid report summary',
       },
+    ],
+  };
+};
+
+export const IS_COMPONENTS_V2_MESSAGE_FLAG = 1 << 15;
+
+export const buildReportV2ResponseBody = async (
+  summary: ReportSummary,
+  options: { ephemeral?: boolean } = {},
+): Promise<DiscordMessageBody> => {
+  const ephemeral = options.ephemeral ?? false;
+  const image = await renderReportSummaryPng(summary);
+
+  return {
+    flags: IS_COMPONENTS_V2_MESSAGE_FLAG | (ephemeral ? EPHEMERAL_MESSAGE_FLAG : 0),
+    allowed_mentions: SAFE_ALLOWED_MENTIONS,
+    files: [
+      {
+        name: REPORT_CARD_FILENAME,
+        attachment: image,
+        contentType: 'image/png',
+        description: 'Raid report summary',
+      },
+    ],
+    components: [
+      {
+        type: 10,
+        content: `# ${reportTitle(summary)}\n${summary.reportLink}`,
+      },
+      {
+        type: 12,
+        items: [
+          {
+            media: {
+              url: `attachment://${REPORT_CARD_FILENAME}`,
+            },
+            description: 'Raid report summary',
+          },
+        ],
+      },
+      ...(summary.battleRez ? buildBattleRezComponentsV2(summary.battleRez) : []),
     ],
   };
 };

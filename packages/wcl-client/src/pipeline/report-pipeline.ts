@@ -3,6 +3,7 @@ import { createLogger, serializeError } from '@wcl/shared';
 import type { WclGraphqlClient } from '../graphql-client.js';
 import { collectMasterData } from '../collectors/master-data-collector.js';
 import { collectPlayerDetails } from '../collectors/player-details-collector.js';
+import { collectReportBrezSummary } from '../collectors/report-brez-collector.js';
 import { collectReportIndex } from '../collectors/report-index-collector.js';
 import { collectReportRankings } from '../collectors/report-rankings-collector.js';
 import { collectTableMetrics } from '../collectors/table-collector.js';
@@ -96,6 +97,11 @@ export const collectReportSummaryData = async (
       completedBossFights: index.completedBossFights,
     }),
   ]);
+  const battleRez = await collectReportBrezSummary(client, {
+    reportCode: input.reportCode,
+    completedBossFights: index.completedBossFights,
+    actors: masterData.actors,
+  });
 
   return normalizeReportRenderModel({
     index,
@@ -103,5 +109,6 @@ export const collectReportSummaryData = async (
     playerDetails,
     rankings,
     tableMetrics,
+    ...(battleRez ? { battleRez } : {}),
   });
 };

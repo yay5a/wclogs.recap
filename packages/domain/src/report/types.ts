@@ -58,6 +58,31 @@ export interface ReportEncounterSummary {
   highestParseHps?: ReportParseRow;
 }
 
+export interface ReportBrezPlayer {
+  id: number;
+  name: string;
+}
+
+export interface ReportBrezPlayerCount extends ReportBrezPlayer {
+  count: number;
+}
+
+export interface ReportBrezMatch {
+  caster: ReportBrezPlayer;
+  receiver: ReportBrezPlayer;
+  fightID: number;
+  fightName?: string;
+  deathTimestamp: string;
+  resurrectTimestamp: string;
+  responseSec: number;
+}
+
+export interface ReportBrezSummary {
+  topCasters: ReportBrezPlayerCount[];
+  topReceivers: ReportBrezPlayerCount[];
+  fastest?: ReportBrezMatch;
+}
+
 export interface ReportSummary {
   reportCode: string;
   reportTitle: string;
@@ -90,6 +115,7 @@ export interface ReportSummary {
     mostInterrupts: ReportMetricRow[];
     mostDispels: ReportMetricRow[];
   };
+  battleRez?: ReportBrezSummary;
   partialDataNotes: string[];
 }
 

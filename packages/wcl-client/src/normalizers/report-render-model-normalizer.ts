@@ -217,6 +217,7 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
       mostInterrupts: topInterrupts,
       mostDispels: topDispels,
     },
+    ...(bundle.battleRez ? { battleRez: bundle.battleRez } : {}),
     partialDataNotes: [],
   };
 };
