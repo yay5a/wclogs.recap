@@ -23,6 +23,7 @@ export interface ReportIndexData {
   sourceUrl: string;
   gameFamily: 'retail' | 'mop_classic';
   title: string;
+  ownerName?: string;
   zoneName?: string;
   zoneId?: number;
   startTime: number;
@@ -86,6 +87,7 @@ export interface ReportBrezSummary {
 export interface ReportSummary {
   reportCode: string;
   reportTitle: string;
+  reportOwnerName?: string;
   raidName?: string;
   difficultyName?: string;
   sizeLabel?: string;

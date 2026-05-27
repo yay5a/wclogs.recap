@@ -1,5 +1,5 @@
-# Generated from WCL GraphQL schema PDF.
 # Source: Report.pdf
+# Generated from WCL GraphQL schema PDF.
 # Extracted: 2026-05-06T22:39:08+00:00
 
 type Report {

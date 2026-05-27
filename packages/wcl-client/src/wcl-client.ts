@@ -140,7 +140,11 @@ export class WclClient {
   }
 
   public async fetchReportIndex(
-    input: { reportCode: string; sourceUrl: string; gameFamily: GameFamily },
+    input: {
+      reportCode: string;
+      sourceUrl: string;
+      gameFamily: GameFamily;
+    },
     options: WclAuthContextOptions = {},
   ): Promise<ReportIndexData> {
     return this.withAuthFallback(input.reportCode, options, (authMode) =>

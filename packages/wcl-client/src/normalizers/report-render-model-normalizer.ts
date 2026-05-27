@@ -186,6 +186,7 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
     reportCode: bundle.index.reportCode,
     reportTitle: bundle.index.title,
     ...(bundle.index.zoneName ? { raidName: bundle.index.zoneName } : {}),
+    ...(bundle.index.ownerName ? { reportOwnerName: bundle.index.ownerName } : {}),
     ...(fightSummary.inferredDifficultyName
       ? { difficultyName: fightSummary.inferredDifficultyName }
       : {}),

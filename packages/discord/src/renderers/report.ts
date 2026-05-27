@@ -759,7 +759,9 @@ export const buildReportV2ResponseBody = async (
     components: [
       {
         type: 10,
-        content: `# ${reportTitle(summary)}\n${summary.reportLink}`,
+        content: `# ${reportTitle(summary)}\n${
+          summary.reportOwnerName ? `Uploaded by: ${summary.reportOwnerName}\n` : ''
+        }${summary.reportLink}`,
       },
       {
         type: 12,
