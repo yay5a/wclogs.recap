@@ -7,7 +7,7 @@
 
 Summarize performance of raid-night
 
-Report Summary - Throne of Thunder (Heroic)
+Raid Summary
 Date: M/D/Y
 Start Time: HH:MM
 End Time: HH:MM
@@ -48,38 +48,38 @@ End Time: HH:MM
 🏋️‍♂️ Top Players:
 
 - Highest Avg Parse:
-  1. PlayerA - 78.8
-  2. PlayerB - 75.2
-  3. PlayerC - 73.9
+  1. PlayerA: 78.8
+  2. PlayerB: 75.2
+  3. PlayerC: 73.9
 
 - Highest Total DPS:
-  1. PlayerA - 48.2M total damage
-  2. PlayerB - 45.7M total damage
-  3. PlayerC - 44.1M total damage
+  1. PlayerA: 48.2M total damage
+  2. PlayerB: 45.7M total damage
+  3. PlayerC: 44.1M total damage
 
 - Highest HPS:
-  1. HealerA - 112.4k avg HPS
-  2. HealerB - 108.7k avg HPS
-  3. HealerC - 95.1k avg HPS
+  1. HealerA: 112.4k avg HPS
+  2. HealerB: 108.7k avg HPS
+  3. HealerC: 95.1k avg HPS
 
 - Most Deaths:
-  1. PlayerX - 9 deaths
-  2. PlayerY - 7 deaths
-  3. PlayerZ - 6 deaths
+  1. PlayerX: 9 deaths
+  2. PlayerY: 7 deaths
+  3. PlayerZ: 6 deaths
 
 - Most Interrupts:
-  1. PlayerA -
-  2. PlayerB -
-  3. PlayerB -
+  1. PlayerA:
+  2. PlayerB:
+  3. PlayerC:
 
 - Most Dispels:
-  1. PlayerA -
-  2. PlayerB -
-  3. PlayerC -
+  1. PlayerA:
+  2. PlayerB:
+  3. PlayerC:
 
 - Encounter Breakdowns:
-
-  - Encounter 1:
+  [Paginated button links]
+  - Encounter 1: Boss Name and Thumbnail 
    - Pulls: 2
    - Kill/Wipes: 1/0
    - Total Deaths: 3
@@ -112,7 +112,7 @@ End Time: HH:MM
     2. PlayerB:
     3. PlayerC: 
 
-- Encounter 2:
+- Encounter 2: Boss Name and Thumbnail
    - Pulls: 2
    - Kill/Wipes: 1/0
    - Total Deaths: 3
@@ -145,7 +145,7 @@ End Time: HH:MM
     2. PlayerB:
     3. PlayerC: 
 
-- Encounter 3:
+- Encounter 3: Boss Name and Thumbnail
    - Pulls: 2
    - Kill/Wipes: 1/0
    - Total Deaths: 3
@@ -178,7 +178,9 @@ End Time: HH:MM
     2. PlayerB:
     3. PlayerC: 
 
-- Guild Rank
+---
+
+2. Guild Rank
 
 - Command:
   - `/guildrank <difficulty> <size>`
