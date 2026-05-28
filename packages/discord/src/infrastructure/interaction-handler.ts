@@ -16,7 +16,10 @@ import {
 } from '../commands/officer-management.js';
 import { handleAutoReportComponentInteraction } from '../commands/auto-report.js';
 import { handleGuildRankCommand } from '../commands/guildrank.js';
-import { processReportInteraction } from '../commands/report.js';
+import {
+  handleReportEncounterComponentInteraction,
+  processReportInteraction,
+} from '../commands/report.js';
 
 const logger = createLogger('discord');
 const EPHEMERAL_MESSAGE_FLAG = 64;
@@ -110,6 +113,14 @@ export const handleInteraction = async (
   }
 
   if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
+    const reportEncounterResponse = await handleReportEncounterComponentInteraction(
+      typedInteraction,
+      options,
+    );
+
+    if (reportEncounterResponse) {
+      return reportEncounterResponse;
+    }
     const autoReportResponse = await handleAutoReportComponentInteraction(
       typedInteraction,
       options,

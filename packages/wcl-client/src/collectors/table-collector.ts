@@ -19,10 +19,12 @@ query ReportTableByType(
   $fightIDs: [Int]
   $dataType: TableDataType!
   $filterExpression: String
+  $abilityID: Float
 ) {
   reportData {
     report(code: $code, allowUnlisted: $allowUnlisted) {
       table(
+        abilityID: $abilityID
         dataType: $dataType
         fightIDs: $fightIDs
         filterExpression: $filterExpression
@@ -120,6 +122,7 @@ const collectType = async (
     fightIds: number[];
     dataType: TableDataType;
     filterExpression: string;
+    abilityID?: number;
   },
 ): Promise<ParsedTablePayload> => {
   const variables = {
@@ -128,6 +131,7 @@ const collectType = async (
     fightIDs: input.fightIds,
     dataType: input.dataType,
     filterExpression: input.filterExpression,
+    ...(typeof input.abilityID === 'number' ? { abilityID: input.abilityID } : {}),
   };
   const payload = await withBackoff(
     () => client.request<Record<string, unknown>>(TABLE_QUERY, variables),
@@ -158,6 +162,8 @@ const TABLE_FILTERS = {
     '(encounterID != 0) AND (source.disposition = "friendly") AND (target.disposition = "enemy")',
   Healing:
     '(encounterID != 0) AND (inCategory("healing") = true) AND (source.disposition = "friendly") AND (target.disposition = "friendly")',
+  Casts:
+    '(encounterID != 0) AND (source.disposition = "friendly") AND (source.type = "player")',
   Deaths:
     '(encounterID != 0) AND (type = "death") AND (target.disposition = "friendly") AND (feign = false)',
   Dispels: '(encounterID != 0) AND (source.disposition = "friendly")',
@@ -186,6 +192,10 @@ export const collectTableMetrics = async (
       deathsByFightId: {},
       encounterTopDamageDoneByEncounterId: {},
       encounterTopHealingDoneByEncounterId: {},
+      encounterTopDeathsByEncounterId: {},
+      encounterTopInterruptsByEncounterId: {},
+      encounterTopDispelsByEncounterId: {},
+      encounterTopHealthstonesByEncounterId: {},
     };
   }
 
@@ -238,7 +248,14 @@ export const collectTableMetrics = async (
   const perEncounterRows = await Promise.all(
     [...groupFightIdsByEncounter(completedBossFights).entries()].map(
       async ([encounterId, fightIds]) => {
-        const [encounterDamageDone, encounterHealing] = await Promise.all([
+        const [
+          encounterDamageDone,
+          encounterHealing,
+          encounterDeaths,
+          encounterInterrupts,
+          encounterDispels,
+          encounterHealthstones,
+        ] = await Promise.all([
           collectType(client, {
             reportCode: input.reportCode,
             fightIds,
@@ -251,6 +268,31 @@ export const collectTableMetrics = async (
             dataType: 'Healing',
             filterExpression: TABLE_FILTERS.Healing,
           }),
+          collectType(client, {
+            reportCode: input.reportCode,
+            fightIds,
+            dataType: 'Deaths',
+            filterExpression: TABLE_FILTERS.Deaths,
+          }),
+          collectType(client, {
+            reportCode: input.reportCode,
+            fightIds,
+            dataType: 'Interrupts',
+            filterExpression: TABLE_FILTERS.Interrupts,
+          }),
+          collectType(client, {
+            reportCode: input.reportCode,
+            fightIds,
+            dataType: 'Dispels',
+            filterExpression: TABLE_FILTERS.Dispels,
+          }),
+          collectType(client, {
+            reportCode: input.reportCode,
+            fightIds,
+            dataType: 'Casts',
+            filterExpression: TABLE_FILTERS.Casts,
+            abilityID: 6262,
+          }),
         ]);
 
         return [
@@ -258,6 +300,10 @@ export const collectTableMetrics = async (
           {
             topDamageDone: filterMetricRows(encounterDamageDone.entries),
             topHealingDone: filterMetricRows(encounterHealing.entries),
+            topDeaths: filterMetricRows(encounterDeaths.entries),
+            topInterrupts: filterMetricRows(encounterInterrupts.entries),
+            topDispels: filterMetricRows(encounterDispels.entries),
+            topHealthstones: filterMetricRows(encounterHealthstones.entries),
           },
         ] as const;
       },
@@ -270,6 +316,18 @@ export const collectTableMetrics = async (
   );
   const encounterTopHealingDoneByEncounterId = Object.fromEntries(
     perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topHealingDone]),
+  );
+  const encounterTopDeathsByEncounterId = Object.fromEntries(
+    perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topDeaths]),
+  );
+  const encounterTopInterruptsByEncounterId = Object.fromEntries(
+    perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topInterrupts]),
+  );
+  const encounterTopDispelsByEncounterId = Object.fromEntries(
+    perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topDispels]),
+  );
+  const encounterTopHealthstonesByEncounterId = Object.fromEntries(
+    perEncounterRows.map(([encounterId, rows]) => [encounterId, rows.topHealthstones]),
   );
   const deathsTotal = sumRows(deaths.entries);
   const interruptsTotal = sumRows(interrupts.entries);
@@ -289,5 +347,9 @@ export const collectTableMetrics = async (
     deathsByFightId,
     encounterTopDamageDoneByEncounterId,
     encounterTopHealingDoneByEncounterId,
+    encounterTopDeathsByEncounterId,
+    encounterTopInterruptsByEncounterId,
+    encounterTopDispelsByEncounterId,
+    encounterTopHealthstonesByEncounterId,
   };
 };

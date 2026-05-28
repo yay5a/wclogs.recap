@@ -26,6 +26,10 @@ export const REPORT_SUMMARY_SOURCE_MAP = {
 } as const;
 
 type EncounterParseFields = Pick<ReportEncounterSummaryRow, 'highestParseDps' | 'highestParseHps'>;
+type EncounterTopParseFields = Pick<ReportEncounterSummaryRow, 'topParseDps' | 'topParseHps'>;
+type EncounterParseMapFields = EncounterParseFields & EncounterTopParseFields;
+type EncounterHighestParseKey = keyof EncounterParseFields;
+type EncounterTopParseKey = keyof EncounterTopParseFields;
 
 const toEncounterParseRow = (
   entry: NormalizedLeaderboardEntry,
@@ -53,20 +57,26 @@ const isBetterParse = (
   return candidate.playerName.localeCompare(existing.playerName) < 0;
 };
 
+const sortParseRows = (rows: ReportParseRow[]): ReportParseRow[] =>
+  [...rows].sort((left, right) => {
+    if (right.value !== left.value) return right.value - left.value;
+    return left.playerName.localeCompare(right.playerName);
+  });
+
 const buildEncounterParseMap = (
   bundle: ReportCollectorBundle,
-): Map<number, EncounterParseFields> => {
+): Map<number, EncounterParseMapFields> => {
   const encounterIdByFightId = new Map<number, number>();
   for (const fight of bundle.index.killBossFights) {
     encounterIdByFightId.set(fight.id, fight.encounterId);
   }
 
-  const byEncounterId = new Map<number, EncounterParseFields>();
+  const byEncounterId = new Map<number, EncounterParseMapFields>();
 
   const add = (
     entry: NormalizedLeaderboardEntry,
     metric: ReportParseRow['metric'],
-    field: keyof EncounterParseFields,
+    fields: { highest: EncounterHighestParseKey; top: EncounterTopParseKey },
   ): void => {
     if (typeof entry.fightId !== 'number') return;
 
@@ -77,21 +87,22 @@ const buildEncounterParseMap = (
     if (!parseRow) return;
 
     const existing = byEncounterId.get(encounterId) ?? {};
-    const existingParse = existing[field];
-    if (!isBetterParse(parseRow, existingParse)) return;
+    const existingParse = existing[fields.highest];
+    const topRows = sortParseRows([...(existing[fields.top] ?? []), parseRow]).slice(0, 3);
 
     byEncounterId.set(encounterId, {
       ...existing,
-      [field]: parseRow,
+      [fields.highest]: isBetterParse(parseRow, existingParse) ? parseRow : existingParse,
+      [fields.top]: topRows,
     });
   };
 
   for (const entry of bundle.rankings.dps) {
-    add(entry, 'DPS', 'highestParseDps');
+    add(entry, 'DPS', { highest: 'highestParseDps', top: 'topParseDps' });
   }
 
   for (const entry of bundle.rankings.hps) {
-    add(entry, 'HPS', 'highestParseHps');
+    add(entry, 'HPS', { highest: 'highestParseHps', top: 'topParseHps' });
   }
 
   return byEncounterId;

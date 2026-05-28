@@ -67,6 +67,17 @@ const toHighestRateRow = (
   return highest;
 };
 
+const toTopUtilityRows = (
+  rows: ParsedTableEntry[],
+  context: PlayerMetricContext = EMPTY_PLAYER_CONTEXT,
+): ReportMetricRow[] =>
+  normalizeTableMetricRows(rows, context.masterData, context.playerDetails, rows.length)
+    .sort((left, right) => {
+      if (right.value !== left.value) return right.value - left.value;
+      return left.playerName.localeCompare(right.playerName);
+    })
+    .slice(0, 3);
+
 const validPullDurationMs = (fight: { startTime: number; endTime: number }): number | undefined => {
   const durationMs = fight.endTime - fight.startTime;
   return Number.isFinite(durationMs) && durationMs > 0 ? durationMs : undefined;
@@ -142,6 +153,22 @@ export const normalizeReportFights = (
         totalDurationMs,
         playerContext,
       );
+      const mostDeaths = toTopUtilityRows(
+        tableMetrics.encounterTopDeathsByEncounterId[encounterId] ?? [],
+        playerContext,
+      );
+      const mostInterrupts = toTopUtilityRows(
+        tableMetrics.encounterTopInterruptsByEncounterId[encounterId] ?? [],
+        playerContext,
+      );
+      const mostDispels = toTopUtilityRows(
+        tableMetrics.encounterTopDispelsByEncounterId[encounterId] ?? [],
+        playerContext,
+      );
+      const mostHealthstonesConsumed = toTopUtilityRows(
+        tableMetrics.encounterTopHealthstonesByEncounterId[encounterId] ?? [],
+        playerContext,
+      );
 
       return {
         encounterId,
@@ -159,6 +186,10 @@ export const normalizeReportFights = (
         deaths,
         ...(highestTotalDps ? { highestTotalDps } : {}),
         ...(highestHps ? { highestHps } : {}),
+        ...(mostDeaths.length > 0 ? { mostDeaths } : {}),
+        ...(mostInterrupts.length > 0 ? { mostInterrupts } : {}),
+        ...(mostDispels.length > 0 ? { mostDispels } : {}),
+        ...(mostHealthstonesConsumed.length > 0 ? { mostHealthstonesConsumed } : {}),
       } as ReportEncounterSummaryRow;
     })
     .sort((left, right) => {

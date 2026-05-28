@@ -1,4 +1,4 @@
-import type { BotActivityEvent, BotActivityStore } from '@wcl/domain';
+import type { BotActivityEvent, BotActivityStore, ReportSummary } from '@wcl/domain';
 import {
   DashboardActivityModel,
   type DashboardActivityDocument,
@@ -47,6 +47,16 @@ const toActivityRecord = (doc: unknown): DashboardActivityRecord | null => {
   };
 };
 
+const isReportSummary = (value: unknown): value is ReportSummary => {
+  if (typeof value !== 'object' || value === null) return false;
+  const raw = value as Record<string, unknown>;
+  return (
+    typeof raw.reportCode === 'string' &&
+    typeof raw.reportTitle === 'string' &&
+    Array.isArray(raw.encounters)
+  );
+};
+
 const toActivityInsert = (
   event: BotActivityEvent,
   expiresAt: Date,
@@ -57,6 +67,7 @@ const toActivityInsert = (
   ...(event.actor !== undefined ? { actor: event.actor } : {}),
   kind: event.kind,
   ...(event.reportCode !== undefined ? { reportCode: event.reportCode } : {}),
+  ...(event.reportSummary !== undefined ? { reportSummary: event.reportSummary } : {}),
   ...(event.sourceUrl !== undefined ? { sourceUrl: event.sourceUrl } : {}),
   ...(event.discordMessageUrl !== undefined
     ? { discordMessageUrl: event.discordMessageUrl }
@@ -87,6 +98,29 @@ export class MongoDashboardActivityStore implements BotActivityStore {
     }
 
     await DashboardActivityModel.create(insert);
+  }
+
+  public async findLatestReportSummary(input: {
+    guildId: string;
+    reportCode: string;
+  }): Promise<ReportSummary | null> {
+    const found = await DashboardActivityModel.findOne({
+      guildId: input.guildId,
+      reportCode: input.reportCode,
+      kind: { $in: ['report_posted', 'report_preview_created'] },
+      reportSummary: { $exists: true },
+      archivedAt: { $exists: false },
+    })
+      .sort({ createdAt: -1 })
+      .select({ reportSummary: 1 })
+      .lean();
+
+    const reportSummary =
+      typeof found === 'object' && found !== null
+        ? (found as { reportSummary?: unknown }).reportSummary
+        : undefined;
+
+    return isReportSummary(reportSummary) ? reportSummary : null;
   }
 
   public async listActivity(input: {

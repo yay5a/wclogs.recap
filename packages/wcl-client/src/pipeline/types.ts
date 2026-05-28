@@ -30,6 +30,10 @@ export interface ReportTableMetrics {
   deathsByFightId: Record<number, number>;
   encounterTopDamageDoneByEncounterId: Record<number, ParsedTableEntry[]>;
   encounterTopHealingDoneByEncounterId: Record<number, ParsedTableEntry[]>;
+  encounterTopDeathsByEncounterId: Record<number, ParsedTableEntry[]>;
+  encounterTopInterruptsByEncounterId: Record<number, ParsedTableEntry[]>;
+  encounterTopDispelsByEncounterId: Record<number, ParsedTableEntry[]>;
+  encounterTopHealthstonesByEncounterId: Record<number, ParsedTableEntry[]>;
 }
 
 export interface ReportEncounterSummaryRow {
@@ -48,6 +52,12 @@ export interface ReportEncounterSummaryRow {
   highestHps?: ReportMetricRow;
   highestParseDps?: ReportParseRow;
   highestParseHps?: ReportParseRow;
+  topParseDps?: ReportParseRow[];
+  topParseHps?: ReportParseRow[];
+  mostDeaths?: ReportMetricRow[];
+  mostInterrupts?: ReportMetricRow[];
+  mostDispels?: ReportMetricRow[];
+  mostHealthstonesConsumed?: ReportMetricRow[];
 }
 
 export interface GuildRankInput {

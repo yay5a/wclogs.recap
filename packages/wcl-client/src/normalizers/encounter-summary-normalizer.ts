@@ -20,6 +20,16 @@ export const toReportEncounterSummary = (
   ...(row.highestHps ? { highestHps: row.highestHps } : {}),
   ...(row.highestParseDps ? { highestParseDps: row.highestParseDps } : {}),
   ...(row.highestParseHps ? { highestParseHps: row.highestParseHps } : {}),
+  ...(row.topParseDps && row.topParseDps.length > 0 ? { topParseDps: row.topParseDps } : {}),
+  ...(row.topParseHps && row.topParseHps.length > 0 ? { topParseHps: row.topParseHps } : {}),
+  ...(row.mostDeaths && row.mostDeaths.length > 0 ? { mostDeaths: row.mostDeaths } : {}),
+  ...(row.mostInterrupts && row.mostInterrupts.length > 0
+    ? { mostInterrupts: row.mostInterrupts }
+    : {}),
+  ...(row.mostDispels && row.mostDispels.length > 0 ? { mostDispels: row.mostDispels } : {}),
+  ...(row.mostHealthstonesConsumed && row.mostHealthstonesConsumed.length > 0
+    ? { mostHealthstonesConsumed: row.mostHealthstonesConsumed }
+    : {}),
 });
 
 export const selectBestExecutionEncounter = (
