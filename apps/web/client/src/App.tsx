@@ -29,6 +29,13 @@ import { RevokeClaimModal } from "./dashboard/RevokeClaimModal.js";
 import { SettingsTab } from "./dashboard/SettingsTab.js";
 import { StaleGuildRequestError, useGuildRequestGuards } from "./dashboard/useGuildRequestGuards.js";
 
+const LegalLinkStrip = () => (
+    <nav className="legal-link-strip" aria-label="Legal pages">
+        <a href="/dashboard/terms">Terms of Service</a>
+        <a href="/dashboard/privacy">Privacy Policy</a>
+    </nav>
+);
+
 export const App = () => {
     const [checkingSession, setCheckingSession] = useState(true);
     const [auth, setAuth] = useState<DashboardAuth | null>(null);
@@ -394,6 +401,7 @@ export const App = () => {
                     <div>
                         <p className="eyebrow">wclogs.report</p>
                         <h1>Operations Console</h1>
+                        <LegalLinkStrip />
                     </div>
                     <button type="button" className="discord-login" onClick={handleDiscordLogin}>
                         Sign in with Discord
@@ -411,10 +419,6 @@ export const App = () => {
                     <button type="submit" disabled={loading || !adminSecret.trim()}>
                         Sign in
                     </button>
-                    <nav className="legal-links" aria-label="Legal pages">
-                        <a href="/dashboard/terms">Terms</a>
-                        <a href="/dashboard/privacy">Privacy</a>
-                    </nav>
                     {error ? <p className="message error">{error}</p> : null}
                 </form>
             </main>
@@ -430,6 +434,7 @@ export const App = () => {
                     <small>
                         {auth.kind === "discord" ? auth.displayName : "Admin secret"}
                     </small>
+                    <LegalLinkStrip />
                 </div>
 
                 {auth.kind === "admin-secret" ? (
@@ -466,10 +471,6 @@ export const App = () => {
                 </div>
 
                 <div className="sidebar-footer">
-                    <nav className="legal-links" aria-label="Legal pages">
-                        <a href="/dashboard/terms">Terms</a>
-                        <a href="/dashboard/privacy">Privacy</a>
-                    </nav>
                     <button type="button" className="secondary" onClick={handleLogout} disabled={loading}>
                         Sign out
                     </button>
