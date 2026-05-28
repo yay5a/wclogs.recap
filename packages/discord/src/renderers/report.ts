@@ -195,7 +195,7 @@ const renderEncounterHighlightText = (
       : '',
     '',
     `DPS Parse: ${formatParseMarkdown(encounter.highestParseDps)}`,
-    `HPS Parse: ${formatParseMarkdown(encounter.highestParseHps)}`,
+    `Healer Parse: ${formatParseMarkdown(encounter.highestParseHps)}`,
     `Top DPS: ${formatMetricMarkdown(encounter.highestTotalDps, formatRate)}`,
     `Top HPS: ${formatMetricMarkdown(encounter.highestHps, formatRate)}`,
   ]
@@ -207,7 +207,7 @@ const renderTopPlayersText = (summary: ReportSummary): string =>
   [
     '## 🤺 Top Players',
     '',
-    '** 🏅 Highest Avg Parse**',
+    '** 🏅 Highest Avg Parses**',
     renderTopRowsMarkdown(summary.topPlayers.highestAverageParse, (value) =>
       decimalFormatter.format(value),
     ),
@@ -215,7 +215,7 @@ const renderTopPlayersText = (summary: ReportSummary): string =>
     '**⚔️ Highest Total DPS**',
     renderTopRowsMarkdown(summary.topPlayers.highestTotalDps, formatRate),
     '',
-    '**🍃 Highest HPS**',
+    '**🍃 Highest Total HPS**',
     renderTopRowsMarkdown(summary.topPlayers.highestHps, formatRate),
     '',
     '**☠️ Most Deaths**',
@@ -334,9 +334,9 @@ const renderEncounterBreakdownStatsText = (
 
 const renderEncounterBestText = (encounter: ReportEncounterSummary): string =>
   [
-    '## Best Rows',
+    '## Top Players',
     `**DPS Parse:** ${formatParseMarkdown(encounter.highestParseDps)}`,
-    `**HPS Parse:** ${formatParseMarkdown(encounter.highestParseHps)}`,
+    `**Healer Parse:** ${formatParseMarkdown(encounter.highestParseHps)}`,
     `**Top DPS:** ${formatMetricMarkdown(encounter.highestTotalDps, formatRate)}`,
     `**Top HPS:** ${formatMetricMarkdown(encounter.highestHps, formatRate)}`,
   ].join('\n');
@@ -354,8 +354,14 @@ export const buildEncounterBreakdownResponseBody = ({
   encounter: ReportEncounterSummary;
 }): DiscordMessageBody => {
   const utilityComponents = [
-    ...encounterRowsSection('Top 3 DPS Parses', renderOptionalParseRowsMarkdown(encounter.topParseDps)),
-    ...encounterRowsSection('Top 3 HPS Parses', renderOptionalParseRowsMarkdown(encounter.topParseHps)),
+    ...encounterRowsSection(
+      'Top DPS Parses',
+      renderOptionalParseRowsMarkdown(encounter.topParseDps),
+    ),
+    ...encounterRowsSection(
+      'Top Healer Parses',
+      renderOptionalParseRowsMarkdown(encounter.topParseHps),
+    ),
     ...encounterRowsSection(
       'Most Deaths',
       renderOptionalMetricRowsMarkdown(encounter.mostDeaths, (value) =>
