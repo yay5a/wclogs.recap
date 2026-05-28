@@ -187,7 +187,7 @@ export const handleReportEncounterComponentInteraction = (
           'Encounter details coming soon',
           '',
           `Report: \`${parsed.reportCode}\``,
-          `Encounter ID: \${parsed.encounterId}\``,
+          `Encounter ID: \`${parsed.encounterId}\``,
         ].join('\n')
       : 'Encounter details are only available inside a Discord server.'
     : 'That encounter button is no longer valid';

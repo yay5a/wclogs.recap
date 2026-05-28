@@ -17,6 +17,7 @@ const formatFightLabel = (fastest: NonNullable<ReportBrezSummary['fastest']>): s
 export const buildBattleRezComponentsV2 = (summary: ReportBrezSummary): DiscordComponent[] => [
   {
     type: 17,
+    accent_color: 0x7d3cff,
     components: [
       {
         type: 10,
@@ -48,7 +49,9 @@ export const buildBattleRezComponentsV2 = (summary: ReportBrezSummary): DiscordC
   },
 ];
 
-export const renderBrezComponentsV2 = (summary: ReportBrezSummary): {
+export const renderBrezComponentsV2 = (
+  summary: ReportBrezSummary,
+): {
   flags: number;
   components: DiscordComponent[];
 } => ({

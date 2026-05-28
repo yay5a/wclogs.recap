@@ -57,6 +57,10 @@ export interface ReportEncounterSummary {
   highestHps?: ReportMetricRow;
   highestParseDps?: ReportParseRow;
   highestParseHps?: ReportParseRow;
+  mostDeaths?: ReportMetricRow[];
+  mostInterrupts?: ReportMetricRow[];
+  mostDispels?: ReportMetricRow[];
+  mostHealthstonesConsumed?: ReportMetricRow[];
 }
 
 export interface ReportBrezPlayer {

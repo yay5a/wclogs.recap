@@ -6,7 +6,6 @@ import type {
 } from '@wcl/domain';
 import type { DiscordMessageBody } from '../infrastructure/discord-api.js';
 import { buildBattleRezComponentsV2 } from './report-v2.js';
-import { makeAutoReportPromptPreviewCustomId } from '../commands/auto-report.js';
 import { makeReportEncounterCustomId } from '../commands/report-encounter-custom-id.js';
 
 export const SUPPRESS_EMBEDS_MESSAGE_FLAG = 1 << 2;
@@ -14,7 +13,7 @@ export const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
 export const IS_COMPONENTS_V2_MESSAGE_FLAG = 1 << 15;
 const SAFE_ALLOWED_MENTIONS = { parse: [] as string[] };
 const REPORT_DATA_NOTE =
-  'Parsing complex raw data structures from an overpowered database is not the same as parsing against an overpowered raid boss. The numbers reported here are expected to drift by ~0.55% up to ~1.5% due to rounding, and calculation methods of DPS/HPS totals, and parses/ranks only known to WCL';
+  'Parsing complex raw data structures from an overpowered database is not the same as parsing against an overpowered raid boss. The numbers reported here are expected to drift between ~0.55% and  ~1.5% due to calculation methods for rounding, DPS/HPS totals, and parse/rank percentiles only known to WCL';
 
 const compactNumberFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
@@ -89,9 +88,13 @@ const reportTitle = (summary: ReportSummary): string => {
   }`;
 };
 
-const renderNotes = (summary: ReportSummary): string => {
-  const notes = summary.partialDataNotes.join(REPORT_DATA_NOTE);
-  return `### *NOTE: ${notes}*`;
+const renderReportNoteText = (summary: ReportSummary): string => {
+  const notes = [
+    REPORT_DATA_NOTE,
+    ...summary.partialDataNotes.slice(0, 2).map((note) => `Note: ${note}`),
+  ].filter((note) => note.trim().length > 0);
+
+  return ['**_NOTE:_**', ...notes].join('\n');
 };
 
 const textDisplay = (content: string) => ({
@@ -231,16 +234,45 @@ const hasEncounterId = (encounter: ReportEncounterSummary): encounter is ReportE
 
   return (
     typeof encounterId === 'number' &&
-    Number.isInteger(encounterId) &&
+    Number.isSafeInteger(encounterId) &&
     (encounterId > 0 || encounterId === -1)
   );
+};
+const encounterButtonKey = (summary: ReportSummary, encounter: ReportEncounterWithId): string =>
+  [encounter.bossName, encounter.difficultyName ?? summary.difficultyName ?? ''].join(':');
+
+const encounterButtonScore = (encounter: ReportEncounterWithId): number =>
+  [
+    encounter.difficultyName ? 1_000_000 : 0,
+    encounter.highestTotalDps ? 1_000_000 : 0,
+    encounter.highestHps ? 1_000_000 : 0,
+    encounter.highestParseDps ? 1_000_000 : 0,
+    encounter.highestParseHps ? 1_000_000 : 0,
+    encounter.kills * 10_000,
+    encounter.wipes * 1000,
+    encounter.totalDurationMs ?? 0,
+  ].reduce((total, value) => total + value, 0);
+
+const getEncounterButtons = (summary: ReportSummary): ReportEncounterWithId[] => {
+  const selected = new Map<string, ReportEncounterWithId>();
+
+  for (const encounter of summary.encounters.filter(hasEncounterId)) {
+    const key = encounterButtonKey(summary, encounter);
+    const current = selected.get(key);
+
+    if (!current || encounterButtonScore(encounter) > encounterButtonScore(current)) {
+      selected.set(key, encounter);
+    }
+  }
+
+  return [...selected.values()];
 };
 
 const formatEncounterButtonLabel = (bossName: string): string =>
   bossName.length > 80 ? bossName.slice(0, 77).trimEnd() + '...' : bossName;
 
 const buildEncounterButtonRows = (summary: ReportSummary): DiscordActionRowComponent[] =>
-  chunk(summary.encounters.filter(hasEncounterId), 5).map((encounters) => ({
+  chunk(getEncounterButtons(summary), 5).map((encounters) => ({
     type: 1,
     components: encounters.map((encounter) => ({
       type: 2,
@@ -259,6 +291,8 @@ export const buildReportV2ResponseBody = async (
 ): Promise<DiscordMessageBody> => {
   const ephemeral = options.ephemeral ?? false;
 
+  const brezComponents = summary.battleRez ? buildBattleRezComponentsV2(summary.battleRez) : [];
+
   const containerComponents = [
     textDisplay(renderReportHeaderText(summary)),
     separator(),
@@ -276,9 +310,10 @@ export const buildReportV2ResponseBody = async (
     separator(),
     textDisplay(renderTopPlayersText(summary)),
     separator(),
+    textDisplay(renderReportNoteText(summary)),
+    separator(),
     textDisplay('## Encounter Breakdowns'),
     separator(),
-    textDisplay(renderNotes(summary)),
     ...buildEncounterButtonRows(summary),
   ];
 
@@ -291,6 +326,7 @@ export const buildReportV2ResponseBody = async (
         accent_color: 0x7d3cff,
         components: containerComponents,
       },
+      ...brezComponents,
     ],
   };
 };

@@ -28,6 +28,7 @@ const VALUE_KEY_BY_TYPE: Record<TableDataType, string[]> = {
   DamageDone: ['total', 'amount', 'value'],
   DamageTaken: ['total', 'amount', 'value'],
   Healing: ['total', 'amount', 'value'],
+  Casts: ['casts', 'uses', 'total', 'amount', 'value'],
   Deaths: ['deaths', 'amount', 'total', 'value'],
   Interrupts: ['interrupts', 'amount', 'total', 'value'],
   Dispels: ['dispels', 'total', 'amount', 'value'],

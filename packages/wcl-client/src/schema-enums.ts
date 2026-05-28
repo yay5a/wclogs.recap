@@ -6,6 +6,7 @@ export const TABLE_DATA_TYPES = [
   'DamageDone',
   'DamageTaken',
   'Healing',
+  'Casts',
   'Deaths',
   'Dispels',
   'Interrupts',
@@ -19,6 +20,7 @@ export type TableDataType = (typeof TABLE_DATA_TYPES)[number];
 export const REPORT_TABLE_DATA_TYPES = [
   'DamageDone',
   'Healing',
+  'Casts',
   'Deaths',
   'Dispels',
   'Interrupts',
@@ -28,6 +30,7 @@ export const REPORT_TABLE_DATA_TYPES = [
 export const REPORT_SUMMARY_TABLE_DATA_TYPES = [
   'DamageDone',
   'Healing',
+  'Casts',
   'Deaths',
   'Dispels',
   'Interrupts',
