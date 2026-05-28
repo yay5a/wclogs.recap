@@ -1,8 +1,7 @@
 # WCLogs Recap (Discord Bot) _in Beta_
 
 ![raidlogreport](docs/report-summary.png)
-![encounter-breakdown](docs/encounter-breakdown.png)
-![guildrank concept](docs/guild-ranks.png)
+![encounter-breakdown](docs/encounter-breakdowns.png)
 
 WCLogs Recap is a Discord bot that turns Warcraft Logs data into quick, readable raid summaries.
 
