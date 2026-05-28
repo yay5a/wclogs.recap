@@ -12,8 +12,9 @@ export const SUPPRESS_EMBEDS_MESSAGE_FLAG = 1 << 2;
 export const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
 export const IS_COMPONENTS_V2_MESSAGE_FLAG = 1 << 15;
 const SAFE_ALLOWED_MENTIONS = { parse: [] as string[] };
-const REPORT_DATA_NOTE =
-  'Parsing complex raw data structures from an overpowered database is not the same as parsing against an overpowered raid boss. The numbers reported here are expected to drift between ~0.55% and  ~1.5% due to calculation methods for rounding, DPS/HPS totals, and parse/rank percentiles only known to WCL';
+const REPORT_DATA_NOTE = `Parsing complex raw data structures from an overpowered database is not the same as parsing against an overpowered raid boss. The numbers reported here are expected to drift from the full log on warcraftlogs.com between ~0.55% and  ~1.5% due to calculation methods done by warcraftlogs for, DPS/HPS totals, parse/rank percentiles, and rounding.${'\n'} Trash pulls are not counted in these report summaries.`;
+const REPORT_SUMMARY_TIME_ZONE = 'America/New_York';
+const REPORT_SUMMARY_TIME_LABEL = 'Server';
 
 const compactNumberFormatter = new Intl.NumberFormat('en-US', {
   notation: 'compact',
@@ -39,8 +40,11 @@ const timeFormatter = new Intl.DateTimeFormat('en-US', {
   hour: 'numeric',
   minute: '2-digit',
   hour12: true,
-  timeZone: 'UTC',
+  timeZone: REPORT_SUMMARY_TIME_ZONE,
 });
+
+const formatTime = (iso: string): string =>
+  `${timeFormatter.format(new Date(iso))} ${REPORT_SUMMARY_TIME_LABEL}`;
 
 const chunk = <T>(rows: readonly T[], size: number): T[][] => {
   const chunks: T[][] = [];
@@ -76,8 +80,6 @@ const formatPullDuration = (durationMs?: number): string =>
     : 'unavailable';
 
 const formatDate = (iso: string): string => dateFormatter.format(new Date(iso));
-
-const formatTime = (iso: string): string => timeFormatter.format(new Date(iso));
 
 const formatRate = (value: number): string => `${formatCompact(value)}/s`;
 
@@ -381,7 +383,7 @@ export const buildEncounterBreakdownResponseBody = ({
       ),
     ),
     ...encounterRowsSection(
-      'Most Healthstones',
+      'Healthstones Used',
       renderOptionalMetricRowsMarkdown(encounter.mostHealthstonesConsumed, (value) =>
         integerFormatter.format(value),
       ),
@@ -431,11 +433,11 @@ export const buildReportV2ResponseBody = async (
     separator(),
     textDisplay(renderTopPlayersText(summary)),
     separator(),
-    textDisplay(renderReportNoteText(summary)),
-    separator(),
     textDisplay('## Encounter Breakdowns'),
     separator(),
     ...buildEncounterButtonRows(summary),
+    separator(),
+    textDisplay(renderReportNoteText(summary)),
   ];
 
   return {

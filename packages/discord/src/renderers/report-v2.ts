@@ -22,15 +22,15 @@ export const buildBattleRezComponentsV2 = (summary: ReportBrezSummary): DiscordC
       {
         type: 10,
         content: [
-          '## Battle Rez',
+          '## Battle Rez Summary',
           '',
-          '**Top Casters**',
+          '**Top Rezzers**',
           ...renderPlayerRows(summary.topCasters),
           '',
-          '**Top Receivers**',
+          '**Top Rezzed**',
           ...renderPlayerRows(summary.topReceivers),
           '',
-          '**Fastest Rez**',
+          '**Fastest Rezzer**',
           summary.fastest
             ? `${summary.fastest.caster.name} -> ${
                 summary.fastest.receiver.name
