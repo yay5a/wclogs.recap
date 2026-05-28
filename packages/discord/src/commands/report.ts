@@ -7,9 +7,14 @@ import {
   safeEditOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
 import { buildReportMessageFlags, buildReportV2ResponseBody } from '../renderers/report.js';
+import { InteractionResponseType } from 'discord-interactions';
+import {
+  isReportEncounterCustomIdCandidate,
+  parseReportEncounterCustomId,
+} from './report-encounter-custom-id.js';
+import { EPHEMERAL_MESSAGE_FLAG, IS_COMPONENTS_V2_MESSAGE_FLAG } from '../renderers/report.js';
 
 const logger = createLogger('discord');
-const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
 const DISCORD_PACKAGE_ID = '@wcl/discord@0.1.0';
 export const REPORT_RUNTIME_FINGERPRINT = 'render-fingerprint: report-runtime-canary-2026-05-14-A';
 export type ReportRenderPath = 'slash-command' | 'passive-detection' | 'auto-post' | 'preview-post';
@@ -162,3 +167,48 @@ export const processReportInteraction = async (
 
 export const getInteractionDiscordUserId = (interaction: DiscordInteraction): string | undefined =>
   interaction.member?.user?.id ?? interaction.user?.id;
+
+export const handleReportEncounterComponentInteraction = (
+  interaction: DiscordInteraction,
+): unknown | undefined => {
+  const customId = interaction.data?.custom_id;
+
+  if (!isReportEncounterCustomIdCandidate(customId)) {
+    return undefined;
+  }
+
+  const parsed = parseReportEncounterCustomId(customId);
+
+  const message = parsed.ok
+    ? interaction.guild_id
+      ? [
+          '## Encounter Breakdown',
+          '',
+          'Encounter details coming soon',
+          '',
+          `Report: \`${parsed.reportCode}\``,
+          `Encounter ID: \${parsed.encounterId}\``,
+        ].join('\n')
+      : 'Encounter details are only available inside a Discord server.'
+    : 'That encounter button is no longer valid';
+
+  return {
+    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+    data: {
+      flags: EPHEMERAL_MESSAGE_FLAG | IS_COMPONENTS_V2_MESSAGE_FLAG,
+      allowed_mentions: { parse: [] },
+      components: [
+        {
+          type: 17,
+          accent_color: 0x7d3cff,
+          components: [
+            {
+              type: 10,
+              content: message,
+            },
+          ],
+        },
+      ],
+    },
+  };
+};
