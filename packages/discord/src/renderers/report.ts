@@ -8,6 +8,7 @@ import type {
 } from '@wcl/domain';
 import type { DiscordMessageBody } from '../infrastructure/discord-api.js';
 import { buildBattleRezComponentsV2 } from './report-v2.js';
+import { makeAutoReportPromptPreviewCustomId } from '../commands/auto-report.js';
 
 export const SUPPRESS_EMBEDS_MESSAGE_FLAG = 1 << 2;
 export const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
@@ -50,6 +51,10 @@ const HTML_ESCAPE: Record<string, string> = {
   '>': '&gt;',
   '"': '&quot;',
   "'": '&#39;',
+};
+
+const chunk = <T>(rows: readonly T[], size: number): T[][] => {
+  const chunks: T[][] = [];
 };
 
 const escapeHtml = (value: string): string =>
@@ -738,43 +743,142 @@ export const buildReportResponseBody = async (
 
 export const IS_COMPONENTS_V2_MESSAGE_FLAG = 1 << 15;
 
+const textDisplay = (content: string) => ({
+  type: 10 as const,
+  content,
+});
+
+const separator = (spacing: 1 | 2 = 1) => ({
+  type: 14 as const,
+  divider: true,
+  spacing,
+});
+
+const formatDeaths = (value: number | undefined): string =>
+  typeof value === 'number' ? integerFormatter.format(value) : 'n/a';
+
+const formatParseMarkdown = (row: ReportParseRow | undefined): string =>
+  row ? `${row.playerName}: ${decimalFormatter.format(row.value)}` : 'unavailable';
+
+const formatMetricMarkdown = (
+  row: ReportMetricRow | undefined,
+  formatter: (value: number) => string,
+): string => (row ? `${row.playerName}: ${formatter(row.value)}` : 'unavailable');
+
+const renderTopRowsMarkdown = (
+  rows: readonly ReportMetricRow[],
+  formatter: (value: number) => string,
+): string => {
+  const rendered = rows
+    .slice(0, 3)
+    .map((row, index) => `${index + 1}. ${row.playerName}: ${formatter(row.value)}`);
+
+  return rendered.length > 0 ? rendered.join('\n') : 'unavailable';
+};
+
+const renderReportHeaderText = (summary: ReportSummary): string =>
+  [
+    `# ${reportTitle(summary)}`,
+    summary.reportOwnerName ? `**Uploaded by:** ${summary.reportOwnerName}` : '',
+    summary.reportLink,
+  ]
+    .filter(Boolean)
+    .join('\n');
+
+const renderRaidStatsText = (summary: ReportSummary): string =>
+  [
+    '## 📜 Raid Summary',
+    `📆 **Date:** ${formatDate(summary.dateISO)}`,
+    `🕛 **Start:** ${formatTime(summary.startTimeISO)}`,
+    `🕒 **End:** ${formatTime(summary.endTimeISO)}`,
+    '',
+    `⌛ **Duration:** ${formatDuration(summary.durationMs)}`,
+    `👹 **Boss Kills:** ${integerFormatter.format(summary.totalKills)}`,
+    `🧻 **Wipes:** ${integerFormatter.format(summary.totalWipes)}`,
+    `☠️ **Deaths:** ${formatDeaths(summary.totalDeaths)}`,
+  ].join('\n');
+
+const renderEncounterHighlightText = (
+  title: string,
+  encounter: ReportEncounterSummary | undefined,
+): string => {
+  if (!encounter) {
+    return `### ${title}\n unavailable`;
+  }
+
+  const difficulty = encounter.difficultyName ? `(${encounter.difficultyName})` : '';
+
+  return [
+    `### ${title}`,
+    `**${encounter.bossName}${difficulty}**`,
+    `Pulls: ${integerFormatter.format(encounter.pulls)}`,
+    `Kill/Wipes: ${integerFormatter.format(encounter.kills)}/${integerFormatter.format(
+      encounter.wipes,
+    )}`,
+    `Deaths: ${formatDeaths(encounter.deaths)}`,
+    encounter.longestPullMs ? `Longest Pull: ${formatPullDuration(encounter.longestPullMs)}` : '',
+    encounter.shortestPullMs
+      ? `Shortest Pull: ${formatPullDuration(encounter.shortestPullMs)}`
+      : '',
+    '',
+    `DPS Parse: ${formatParseMarkdown(encounter.highestParseDps)}`,
+    `HPS Parse: ${formatParseMarkdown(encounter.highestParseHps)}`,
+    `Top DPS: ${formatMetricMarkdown(encounter.highestTotalDps, formatRate)}`,
+    `Top HPS: ${formatMetricMarkdown(encounter.highestHps, formatRate)}`,
+  ]
+    .filter(Boolean)
+    .join('\n');
+};
+
+const renderTopPlayersText = (summary: ReportSummary): string => [
+  '## 🤺 Top Players',
+  '',
+  '** 🏅 Highest Avg Parse**',
+  renderTopRowsMarkdown(summary.topPlayers.highestAverageParse, (value) =>
+    decimalFormatter.format(value),
+  ),
+  '',
+  '**⚔️ Highest Total DPS**',
+  renderTopRowsMarkdown(summary.topPlayers.highestTotalDps, formatRate),
+  '',
+  '**🍃 Highest HPS**',
+  renderTopRowsMarkdown(summary.topPlayers.highestHps, formatRate),
+  '',
+  '**☠️ Most Deaths**',
+  renderTopRowsMarkdown(summary.topPlayers.mostDeaths, (value) => integerFormatter.format(value)),
+  '',
+  '**💤 Most Interrupts**',
+  renderTopRowsMarkdown(summary.topPlayers.mostInterrupts, (value) =>
+    integerFormatter.format(value),
+  ),
+];
+
 export const buildReportV2ResponseBody = async (
   summary: ReportSummary,
   options: { ephemeral?: boolean } = {},
 ): Promise<DiscordMessageBody> => {
   const ephemeral = options.ephemeral ?? false;
-  const image = await renderReportSummaryPng(summary);
 
   return {
     flags: IS_COMPONENTS_V2_MESSAGE_FLAG | (ephemeral ? EPHEMERAL_MESSAGE_FLAG : 0),
     allowed_mentions: SAFE_ALLOWED_MENTIONS,
-    files: [
-      {
-        name: REPORT_CARD_FILENAME,
-        attachment: image,
-        contentType: 'image/png',
-        description: 'Raid report summary',
-      },
-    ],
     components: [
       {
-        type: 10,
-        content: `# ${reportTitle(summary)}\n${
-          summary.reportOwnerName ? `Uploaded by: ${summary.reportOwnerName}\n` : ''
-        }${summary.reportLink}`,
-      },
-      {
-        type: 12,
-        items: [
+        type: 17,
+        accent_color: 0x7d3cff,
+        components: [
           {
-            media: {
-              url: `attachment://${REPORT_CARD_FILENAME}`,
-            },
-            description: 'Raid report summary',
+            type: 10,
+            content: `# ${reportTitle(summary)}\n${
+              summary.reportOwnerName ? `Uploaded by: ${summary.reportOwnerName}\n` : ''
+            }${summary.reportLink}`,
+          },
+          {
+            type: 10,
+            content: `# ${summary.battleRez ? buildBattleRezComponentsV2(summary.battleRez) : []}`,
           },
         ],
       },
-      ...(summary.battleRez ? buildBattleRezComponentsV2(summary.battleRez) : []),
     ],
   };
 };
