@@ -52,6 +52,11 @@ export const TermsPage = () => (
                 and channels where you have permission. Server administrators are responsible for
                 deciding whether the bot is appropriate for their Discord server.
             </p>
+            <p>
+                These terms apply only to WCLogs Recap and do not replace Discord&apos;s terms,
+                developer policies, community guidelines, or any Warcraft Logs terms. If these terms
+                conflict with Discord&apos;s applicable terms, Discord&apos;s terms control.
+            </p>
         </section>
 
         <section>
@@ -65,6 +70,12 @@ export const TermsPage = () => (
                 You may not use the bot to bypass privacy settings, harass users, spam Discord
                 channels, probe private data you are not allowed to access, or interfere with the
                 service, Discord, Warcraft Logs, or any connected system.
+            </p>
+            <p>
+                Do not use WCLogs Recap if you are under 13 years old or under the minimum age
+                required to use Discord in your country. Do not use the bot for illegal activity,
+                violent extremist content, impersonation, engagement manipulation, or any activity
+                that violates Discord&apos;s platform rules.
             </p>
         </section>
 
@@ -113,8 +124,9 @@ export const TermsPage = () => (
         <section>
             <h2>Support</h2>
             <p>
-                For support, bug reports, abuse reports, or deletion requests, open an issue through{" "}
-                <SupportLink />. Do not include secrets, private report contents, OAuth codes, or
+                For support, bug reports, abuse reports, platform-rule violation reports, or data
+                requests, open an issue through <SupportLink />. Reports will be reviewed and acted
+                on as appropriate. Do not include secrets, private report contents, OAuth codes, or
                 bot tokens in a public issue.
             </p>
         </section>
@@ -167,6 +179,11 @@ export const PrivacyPage = () => (
                 guild ID, channel ID, source message ID, source author ID, report code, report URL,
                 and temporary prompt or duplicate-tracking state.
             </p>
+            <p>
+                Message content is not mined or scraped for unrelated purposes, not used to profile
+                Discord users, and not used for employment, housing, insurance, credit, or other
+                eligibility decisions.
+            </p>
         </section>
 
         <section>
@@ -200,22 +217,33 @@ export const PrivacyPage = () => (
             <h2>Sharing and Security</h2>
             <p>
                 WCLogs Recap does not sell personal data and does not share Discord API data with
-                advertising networks or data brokers. Data is shared with Discord and Warcraft Logs
-                only as needed for bot operation, OAuth flows, API requests, and Discord messages.
+                advertising networks, data brokers, or monetization-related services. Discord API
+                data is not licensed, commercialized, reverse engineered, re-identified, or used to
+                train machine learning or AI models.
             </p>
             <p>
-                Warcraft Logs OAuth tokens are encrypted at rest. The dashboard uses signed,
-                HTTP-only cookies and production deployments use secure cookies when configured with
+                Data is shared only as needed to operate the bot, comply with law, work with service
+                providers that help run the service, or follow a user&apos;s explicit direction. Discord
+                receives bot messages and OAuth requests through Discord APIs. Warcraft Logs receives
+                Warcraft Logs report and OAuth requests needed to produce summaries.
+            </p>
+            <p>
+                Warcraft Logs OAuth tokens are encrypted at rest. Production deployments must run
+                database and storage infrastructure with encryption at rest, use HTTPS, and protect
+                Discord API data with reasonable administrative, physical, and technical safeguards.
+                The dashboard uses signed, HTTP-only cookies and secure cookies when configured with
                 HTTPS.
             </p>
         </section>
 
         <section>
-            <h2>Deletion Requests</h2>
+            <h2>Data Requests</h2>
             <p>
-                To request deletion of stored data, open an issue through <SupportLink /> with the
-                minimum context needed to identify the request. Do not post secrets, private report
-                contents, OAuth codes, or bot tokens in a public issue.
+                To request correction, update, or deletion of stored data, open an issue through{" "}
+                <SupportLink /> with the minimum context needed to identify the request. Removing the
+                bot from a server stops future server activity there, but stored operational data may
+                still need a deletion request. Do not post secrets, private report contents, OAuth
+                codes, or bot tokens in a public issue.
             </p>
         </section>
 

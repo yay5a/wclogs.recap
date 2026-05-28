@@ -1,4 +1,4 @@
-import { isValidWclTokenEncryptionKey } from '@wcl/db';
+import { isValidWclTokenEncryptionKey, mongoUriRequestsTls } from '@wcl/db';
 import { trimmed, z } from '@wcl/shared';
 import { resolveWclPublicClientAuth } from '@wcl/wcl-client';
 
@@ -6,8 +6,15 @@ export const DISCORD_OAUTH_CALLBACK_PATH = '/api/dashboard/discord/callback';
 export const WCL_OAUTH_CALLBACK_PATH = '/api/auth/wcl/callback';
 export const DISCORD_INTERACTIONS_PATH = '/discord/interactions';
 export const DASHBOARD_PATH = '/dashboard';
+export const TERMS_PATH = '/dashboard/terms';
+export const PRIVACY_PATH = '/dashboard/privacy';
 
 const dashboardAuthDisabled = z
+  .union([z.literal('true'), z.literal('false')])
+  .optional()
+  .transform((value) => value === 'true');
+
+const booleanFlag = z
   .union([z.literal('true'), z.literal('false')])
   .optional()
   .transform((value) => value === 'true');
@@ -56,6 +63,27 @@ const wclTokenEncryptionKey = trimmed().superRefine((value, context) => {
   }
 });
 
+const isHttpsUrl = (value: string): boolean => {
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+};
+
+const requireProductionHttps = (
+  context: z.RefinementCtx,
+  name: string,
+  value: string | undefined,
+) => {
+  if (!value || isHttpsUrl(value)) return;
+  context.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [name],
+    message: `${name} must use https in production`,
+  });
+};
+
 const buildPublicUrl = (baseUrl: string | undefined, path: string): string | undefined =>
   baseUrl ? `${baseUrl}${path}` : undefined;
 
@@ -66,6 +94,7 @@ const webEnvSchema = z
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().default(3000),
     MONGODB_URI: trimmed().url(),
+    MONGODB_ENCRYPTION_AT_REST_CONFIRMED: booleanFlag,
     DISCORD_PUBLIC_KEY: trimmed().regex(
       /^[a-fA-F0-9]{64}$/,
       'DISCORD_PUBLIC_KEY must be a 64-character hex string',
@@ -124,6 +153,44 @@ const webEnvSchema = z
         path: ['DASHBOARD_ADMIN_SECRET'],
         message: 'DASHBOARD_ADMIN_SECRET is required in production',
       });
+    }
+
+    if (env.NODE_ENV === 'production') {
+      if (!env.PUBLIC_APP_BASE_URL) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['PUBLIC_APP_BASE_URL'],
+          message: 'PUBLIC_APP_BASE_URL is required in production',
+        });
+      }
+
+      requireProductionHttps(context, 'PUBLIC_APP_BASE_URL', env.PUBLIC_APP_BASE_URL);
+      requireProductionHttps(
+        context,
+        'DISCORD_OAUTH_REDIRECT_URI',
+        env.DISCORD_OAUTH_REDIRECT_URI,
+      );
+      requireProductionHttps(context, 'DISCORD_INTERACTIONS_URL', env.DISCORD_INTERACTIONS_URL);
+      requireProductionHttps(context, 'WCL_REDIRECT_URI', env.WCL_REDIRECT_URI);
+      requireProductionHttps(context, 'WCL_API_BASE_URL', env.WCL_API_BASE_URL);
+      requireProductionHttps(context, 'WCL_USER_API_BASE_URL', env.WCL_USER_API_BASE_URL);
+
+      if (!mongoUriRequestsTls(env.MONGODB_URI)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['MONGODB_URI'],
+          message:
+            'MONGODB_URI must request TLS in production; use mongodb+srv:// or tls=true/ssl=true',
+        });
+      }
+
+      if (!env.MONGODB_ENCRYPTION_AT_REST_CONFIRMED) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ['MONGODB_ENCRYPTION_AT_REST_CONFIRMED'],
+          message: 'MONGODB_ENCRYPTION_AT_REST_CONFIRMED=true is required in production',
+        });
+      }
     }
 
     if (
@@ -197,6 +264,8 @@ const webEnvSchema = z
     const discordInteractionsUrl =
       env.DISCORD_INTERACTIONS_URL ?? buildPublicUrl(publicAppBaseUrl, DISCORD_INTERACTIONS_PATH);
     const dashboardPublicUrl = buildPublicUrl(publicAppBaseUrl, DASHBOARD_PATH);
+    const termsPublicUrl = buildPublicUrl(publicAppBaseUrl, TERMS_PATH);
+    const privacyPublicUrl = buildPublicUrl(publicAppBaseUrl, PRIVACY_PATH);
 
     return {
       ...env,
@@ -211,6 +280,8 @@ const webEnvSchema = z
       wclRedirectUri,
       discordInteractionsUrl,
       dashboardPublicUrl,
+      termsPublicUrl,
+      privacyPublicUrl,
     };
   });
 

@@ -15,7 +15,8 @@
         "lint": "eslint src client --ext .ts,.tsx",
         "typecheck": "pnpm run build:deps && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
         "test": "vitest run --passWithNoTests --config vitest.config.ts",
-        "register:discord-commands": "tsx --tsconfig tsconfig.dev.json src/ops/register-discord-commands.ts"
+        "register:discord-commands": "tsx --tsconfig tsconfig.dev.json src/ops/register-discord-commands.ts",
+        "sync:discord-legal-urls": "tsx --tsconfig tsconfig.dev.json src/ops/sync-discord-legal-urls.ts"
     },
     "dependencies": {
         "@fastify/cookie": "^11.0.2",

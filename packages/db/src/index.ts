@@ -22,4 +22,19 @@ export * from './stores/guild-report-metadata-store.js';
 export * from './stores/report-rankings-store.js';
 export * from './stores/report-index-cache-store.js';
 
+export const mongoUriRequestsTls = (uri: string): boolean => {
+  let parsed: URL;
+  try {
+    parsed = new URL(uri);
+  } catch {
+    return false;
+  }
+
+  if (parsed.protocol === 'mongodb+srv:') return true;
+  if (parsed.protocol !== 'mongodb:') return false;
+
+  const tls = parsed.searchParams.get('tls') ?? parsed.searchParams.get('ssl');
+  return tls?.toLowerCase() === 'true';
+};
+
 export const connectMongo = async (uri: string) => mongoose.connect(uri);
