@@ -113,7 +113,10 @@ export const handleInteraction = async (
   }
 
   if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
-    const reportEncounterResponse = handleReportEncounterComponentInteraction(typedInteraction);
+    const reportEncounterResponse = await handleReportEncounterComponentInteraction(
+      typedInteraction,
+      options,
+    );
 
     if (reportEncounterResponse) {
       return reportEncounterResponse;

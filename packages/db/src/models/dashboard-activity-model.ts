@@ -1,5 +1,5 @@
 import mongoose, { Schema, type Model } from 'mongoose';
-import type { ActivityActor, BotActivityKind } from '@wcl/domain';
+import type { ActivityActor, BotActivityKind, ReportSummary } from '@wcl/domain';
 
 export interface DashboardActivityDocument {
   guildId: string;
@@ -8,6 +8,7 @@ export interface DashboardActivityDocument {
   actor?: ActivityActor;
   kind: BotActivityKind;
   reportCode?: string;
+  reportSummary?: ReportSummary;
   sourceUrl?: string;
   discordMessageUrl?: string;
   characterLabel?: string;
@@ -51,6 +52,7 @@ const dashboardActivitySchema = new Schema<DashboardActivityDocument>(
       index: true,
     },
     reportCode: { type: String, index: true },
+    reportSummary: { type: Schema.Types.Mixed },
     sourceUrl: { type: String },
     discordMessageUrl: { type: String },
     characterLabel: { type: String },
@@ -65,6 +67,7 @@ const dashboardActivitySchema = new Schema<DashboardActivityDocument>(
 
 dashboardActivitySchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 dashboardActivitySchema.index({ guildId: 1, createdAt: -1 });
+dashboardActivitySchema.index({ guildId: 1, reportCode: 1, kind: 1, createdAt: -1 });
 
 export const DashboardActivityModel: Model<DashboardActivityDocument> =
   (mongoose.models.DashboardActivity as Model<DashboardActivityDocument> | undefined) ??

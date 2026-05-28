@@ -6,13 +6,19 @@ import {
   editOriginalInteractionResponse,
   safeEditOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
-import { buildReportMessageFlags, buildReportV2ResponseBody } from '../renderers/report.js';
+import {
+  buildEncounterBreakdownResponseBody,
+  buildReportMessageFlags,
+  buildReportV2ResponseBody,
+  getReportEncounterButtonEncounters,
+} from '../renderers/report.js';
 import { InteractionResponseType } from 'discord-interactions';
 import {
   isReportEncounterCustomIdCandidate,
   parseReportEncounterCustomId,
 } from './report-encounter-custom-id.js';
 import { EPHEMERAL_MESSAGE_FLAG, IS_COMPONENTS_V2_MESSAGE_FLAG } from '../renderers/report.js';
+import { recordDashboardActivityAfterSuccess } from './dashboard-activity.js';
 
 const logger = createLogger('discord');
 const DISCORD_PACKAGE_ID = '@wcl/discord@0.1.0';
@@ -153,6 +159,20 @@ export const processReportInteraction = async (
       url,
     });
     await editOriginalInteractionResponse(applicationId, interactionToken, artifact.publicBody);
+    if (interaction.guild_id) {
+      await recordDashboardActivityAfterSuccess(options.botActivityStore, {
+        guildId: interaction.guild_id,
+        ...(interaction.channel_id ? { channelId: interaction.channel_id } : {}),
+        ...(interactionId ? { sourceMessageId: interactionId } : {}),
+        ...(discordUserId ? { actor: { kind: 'discord', discordUserId } } : {}),
+        kind: 'report_posted',
+        reportCode: artifact.summary.reportCode,
+        reportSummary: artifact.summary,
+        sourceUrl: artifact.summary.reportLink,
+        idempotencyKey: interactionId ? `report_posted:${interactionId}` : undefined,
+        createdAt: new Date(),
+      });
+    }
   } catch (error) {
     logger.error(
       { error: serializeReportFetchFailureForLog(error), interactionId, guildId },
@@ -168,9 +188,32 @@ export const processReportInteraction = async (
 export const getInteractionDiscordUserId = (interaction: DiscordInteraction): string | undefined =>
   interaction.member?.user?.id ?? interaction.user?.id;
 
-export const handleReportEncounterComponentInteraction = (
+const buildEncounterComponentMessageBody = (message: string): DiscordMessageBody => ({
+  flags: EPHEMERAL_MESSAGE_FLAG | IS_COMPONENTS_V2_MESSAGE_FLAG,
+  allowed_mentions: { parse: [] },
+  components: [
+    {
+      type: 17,
+      accent_color: 0x7d3cff,
+      components: [
+        {
+          type: 10,
+          content: message,
+        },
+      ],
+    },
+  ],
+});
+
+const buildEncounterComponentResponse = (body: DiscordMessageBody): unknown => ({
+  type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+  data: body,
+});
+
+export const handleReportEncounterComponentInteraction = async (
   interaction: DiscordInteraction,
-): unknown | undefined => {
+  options: HandleOptions,
+): Promise<unknown | undefined> => {
   const customId = interaction.data?.custom_id;
 
   if (!isReportEncounterCustomIdCandidate(customId)) {
@@ -178,37 +221,78 @@ export const handleReportEncounterComponentInteraction = (
   }
 
   const parsed = parseReportEncounterCustomId(customId);
+  if (!parsed.ok) {
+    return buildEncounterComponentResponse(
+      buildEncounterComponentMessageBody('That encounter button is no longer valid.'),
+    );
+  }
 
-  const message = parsed.ok
-    ? interaction.guild_id
-      ? [
-          '## Encounter Breakdown',
-          '',
-          'Encounter details coming soon',
-          '',
-          `Report: \`${parsed.reportCode}\``,
-          `Encounter ID: \`${parsed.encounterId}\``,
-        ].join('\n')
-      : 'Encounter details are only available inside a Discord server.'
-    : 'That encounter button is no longer valid';
+  const guildId = interaction.guild_id;
+  if (!guildId) {
+    return buildEncounterComponentResponse(
+      buildEncounterComponentMessageBody(
+        'Encounter details are only available inside a Discord server.',
+      ),
+    );
+  }
 
-  return {
-    type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
-    data: {
-      flags: EPHEMERAL_MESSAGE_FLAG | IS_COMPONENTS_V2_MESSAGE_FLAG,
-      allowed_mentions: { parse: [] },
-      components: [
-        {
-          type: 17,
-          accent_color: 0x7d3cff,
-          components: [
-            {
-              type: 10,
-              content: message,
-            },
-          ],
-        },
-      ],
-    },
-  };
+  try {
+    const summary = await options.botActivityStore?.findLatestReportSummary({
+      guildId,
+      reportCode: parsed.reportCode,
+    });
+
+    if (!summary) {
+      return buildEncounterComponentResponse(
+        buildEncounterComponentMessageBody(
+          [
+            '## Encounter Breakdown',
+            '',
+            'I could not find cached report details for this server. Repost the report summary, then try the button again.',
+            '',
+            `Report: \`${parsed.reportCode}\``,
+            `Encounter ID: \`${parsed.encounterId}\``,
+          ].join('\n'),
+        ),
+      );
+    }
+
+    const encounter = getReportEncounterButtonEncounters(summary).find(
+      (candidate) => candidate.encounterId === parsed.encounterId,
+    );
+
+    if (!encounter) {
+      return buildEncounterComponentResponse(
+        buildEncounterComponentMessageBody(
+          [
+            '## Encounter Breakdown',
+            '',
+            'I could not find that encounter in the cached report details for this server.',
+            '',
+            `Report: \`${parsed.reportCode}\``,
+            `Encounter ID: \`${parsed.encounterId}\``,
+          ].join('\n'),
+        ),
+      );
+    }
+
+    return buildEncounterComponentResponse(
+      buildEncounterBreakdownResponseBody({ summary, encounter }),
+    );
+  } catch (error) {
+    logger.warn(
+      {
+        guildId,
+        reportCode: parsed.reportCode,
+        encounterId: parsed.encounterId,
+        error: serializeError(error),
+      },
+      'report encounter breakdown lookup failed',
+    );
+    return buildEncounterComponentResponse(
+      buildEncounterComponentMessageBody(
+        'Could not load that encounter breakdown right now. Try again later.',
+      ),
+    );
+  }
 };

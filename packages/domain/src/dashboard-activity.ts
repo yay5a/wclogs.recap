@@ -1,3 +1,5 @@
+import type { ReportSummary } from './report/types.js';
+
 export type BotActivityKind =
   | 'report_preview_created'
   | 'report_posted'
@@ -23,6 +25,7 @@ export interface BotActivityEvent {
   actor?: ActivityActor | undefined;
   kind: BotActivityKind;
   reportCode?: string | undefined;
+  reportSummary?: ReportSummary | undefined;
   sourceUrl?: string | undefined;
   discordMessageUrl?: string | undefined;
   characterLabel?: string | undefined;
@@ -33,4 +36,8 @@ export interface BotActivityEvent {
 
 export interface BotActivityStore {
   recordActivity(event: BotActivityEvent): Promise<void>;
+  findLatestReportSummary(input: {
+    guildId: string;
+    reportCode: string;
+  }): Promise<ReportSummary | null>;
 }

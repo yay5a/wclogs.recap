@@ -128,6 +128,27 @@ const renderTopRowsMarkdown = (
   return rendered.length > 0 ? rendered.join('\n') : 'unavailable';
 };
 
+const renderOptionalMetricRowsMarkdown = (
+  rows: readonly ReportMetricRow[] | undefined,
+  formatter: (value: number) => string,
+): string | undefined => {
+  if (!rows || rows.length === 0) return undefined;
+  return rows
+    .slice(0, 3)
+    .map((row, index) => `${index + 1}. ${row.playerName}: ${formatter(row.value)}`)
+    .join('\n');
+};
+
+const renderOptionalParseRowsMarkdown = (
+  rows: readonly ReportParseRow[] | undefined,
+): string | undefined => {
+  if (!rows || rows.length === 0) return undefined;
+  return rows
+    .slice(0, 3)
+    .map((row, index) => `${index + 1}. ${row.playerName}: ${decimalFormatter.format(row.value)}`)
+    .join('\n');
+};
+
 const renderReportHeaderText = (summary: ReportSummary): string =>
   [
     `# ${reportTitle(summary)}`,
@@ -251,7 +272,9 @@ const encounterButtonScore = (encounter: ReportEncounterWithId): number =>
     encounter.totalDurationMs ?? 0,
   ].reduce((total, value) => total + value, 0);
 
-const getEncounterButtons = (summary: ReportSummary): ReportEncounterWithId[] => {
+export const getReportEncounterButtonEncounters = (
+  summary: ReportSummary,
+): ReportEncounterWithId[] => {
   const selected = new Map<string, ReportEncounterWithId>();
 
   for (const encounter of summary.encounters.filter(hasEncounterId)) {
@@ -270,7 +293,7 @@ const formatEncounterButtonLabel = (bossName: string): string =>
   bossName.length > 80 ? bossName.slice(0, 77).trimEnd() + '...' : bossName;
 
 const buildEncounterButtonRows = (summary: ReportSummary): DiscordActionRowComponent[] =>
-  chunk(getEncounterButtons(summary), 5).map((encounters) => ({
+  chunk(getReportEncounterButtonEncounters(summary), 5).map((encounters) => ({
     type: 1,
     components: encounters.map((encounter) => ({
       type: 2,
@@ -282,6 +305,100 @@ const buildEncounterButtonRows = (summary: ReportSummary): DiscordActionRowCompo
       }),
     })),
   }));
+
+const renderEncounterBreakdownStatsText = (
+  summary: ReportSummary,
+  encounter: ReportEncounterSummary,
+): string => {
+  const difficulty = encounter.difficultyName ?? summary.difficultyName;
+  return [
+    `# ${encounter.bossName}`,
+    difficulty ? `**Difficulty:** ${difficulty}` : '',
+    `**Report:** ${summary.reportTitle}`,
+    '',
+    `**Pulls:** ${integerFormatter.format(encounter.pulls)}`,
+    `**Kills/Wipes:** ${integerFormatter.format(encounter.kills)}/${integerFormatter.format(
+      encounter.wipes,
+    )}`,
+    `**Deaths:** ${formatDeaths(encounter.deaths)}`,
+    typeof encounter.longestPullMs === 'number'
+      ? `**Longest Pull:** ${formatPullDuration(encounter.longestPullMs)}`
+      : '',
+    typeof encounter.shortestPullMs === 'number'
+      ? `**Shortest Pull:** ${formatPullDuration(encounter.shortestPullMs)}`
+      : '',
+  ]
+    .filter(Boolean)
+    .join('\n');
+};
+
+const renderEncounterBestText = (encounter: ReportEncounterSummary): string =>
+  [
+    '## Best Rows',
+    `**DPS Parse:** ${formatParseMarkdown(encounter.highestParseDps)}`,
+    `**HPS Parse:** ${formatParseMarkdown(encounter.highestParseHps)}`,
+    `**Top DPS:** ${formatMetricMarkdown(encounter.highestTotalDps, formatRate)}`,
+    `**Top HPS:** ${formatMetricMarkdown(encounter.highestHps, formatRate)}`,
+  ].join('\n');
+
+const encounterRowsSection = (
+  title: string,
+  rows: string | undefined,
+): ReturnType<typeof textDisplay>[] => (rows ? [textDisplay(`## ${title}\n${rows}`)] : []);
+
+export const buildEncounterBreakdownResponseBody = ({
+  encounter,
+  summary,
+}: {
+  summary: ReportSummary;
+  encounter: ReportEncounterSummary;
+}): DiscordMessageBody => {
+  const utilityComponents = [
+    ...encounterRowsSection('Top 3 DPS Parses', renderOptionalParseRowsMarkdown(encounter.topParseDps)),
+    ...encounterRowsSection('Top 3 HPS Parses', renderOptionalParseRowsMarkdown(encounter.topParseHps)),
+    ...encounterRowsSection(
+      'Most Deaths',
+      renderOptionalMetricRowsMarkdown(encounter.mostDeaths, (value) =>
+        integerFormatter.format(value),
+      ),
+    ),
+    ...encounterRowsSection(
+      'Most Interrupts',
+      renderOptionalMetricRowsMarkdown(encounter.mostInterrupts, (value) =>
+        integerFormatter.format(value),
+      ),
+    ),
+    ...encounterRowsSection(
+      'Most Dispels',
+      renderOptionalMetricRowsMarkdown(encounter.mostDispels, (value) =>
+        integerFormatter.format(value),
+      ),
+    ),
+    ...encounterRowsSection(
+      'Most Healthstones',
+      renderOptionalMetricRowsMarkdown(encounter.mostHealthstonesConsumed, (value) =>
+        integerFormatter.format(value),
+      ),
+    ),
+  ];
+
+  return {
+    flags: EPHEMERAL_MESSAGE_FLAG | IS_COMPONENTS_V2_MESSAGE_FLAG,
+    allowed_mentions: SAFE_ALLOWED_MENTIONS,
+    components: [
+      {
+        type: 17,
+        accent_color: 0x7d3cff,
+        components: [
+          textDisplay(renderEncounterBreakdownStatsText(summary, encounter)),
+          separator(),
+          textDisplay(renderEncounterBestText(encounter)),
+          ...(utilityComponents.length > 0 ? [separator(), ...utilityComponents] : []),
+        ],
+      },
+    ],
+  };
+};
 
 export const buildReportV2ResponseBody = async (
   summary: ReportSummary,

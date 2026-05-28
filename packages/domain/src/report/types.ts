@@ -57,6 +57,8 @@ export interface ReportEncounterSummary {
   highestHps?: ReportMetricRow;
   highestParseDps?: ReportParseRow;
   highestParseHps?: ReportParseRow;
+  topParseDps?: ReportParseRow[];
+  topParseHps?: ReportParseRow[];
   mostDeaths?: ReportMetricRow[];
   mostInterrupts?: ReportMetricRow[];
   mostDispels?: ReportMetricRow[];
