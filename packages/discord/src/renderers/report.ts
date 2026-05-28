@@ -83,9 +83,7 @@ const formatRate = (value: number): string => `${formatCompact(value)}/s`;
 
 const reportTitle = (summary: ReportSummary): string => {
   const difficultyAndSize = [summary.difficultyName, summary.sizeLabel].filter(present).join(' ');
-  return `Report Summary - ${summary.reportTitle}${
-    difficultyAndSize ? ` (${difficultyAndSize})` : ''
-  }`;
+  return `${summary.reportTitle}${difficultyAndSize ? ` (${difficultyAndSize})` : ''}`;
 };
 
 const renderReportNoteText = (summary: ReportSummary): string => {

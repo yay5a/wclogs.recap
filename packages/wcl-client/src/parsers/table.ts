@@ -44,6 +44,32 @@ const findValue = (entry: Record<string, unknown>, keys: string[]): number | und
   return undefined;
 };
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === 'object' && !Array.isArray(value);
+
+const unwrapTableRows = (rows: readonly unknown[]): unknown[] =>
+  rows.flatMap((row) => {
+    if (isRecord(row) && Array.isArray(row.entries)) {
+      return unwrapTableRows(row.entries);
+    }
+
+    return [row];
+  });
+
+const describeMalformedTableRow = (entry: Record<string, unknown>) => {
+  const rowKeys = Object.keys(entry).sort();
+  const rowKey = rowKeys.length === 1 ? rowKeys[0] : undefined;
+  const nested = rowKey ? asObject(entry[rowKey]) : undefined;
+  const nestedKeys = nested ? Object.keys(nested).sort() : [];
+
+  return {
+    rowShape: describePayloadShape(entry),
+    rowKeys,
+    ...(rowKey ? { rowKey } : {}),
+    ...(nestedKeys.length > 0 ? { nestedKeys } : {}),
+  };
+};
+
 const parseNestedDetailsRows = (
   row: Record<string, unknown>,
   dataType: TableDataType,
@@ -79,29 +105,6 @@ const parseNestedDetailsRows = (
       },
     ];
   });
-};
-
-const hasNestedEntries = (row: Record<string, unknown>): boolean =>
-  (asArray(row.entries) ?? []).length > 0;
-
-const flattenRows = (rows: unknown[]): unknown[] => {
-  const flattened: unknown[] = [];
-  const queue = [...rows];
-
-  while (queue.length > 0) {
-    const candidate = queue.shift();
-    if (!candidate) continue;
-    flattened.push(candidate);
-
-    const row = asObject(candidate);
-    if (!row) continue;
-    const nested = asArray(row.entries) ?? [];
-    for (const nestedRow of nested) {
-      queue.push(nestedRow);
-    }
-  }
-
-  return flattened;
 };
 
 const isDeathsEventRow = (entry: Record<string, unknown>): boolean => {
@@ -207,7 +210,7 @@ export const parseTablePayloadDetailed = (
   const parsed = parseUnknownJson(payload, warn, `table:${dataType}`);
   const { rows, isValidShape } = getTableEntries(parsed, dataType, warn);
 
-  const entries = flattenRows(rows).flatMap((row) => {
+  const entries = unwrapTableRows(rows).flatMap((row) => {
     const entry = asObject(row);
     if (!entry) return [];
 
@@ -229,13 +232,7 @@ export const parseTablePayloadDetailed = (
         return [];
       }
 
-      if (hasNestedEntries(entry)) {
-        return [];
-      }
-
-      warn(`table parser (${dataType} payload): skipped malformed row`, {
-        rowShape: describePayloadShape(entry),
-      });
+      warn(`table parser (${dataType} payload): skipped malformed row`, describeMalformedTableRow(entry));
       return [];
     }
 

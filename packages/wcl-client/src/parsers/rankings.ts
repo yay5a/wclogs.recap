@@ -5,7 +5,6 @@ import {
   asObject,
   asString,
   defaultDebugWarn,
-  describePayloadShape,
   normalizeName,
   parseUnknownJson,
 } from './common.js';
@@ -52,6 +51,23 @@ const readPerformanceAverage = (entry: Record<string, unknown>): number | undefi
   asNumber(entry.performanceAverage) ??
   asNumber(entry.bestPercent);
 
+const describePayloadShape = (payload: unknown): Record<string, unknown> => {
+  if (Array.isArray(payload)) {
+    return { type: 'array', length: payload.length };
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return { type: typeof payload };
+  }
+
+  const keys = Object.keys(payload as Record<string, unknown>);
+  return {
+    type: 'object',
+    keyCount: keys.length,
+    keys: keys.slice(0, 10),
+  };
+};
+
 const collectContainers = (parsed: unknown): unknown[] => {
   const root = asObject(parsed);
   if (!root) return asArray(parsed) ?? [];
@@ -79,32 +95,93 @@ const collectRoleCharacters = (
   const roles = asObject(row.roles);
   if (!roles) return [];
 
-  const buckets: Array<{ role: string; key: 'tanks' | 'healers' | 'dps' }> = [
-    { role: 'tank', key: 'tanks' },
-    { role: 'healer', key: 'healers' },
-    { role: 'dps', key: 'dps' },
+  const buckets: Array<{ role: string; keys: string[] }> = [
+    { role: 'tank', keys: ['tanks', 'tank'] },
+    { role: 'healer', keys: ['healers', 'healer'] },
+    { role: 'dps', keys: ['dps'] },
   ];
 
-  return buckets.flatMap(({ role, key }) => {
-    const bucket = asObject(roles[key]);
-    const characters = asArray(bucket?.characters) ?? [];
-    return characters.flatMap((character) => {
-      const normalized = asObject(character);
-      return normalized ? [{ role, character: normalized }] : [];
-    });
-  });
+  return buckets.flatMap(({ role, keys }) =>
+    keys.flatMap((key) => {
+      const bucketValue = roles[key];
+      const bucket = asObject(bucketValue);
+      const characters = asArray(bucket?.characters) ?? asArray(bucketValue) ?? [];
+      return characters.flatMap((character) => {
+        const normalized = asObject(character);
+        return normalized ? [{ role, character: normalized }] : [];
+      });
+    }),
+  );
 };
 
 type RankingRole = 'tank' | 'healer' | 'dps';
 
-const collectFightRows = (parsed: unknown): Record<string, unknown>[] => {
-  const root = asObject(parsed);
-  if (!root) return [];
-  return (asArray(root.data) ?? []).flatMap((entry) => {
-    const row = asObject(entry);
-    return row ? [row] : [];
-  });
+const rankingRowContainerKeys = ['data', 'rankings', 'entries'] as const;
+
+const collectFightRowsFromPayload = (
+  value: unknown,
+): { rows: Record<string, unknown>[]; isRecognizedShape: boolean } => {
+  const array = asArray(value);
+  if (array) {
+    const rows = array.flatMap((entry) => {
+      const row = asObject(entry);
+      if (!row) return [];
+
+      if (readMetric(row) || asObject(row.roles)) {
+        return [row];
+      }
+
+      const nested = collectFightRowsFromPayload(row);
+      return nested.isRecognizedShape ? nested.rows : [row];
+    });
+    return { rows, isRecognizedShape: true };
+  }
+
+  const root = asObject(value);
+  if (!root) return { rows: [], isRecognizedShape: false };
+
+  if (asObject(root.roles)) {
+    return { rows: [root], isRecognizedShape: true };
+  }
+
+  const rows: Record<string, unknown>[] = [];
+  let isRecognizedShape = false;
+
+  for (const key of rankingRowContainerKeys) {
+    if (!(key in root)) continue;
+
+    const nested = collectFightRowsFromPayload(root[key]);
+    isRecognizedShape = isRecognizedShape || nested.isRecognizedShape;
+    rows.push(...nested.rows);
+  }
+
+  return { rows, isRecognizedShape };
 };
+
+const collectFightRows = (parsed: unknown): Record<string, unknown>[] =>
+  collectFightRowsFromPayload(parsed).rows;
+
+const collectRoleEntries = (
+  fightRows: Record<string, unknown>[],
+): Record<string, unknown>[] =>
+  fightRows.flatMap((fightRow) =>
+    collectRoleCharacters(fightRow).map(({ role, character }) => ({
+      ...character,
+      role,
+      fightID:
+        asNumber(character.fightID) ?? asNumber(fightRow.fightID) ?? asNumber(fightRow.fightId),
+      encounterName:
+        asString(character.encounterName) ??
+        asString(asObject(fightRow.encounter)?.name) ??
+        asString(fightRow.encounter),
+    })),
+  );
+
+const collectRoleEntriesForRole = (
+  fightRows: Record<string, unknown>[],
+  role: RankingRole,
+): Record<string, unknown>[] =>
+  collectRoleEntries(fightRows).filter((entry) => entry.role === role);
 
 const normalizeMetricIdentity = (value: unknown): string | undefined => {
   const normalized = asString(value)?.trim().toUpperCase();
@@ -220,18 +297,7 @@ export const parseReportRankingsPayload = (
 ): NormalizedLeaderboardEntry[] => {
   const parsed = parseUnknownJson(payload, warn, 'report rankings');
   const candidates = collectContainers(parsed);
-  const roleEntries = collectFightRows(parsed).flatMap((fightRow) =>
-    collectRoleCharacters(fightRow).map(({ role, character }) => ({
-      ...character,
-      role,
-      fightID:
-        asNumber(character.fightID) ?? asNumber(fightRow.fightID) ?? asNumber(fightRow.fightId),
-      encounterName:
-        asString(character.encounterName) ??
-        asString(asObject(fightRow.encounter)?.name) ??
-        asString(fightRow.encounter),
-    })),
-  );
+  const roleEntries = collectRoleEntries(collectFightRows(parsed));
   if (candidates.length === 0) {
     warn('rankings parser (report payload): unrecognized payload shape', {
       payloadShape: describePayloadShape(parsed),
@@ -259,8 +325,8 @@ export const parseReportRankingsPayloadForRole = (
   warn: DebugWarn = defaultDebugWarn,
 ): NormalizedLeaderboardEntry[] => {
   const parsed = parseUnknownJson(payload, warn, 'report rankings');
-  const fightRows = collectFightRows(parsed);
-  if (fightRows.length === 0) {
+  const { rows: fightRows, isRecognizedShape } = collectFightRowsFromPayload(parsed);
+  if (!isRecognizedShape) {
     warn('rankings parser (report payload by role): unrecognized payload shape', {
       payloadShape: describePayloadShape(parsed),
       role,
@@ -268,23 +334,16 @@ export const parseReportRankingsPayloadForRole = (
     return [];
   }
 
-  const roleEntries = fightRows.flatMap((fightRow) =>
-    collectRoleCharacters(fightRow)
-      .filter((entry) => entry.role === role)
-      .map(({ role: entryRole, character }) => ({
-        ...character,
-        role: entryRole,
-        fightID:
-          asNumber(character.fightID) ?? asNumber(fightRow.fightID) ?? asNumber(fightRow.fightId),
-        encounterName:
-          asString(character.encounterName) ??
-          asString(asObject(fightRow.encounter)?.name) ??
-          asString(fightRow.encounter),
-      })),
-  );
+  if (fightRows.length === 0) {
+    return [];
+  }
+
+  const roleEntries = collectRoleEntriesForRole(fightRows, role);
+  const candidates =
+    roleEntries.length > 0 ? roleEntries : fightRows.map((fightRow) => ({ ...fightRow, role }));
 
   const results: NormalizedLeaderboardEntry[] = [];
-  for (const candidate of roleEntries) {
+  for (const candidate of candidates) {
     const normalized = toLeaderboardEntry(candidate, 'report', warn);
     if (normalized) results.push(normalized);
   }
@@ -292,6 +351,8 @@ export const parseReportRankingsPayloadForRole = (
   if (results.length === 0) {
     warn('rankings parser (report payload by role): no leaderboard entries detected', {
       payloadShape: describePayloadShape(parsed),
+      fightRowCount: fightRows.length,
+      roleEntryCount: roleEntries.length,
       role,
     });
   }
@@ -305,22 +366,11 @@ export const parseBossRankingsPayload = (
 ): NormalizedLeaderboardEntry[] => {
   const parsed = parseUnknownJson(payload, warn, 'boss rankings');
   const candidates = collectContainers(parsed);
-  const roleEntries = collectFightRows(parsed).flatMap((fightRow) =>
-    collectRoleCharacters(fightRow).map(({ role, character }) => ({
-      ...character,
-      role,
-      fightID:
-        asNumber(character.fightID) ??
-        asNumber(fightRow.fightID) ??
-        asNumber(fightRow.fightId) ??
-        context.fightId,
-      encounterName:
-        asString(character.encounterName) ??
-        asString(asObject(fightRow.encounter)?.name) ??
-        asString(fightRow.encounter) ??
-        context.bossName,
-    })),
-  );
+  const roleEntries = collectRoleEntries(collectFightRows(parsed)).map((entry) => ({
+    ...entry,
+    fightID: asNumber(entry.fightID) ?? asNumber(entry.fightId) ?? context.fightId,
+    encounterName: asString(entry.encounterName) ?? context.bossName,
+  }));
   if (candidates.length === 0) {
     warn('rankings parser (boss payload): unrecognized payload shape', {
       payloadShape: describePayloadShape(parsed),
