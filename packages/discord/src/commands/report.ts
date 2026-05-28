@@ -216,11 +216,28 @@ export const handleReportEncounterComponentInteraction = async (
 ): Promise<unknown | undefined> => {
   const customId = interaction.data?.custom_id;
 
+  logger.info(
+    {
+      customId,
+      guildId: interaction.guild_id,
+    },
+    'checking report encounter component interaction',
+  );
+
   if (!isReportEncounterCustomIdCandidate(customId)) {
+    logger.info({ customId }, 'not a report encounter component');
     return undefined;
   }
 
   const parsed = parseReportEncounterCustomId(customId);
+  logger.info(
+    {
+      customId,
+      parsed,
+    },
+    'parsed report encounter custom id',
+  );
+
   if (!parsed.ok) {
     return buildEncounterComponentResponse(
       buildEncounterComponentMessageBody('That encounter button is no longer valid.'),
@@ -241,6 +258,16 @@ export const handleReportEncounterComponentInteraction = async (
       guildId,
       reportCode: parsed.reportCode,
     });
+    logger.info(
+      {
+        guildId,
+        reportCode: parsed.reportCode,
+        hasBotActivityStore: Boolean(options.botActivityStore),
+        hasSummary: Boolean(summary),
+        encounterCount: summary?.encounters.length,
+      },
+      'loaded cached report summary for encounter button',
+    );
 
     if (!summary) {
       return buildEncounterComponentResponse(

@@ -1,6 +1,7 @@
 import { InteractionResponseType, InteractionType } from 'discord-interactions';
-import { createLogger } from '@wcl/shared';
+import { createLogger, serializeError } from '@wcl/shared';
 import type { HandleOptions } from '../types.js';
+import { IS_COMPONENTS_V2_MESSAGE_FLAG } from '../renderers/report.js';
 import {
   handleApproveCharacterCommand,
   handleClaimCharacterCommand,
@@ -113,14 +114,56 @@ export const handleInteraction = async (
   }
 
   if (typedInteraction.type === InteractionType.MESSAGE_COMPONENT) {
-    const reportEncounterResponse = await handleReportEncounterComponentInteraction(
-      typedInteraction,
-      options,
+    logger.info(
+      {
+        customId: typedInteraction.data?.custom_id,
+        componentType: typedInteraction.data?.component_type,
+        guildId: typedInteraction.guild_id,
+        channelId: typedInteraction.channel_id,
+      },
+      'message component interaction received',
     );
 
-    if (reportEncounterResponse) {
-      return reportEncounterResponse;
+    try {
+      const reportEncounterResponse = await handleReportEncounterComponentInteraction(
+        typedInteraction,
+        options,
+      );
+
+      if (reportEncounterResponse) {
+        return reportEncounterResponse;
+      }
+    } catch (error) {
+      logger.error(
+        {
+          err: serializeError(error),
+          customId: typedInteraction.data?.custom_id,
+          guildId: typedInteraction.guild_id,
+        },
+        'report encounter component interaction failed',
+      );
+
+      return {
+        type: InteractionResponseType.CHANNEL_MESSAGE_WITH_SOURCE,
+        data: {
+          flags: EPHEMERAL_MESSAGE_FLAG | IS_COMPONENTS_V2_MESSAGE_FLAG,
+          allowed_mentions: { parse: [] },
+          components: [
+            {
+              type: 17,
+              accent_color: 0x7d3cff,
+              components: [
+                {
+                  type: 10,
+                  content: 'Encounter breakdown failed while loading. Check bot logs.',
+                },
+              ],
+            },
+          ],
+        },
+      };
     }
+
     const autoReportResponse = await handleAutoReportComponentInteraction(
       typedInteraction,
       options,
