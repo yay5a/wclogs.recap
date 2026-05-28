@@ -186,6 +186,7 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
     reportCode: bundle.index.reportCode,
     reportTitle: bundle.index.title,
     ...(bundle.index.zoneName ? { raidName: bundle.index.zoneName } : {}),
+    ...(bundle.index.ownerName ? { reportOwnerName: bundle.index.ownerName } : {}),
     ...(fightSummary.inferredDifficultyName
       ? { difficultyName: fightSummary.inferredDifficultyName }
       : {}),
@@ -217,6 +218,7 @@ export const normalizeReportRenderModel = (bundle: ReportCollectorBundle): Repor
       mostInterrupts: topInterrupts,
       mostDispels: topDispels,
     },
+    ...(bundle.battleRez ? { battleRez: bundle.battleRez } : {}),
     partialDataNotes: [],
   };
 };

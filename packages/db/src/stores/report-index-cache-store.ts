@@ -128,6 +128,7 @@ const parseReportIndexData = (value: unknown): ReportIndexData | null => {
     sourceUrl: raw.sourceUrl,
     gameFamily,
     title: raw.title,
+    ...(typeof raw.ownerName === 'string' ? { ownerName: raw.ownerName } : {}),
     ...(typeof raw.zoneName === 'string' ? { zoneName: raw.zoneName } : {}),
     ...(typeof raw.zoneId === 'number' && Number.isFinite(raw.zoneId)
       ? { zoneId: raw.zoneId }

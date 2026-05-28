@@ -6,7 +6,7 @@ import {
   editOriginalInteractionResponse,
   safeEditOriginalInteractionResponse,
 } from '../infrastructure/discord-api.js';
-import { buildReportMessageFlags, buildReportResponseBody } from '../renderers/report.js';
+import { buildReportMessageFlags, buildReportV2ResponseBody } from '../renderers/report.js';
 
 const logger = createLogger('discord');
 const EPHEMERAL_MESSAGE_FLAG = 1 << 6;
@@ -102,10 +102,10 @@ export const buildReportArtifact = async ({
     'report runtime fingerprint',
   );
 
-  const publicBody = await buildReportResponseBody(summary, { ephemeral: false });
+  const publicBody = await buildReportV2ResponseBody(summary, { ephemeral: false });
   const responseBody: DiscordMessageBody = {
     ...publicBody,
-    flags: buildReportMessageFlags({ ephemeral: true }),
+    flags: (publicBody.flags ?? 0) | buildReportMessageFlags({ ephemeral: true }),
   };
 
   return {

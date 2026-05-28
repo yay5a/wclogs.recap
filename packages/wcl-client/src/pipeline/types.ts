@@ -2,6 +2,7 @@ import type {
   GameFamily,
   GuildRankMetricSource,
   NormalizedLeaderboardEntry,
+  ReportBrezSummary,
   ReportIndexData,
   ReportMetricRow,
   ReportParseRow,
@@ -142,6 +143,7 @@ export interface ReportCollectorBundle {
     hps: NormalizedLeaderboardEntry[];
   };
   tableMetrics: ReportTableMetrics;
+  battleRez?: ReportBrezSummary;
 }
 
 export interface GuildRankCollectorBundle {

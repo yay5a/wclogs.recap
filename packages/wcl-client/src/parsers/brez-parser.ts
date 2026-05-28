@@ -1,40 +1,16 @@
 import { asNumber, asObject, asString } from './common.js';
+import type {
+  ReportBrezMatch,
+  ReportBrezPlayer,
+  ReportBrezPlayerCount,
+  ReportBrezSummary,
+} from '@wcl/domain';
 
-/* Parse actorID to player's name */
 export type BrezActor = {
   id?: number;
   name: string;
 };
 
-/* Shape for successful actorID -> player names */
-export type BrezPlayerName = {
-  id: number;
-  name: string;
-};
-
-/* Count players casting and receiving most brezes */
-export type BrezCountPlayers = BrezPlayerName & {
-  count: number;
-};
-
-/* Match brez by resurrection event + latest earlier death */
-export type BrezMatch = {
-  caster: BrezPlayerName;
-  receiver: BrezPlayerName;
-  fightID: number;
-  deathTimestamp: string;
-  resurrectTimestamp: string;
-  responseSec: number;
-};
-
-/* Reusable summary for collectors/renderer */
-export type BrezSummary = {
-  topCasters: BrezCountPlayers[];
-  topReceivers: BrezCountPlayers[];
-  fastest?: BrezMatch;
-};
-
-/* Small brez event shape */
 type ParsedBrezEvent = {
   type: string;
   timestamp: number;
@@ -56,7 +32,7 @@ const formatReportTimestamp = (timestampMs: number): string => {
   ].join(':');
 };
 
-export const parseBrezSummary = (events: unknown[], actors: BrezActor[]): BrezSummary => {
+export const parseBrezSummary = (events: unknown[], actors: BrezActor[]): ReportBrezSummary => {
   const playerNameById = buildPlayerNameById(actors);
 
   const parsedEvents = events.flatMap((event) => {
@@ -81,9 +57,9 @@ export const parseBrezSummary = (events: unknown[], actors: BrezActor[]): BrezSu
     }
   }
 
-  const casterCounts = new Map<number, BrezCountPlayers>();
-  const receiverCounts = new Map<number, BrezCountPlayers>();
-  let fastest: BrezMatch | undefined;
+  const casterCounts = new Map<number, ReportBrezPlayerCount>();
+  const receiverCounts = new Map<number, ReportBrezPlayerCount>();
+  let fastest: ReportBrezMatch | undefined;
 
   for (const resurrect of resurrectRows) {
     if (typeof resurrect.sourceID !== 'number') continue;
@@ -96,7 +72,7 @@ export const parseBrezSummary = (events: unknown[], actors: BrezActor[]): BrezSu
     if (!latestDeath) continue;
     const responseMs = resurrect.timestamp - latestDeath.timestamp;
 
-    const match: BrezMatch = {
+    const match: ReportBrezMatch = {
       caster: {
         id: resurrect.sourceID,
         name: casterName,
@@ -184,8 +160,8 @@ const findLatestEarlierDeath = (
 };
 
 const incrementPlayerCount = (
-  counts: Map<number, BrezCountPlayers>,
-  player: BrezPlayerName,
+  counts: Map<number, ReportBrezPlayerCount>,
+  player: ReportBrezPlayer,
 ): void => {
   const existing = counts.get(player.id);
 
@@ -200,7 +176,7 @@ const incrementPlayerCount = (
   });
 };
 
-const getTopPlayers = (counts: Map<number, BrezCountPlayers>): BrezCountPlayers[] =>
+const getTopPlayers = (counts: Map<number, ReportBrezPlayerCount>): ReportBrezPlayerCount[] =>
   [...counts.values()]
     .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name) || a.id - b.id)
     .slice(0, 3);

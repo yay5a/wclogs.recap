@@ -14,6 +14,9 @@ query ReportIndex($code: String!, $allowUnlisted: Boolean!, $includeRateLimitDat
     report(code: $code, allowUnlisted: $allowUnlisted) {
       title
       startTime
+      owner {
+        name
+      }
       endTime
       zone {
         id
@@ -107,9 +110,11 @@ export const collectReportIndex = async (
   }
 
   const title = asString(report.title) ?? 'Untitled Report';
+  const owner = asObject(report.owner);
+  const ownerName = asString(owner?.name);
+
   const startTime = asNumber(report.startTime) ?? Date.now();
   const endTime = asNumber(report.endTime) ?? Date.now();
-
   const zone = asObject(report.zone);
   const zoneName = asString(zone?.name);
   const zoneId = asNumber(zone?.id);
@@ -140,6 +145,7 @@ export const collectReportIndex = async (
     title,
     ...(zoneName ? { zoneName } : {}),
     ...(typeof zoneId === 'number' ? { zoneId } : {}),
+    ...(ownerName ? { ownerName } : {}),
     startTime,
     endTime,
     completedBossFights,
