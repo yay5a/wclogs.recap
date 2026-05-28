@@ -25,9 +25,9 @@ End Time: HH:MM
     - Pulls: 2
     - Kill/Wipes: 1/0
     - Deaths: 3
-    - Highest Parse
+    - Top Players
       - DPS: PlayerA - _percentile_
-      - HPS: PlayerB - _percentile_
+      - Healer: PlayerB - _percentile_
     - Highest Total DPS:
       - PlayerC: 999.9k
     - Highest Total HPS:
@@ -47,7 +47,7 @@ End Time: HH:MM
 
 🏋️‍♂️ Top Players:
 
-- Highest Avg Parse:
+- Highest Avg Parses:
   1. PlayerA: 78.8
   2. PlayerB: 75.2
   3. PlayerC: 73.9
@@ -57,7 +57,7 @@ End Time: HH:MM
   2. PlayerB: 45.7M total damage
   3. PlayerC: 44.1M total damage
 
-- Highest HPS:
+- Highest Total HPS:
   1. HealerA: 112.4k avg HPS
   2. HealerB: 108.7k avg HPS
   3. HealerC: 95.1k avg HPS
@@ -78,12 +78,12 @@ End Time: HH:MM
   3. PlayerC:
 
 - Encounter Breakdowns:
-  [Paginated button links]
+  [Encounter buttons]
   - Encounter 1: Boss Name and Thumbnail 
    - Pulls: 2
    - Kill/Wipes: 1/0
    - Total Deaths: 3
-   - Highest Parse:
+   - Top DPS Parses:
     1. PlayerA: 78.8
     2. PlayerB: 75.2
     3. PlayerC: 73.9
@@ -91,7 +91,7 @@ End Time: HH:MM
     1. PlayerA: 48.2M total damage
     2. PlayerB: 45.7M total damage
     3. PlayerC: 44.1M total damage
-   - Highest HPS:
+   - Top Healer Parses:
     1. HealerA: 112.4k avg HPS
     2. HealerB: 108.7k avg HPS
     3. HealerC: 95.1k avg HPS
@@ -116,7 +116,7 @@ End Time: HH:MM
    - Pulls: 2
    - Kill/Wipes: 1/0
    - Total Deaths: 3
-   - Highest Parse:
+   - Top DPS Parses:
     1. PlayerA: 78.8
     2. PlayerB: 75.2
     3. PlayerC: 73.9
@@ -124,7 +124,7 @@ End Time: HH:MM
     1. PlayerA: 48.2M total damage
     2. PlayerB: 45.7M total damage
     3. PlayerC: 44.1M total damage
-   - Highest HPS:
+   - Top Healer Parses:
     1. HealerA: 112.4k avg HPS
     2. HealerB: 108.7k avg HPS
     3. HealerC: 95.1k avg HPS
@@ -149,7 +149,7 @@ End Time: HH:MM
    - Pulls: 2
    - Kill/Wipes: 1/0
    - Total Deaths: 3
-   - Highest Parse:
+   - Top DPS Parses:
     1. PlayerA: 78.8
     2. PlayerB: 75.2
     3. PlayerC: 73.9
@@ -157,7 +157,7 @@ End Time: HH:MM
     1. PlayerA: 48.2M total damage
     2. PlayerB: 45.7M total damage
     3. PlayerC: 44.1M total damage
-   - Highest HPS:
+   - Top Healer Parses:
     1. HealerA: 112.4k avg HPS
     2. HealerB: 108.7k avg HPS
     3. HealerC: 95.1k avg HPS

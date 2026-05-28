@@ -195,6 +195,7 @@ export interface DiscordInteractionData {
   name?: string;
   options?: unknown;
   custom_id?: string;
+  component_type?: number;
 }
 
 export interface DiscordInteraction {
