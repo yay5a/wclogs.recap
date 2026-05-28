@@ -1,6 +1,7 @@
 # WCLogs Recap (Discord Bot) _in Beta_
 
-![raidlogreport concept](docs/report-summary.png)
+![raidlogreport](docs/report-summary.png)
+![encounter-breakdown](docs/encounter-breakdown.png)
 ![guildrank concept](docs/guild-ranks.png)
 
 WCLogs Recap is a Discord bot that turns Warcraft Logs data into quick, readable raid summaries.
@@ -15,7 +16,7 @@ WCLogs Recap is a Discord bot that turns Warcraft Logs data into quick, readable
 
 Use a Warcraft Logs report URL and get a summarized raidnight breakdown in Discord.
 
-### `/guildrank`
+### `/guildrank` (still in development; may not work as intended)
 
 Get a guild ranking/progress summary for your configured guild target, filtered by raid difficulty and raid size.
 
@@ -44,6 +45,7 @@ Verify the URL is a valid Warcraft Logs report URL.
 Retry after a short delay.
 
 ## Using `/guildrank`
+
 _this feature still under development - `/guildrank` is usable, but will not show anything useful_
 
 Command format:

@@ -44,6 +44,16 @@ button:disabled {
     opacity: 0.58;
 }
 
+a {
+    color: #256f6c;
+    text-decoration: none;
+}
+
+a:hover {
+    color: #1f5f5c;
+    text-decoration: underline;
+}
+
 button.secondary {
     border: 1px solid #c7d2d9;
     background: #ffffff;
@@ -201,6 +211,23 @@ p {
 .guild-list button.selected {
     border-color: #256f6c;
     background: #e7f3f1;
+}
+
+.sidebar-footer {
+    display: grid;
+    gap: 10px;
+}
+
+.legal-links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    color: #657786;
+    font-size: 0.84rem;
+}
+
+.login-panel .legal-links {
+    justify-content: center;
 }
 
 .workspace {
@@ -404,6 +431,66 @@ p {
     color: #657786;
 }
 
+.legal-shell {
+    min-height: 100vh;
+    padding: 28px;
+}
+
+.legal-document {
+    width: min(100%, 880px);
+    display: grid;
+    gap: 24px;
+    margin: 0 auto;
+    border: 1px solid #d5dee5;
+    border-radius: 8px;
+    background: #ffffff;
+    padding: 28px;
+}
+
+.legal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    border-bottom: 1px solid #d5dee5;
+    padding-bottom: 18px;
+}
+
+.legal-header p {
+    color: #657786;
+    font-size: 0.86rem;
+}
+
+.legal-document section {
+    display: grid;
+    gap: 10px;
+}
+
+.legal-document h2 {
+    font-size: 1.08rem;
+}
+
+.legal-document p,
+.legal-document li {
+    color: #43525f;
+    line-height: 1.58;
+}
+
+.legal-document ul {
+    display: grid;
+    gap: 8px;
+    margin: 0;
+    padding-left: 22px;
+}
+
+.legal-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    border-top: 1px solid #d5dee5;
+    padding-top: 18px;
+}
+
 .modal-backdrop {
     position: fixed;
     inset: 0;
@@ -451,5 +538,17 @@ p {
 
     .row-actions {
         justify-content: flex-start;
+    }
+
+    .legal-shell {
+        padding: 16px;
+    }
+
+    .legal-document {
+        padding: 20px;
+    }
+
+    .legal-header {
+        flex-direction: column;
     }
 }

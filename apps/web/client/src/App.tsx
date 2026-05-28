@@ -411,6 +411,10 @@ export const App = () => {
                     <button type="submit" disabled={loading || !adminSecret.trim()}>
                         Sign in
                     </button>
+                    <nav className="legal-links" aria-label="Legal pages">
+                        <a href="/dashboard/terms">Terms</a>
+                        <a href="/dashboard/privacy">Privacy</a>
+                    </nav>
                     {error ? <p className="message error">{error}</p> : null}
                 </form>
             </main>
@@ -461,9 +465,15 @@ export const App = () => {
                     ))}
                 </div>
 
-                <button type="button" className="secondary" onClick={handleLogout} disabled={loading}>
-                    Sign out
-                </button>
+                <div className="sidebar-footer">
+                    <nav className="legal-links" aria-label="Legal pages">
+                        <a href="/dashboard/terms">Terms</a>
+                        <a href="/dashboard/privacy">Privacy</a>
+                    </nav>
+                    <button type="button" className="secondary" onClick={handleLogout} disabled={loading}>
+                        Sign out
+                    </button>
+                </div>
             </aside>
 
             <section className="workspace">
