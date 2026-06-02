@@ -33,7 +33,6 @@ const dateFormatter = new Intl.DateTimeFormat('en-US', {
   month: 'short',
   day: 'numeric',
   year: 'numeric',
-  timeZone: 'UTC',
 });
 
 const timeFormatter = new Intl.DateTimeFormat('en-US', {
@@ -83,9 +82,41 @@ const formatDate = (iso: string): string => dateFormatter.format(new Date(iso));
 
 const formatRate = (value: number): string => `${formatCompact(value)}/s`;
 
+const normalizeTitle = (value: string): string => value.toLowerCase().replace(/[\s_-]+/g, '');
+
+const titleHasDifficulty = (title: string, difficultyName: string | undefined): boolean => {
+  if (!difficultyName) return false;
+  const normalizedTitle = normalizeTitle(title);
+  const normalizedDifficulty = normalizeTitle(difficultyName);
+
+  return normalizedTitle.includes(normalizedDifficulty);
+};
+
+const titleHasSize = (title: string, sizeLabel: string | undefined): boolean => {
+  if (!sizeLabel) return false;
+
+  const normalizedTitle = normalizeTitle(title);
+  const normalizedSize = normalizeTitle(sizeLabel);
+
+  const sizeNumber = sizeLabel.match(/\d+/)?.[0];
+  const sizeVariants = [
+    normalizedSize,
+    sizeNumber ? `${sizeNumber}m` : '',
+    sizeNumber ? `${sizeNumber}man` : '',
+    sizeNumber ? `${sizeNumber}player` : '',
+  ].filter(Boolean);
+
+  return sizeVariants.some((variant) => normalizedTitle.includes(variant));
+};
+
 const reportTitle = (summary: ReportSummary): string => {
-  const difficultyAndSize = [summary.difficultyName, summary.sizeLabel].filter(present).join(' ');
-  return `${summary.reportTitle}${difficultyAndSize ? ` (${difficultyAndSize})` : ''}`;
+  const details = [
+    titleHasDifficulty(summary.reportTitle, summary.difficultyName)
+      ? undefined
+      : summary.difficultyName,
+    titleHasSize(summary.reportTitle, summary.sizeLabel) ? undefined : summary.sizeLabel,
+  ].filter(present);
+  return `${summary.reportTitle}${details ? ` (${details.join(' ')})` : ''}`;
 };
 
 const renderReportNoteText = (summary: ReportSummary): string => {
@@ -119,37 +150,39 @@ const formatMetricMarkdown = (
   formatter: (value: number) => string,
 ): string => (row ? `${row.playerName}: ${formatter(row.value)}` : 'unavailable');
 
+const renderRankedRows = <Row>(
+  rows: readonly Row[] | undefined,
+  renderValue: (row: Row) => string,
+  empty: string | undefined,
+): string | undefined => {
+  if (!rows?.length) return empty;
+  return rows
+    .slice(0, 3)
+    .map((row, index) => `${index + 1}. ${renderValue(row)}`)
+    .join('\n');
+};
+
 const renderTopRowsMarkdown = (
   rows: readonly ReportMetricRow[],
   formatter: (value: number) => string,
-): string => {
-  const rendered = rows
-    .slice(0, 3)
-    .map((row, index) => `${index + 1}. ${row.playerName}: ${formatter(row.value)}`);
-
-  return rendered.length > 0 ? rendered.join('\n') : 'unavailable';
-};
+): string =>
+  renderRankedRows(rows, (row) => `${row.playerName}: ${formatter(row.value)}`, 'unavailable') ??
+  'unavailable';
 
 const renderOptionalMetricRowsMarkdown = (
   rows: readonly ReportMetricRow[] | undefined,
   formatter: (value: number) => string,
-): string | undefined => {
-  if (!rows || rows.length === 0) return undefined;
-  return rows
-    .slice(0, 3)
-    .map((row, index) => `${index + 1}. ${row.playerName}: ${formatter(row.value)}`)
-    .join('\n');
-};
+): string | undefined =>
+  renderRankedRows(rows, (row) => `${row.playerName}: ${formatter(row.value)}`, undefined);
 
 const renderOptionalParseRowsMarkdown = (
   rows: readonly ReportParseRow[] | undefined,
-): string | undefined => {
-  if (!rows || rows.length === 0) return undefined;
-  return rows
-    .slice(0, 3)
-    .map((row, index) => `${index + 1}. ${row.playerName}: ${decimalFormatter.format(row.value)}`)
-    .join('\n');
-};
+): string | undefined =>
+  renderRankedRows(
+    rows,
+    (row) => `${row.playerName}: ${decimalFormatter.format(row.value)}`,
+    undefined,
+  );
 
 const renderReportHeaderText = (summary: ReportSummary): string =>
   [
