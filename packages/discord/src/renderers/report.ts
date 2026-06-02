@@ -116,7 +116,7 @@ const reportTitle = (summary: ReportSummary): string => {
       : summary.difficultyName,
     titleHasSize(summary.reportTitle, summary.sizeLabel) ? undefined : summary.sizeLabel,
   ].filter(present);
-  return `${summary.reportTitle}${details ? ` (${details.join(' ')})` : ''}`;
+  return details.length > 0 ? `${summary.reportTitle} (${details.join(' ')})` : summary.reportTitle;
 };
 
 const renderReportNoteText = (summary: ReportSummary): string => {
