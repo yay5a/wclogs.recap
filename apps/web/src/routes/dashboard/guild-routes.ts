@@ -13,7 +13,11 @@ import {
   requireGuildCapability,
   requireRequestAuthContext,
 } from './capabilities.js';
-import { defaultDirectoryResolver, getClaimsForDirectory } from './directory.js';
+import {
+  defaultDirectoryResolver,
+  getClaimsForDirectory,
+  resolvedGuildLabel,
+} from './directory.js';
 import {
   getRequestBody,
   parseConfigPatchBody,
@@ -48,12 +52,17 @@ export const registerDashboardGuildRoutes = (
       const auth = request.dashboardAuth ?? dashboardAuthContext;
       if (auth.kind === 'admin-secret') {
         const summaries = await options.guildConfigStore.listGuildConfigSummaries();
-        return reply.send({
-          guilds: summaries.map((summary) => ({
-            ...summary,
-            capabilities: ADMIN_CAPABILITIES,
-          })),
-        });
+        const guilds = await Promise.all(
+          summaries.map(async (summary) => {
+            const guild = await resolvedGuildLabel(summary.guildId, options.env.DISCORD_BOT_TOKEN);
+            return {
+              ...summary,
+              ...(guild.resolved ? { guildName: guild.label } : {}),
+              capabilities: ADMIN_CAPABILITIES,
+            };
+          }),
+        );
+        return reply.send({ guilds });
       }
 
       const allowedGuildIds = Object.keys(auth.oauthGuildsById);

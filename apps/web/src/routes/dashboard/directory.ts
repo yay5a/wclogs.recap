@@ -56,6 +56,64 @@ const cachedLabel = async (
   }
 };
 
+const unresolvedLabel = (id: string): DashboardResolvedLabel => ({
+  id,
+  label: id,
+  resolved: false,
+});
+
+export const resolvedGuildLabel = async (
+  guildId: string,
+  botToken: string,
+): Promise<DashboardResolvedLabel> =>
+  cachedLabel(`guild:${guildId}`, unresolvedLabel(guildId), async () => {
+    const payload = await fetchDiscordJson(`/guilds/${guildId}`, botToken);
+    if (typeof payload !== 'object' || payload === null) return unresolvedLabel(guildId);
+    const raw = payload as Record<string, unknown>;
+    return typeof raw.name === 'string'
+      ? {
+          id: guildId,
+          label: raw.name,
+          resolved: true,
+          ...(typeof raw.icon === 'string' ? { icon: raw.icon } : {}),
+        }
+      : unresolvedLabel(guildId);
+  });
+
+export const resolvedUserLabel = async (
+  guildId: string,
+  userId: string,
+  botToken: string,
+): Promise<DashboardResolvedLabel> =>
+  cachedLabel(`user:${guildId}:${userId}`, unresolvedLabel(userId), async () => {
+    const memberPayload = await fetchDiscordJson(`/guilds/${guildId}/members/${userId}`, botToken);
+    if (typeof memberPayload === 'object' && memberPayload !== null) {
+      const raw = memberPayload as Record<string, unknown>;
+      const user =
+        typeof raw.user === 'object' && raw.user !== null
+          ? (raw.user as Record<string, unknown>)
+          : {};
+
+      const label =
+        (typeof raw.nick === 'string' && raw.nick) ||
+        (typeof user.global_name === 'string' && user.global_name) ||
+        (typeof user.username === 'string' && user.username) ||
+        '';
+
+      if (label) return { id: userId, label, resolved: true };
+    }
+
+    const userPayload = await fetchDiscordJson(`/users/${userId}`, botToken);
+    if (typeof userPayload !== 'object' || userPayload === null) return unresolvedLabel(userId);
+
+    const user = userPayload as Record<string, unknown>;
+    const label =
+      (typeof user.global_name === 'string' && user.global_name) ||
+      (typeof user.username === 'string' && user.username) ||
+      '';
+    return label ? { id: userId, label, resolved: true } : unresolvedLabel(userId);
+  });
+
 export const defaultDirectoryResolver =
   (env: WebEnv) =>
   async ({
@@ -69,7 +127,6 @@ export const defaultDirectoryResolver =
     claims: CharacterClaimRecord[];
     activity: DashboardActivityRecord[];
   }): Promise<DashboardDirectory> => {
-    const unresolved = (id: string): DashboardResolvedLabel => ({ id, label: id, resolved: false });
     const botToken = env.DISCORD_BOT_TOKEN;
     const channelIds = new Set(config.autoReportChannelIds);
     for (const event of activity) {
@@ -86,19 +143,7 @@ export const defaultDirectoryResolver =
       if (event.targetDiscordUserId) userIds.add(event.targetDiscordUserId);
     }
 
-    const guild = await cachedLabel(`guild:${guildId}`, unresolved(guildId), async () => {
-      const payload = await fetchDiscordJson(`/guilds/${guildId}`, botToken);
-      if (typeof payload !== 'object' || payload === null) return unresolved(guildId);
-      const raw = payload as Record<string, unknown>;
-      return typeof raw.name === 'string'
-        ? {
-            id: guildId,
-            label: raw.name,
-            resolved: true,
-            ...(typeof raw.icon === 'string' ? { icon: raw.icon } : {}),
-          }
-        : unresolved(guildId);
-    });
+    const guild = await resolvedGuildLabel(guildId, botToken);
 
     const rawChannels = await fetchDiscordJson(`/guilds/${guildId}/channels`, botToken);
     const channels: Record<string, DashboardResolvedLabel> = {};
@@ -113,34 +158,13 @@ export const defaultDirectoryResolver =
       channels[channelId] =
         typeof found?.name === 'string'
           ? { id: channelId, label: `#${found.name}`, resolved: true }
-          : unresolved(channelId);
+          : unresolvedLabel(channelId);
     }
 
     const users: Record<string, DashboardResolvedLabel> = {};
     await Promise.all(
       [...userIds].map(async (userId) => {
-        users[userId] = await cachedLabel(
-          `member:${guildId}:${userId}`,
-          unresolved(userId),
-          async () => {
-            const payload = await fetchDiscordJson(
-              `/guilds/${guildId}/members/${userId}`,
-              botToken,
-            );
-            if (typeof payload !== 'object' || payload === null) return unresolved(userId);
-            const raw = payload as Record<string, unknown>;
-            const user =
-              typeof raw.user === 'object' && raw.user !== null
-                ? (raw.user as Record<string, unknown>)
-                : {};
-            const label =
-              (typeof raw.nick === 'string' && raw.nick) ||
-              (typeof user.global_name === 'string' && user.global_name) ||
-              (typeof user.username === 'string' && user.username) ||
-              '';
-            return label ? { id: userId, label, resolved: true } : unresolved(userId);
-          },
-        );
+        users[userId] = await resolvedUserLabel(guildId, userId, botToken);
       }),
     );
 

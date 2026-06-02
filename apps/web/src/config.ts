@@ -21,7 +21,7 @@ const booleanFlag = z
 
 const httpUrl = (name: string) =>
   trimmed()
-    .url()
+    .pipe(z.url())
     .superRefine((value, context) => {
       let url: URL;
       try {
@@ -31,7 +31,7 @@ const httpUrl = (name: string) =>
       }
       if (url.protocol !== 'http:' && url.protocol !== 'https:') {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           message: `${name} must use http or https`,
         });
       }
@@ -47,7 +47,7 @@ const publicAppBaseUrl = httpUrl('PUBLIC_APP_BASE_URL')
     }
     if (url.pathname !== '/' || url.search || url.hash) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'PUBLIC_APP_BASE_URL must be an origin without path, query, or hash',
       });
     }
@@ -57,7 +57,7 @@ const publicAppBaseUrl = httpUrl('PUBLIC_APP_BASE_URL')
 const wclTokenEncryptionKey = trimmed().superRefine((value, context) => {
   if (!isValidWclTokenEncryptionKey(value)) {
     context.addIssue({
-      code: z.ZodIssueCode.custom,
+      code: 'custom',
       message: 'WCL_TOKEN_ENCRYPTION_KEY must be a base64-encoded 32-byte key',
     });
   }
@@ -78,7 +78,7 @@ const requireProductionHttps = (
 ) => {
   if (!value || isHttpsUrl(value)) return;
   context.addIssue({
-    code: z.ZodIssueCode.custom,
+    code: 'custom',
     path: [name],
     message: `${name} must use https in production`,
   });
@@ -93,7 +93,7 @@ const webEnvSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().default(3000),
-    MONGODB_URI: trimmed().url(),
+    MONGODB_URI: trimmed().pipe(z.url()),
     MONGODB_ENCRYPTION_AT_REST_CONFIRMED: booleanFlag,
     DISCORD_PUBLIC_KEY: trimmed().regex(
       /^[a-fA-F0-9]{64}$/,
@@ -110,8 +110,8 @@ const webEnvSchema = z
     WCL_CLIENT_SECRET: trimmed().optional(),
     WCL_OAUTH_CLIENT_TOKEN: trimmed().optional(),
     WCL_TOKEN_ENCRYPTION_KEY: wclTokenEncryptionKey,
-    WCL_API_BASE_URL: trimmed().url().default('https://www.warcraftlogs.com/api/v2/client'),
-    WCL_USER_API_BASE_URL: trimmed().url().optional(),
+    WCL_API_BASE_URL: trimmed().pipe(z.url()).default('https://www.warcraftlogs.com/api/v2/client'),
+    WCL_USER_API_BASE_URL: trimmed().pipe(z.url()).optional(),
     WCL_V1_CLIENT_KEY: trimmed().optional(),
     WCL_REDIRECT_URI: httpUrl('WCL_REDIRECT_URI').optional(),
     COOKIE_SECRET: trimmed().min(1, 'COOKIE_SECRET is required'),
@@ -121,7 +121,7 @@ const webEnvSchema = z
   .superRefine((env, context) => {
     if (!env.DISCORD_APPLICATION_ID && !env.DISCORD_CLIENT_ID) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DISCORD_APPLICATION_ID'],
         message: 'DISCORD_APPLICATION_ID is required',
       });
@@ -133,7 +133,7 @@ const webEnvSchema = z
       env.DISCORD_APPLICATION_ID !== env.DISCORD_CLIENT_ID
     ) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DISCORD_CLIENT_ID'],
         message: 'DISCORD_CLIENT_ID must match DISCORD_APPLICATION_ID when both are set',
       });
@@ -141,7 +141,7 @@ const webEnvSchema = z
 
     if (env.NODE_ENV === 'production' && env.DASHBOARD_AUTH_DISABLED) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DASHBOARD_AUTH_DISABLED'],
         message: 'DASHBOARD_AUTH_DISABLED=true is not allowed in production',
       });
@@ -149,7 +149,7 @@ const webEnvSchema = z
 
     if (env.NODE_ENV === 'production' && !env.DASHBOARD_ADMIN_SECRET) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DASHBOARD_ADMIN_SECRET'],
         message: 'DASHBOARD_ADMIN_SECRET is required in production',
       });
@@ -158,18 +158,14 @@ const webEnvSchema = z
     if (env.NODE_ENV === 'production') {
       if (!env.PUBLIC_APP_BASE_URL) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['PUBLIC_APP_BASE_URL'],
           message: 'PUBLIC_APP_BASE_URL is required in production',
         });
       }
 
       requireProductionHttps(context, 'PUBLIC_APP_BASE_URL', env.PUBLIC_APP_BASE_URL);
-      requireProductionHttps(
-        context,
-        'DISCORD_OAUTH_REDIRECT_URI',
-        env.DISCORD_OAUTH_REDIRECT_URI,
-      );
+      requireProductionHttps(context, 'DISCORD_OAUTH_REDIRECT_URI', env.DISCORD_OAUTH_REDIRECT_URI);
       requireProductionHttps(context, 'DISCORD_INTERACTIONS_URL', env.DISCORD_INTERACTIONS_URL);
       requireProductionHttps(context, 'WCL_REDIRECT_URI', env.WCL_REDIRECT_URI);
       requireProductionHttps(context, 'WCL_API_BASE_URL', env.WCL_API_BASE_URL);
@@ -177,7 +173,7 @@ const webEnvSchema = z
 
       if (!mongoUriRequestsTls(env.MONGODB_URI)) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['MONGODB_URI'],
           message:
             'MONGODB_URI must request TLS in production; use mongodb+srv:// or tls=true/ssl=true',
@@ -186,7 +182,7 @@ const webEnvSchema = z
 
       if (!env.MONGODB_ENCRYPTION_AT_REST_CONFIRMED) {
         context.addIssue({
-          code: z.ZodIssueCode.custom,
+          code: 'custom',
           path: ['MONGODB_ENCRYPTION_AT_REST_CONFIRMED'],
           message: 'MONGODB_ENCRYPTION_AT_REST_CONFIRMED=true is required in production',
         });
@@ -198,7 +194,7 @@ const webEnvSchema = z
       (!env.DISCORD_CLIENT_SECRET && env.DISCORD_OAUTH_REDIRECT_URI)
     ) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DISCORD_OAUTH_REDIRECT_URI'],
         message:
           'DISCORD_CLIENT_SECRET requires DISCORD_OAUTH_REDIRECT_URI or PUBLIC_APP_BASE_URL; DISCORD_OAUTH_REDIRECT_URI requires DISCORD_CLIENT_SECRET',
@@ -210,7 +206,7 @@ const webEnvSchema = z
       (!env.WCL_CLIENT_ID && env.WCL_CLIENT_SECRET)
     ) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['WCL_CLIENT_ID'],
         message: 'WCL_CLIENT_ID and WCL_CLIENT_SECRET must be set together',
       });
@@ -218,7 +214,7 @@ const webEnvSchema = z
 
     if (!env.WCL_CLIENT_ID && !env.WCL_CLIENT_SECRET && !env.WCL_OAUTH_CLIENT_TOKEN) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['WCL_CLIENT_ID'],
         message:
           'WCL public client auth requires WCL_CLIENT_ID and WCL_CLIENT_SECRET or WCL_OAUTH_CLIENT_TOKEN',
@@ -232,7 +228,7 @@ const webEnvSchema = z
       !env.PUBLIC_APP_BASE_URL
     ) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['WCL_REDIRECT_URI'],
         message: 'WCL OAuth requires WCL_REDIRECT_URI or PUBLIC_APP_BASE_URL',
       });
@@ -244,7 +240,7 @@ const webEnvSchema = z
       !env.DASHBOARD_ADMIN_SECRET
     ) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DASHBOARD_ADMIN_SECRET'],
         message:
           'DASHBOARD_ADMIN_SECRET is required in development unless DASHBOARD_AUTH_DISABLED=true',

@@ -34,7 +34,7 @@ const envSchema = z
   .superRefine((env, context) => {
     if (!env.DISCORD_APPLICATION_ID && !env.DISCORD_CLIENT_ID) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DISCORD_APPLICATION_ID'],
         message: 'DISCORD_APPLICATION_ID is required',
       });
@@ -46,7 +46,7 @@ const envSchema = z
       env.DISCORD_APPLICATION_ID !== env.DISCORD_CLIENT_ID
     ) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DISCORD_CLIENT_ID'],
         message: 'DISCORD_CLIENT_ID must match DISCORD_APPLICATION_ID when both are set',
       });

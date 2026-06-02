@@ -20,18 +20,18 @@ const DISCORD_USER_AGENT = 'DiscordBot (https://github.com/yay5a/wclogs.report, 
 const discordApplicationId = trimmed().regex(/^\d+$/);
 
 const publicAppBaseUrl = trimmed()
-  .url()
+  .pipe(z.url())
   .superRefine((value, context) => {
     const url = new URL(value);
     if (url.protocol !== 'https:') {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'PUBLIC_APP_BASE_URL must use https',
       });
     }
     if (url.pathname !== '/' || url.search || url.hash) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         message: 'PUBLIC_APP_BASE_URL must be an origin without path, query, or hash',
       });
     }
@@ -60,7 +60,7 @@ const envSchema = z
       env.DISCORD_APPLICATION_ID !== env.DISCORD_CLIENT_ID
     ) {
       context.addIssue({
-        code: z.ZodIssueCode.custom,
+        code: 'custom',
         path: ['DISCORD_CLIENT_ID'],
         message: 'DISCORD_CLIENT_ID must match DISCORD_APPLICATION_ID when both are set',
       });
