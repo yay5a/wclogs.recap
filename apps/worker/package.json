@@ -5,7 +5,7 @@
     "type": "module",
     "scripts": {
         "build:deps": "pnpm --filter @wcl/shared build && pnpm --filter @wcl/domain build && pnpm --filter @wcl/wcl-client build && pnpm --filter @wcl/db build && pnpm --filter @wcl/discord build",
-        "build": "pnpm run build:deps && tsc -p tsconfig.build.json",
+        "build": "tsc -p tsconfig.build.json",
         "dev": "tsx watch --tsconfig tsconfig.dev.json src/index.ts",
         "start": "node dist/src/index.js",
         "probe:guild-report-metadata-index": "tsx --tsconfig tsconfig.dev.json scripts/probe-guild-report-metadata-index.ts",

@@ -7,7 +7,7 @@
         "build:deps": "pnpm --filter @wcl/shared build && pnpm --filter @wcl/domain build && pnpm --filter @wcl/wcl-client build && pnpm --filter @wcl/db build && pnpm --filter @wcl/discord build",
         "build": "pnpm build:server && pnpm build:client",
         "build:client": "vite build --config vite.config.ts",
-        "build:server": "pnpm run build:deps && tsc -p tsconfig.build.json",
+        "build:server": "tsc -p tsconfig.build.json",
         "dev": "tsx watch --tsconfig tsconfig.dev.json src/index.ts",
         "dev:client": "vite --config vite.config.ts",
         "dev:dashboard": "vite --config vite.config.ts",
