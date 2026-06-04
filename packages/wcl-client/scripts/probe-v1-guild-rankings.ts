@@ -86,13 +86,17 @@ const findZone = (zones: unknown[], zoneId: number) =>
   zones.map(asObject).find((zone) => zone && zone.id === zoneId);
 
 const encounterRows = (payload: unknown): JsonObject[] =>
-  asArray(asObject(payload)?.rankings).map(asObject).filter((row): row is JsonObject => Boolean(row));
+  asArray(asObject(payload)?.rankings)
+    .map(asObject)
+    .filter((row): row is JsonObject => Boolean(row));
 
 const rowMatchesGuild = (row: JsonObject): boolean =>
   row.guildID === target.guildId ||
-  (typeof row.guildName === 'string' && row.guildName.toLowerCase() === target.guildName.toLowerCase());
+  (typeof row.guildName === 'string' &&
+    row.guildName.toLowerCase() === target.guildName.toLowerCase());
 
-const publicRankFromPage = (page: number, rowIndex: number): number => (page - 1) * 50 + rowIndex + 1;
+const publicRankFromPage = (page: number, rowIndex: number): number =>
+  (page - 1) * 50 + rowIndex + 1;
 
 const findGuildRanking = async (
   encounterId: number,
@@ -154,13 +158,16 @@ const findGuildRanking = async (
 };
 
 const probeUndocumentedGuildRoute = async (metric: 'speed' | 'execution') => {
-  const result = await getJson(`/v1/rankings/guild-rankings-for-zone/${target.guildId}/${target.zoneId}`, {
-    metric,
-    size: target.size,
-    difficulty: target.difficulty,
-    partition: target.partition,
-    timeframe: 'historical',
-  });
+  const result = await getJson(
+    `/v1/rankings/guild-rankings-for-zone/${target.guildId}/${target.zoneId}`,
+    {
+      metric,
+      size: target.size,
+      difficulty: target.difficulty,
+      partition: target.partition,
+      timeframe: 'historical',
+    },
+  );
   const payload = asObject(result.payload);
   return {
     url: result.url,
@@ -193,7 +200,9 @@ const zonesResult = await getJson('/v1/zones');
 const zones = asArray(zonesResult.payload);
 const zone = findZone(zones, target.zoneId);
 const completeRaidZone = findZone(zones, target.completeRaidZoneId);
-const encounters = asArray(asObject(zone)?.encounters).map(asObject).filter((row): row is JsonObject => Boolean(row));
+const encounters = asArray(asObject(zone)?.encounters)
+  .map(asObject)
+  .filter((row): row is JsonObject => Boolean(row));
 const completeRaidEncounters = asArray(asObject(completeRaidZone)?.encounters)
   .map(asObject)
   .filter((row): row is JsonObject => Boolean(row));
@@ -253,7 +262,10 @@ const output = {
       ? {
           id: completeRaidZone.id,
           name: completeRaidZone.name,
-          encounters: completeRaidEncounters.map((encounter) => ({ id: encounter.id, name: encounter.name })),
+          encounters: completeRaidEncounters.map((encounter) => ({
+            id: encounter.id,
+            name: encounter.name,
+          })),
         }
       : null,
   },
@@ -275,8 +287,7 @@ const output = {
   },
   aggregatePercentFieldsFound: {
     speed:
-      hasAggregatePercentFields(speedComplete) ||
-      hasAggregatePercentFields(speedFirstEncounter),
+      hasAggregatePercentFields(speedComplete) || hasAggregatePercentFields(speedFirstEncounter),
     execution:
       hasAggregatePercentFields(executionComplete) ||
       hasAggregatePercentFields(executionFirstEncounter),
