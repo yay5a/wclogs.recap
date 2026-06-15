@@ -1,68 +1,3 @@
-/**
- * pseudocoding:
- *
- * main:
- *  load WCL v1 API KEY from .env
- *  create WCL client
- *
- * input = read:
- *  characterName
- *  serverName
- *  serverRegion
- *  zoneID? (means ID for raid instance, encounter IDs are provided from zone lookup)
- *  encounterID
- *  metric
- *
- *
- * request = build character rankings request:
- *  endpoint = /rankings/character/{characterName}/{serverName}/{serverRegion}
- *  query:
- *      zone = zoneID?
- *      encounter = encounterID
- *      metric = metric
- *      timeframe = historical
- *      includeCombatantInfo = false
- *      api_key = apiKey
- *
- * response = fetch request
- *
- * payload = parse response body
- *
- * rows = payload if payload is array
- *
- * otherwise rows = empty array and mark unexpected shape
- *
- * summary = inspect rows:
- *  response status
- *  total rows
- *  row keys found
- *  first few row keys
- *  fields presence counts:
- *      characterID
- *      characterName
- *      encounterID
- *      encounterName
- *      spec
- *      percentile
- *      startTime
- *      reportID
- *      fightID
- *      difficulty
- *      size
- *      outOf
- *
- *  grouped counts:
- *      by encounterID + encounterName
- *      by spec
- *      by difficulty + size
- *
- *  output:
- *      request summary
- *      response status
- *      inspection summary
- *      first 5 rows as received
- */
-
 import type { GameFamily } from '@wcl/domain';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -76,6 +11,8 @@ import { asNumber, asObject, asString } from '../src/parsers/common.js';
 type JsonObject = Record<string, unknown>;
 
 type ProbeMetric = 'dps' | 'hps';
+
+type ProbeMetricSelection = ProbeMetric | 'both';
 
 type ProbeTarget = {
   reportInput: string;
@@ -108,10 +45,83 @@ type PlayerRankProbeResult = {
     status: number;
     contentType: string;
     rowCount: number;
-    rowKeys: string[];
+    currentReportRowCount: number;
+    baselineRowCount: number;
+    // rowKeys: string[];
+    baselineRows: unknown[];
     specCounts: Record<string, number>;
-    sampleRows: unknown[];
+    // sampleRows: unknown[];
+    currentReportRows: unknown[];
   };
+};
+
+type PlayerComparisonCoverageRow = {
+  characterName: string;
+  className?: string;
+  metric: ProbeMetric;
+  rowCount: number;
+  currentReportRowCount: number;
+  baselineRowCount: number;
+};
+
+type PlayerComparisonCoverage = {
+  actorCount: number;
+  playerCandidateCount: number;
+  requestCount: number;
+  nonEmptyResultCount: number;
+  comparableCurrentRowCount: number;
+  unmatchedCurrentRowCount: number;
+  rows: PlayerComparisonCoverageRow[];
+};
+
+type PlayerComparisonRow = {
+  characterName: string;
+  className?: string;
+  metric: ProbeMetric;
+  encounterID?: number;
+  encounterName?: string;
+  difficulty?: number;
+  spec?: string;
+  currentPercentile?: number;
+  matchedBaselineCount: number;
+  comparable: boolean;
+  baselineAveragePercentile?: number;
+  delta?: number;
+  unmatchedReason?: string;
+};
+
+type ComparablePlayerComparisonRow = PlayerComparisonRow & {
+  delta: number;
+};
+
+type PlayerDeltaConfidence = 'high' | 'medium' | 'low';
+
+type PlayerDeltaSummaryRow = {
+  characterName: string;
+  className?: string;
+  metric: ProbeMetric;
+  averageDelta: number;
+  comparedRows: number;
+  confidence: PlayerDeltaConfidence;
+};
+
+type PlayerComparisonSummary = {
+  reportCode: string;
+  zoneId: number | null;
+  metric: ProbeMetricSelection;
+  coverage: PlayerComparisonCoverage;
+  playerDeltaSummary: PlayerDeltaSummaryRow[];
+  topImprovementRows: ComparablePlayerComparisonRow[];
+  topRegressionRows: ComparablePlayerComparisonRow[];
+};
+
+type BuildPlayerComparisonSummaryInput = {
+  reportCode: string;
+  zoneId: number | null;
+  metric: ProbeMetricSelection;
+  actorCount: number;
+  playerCandidateCount: number;
+  rankResults: PlayerRankProbeResult[];
 };
 
 for (const envPath of ['.env', '../../.env'].map((path) => resolve(process.cwd(), path))) {
@@ -332,6 +342,35 @@ const buildPlayerCandidates = (
     .slice(0, target.maxPlayers);
 };
 
+const sampleKey = (row: JsonObject, metric: ProbeMetric): string | undefined => {
+  const characterID = asNumber(row.characterID);
+  const encounterID = asNumber(row.encounterID);
+  const spec = asString(row.spec);
+  const difficulty = asNumber(row.difficulty);
+  const size = asNumber(row.size);
+
+  if (
+    typeof characterID !== 'number' ||
+    typeof encounterID !== 'number' ||
+    !spec ||
+    typeof difficulty !== 'number' ||
+    typeof size !== 'number'
+  ) {
+    return undefined;
+  }
+
+  return [characterID, metric, encounterID, spec, difficulty, size].join(':');
+};
+
+const getPlayerDeltaConfidence = (comparedRows: number): PlayerDeltaConfidence => {
+  if (comparedRows >= 8) return 'high';
+  if (comparedRows >= 4) return 'medium';
+  return 'low';
+};
+
+const getRequestedMetric = (metrics: ProbeMetric[]): ProbeMetricSelection =>
+  metrics.length === 1 ? metrics[0] : 'both';
+
 const summarizeRankingRow = (value: unknown): JsonObject | undefined => {
   const row = asObject(value);
   if (!row) return undefined;
@@ -374,8 +413,9 @@ const fetchPlayerRankings = async (
   metric: ProbeMetric,
   target: ProbeTarget,
   effectiveZoneId: number | undefined,
+  currentReportCode: string,
 ): Promise<PlayerRankProbeResult> => {
-  const path = `/v1/rankings/character/${encodeURIComponent(
+  const path = `/v1/parses/character/${encodeURIComponent(
     player.characterName,
   )}/${encodeURIComponent(player.serverName)}/${encodeURIComponent(player.serverRegion)}`;
 
@@ -395,7 +435,30 @@ const fetchPlayerRankings = async (
 
   const result = await getJson(path, params);
   const rows = Array.isArray(result.payload) ? result.payload : [];
-  const firstRow = asObject(rows[0]);
+  // const firstRow = asObject(rows[0]);
+
+  const currentReportRows = rows.flatMap((value) => {
+    const row = asObject(value);
+    if (!row) return [];
+
+    const reportID = asString(row.reportID);
+    if (reportID !== currentReportCode) return [];
+
+    const summary = summarizeRankingRow(row);
+    return summary ? [summary] : [];
+  });
+
+  const baselineRows = rows.flatMap((value) => {
+    const row = asObject(value);
+    if (!row) return [];
+
+    const reportID = asString(row.reportID);
+    if (reportID === currentReportCode) return [];
+
+    const summary = summarizeRankingRow(row);
+    return summary ? [summary] : [];
+  });
+
   const specCounts = rows.reduce<Record<string, number>>((counts, value) => {
     const row = asObject(value);
     const spec = asString(row?.spec) ?? 'unknown';
@@ -407,7 +470,7 @@ const fetchPlayerRankings = async (
   return {
     player,
     requests: {
-      endpoint: '/v1/rankings/character/{characterName}/{serverName}/{serverRegion}',
+      endpoint: '/v1/parses/character/{characterName}/{serverName}/{serverRegion}',
       url: result.url,
       metric,
       ...(typeof effectiveZoneId === 'number' ? { zoneId: effectiveZoneId } : {}),
@@ -417,13 +480,165 @@ const fetchPlayerRankings = async (
       status: result.status,
       contentType: result.contentType,
       rowCount: rows.length,
-      rowKeys: firstRow ? Object.keys(firstRow) : [],
+      baselineRowCount: baselineRows.length,
+      currentReportRowCount: currentReportRows.length,
+      currentReportRows,
+      baselineRows,
+      //  rowKeys: firstRow ? Object.keys(firstRow) : [],
       specCounts,
-      sampleRows: rows.slice(0, 5).flatMap((row) => {
-        const summary = summarizeRankingRow(row);
-        return summary ? [summary] : [];
-      }),
+      // sampleRows: rows.slice(0, 5).flatMap((row) => {
+      // const summary = summarizeRankingRow(row);
+      // return summary ? [summary] : [];
+      //}),
     },
+  };
+};
+
+const buildPlayerComparisonSummary = ({
+  reportCode,
+  zoneId,
+  metric,
+  actorCount,
+  playerCandidateCount,
+  rankResults,
+}: BuildPlayerComparisonSummaryInput): PlayerComparisonSummary => {
+  const coverageRows = rankResults.map((result) => ({
+    characterName: result.player.characterName,
+    ...(result.player.className ? { className: result.player.className } : {}),
+    metric: result.requests.metric,
+    rowCount: result.response.rowCount,
+    currentReportRowCount: result.response.currentReportRowCount,
+    baselineRowCount: result.response.baselineRowCount,
+  }));
+
+  const comparisonRows = rankResults.flatMap((result) =>
+    result.response.currentReportRows.flatMap((value): PlayerComparisonRow[] => {
+      const currentRow = asObject(value);
+      if (!currentRow) return [];
+
+      const currentKey = sampleKey(currentRow, result.requests.metric);
+
+      const matchedBaselineRows =
+        currentKey === undefined
+          ? []
+          : result.response.baselineRows.flatMap((baselineValue) => {
+              const baselineRow = asObject(baselineValue);
+              if (!baselineRow) return [];
+
+              const baselineKey = sampleKey(baselineRow, result.requests.metric);
+              return baselineKey === currentKey ? [baselineRow] : [];
+            });
+
+      const baselineAveragePercentile =
+        matchedBaselineRows.length > 0
+          ? matchedBaselineRows.reduce((sum, baselineRow) => {
+              const percentile = asNumber(baselineRow.percentile) ?? 0;
+              return sum + percentile;
+            }, 0) / matchedBaselineRows.length
+          : undefined;
+
+      const currentPercentile = asNumber(currentRow.percentile);
+      const encounterID = asNumber(currentRow.encounterID);
+      const encounterName = asString(currentRow.encounterName);
+      const difficulty = asNumber(currentRow.difficulty);
+      const spec = asString(currentRow.spec);
+
+      return [
+        {
+          characterName: result.player.characterName,
+          ...(result.player.className ? { className: result.player.className } : {}),
+          metric: result.requests.metric,
+
+          ...(typeof encounterID === 'number' ? { encounterID } : {}),
+          ...(encounterName ? { encounterName } : {}),
+          ...(typeof difficulty === 'number' ? { difficulty } : {}),
+          ...(spec ? { spec } : {}),
+          ...(typeof currentPercentile === 'number' ? { currentPercentile } : {}),
+
+          matchedBaselineCount: matchedBaselineRows.length,
+          comparable: matchedBaselineRows.length > 0,
+
+          ...(typeof baselineAveragePercentile === 'number' ? { baselineAveragePercentile } : {}),
+          ...(typeof baselineAveragePercentile === 'number' && typeof currentPercentile === 'number'
+            ? { delta: currentPercentile - baselineAveragePercentile }
+            : {}),
+          ...(matchedBaselineRows.length === 0 ? { unmatchedReason: 'no exact baseline' } : {}),
+        },
+      ];
+    }),
+  );
+
+  const comparableRows = comparisonRows.flatMap((row): ComparablePlayerComparisonRow[] => {
+    if (!row.comparable) return [];
+    if (typeof row.delta !== 'number') return [];
+
+    return [{ ...row, delta: row.delta }];
+  });
+
+  const topImprovementRows = [...comparableRows]
+    .sort((left, right) => right.delta - left.delta)
+    .slice(0, 10);
+
+  const topRegressionRows = [...comparableRows]
+    .sort((left, right) => left.delta - right.delta)
+    .slice(0, 10);
+
+  const averageDeltaByPlayer = new Map<
+    string,
+    {
+      characterName: string;
+      className?: string;
+      metric: ProbeMetric;
+      totalDelta: number;
+      rowCount: number;
+    }
+  >();
+
+  for (const row of comparableRows) {
+    const key = `${row.characterName}:${row.metric}`;
+    const existing = averageDeltaByPlayer.get(key);
+
+    if (existing) {
+      existing.totalDelta += row.delta;
+      existing.rowCount += 1;
+    } else {
+      averageDeltaByPlayer.set(key, {
+        characterName: row.characterName,
+        ...(row.className ? { className: row.className } : {}),
+        metric: row.metric,
+        totalDelta: row.delta,
+        rowCount: 1,
+      });
+    }
+  }
+
+  const playerDeltaSummary = [...averageDeltaByPlayer.values()]
+    .map((row) => ({
+      characterName: row.characterName,
+      ...(row.className ? { className: row.className } : {}),
+      metric: row.metric,
+      averageDelta: row.totalDelta / row.rowCount,
+      comparedRows: row.rowCount,
+      confidence: getPlayerDeltaConfidence(row.rowCount),
+    }))
+    .sort((left, right) => right.averageDelta - left.averageDelta);
+
+  return {
+    reportCode,
+    zoneId,
+    metric,
+    coverage: {
+      actorCount,
+      playerCandidateCount,
+      requestCount: rankResults.length,
+      nonEmptyResultCount: rankResults.filter((result) => result.response.rowCount > 0).length,
+      comparableCurrentRowCount: comparisonRows.filter((row) => row.comparable).length,
+      unmatchedCurrentRowCount: comparisonRows.filter((row) => !row.comparable).length,
+      rows: coverageRows,
+    },
+    playerDeltaSummary,
+    topImprovementRows,
+    topRegressionRows,
   };
 };
 
@@ -431,12 +646,7 @@ const playerCandidates = buildPlayerCandidates(masterData, target);
 
 const rankResults: PlayerRankProbeResult[] = [];
 
-for (const player of playerCandidates) {
-  for (const metric of target.metrics) {
-    rankResults.push(await fetchPlayerRankings(player, metric, target, effectiveZoneId));
-  }
-}
-
+/*
 const rankResultSummary = rankResults.map((result) => ({
   characterName: result.player.characterName,
   className: result.player.className,
@@ -445,22 +655,23 @@ const rankResultSummary = rankResults.map((result) => ({
   rowCount: result.response.rowCount,
   specCounts: result.response.specCounts,
 }));
+*/
 
-console.log(
-  JSON.stringify(
-    {
-      reportCode: parsed.reportCode,
-      reportZoneId: index.zoneId,
-      effectiveZoneId,
-      actorCount: masterData.actors.length,
-      playerCandidateCount: playerCandidates.length,
-      requestCount: rankResults.length,
-      nonEmptyResultCount: rankResults.filter((result) => result.response.rowCount > 0).length,
-      rankResultSummary,
-      playerCandidates,
-      rankResults,
-    },
-    null,
-    2,
-  ),
-);
+for (const player of playerCandidates) {
+  for (const metric of target.metrics) {
+    rankResults.push(
+      await fetchPlayerRankings(player, metric, target, effectiveZoneId, parsed.reportCode),
+    );
+  }
+}
+
+const comparisonSummary = buildPlayerComparisonSummary({
+  reportCode: parsed.reportCode,
+  zoneId: effectiveZoneId ?? null,
+  metric: getRequestedMetric(target.metrics),
+  actorCount: masterData.actors.length,
+  playerCandidateCount: playerCandidates.length,
+  rankResults,
+});
+
+console.log(JSON.stringify(comparisonSummary, null, 2));
